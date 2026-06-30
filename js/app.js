@@ -2430,7 +2430,7 @@ function _renderHomeRecordatoris() {
     .sort((a,b) => (a.data + (a.hora||'')).localeCompare(b.data + (b.hora||'')));
 
   if (calEvents.length) {
-    html += `<div class="home-rec-section-label">Proper esdeveniment</div>`;
+    html += `<div class="home-rec-section-label">calendari proper</div>`;
     calEvents.slice(0,5).forEach(e => {
       const cat = e.fromGCal ? { color: e.calColor || '#4285F4' } : (cal2CatById ? cal2CatById(e.catId) : {color:'#4285F4'});
       const datStr = e.data === avuiStr ? 'avui' : new Date(e.data).toLocaleDateString('ca-ES',{day:'numeric',month:'short'});
