@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vedruna Escorial Vic · Gestió de Notes</title>
+  <link rel="icon" type="image/x-icon" href="img/favicon.ico?v=8">
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png?v=8">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16.png?v=8">
+  <link rel="apple-touch-icon" href="img/icon-192.png">
+  <meta name="theme-color" content="#4A1520">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+  <!-- Botó menú (només mòbil) -->
+  <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="Obrir menú">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <img src="img/logo-horitzontal.png" alt="Vedruna Escorial Vic">
+      <p class="sidebar-brand-title">Gestió de curs · 2n de Primària C</p>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section-label">General</div>
+
+      <a class="nav-item" href="#" onclick="showPage('home'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Inici
+      </a>
+      <a class="nav-item" href="#" onclick="showPage('horari'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Horari
+      </a>
+      <a class="nav-item" href="#" onclick="showPage('planning'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+        Planning setmanal
+      </a>
+      <a class="nav-item" href="#" onclick="showPage('calendari'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2" fill="currentColor"/></svg>
+        Calendari mensual
+      </a>
+      <a class="nav-item" href="#" onclick="showPage('tasques'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><polyline points="4 6 5 7 7 5"/><polyline points="4 12 5 13 7 11"/><polyline points="4 18 5 19 7 17"/></svg>
+        Tasques
+      </a>
+      <a class="nav-item" href="#" onclick="showPage('alumnes'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Alumnes
+      </a>
+      <a class="nav-item" href="#" onclick="showPage('observacions'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Observacions
+      </a>
+      <a class="nav-item" href="#" onclick="showPage('assoliments'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="16 8 10 14 7 11"/></svg>
+        Assoliments
+      </a>
+      <a class="nav-item" href="#" onclick="showPage('registres'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+        Registres d'aula
+      </a>
+
+      <div class="nav-section-label" style="margin-top:10px;">Assignatures</div>
+      <a class="nav-item" href="#" onclick="openNotesAuto('matematiques'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12h8M12 8v8"/></svg>
+        Matemàtiques
+      </a>
+      <a class="nav-item" href="#" onclick="openNotesAuto('catala'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        Català
+      </a>
+      <a class="nav-item" href="#" onclick="openNotesAuto('medi'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20"/><path d="M2 12h20"/></svg>
+        Medi Natural
+      </a>
+      <a class="nav-item" href="#" onclick="openNotesAuto('musica'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        Música
+      </a>
+      <a class="nav-item" href="#" onclick="openNotesAuto('angles'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Anglès
+      </a>
+      <a class="nav-item" href="#" onclick="openNotesAuto('carpeta'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/><path d="M6 8h1M6 12h1M6 16h1"/></svg>
+        Carpeta Viatgera
+      </a>
+
+      <div class="nav-section-label nav-section-toggle collapsed" style="margin-top:10px;" onclick="toggleNavSection('eines')" id="einesToggle">
+        <span>Eines</span>
+        <svg class="nav-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="nav-section-items collapsed" id="einesItems">
+        <a class="nav-item" href="#" onclick="showPage('grups'); return false;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="3"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+          Generador de grups
+        </a>
+        <a class="nav-item" href="#" onclick="showPage('comentaris'); return false;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Generador de comentaris
+        </a>
+      </div>
+    </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-row">
+        <a class="nav-item nav-item-half" href="manual.html" target="_blank">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          Manual d'ús
+        </a>
+        <a class="nav-item nav-item-half" href="#" onclick="openConfig(); return false;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          Configuració
+        </a>
+      </div>
+      <div class="sidebar-sync-row">
+        <a class="sidebar-sheets-link" href="https://docs.google.com/spreadsheets/d/1nPONBPcCtfZRPOORbkkd42KavhYf1TuHs4qSZVbHpb8/edit?usp=sharing" target="_blank" title="Obrir full de càlcul">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Full de càlcul
+        </a>
+        <div class="sidebar-sync">
+          <div class="sync-dot" id="syncDot"></div>
+          <span id="syncText">No configurat</span>
+          <span id="syncHora" class="sync-hora" style="display:none"></span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+
+
+    <!-- PÀGINA: INICI -->
+    <div class="page-content" id="page-home">
+      <section class="hero">
+        <p class="hero-eyebrow">Curs 2026 · 2027</p>
+        <h1 class="hero-title">Benvingut, <em>Pol!</em></h1>
+        <p class="hero-tagline">Un gran curs necessita una gran organització.</p>
+      </section>
+
+      <div class="setup-banner" id="setupBanner">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div class="setup-banner-text">
+          <strong>Pas 1:</strong> Configura la connexió amb Google Sheets via Apps Script.
+          <a onclick="openConfig()">Obrir configuració →</a>
+        </div>
+      </div>
+      <div id="statsRow" style="display:none"></div>
+
+      <!-- ACCÉS RÀPID -->
+      <div style="margin-top:12px">
+        <div class="home-accions-grid">
+          <div class="home-accio" onclick="showPage('alumnes')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Alumnes
+          </div>
+          <div class="home-accio" onclick="showPage('planning')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+            Planning
+          </div>
+          <div class="home-accio" onclick="showPage('calendari')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2" fill="currentColor"/></svg>
+            Calendari
+          </div>
+          <div class="home-accio" onclick="showPage('tasques')" style="position:relative">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><polyline points="4 6 5 7 7 5"/><polyline points="4 12 5 13 7 11"/><polyline points="4 18 5 19 7 17"/></svg>
+            Tasques
+            <span class="home-badge" id="homeTasquesBadge" style="display:none"></span>
+          </div>
+          <div class="home-accio" onclick="showPage('observacions')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Observacions
+          </div>
+          <div class="home-accio" onclick="showPage('registres')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+            Registres d'aula
+          </div>
+        </div>
+      </div>
+
+
+      <!-- BLOC AVUI + SETMANA -->
+      <div class="home-top-grid" style="margin-top:12px">
+
+        <!-- Avui: horari + subtext -->
+        <div class="home-card home-avui">
+          <div class="home-card-header">
+            <span class="home-card-label" id="homeAvuiLabel">Avui</span>
+            <span class="home-card-header-right" id="homeTrimestreLabel"></span>
+          </div>
+          <div id="homeHorari" class="home-horari-list">
+            <p class="home-empty-hint">L'horari es mostrarà quan estigui configurat.</p>
+          </div>
+        </div>
+
+        <!-- Recordatoris: tasques d'avui + coses de la setmana -->
+        <div class="home-card home-recordatoris">
+          <div class="home-card-header">
+            <span class="home-card-label">Per tenir en compte</span>
+          </div>
+          <div id="homeRecordatoris" class="home-rec-list">
+            <p class="home-empty-hint">Sense recordatoris per avui.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOC SETMANA -->
+      <div class="home-card home-setmana" style="margin-top:12px">
+        <div class="home-card-header">
+          <span class="home-card-label">Com pinta la setmana</span>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('planning')">Veure planning →</button>
+        </div>
+        <div id="homeSetmana" class="home-setmana-grid"></div>
+      </div>
+
+
+      <!-- ENLLAÇOS D'INTERÈS -->
+      <div style="margin-top:12px">
+        <div class="home-links-mini">
+          <a class="home-link-mini" href="https://mail.google.com/mail/u/0/#inbox" target="_blank" title="Gmail">
+            <img src="img/link_gmail.png" alt="Gmail" width="40" height="40">
+          </a>
+          <a class="home-link-mini" href="https://drive.google.com/drive/my-drive" target="_blank" title="Google Drive">
+            <img src="img/link_drive.png" alt="Google Drive" width="40" height="40">
+          </a>
+          <a class="home-link-mini" href="https://escorialvic.clickedu.eu/user.php?action=login" target="_blank" title="Clickedu">
+            <img src="img/link_clickedu.png" alt="Clickedu" width="40" height="40">
+          </a>
+          <a class="home-link-mini home-link-mini-pendent" href="#" onclick="return false;" title="Coordinació (pendent)">
+            <img src="img/link_coordinacio.png" alt="Coordinació" width="40" height="40">
+          </a>
+          <a class="home-link-mini" href="https://teach.classdojo.com/#/classes/691b3a9606a6d40d96fef322/points" target="_blank" title="ClassDojo">
+            <img src="img/link_classdojo.png" alt="ClassDojo" width="40" height="40">
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: HORARI -->
+    <div class="page-content page-hidden" id="page-horari">
+      <section class="hero"><p class="hero-eyebrow">Organització</p><h1 class="hero-title">Horari</h1><p class="hero-desc">Quan tinguis l'horari, es mostrarà aquí de forma visual.</p></section>
+      <div class="empty-page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p>L'horari es configurarà quan estigui disponible</p></div>
+    </div>
+
+    <!-- PÀGINA: TASQUES -->
+    <div class="page-content page-hidden" id="page-tasques">
+      <div class="tasques-layout tasques-layout-single">
+
+        <!-- Columna principal -->
+        <div class="tasques-main">
+          <div class="tasques-topbar">
+            <div class="tasques-filters" id="tasquesFilters">
+              <button class="tq-filter active" data-cat="all" onclick="filterTasques('all',this)">Totes</button>
+              <button class="tq-filter" data-cat="tutoria" onclick="filterTasques('tutoria',this)">Tutoria</button>
+              <button class="tq-filter" data-cat="comunicacio" onclick="filterTasques('comunicacio',this)">Comunicació</button>
+              <button class="tq-filter" data-cat="altres" onclick="filterTasques('altres',this)">Altres</button>
+              <button class="tq-filter tq-filter-fetes" data-cat="fetes" onclick="filterTasques('fetes',this)">✓ Fetes</button>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="tqNeteja" onclick="netejarTasquesFetes()" style="display:none;color:#EF4444;border-color:#FECACA">🗑 Netejar fetes</button>
+            <button class="btn btn-primary btn-sm" onclick="openTasca(null)">+ Nova tasca</button>
+          </div>
+
+          <div id="tasquesList" class="tasques-list"></div>
+        </div>
+
+        <!-- Google Tasks ocultes (es carreguen i integren a la llista principal) -->
+        <div id="gtasquesList" style="display:none"></div>
+        <button id="gtasquesRefreshBtn" style="display:none" onclick="loadGoogleTasks()"></button>
+      </div>
+    </div>
+
+    <!-- MODAL: nova/editar tasca -->
+    <div class="modal-overlay" id="tascaOverlay" onclick="if(event.target===this)closeTasca()">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+          <div><div class="modal-header-title" id="tascaModalTitle">Nova tasca</div></div>
+          <button class="modal-close" onclick="closeTasca()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <div class="modal-label">Títol *</div>
+            <input class="modal-input" id="tascaTitol" type="text" placeholder="Ex: Enviar circular als pares">
+          </div>
+          <div class="modal-field">
+            <div class="modal-label">Descripció (opcional)</div>
+            <textarea class="modal-textarea" id="tascaDesc" rows="3" placeholder="Detalls, context, notes…"></textarea>
+          </div>
+          <div class="modal-field">
+            <div class="modal-label">Categoria</div>
+            <div class="tq-cat-btns">
+              <label class="tq-cat-opt">
+                <input type="radio" name="tascaCat" value="tutoria" checked> Tutoria
+              </label>
+              <label class="tq-cat-opt">
+                <input type="radio" name="tascaCat" value="comunicacio"> Comunicació
+              </label>
+              <label class="tq-cat-opt">
+                <input type="radio" name="tascaCat" value="altres"> Altres
+              </label>
+            </div>
+          </div>
+          <div class="modal-field">
+            <div class="modal-label">Data límit (opcional)</div>
+            <input class="modal-input" id="tascaData" type="date">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="tascaDelBtn" onclick="deleteTasca()" style="display:none">Eliminar</button>
+          <button class="btn btn-secondary" onclick="closeTasca()">Cancel·lar</button>
+          <button class="btn btn-primary" onclick="saveTasca()">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: GENERADOR DE COMENTARIS -->
+    <div class="page-content page-hidden" id="page-comentaris">
+      <div class="coment-page">
+
+        <!-- Capçalera compacta -->
+        <div class="coment-header">
+          <div>
+            <h1 class="hero-title" style="margin:0">Generador de comentaris</h1>
+            <p class="hero-desc" style="margin:2px 0 0">Omple la rúbrica i genera el comentari de l'informe.</p>
+          </div>
+          <div class="coment-header-actions">
+            <button class="btn btn-primary" id="comentGenBtn" onclick="generarComentari()" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Generar comentari
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="resetComentRubrica()" title="Esborra la selecció actual">Reiniciar</button>
+          </div>
+        </div>
+
+        <!-- Controls: assignatura + alumne en una sola fila -->
+        <div class="coment-controls">
+          <div class="coment-control-field">
+            <label class="modal-label">Assignatura</label>
+            <div class="trim-sel-row" style="flex-wrap:wrap;gap:6px" id="comentAssigSelector">
+              <button class="trim-sel-btn active" data-assig="matematiques" onclick="selectComentAssig('matematiques',this)">Mates</button>
+              <button class="trim-sel-btn" data-assig="catala" onclick="selectComentAssig('catala',this)">Català</button>
+              <button class="trim-sel-btn" data-assig="medi" onclick="selectComentAssig('medi',this)">Medi</button>
+              <button class="trim-sel-btn" data-assig="musica" onclick="selectComentAssig('musica',this)">Música</button>
+              <button class="trim-sel-btn" data-assig="angles" onclick="selectComentAssig('angles',this)">Anglès</button>
+            </div>
+          </div>
+          <div class="coment-control-field">
+            <label class="modal-label">Alumne</label>
+            <select class="modal-input" id="comentAlumneSelect" onchange="onComentAlumneChange()">
+              <option value="">— Selecciona un alumne —</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Llegenda de nivells -->
+        <div class="coment-legenda">
+          <span class="coment-niv-btn badge-mba">MBA</span> Molt ben assolit
+          <span class="coment-niv-btn badge-ass">AS</span> Assolit
+          <span class="coment-niv-btn badge-aaj">AAJ</span> Assolit amb ajuda
+          <span class="coment-niv-btn badge-nass">NA</span> No assolit
+          <span style="margin-left:auto;color:var(--text-muted);font-size:12px">💡 Passa el ratolí per veure la descripció de cada nivell</span>
+        </div>
+
+        <!-- Rúbrica -->
+        <div id="comentRubrica">
+          <p class="fitxa-empty-field">Selecciona assignatura i alumne.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MODAL: Resultat del comentari -->
+    <div class="modal-overlay" id="comentResultOverlay">
+      <div class="modal coment-result-modal">
+        <div class="modal-header">
+          <h2 class="modal-title" id="comentResultTitle">Comentari generat</h2>
+          <button class="modal-close" onclick="closeComentResult()">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="coment-text-box" id="comentTextBox" contenteditable="true"></div>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5" id="comentResultConsell"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeComentResult()">Tancar</button>
+          <button class="btn btn-ghost" onclick="generarComentari()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+            Regenerar
+          </button>
+          <button class="btn btn-primary" onclick="copiarComentari()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copiar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: GENERADOR DE GRUPS -->
+    <div class="page-content page-hidden" id="page-grups">
+      <div class="grups-layout">
+
+        <!-- Configuració (esquerra) -->
+        <div class="grups-config">
+          <h2 class="grups-title">Generador de grups</h2>
+
+          <div class="grups-config-card">
+            <div class="modal-field">
+              <div class="modal-label">Alumnes per grup</div>
+              <div class="grups-num-row">
+                <button class="grups-num-btn" onclick="grupsChangeNum(-1)">−</button>
+                <span class="grups-num-val" id="grupsNumVal">3</span>
+                <button class="grups-num-btn" onclick="grupsChangeNum(1)">+</button>
+              </div>
+              <div class="modal-hint" id="grupsHint"></div>
+            </div>
+
+            <div class="modal-field" style="margin-top:16px">
+              <div class="modal-label">Condicions (opcional)</div>
+              <div id="grupsCondicions" class="grups-condicions-list"></div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="afegirCondicio()">+ Afegir condició</button>
+              <div class="modal-hint">Ex: «En Pol i en Messi no poden anar junts»</div>
+            </div>
+
+            <div style="margin-top:20px;display:flex;gap:10px">
+              <button class="btn btn-primary" onclick="generarGrups()" style="flex:1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.54"/></svg>
+                Generar grups
+              </button>
+              <button class="btn btn-ghost" onclick="generarGrups()" title="Regenerar (aleatòri nou)">↺</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resultat (dreta) -->
+        <div class="grups-result">
+          <div id="grupsResultat" class="grups-resultat-wrap">
+            <div class="tasques-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" width="40" height="40"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="3"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+              <p>Configura els paràmetres i clica <strong>Generar grups</strong></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: ASSOLIMENTS -->
+    <div class="page-content page-hidden" id="page-assoliments">
+
+      <!-- Capçalera amb selectors -->
+      <div class="assim-header">
+        <div>
+          <h1 class="hero-title" style="margin-bottom:4px">Assoliments</h1>
+          <p class="hero-desc" style="margin:0">Avaluació dels objectius per assignatura i trimestre</p>
+        </div>
+        <div class="assim-selectors">
+          <div class="assim-sel-group">
+            <label class="assim-sel-label">Trimestre</label>
+            <div class="trim-sel-row" id="assimTrimSelector">
+              <button class="trim-sel-btn active" data-trim="1" onclick="selectAssimTrim(1,this)">1r Trim.</button>
+              <button class="trim-sel-btn" data-trim="2" onclick="selectAssimTrim(2,this)">2n Trim.</button>
+              <button class="trim-sel-btn" data-trim="3" onclick="selectAssimTrim(3,this)">3r Trim.</button>
+            </div>
+          </div>
+          <div class="assim-sel-group">
+            <label class="assim-sel-label">Assignatura</label>
+            <div class="trim-sel-row" id="assimMateriaSelector">
+              <button class="trim-sel-btn active" data-mat="matematiques" onclick="selectAssimMateria('matematiques',this)">Mates</button>
+              <button class="trim-sel-btn" data-mat="catala" onclick="selectAssimMateria('catala',this)">Català</button>
+              <button class="trim-sel-btn" data-mat="medi" onclick="selectAssimMateria('medi',this)">Medi</button>
+              <button class="trim-sel-btn" data-mat="musica" onclick="selectAssimMateria('musica',this)">Música</button>
+              <button class="trim-sel-btn" data-mat="angles" onclick="selectAssimMateria('angles',this)">Anglès</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cos principal: taula d'avaluació -->
+      <div class="assim-layout assim-layout-single">
+        <div class="assim-main">
+          <div class="assim-objectius-header">
+            <span class="assim-objectius-count" id="assimObjCount">0 objectius</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="syncAssimToSheets()" title="Es sincronitza sol; clica per forçar ara">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Actualitzar full
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="openAssimObj(null)">+ Afegir objectiu</button>
+            </div>
+          </div>
+          <div id="assimTableWrap" class="assim-table-wrap">
+            <p class="home-empty-hint">Selecciona una assignatura i un trimestre per avaluar.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MODAL: nou/editar objectiu -->
+    <div class="modal-overlay" id="assimObjOverlay" onclick="if(event.target===this)closeAssimObj()">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+          <div><div class="modal-header-title" id="assimObjTitle">Nou objectiu</div><div class="modal-header-sub" id="assimObjSub"></div></div>
+          <button class="modal-close" onclick="closeAssimObj()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <div class="modal-label">Nom curt <span style="color:var(--text-muted);font-weight:400">(paraules en negreta que apareixeran a la capçalera)</span></div>
+            <input class="modal-input" id="assimObjNom" type="text" placeholder="Ex: Monedes i bitllets">
+          </div>
+          <div class="modal-field">
+            <div class="modal-label">Descripció completa <span style="color:var(--text-muted);font-weight:400">(opcional, visible al botó ⓘ)</span></div>
+            <textarea class="modal-textarea" id="assimObjText" rows="3"
+              placeholder="Ex: Reconèixer i utilitzar adequadament les monedes i bitllets d'euros per comptar diners i escollir la quantitat correcta en situacions senzilles de compra."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="assimObjDelBtn" onclick="deleteAssimObj()" style="display:none">Eliminar</button>
+          <button class="btn btn-secondary" onclick="closeAssimObj()">Cancel·lar</button>
+          <button class="btn btn-primary" onclick="saveAssimObj()">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: PLANNING SETMANAL -->
+    <div class="page-content page-hidden" id="page-planning">
+      <!-- Capçalera setmana -->
+      <div class="plan-topbar">
+        <div class="plan-topbar-left">
+          <button class="btn btn-ghost btn-sm" onclick="planningPrevWeek()">←</button>
+          <button class="btn btn-ghost btn-sm" onclick="planningThisWeek()">Avui</button>
+          <button class="btn btn-ghost btn-sm" onclick="planningNextWeek()">→</button>
+          <span class="plan-week-title" id="planWeekTitle"></span>
+        </div>
+        <div class="plan-topbar-right">
+          <button class="btn btn-secondary btn-sm" onclick="openPlanNoteWeek()">+ Nota setmana</button>
+          <button class="btn btn-secondary btn-sm" onclick="openPlanNoteDay()">+ Nota del dia</button>
+        </div>
+      </div>
+
+      <!-- Notes de la setmana (a dalt de tot) -->
+      <div class="plan-week-notes" id="planWeekNotes" style="display:none"></div>
+
+      <!-- Graella -->
+      <div class="plan-grid-wrap">
+        <table class="plan-table" id="planTable">
+          <!-- generada per JS -->
+        </table>
+      </div>
+    </div>
+
+    <!-- MODAL: editar cel·la del planning -->
+    <div class="modal-overlay" id="planCellOverlay" onclick="if(event.target===this)closePlanCell()">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+          <div>
+            <div class="modal-header-title" id="planCellTitle">Editar cel·la</div>
+            <div class="modal-header-sub" id="planCellSub"></div>
+          </div>
+          <button class="modal-close" onclick="closePlanCell()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- Tipus de cel·la -->
+          <div class="plan-cell-type-row">
+            <label class="plan-type-opt">
+              <input type="radio" name="planCellType" value="normal" checked onchange="updatePlanCellType(this.value)"> Normal
+            </label>
+            <label class="plan-type-opt">
+              <input type="radio" name="planCellType" value="festa" onchange="updatePlanCellType(this.value)"> 🔴 Festa / No lectiu
+            </label>
+            <label class="plan-type-opt">
+              <input type="radio" name="planCellType" value="especial" onchange="updatePlanCellType(this.value)"> 🟡 Activitat especial
+            </label>
+            <label class="plan-type-opt">
+              <input type="radio" name="planCellType" value="sortida" onchange="updatePlanCellType(this.value)"> 🟢 Sortida / Colònies
+            </label>
+          </div>
+
+          <!-- Camps normals -->
+          <div id="planNormalFields">
+            <div class="modal-field">
+              <div class="modal-label">Assignatura / Activitat</div>
+              <input class="modal-input" id="planCellAssig" type="text" placeholder="Ex: Matemàtiques">
+            </div>
+            <div class="modal-field">
+              <div class="modal-label">Subtext (descripció breu)</div>
+              <input class="modal-input" id="planCellSub2" type="text" placeholder="Ex: Prova unitat 3">
+            </div>
+            <div class="modal-field">
+              <div class="modal-label">⚠ Alerta (opcional)</div>
+              <input class="modal-input" id="planCellAlerta" type="text" placeholder="Ex: TEATRE ATLÀNTIDA 10h">
+            </div>
+            <div class="modal-field">
+              <div class="modal-label">🔗 Enllaç (opcional)</div>
+              <input class="modal-input" id="planCellLink" type="url" placeholder="https://drive.google.com/…">
+              <div class="modal-hint">URL a programació o document</div>
+            </div>
+          </div>
+
+          <!-- Camp especial/festa/sortida -->
+          <div id="planSpecialFields" style="display:none">
+            <div class="modal-field">
+              <div class="modal-label">Nom de l'event</div>
+              <input class="modal-input" id="planCellEvent" type="text" placeholder="Ex: COLÒNIES, FESTA MAJOR…">
+            </div>
+            <div class="modal-field">
+              <div class="modal-label">Nota addicional (opcional)</div>
+              <input class="modal-input" id="planCellEventSub" type="text" placeholder="Ex: Tornada dijous al vespre">
+            </div>
+
+            <!-- Selector de durada -->
+            <div class="modal-field" style="margin-top:4px">
+              <div class="modal-label">Durada de l'activitat</div>
+              <div class="plan-durada-opts">
+                <label class="plan-durada-opt">
+                  <input type="radio" name="planCellDurada" value="1" checked onchange="updatePlanDurada(this.value)">
+                  <span>Només aquesta franja</span>
+                </label>
+                <label class="plan-durada-opt">
+                  <input type="radio" name="planCellDurada" value="dia" onchange="updatePlanDurada(this.value)">
+                  <span>Tot el dia</span>
+                </label>
+                <label class="plan-durada-opt">
+                  <input type="radio" name="planCellDurada" value="custom" onchange="updatePlanDurada(this.value)">
+                  <span>Franges personalitzades</span>
+                </label>
+              </div>
+              <div id="planDuradaCustom" style="display:none;margin-top:8px;display:none">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span style="font-size:13px;color:var(--text-muted)">Ocupa</span>
+                  <button type="button" class="plan-durada-num-btn" onclick="changePlanDuradaN(-1)">−</button>
+                  <span id="planDuradaN" style="font-size:15px;font-weight:700;min-width:20px;text-align:center">2</span>
+                  <button type="button" class="plan-durada-num-btn" onclick="changePlanDuradaN(1)">+</button>
+                  <span style="font-size:13px;color:var(--text-muted)">franges (aquesta inclosa)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comentari de sessió (sempre visible) -->
+          <div class="modal-field" style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+            <div class="modal-label">
+              💬 Comentari de sessió
+              <span style="font-weight:400;color:var(--text-muted)"> — com ha anat? coses a millorar...</span>
+            </div>
+            <textarea class="modal-textarea" id="planCellComent" rows="3"
+              placeholder="Ex: Bona participació en general. Cal reforçar la resolució de problemes amb en Joan i la Maria. La propera vegada provar treball en grups petits."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="clearPlanCell()">Esborrar</button>
+          <button class="btn btn-secondary" onclick="closePlanCell()">Cancel·lar</button>
+          <button class="btn btn-primary" onclick="savePlanCell()">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: nota de la setmana -->
+    <div class="modal-overlay" id="planNoteOverlay" onclick="if(event.target===this)closePlanNoteWeek()">
+      <div class="modal" style="max-width:500px">
+        <div class="modal-header">
+          <div><div class="modal-header-title">Notes de la setmana</div><div class="modal-header-sub">Coses importants, recordatoris, aniversaris…</div></div>
+          <button class="modal-close" onclick="closePlanNoteWeek()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <div class="modal-label">Notes (una per línia)</div>
+            <textarea class="modal-textarea" id="planNoteText" rows="6" placeholder="Ex: Aniversari Pol&#10;Claustre dijous 18h&#10;Enviar circular nadal"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closePlanNoteWeek()">Cancel·lar</button>
+          <button class="btn btn-primary" onclick="savePlanNoteWeek()">Guardar</button>
+        </div>
+      </div>
+    </div>
+    <!-- PÀGINA: CALENDARI MENSUAL -->
+    <div class="page-content page-hidden" id="page-calendari">
+      <div class="cal2-layout">
+
+        <!-- Esquerra: calendari + agendar -->
+        <div class="cal2-left">
+          <div class="cal2-header">
+            <button class="btn btn-ghost btn-sm" onclick="cal2PrevMonth()">←</button>
+            <h1 class="cal2-month-title" id="cal2MonthTitle"></h1>
+            <button class="btn btn-ghost btn-sm" onclick="cal2NextMonth()">→</button>
+            <button class="btn btn-ghost btn-sm" onclick="cal2Today()">Avui</button>
+          </div>
+
+          <div class="cal2-grid-wrap">
+            <div class="cal2-dow-row">
+              <div>Dilluns</div><div>Dimarts</div><div>Dimecres</div>
+              <div>Dijous</div><div>Divendres</div><div>Dissabte</div><div>Diumenge</div>
+            </div>
+            <div class="cal2-grid" id="cal2Grid"></div>
+          </div>
+
+          <!-- Llegenda -->
+          <div class="cal2-legend" id="cal2Legend"></div>
+
+          <!-- Per agendar -->
+          <div class="cal2-agendar-section">
+            <div class="cal2-agendar-header">
+              <span>PER AGENDAR</span>
+              <button class="btn btn-ghost btn-sm" onclick="openCal2Agendar()">+ Afegir</button>
+            </div>
+            <div id="cal2AgendarList"></div>
+          </div>
+        </div>
+
+        <!-- Dreta: llista events del mes -->
+        <div class="cal2-right">
+          <div class="cal2-right-header">
+            <span id="cal2RightTitle">Events del mes</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="openCal2Categories()">⚙ Categories</button>
+              <button class="btn btn-primary btn-sm" onclick="openCal2Event(null)">+ Nou event</button>
+            </div>
+          </div>
+          <div id="cal2EventList"></div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: nou/editar event calendari -->
+    <div class="modal-overlay" id="cal2EventOverlay" onclick="if(event.target===this)closeCal2Event()">
+      <div class="modal" style="max-width:480px">
+        <div class="modal-header">
+          <div><div class="modal-header-title" id="cal2EventModalTitle">Nou event</div></div>
+          <button class="modal-close" onclick="closeCal2Event()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-row">
+            <div class="modal-field">
+              <div class="modal-label">Títol</div>
+              <input class="modal-input" id="cal2EvTitol" type="text" placeholder="Ex: Prova català">
+            </div>
+            <div class="modal-field" style="max-width:120px">
+              <div class="modal-label">Data</div>
+              <input class="modal-input" id="cal2EvData" type="date">
+            </div>
+          </div>
+          <div class="modal-row">
+            <div class="modal-field">
+              <div class="modal-label">Hora (opcional)</div>
+              <input class="modal-input" id="cal2EvHora" type="text" placeholder="Ex: 08:50h">
+            </div>
+            <div class="modal-field">
+              <div class="modal-label">Categoria</div>
+              <select class="modal-input" id="cal2EvGrup"></select>
+            </div>
+          </div>
+          <div class="modal-field">
+            <div class="modal-label">Descripció</div>
+            <textarea class="modal-textarea" id="cal2EvDesc" rows="3" placeholder="Ex: Unitat 4 i 5 · sala d'actes"></textarea>
+          </div>
+          <div class="modal-field">
+            <div class="modal-label">Enllaç (opcional)</div>
+            <input class="modal-input" id="cal2EvLink" type="url" placeholder="https://drive.google.com/…">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="cal2EvDelBtn" onclick="deleteCal2Event()" style="display:none">Eliminar</button>
+          <button class="btn btn-secondary" onclick="closeCal2Event()">Cancel·lar</button>
+          <button class="btn btn-primary" onclick="saveCal2Event()">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: agendar -->
+    <div class="modal-overlay" id="cal2AgendarOverlay" onclick="if(event.target===this)closeCal2Agendar()">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+          <div><div class="modal-header-title">Per agendar</div><div class="modal-header-sub">Propostes i coses pendents de data</div></div>
+          <button class="modal-close" onclick="closeCal2Agendar()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <div class="modal-label">Activitat / proposta</div>
+            <input class="modal-input" id="cal2AgTitol" type="text" placeholder="Ex: Intaboo">
+          </div>
+          <div class="modal-field">
+            <div class="modal-label">Descripció / proposta de data</div>
+            <textarea class="modal-textarea" id="cal2AgDesc" rows="3" placeholder="Ex: Petició feta, a l'espera de resposta → Proposta: dimarts 10, 17 o 24 de març"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeCal2Agendar()">Cancel·lar</button>
+          <button class="btn btn-primary" onclick="saveCal2Agendar()">Afegir</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: ALUMNES (llista) -->
+    <div class="page-content page-hidden" id="page-alumnes">
+      <section class="hero">
+        <p class="hero-eyebrow">General</p>
+        <h1 class="hero-title">Alumnes <span class="hero-count" id="alumnesCount"></span></h1>
+        <p class="hero-desc">Clica un alumne per veure la seva fitxa completa. Usa «Gestionar alumnes» per afegir o eliminar.</p>
+      </section>
+      <div class="alumnes-toolbar">
+        <button class="btn btn-primary" onclick="openPanel()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Gestionar alumnes
+        </button>
+        <a class="btn btn-ghost" href="https://docs.google.com/spreadsheets/d/1cyGZ1TkSe8UZM_9CxZX2KdjjsmomwkFRU3zfAJww-90/edit?usp=sharing" target="_blank">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Aspectes generals grup
+        </a>
+        <a class="btn btn-ghost" href="https://docs.google.com/spreadsheets/d/1VWsFT7cKdzBkm9ln6bcJ1u3KsFia2SERbrFxmjFu-j0/edit?usp=sharing" target="_blank">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+          Desdoblaments grups
+        </a>
+      </div>
+      <div class="alumnes-list" id="alumnesList">
+        <div class="empty-page" id="alumnesEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <p>Connecta amb Google Sheets per veure els alumnes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: FITXA ALUMNE -->
+    <div class="page-content page-hidden" id="page-fitxa">
+
+      <!-- Botó tornar + nav per sobre -->
+      <div class="fitxa-back-nav">
+        <button class="btn btn-ghost" onclick="showPage('alumnes')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Alumnes
+        </button>
+        <div class="fitxa-nav">
+          <button class="btn btn-ghost fitxa-nav-btn" onclick="navFitxa(-1)" id="fitxaPrevBtn" title="Alumne anterior">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="fitxa-nav-pos" id="fitxaNavPos"></span>
+          <button class="btn btn-ghost fitxa-nav-btn" onclick="navFitxa(1)" id="fitxaNextBtn" title="Alumne següent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Capçalera: nom + acció -->
+      <div class="fitxa-toprow">
+        <div class="fitxa-header">
+          <div class="fitxa-avatar" id="fitxaAvatar">PP</div>
+          <div>
+            <h2 class="fitxa-nom" id="fitxaNom">—</h2>
+            <p class="fitxa-meta" id="fitxaMeta">2n C · Primària</p>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddObsModal(currentFitxaStudentId)" style="margin-left:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Nova observació
+        </button>
+      </div>
+
+      <!-- Avisos: mèdic, PI/AM, específics -->
+      <div class="fitxa-alert" id="fitxaAlert" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span id="fitxaAlertText"></span>
+      </div>
+
+      <!-- Fila 1: Dades + Observacions (costat a costat) -->
+      <div class="fitxa-row-2col">
+        <div class="fitxa-card">
+          <div class="fitxa-card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Dades de contacte
+            <button class="fitxa-edit-btn" onclick="openPersonalDrawer(currentFitxaStudentId)" title="Editar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Editar
+            </button>
+          </div>
+          <div class="fitxa-card-body" id="fitxaPersonal">
+            <p class="fitxa-empty-field">Sense dades. Clica Editar per afegir-ne.</p>
+          </div>
+        </div>
+
+        <div class="fitxa-card">
+          <div class="fitxa-card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Observacions
+          </div>
+          <div class="fitxa-card-body" id="fitxaObservacions">
+            <p class="fitxa-empty-field">Sense observacions enregistrades.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila 2: Notes + Assoliments (costat a costat) -->
+      <div class="fitxa-row-2col" style="margin-top:12px">
+        <div class="fitxa-card">
+          <div class="fitxa-card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+            Notes finals
+          </div>
+          <div class="fitxa-card-body" id="fitxaNotes">
+            <p class="fitxa-empty-field">Carregant notes…</p>
+          </div>
+        </div>
+
+        <div class="fitxa-card">
+          <div class="fitxa-card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="16 8 10 14 7 11"/></svg>
+            Assoliments
+          </div>
+          <div class="fitxa-card-body" id="fitxaAssoliments">
+            <p class="fitxa-empty-field">Carregant assoliments…</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- PÀGINA: OBSERVACIONS -->
+    <div class="page-content page-hidden" id="page-observacions">
+      <section class="hero">
+        <p class="hero-eyebrow">Seguiment individual</p>
+        <h1 class="hero-title">Observacions</h1>
+        <p class="hero-desc">Registra observacions per alumne, trimestre i assignatura. Clica un alumne per veure el seu historial.</p>
+      </section>
+      <div class="obs-toolbar">
+        <button class="btn btn-primary" onclick="openAddObsModal(null)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Nova observació
+        </button>
+      </div>
+      <div class="obs-student-grid" id="obsStudentGrid">
+        <div class="empty-page" id="obsEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <p>Carrega els alumnes per veure les observacions</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: REGISTRES D'AULA -->
+    <div class="page-content page-hidden" id="page-registres">
+      <section class="hero">
+        <p class="hero-eyebrow">General</p>
+        <h1 class="hero-title">Registres d'aula</h1>
+        <p class="hero-desc">Gestiona qualsevol cosa que necessiti seguiment per alumne: autoritzacions, materials, entregues…</p>
+      </section>
+      <div class="registre-toolbar">
+        <button class="btn btn-primary" onclick="openNewItemModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Nou ítem de seguiment
+        </button>
+        <button class="btn btn-ghost" onclick="syncRegistre()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Sincronitzar
+        </button>
+      </div>
+      <div class="registre-wrapper" id="registreWrapper">
+        <div class="registre-empty" id="registreEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <p>Cap ítem de seguiment. Clica <strong>Nou ítem de seguiment</strong> per començar.</p>
+        </div>
+        <div class="registre-scroll" id="registreTable" style="display:none">
+          <table class="reg-table">
+            <thead><tr><th class="reg-th-name">Alumne</th></tr></thead>
+            <tbody id="regTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+<!-- PÀGINA: NOTES D'ASSIGNATURA -->
+    <div class="page-content page-hidden" id="page-notes">
+      <div class="fitxa-back">
+        <button class="btn btn-ghost" id="notesBackBtn" onclick="showPage('home')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Tornar
+        </button>
+      </div>
+      <div class="notes-header">
+        <div class="notes-header-titles">
+          <div class="notes-trim-badge" id="notesTrimLabel">—</div>
+          <h1 class="hero-title" id="notesTitle" style="margin-bottom:0">—</h1>
+          <!-- Selector de trimestre (sempre visible) -->
+          <div class="trim-sel-row" id="notesTrimSelector" style="display:flex;gap:6px;margin-top:10px;">
+            <button class="trim-sel-btn active" data-trim="1" onclick="openNotes(notesContext.materia, 1)">1r Trim.</button>
+            <button class="trim-sel-btn" data-trim="2" onclick="openNotes(notesContext.materia, 2)">2n Trim.</button>
+            <button class="trim-sel-btn" data-trim="3" onclick="openNotes(notesContext.materia, 3)">3r Trim.</button>
+          </div>
+        </div>
+        <div class="notes-header-actions">
+          <button class="btn btn-ghost" onclick="openActitudPanel()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            Actitud
+          </button>
+          <button class="btn btn-ghost" onclick="syncNotes()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Sincronitzar
+          </button>
+          <button class="btn btn-primary" onclick="openNewNotaModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Nou ítem
+          </button>
+        </div>
+      </div>
+
+      <!-- Llegenda qualificacions -->
+      <div class="qual-legend">
+        <div class="qual-legend-item"><span class="qual-legend-badge" style="background:#FEE2E2;color:#991B1B">NA</span>No assoliment (&lt;5)</div>
+        <div class="qual-legend-item"><span class="qual-legend-badge" style="background:#FEF3C7;color:#92400E">AS</span>Assoliment satisfactori (5–6.9)</div>
+        <div class="qual-legend-item"><span class="qual-legend-badge" style="background:#DBEAFE;color:#1E40AF">AN</span>Assoliment notable (7–8.9)</div>
+        <div class="qual-legend-item"><span class="qual-legend-badge" style="background:#D1FAE5;color:#065F46">AE</span>Assoliment excel·lent (9–10)</div>
+      </div>
+      <!-- Llegenda NE -->
+      <div class="qual-legend" style="margin-bottom:6px;">
+        <div class="qual-legend-item">
+          <span class="qual-legend-badge" style="background:#FEE2E2;color:#991B1B;border:1.5px solid #FECACA">NE</span>
+          No Entregat — compta com a 0 en el càlcul de la nota, però queda registrat
+        </div>
+      </div>
+      <!-- Llegenda pesos -->
+      <div class="qual-legend" style="margin-bottom:20px;">
+        <span style="font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-right:4px;">Pes:</span>
+        <div class="qual-legend-item"><span class="qual-legend-badge" style="background:var(--surface-alt);color:var(--text-sub);border:1px solid var(--border)">1</span>Important</div>
+        <div class="qual-legend-item"><span class="qual-legend-badge" style="background:var(--surface-alt);color:var(--text-sub);border:1px solid var(--border)">2</span>Bastant important</div>
+        <div class="qual-legend-item"><span class="qual-legend-badge" style="background:var(--surface-alt);color:var(--text-sub);border:1px solid var(--border)">3</span>Molt important</div>
+        <span style="font-size:11.5px;color:var(--text-muted);font-style:italic">La nota final és la mitjana ponderada pel pes de cada ítem</span>
+      </div>
+
+      <div class="notes-wrapper">
+        <div class="notes-empty" id="notesEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+          <p>Cap ítem de notes. Clica <strong>Nou ítem</strong> per afegir la primera prova o activitat.</p>
+        </div>
+        <div class="notes-scroll" id="notesTableWrap" style="display:none">
+          <table class="notes-table">
+            <thead id="notesTableHead"></thead>
+            <tbody id="notesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+      </div><!-- /main -->
+
+
+  <!-- DRAWER: GESTIONAR ALUMNES -->
+  <div class="panel-overlay" id="panelOverlay" onclick="if(event.target===this) closePanel()">
+    <div class="panel-drawer">
+      <div class="panel-header">
+        <div class="panel-header-text">
+          <div class="panel-header-title">Gestionar alumnes</div>
+          <div class="panel-header-meta" id="panelCount">—</div>
+        </div>
+        <button class="panel-close" onclick="closePanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="panel-toolbar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="searchInput" placeholder="Cerca alumne…" oninput="filterStudents()">
+        </div>
+        <button class="btn btn-primary" onclick="toggleAddForm()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Nou
+        </button>
+      </div>
+      <div class="add-form" id="addForm">
+        <div class="form-field">
+          <label class="form-label">Nom i cognoms</label>
+          <input class="form-input" id="newStudentName" type="text" placeholder="Ex: Pol del Pozo">
+        </div>
+        <div class="form-field">
+          <label class="form-label">Gènere</label>
+          <div class="genere-sel-row">
+            <label class="genere-sel-opt">
+              <input type="radio" name="newStudentGenere" value="m" checked> Masculí
+            </label>
+            <label class="genere-sel-opt">
+              <input type="radio" name="newStudentGenere" value="f"> Femení
+            </label>
+          </div>
+          <div class="modal-hint" style="margin-top:4px">S'usa per generar comentaris d'informe («en Pol», «la Laura»…)</div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="addStudent()">Afegir</button>
+          <button class="btn btn-secondary" onclick="toggleAddForm()">Cancel·lar</button>
+        </div>
+      </div>
+      <div class="panel-body" id="studentList">
+        <div class="list-empty" id="emptyMsg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <span>Configura la connexió per veure els alumnes</span>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <span class="panel-footer-info" id="footerInfo">—</span>
+        <button class="btn btn-ghost" id="syncBtn" onclick="syncStudents()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Sincronitzar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRAWER: DADES PERSONALS -->
+  <div class="panel-overlay" id="personalOverlay" onclick="if(event.target===this) closePersonalDrawer()">
+    <div class="panel-drawer">
+      <div class="panel-header">
+        <div class="panel-header-text">
+          <div class="panel-header-title" id="personalDrawerName">—</div>
+          <div class="panel-header-meta">Dades de contacte i informació personal</div>
+        </div>
+        <button class="panel-close" onclick="closePersonalDrawer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="panel-body" style="padding:24px;">
+        <div class="personal-section-label">Família</div>
+        <div class="personal-field"><label class="form-label">Nom de la mare</label><input class="form-input" id="pMare" type="text" placeholder="—" style="width:100%"></div>
+        <div class="personal-field"><label class="form-label">Nom del pare</label><input class="form-input" id="pPare" type="text" placeholder="—" style="width:100%"></div>
+        <div class="personal-field"><label class="form-label">Email mare</label><input class="form-input" id="pEmailMare" type="email" placeholder="—" style="width:100%"></div>
+        <div class="personal-field"><label class="form-label">Email pare</label><input class="form-input" id="pEmailPare" type="email" placeholder="—" style="width:100%"></div>
+        <div class="personal-section-label" style="margin-top:24px;">Observacions mèdiques</div>
+        <div class="personal-field"><label class="form-label">Informació mèdica rellevant</label><textarea class="modal-textarea" id="pObs" placeholder="Ex: Intol·lerància a la lactosa, al·lèrgies…" rows="3" style="width:100%"></textarea></div>
+
+        <div class="personal-section-label" style="margin-top:24px;">Atenció a la diversitat</div>
+        <div class="personal-field">
+          <label class="pi-am-check">
+            <input type="checkbox" id="pPICheck" onchange="_togglePIAM('pi')">
+            <span><strong>PI</strong> — Pla Individualitzat</span>
+          </label>
+          <div id="pPIAssigWrap" style="display:none;margin:8px 0 4px 26px">
+            <div class="form-label" style="margin-bottom:4px">Assignatures amb PI:</div>
+            <div class="pi-am-assigs" id="pPIAssigs"></div>
+          </div>
+        </div>
+        <div class="personal-field">
+          <label class="pi-am-check">
+            <input type="checkbox" id="pAMCheck" onchange="_togglePIAM('am')">
+            <span><strong>AM</strong> — Adaptació Metodològica</span>
+          </label>
+          <div id="pAMAssigWrap" style="display:none;margin:8px 0 4px 26px">
+            <div class="form-label" style="margin-bottom:4px">Assignatures amb AM:</div>
+            <div class="pi-am-assigs" id="pAMAssigs"></div>
+          </div>
+        </div>
+        <div class="modal-hint" style="margin-top:2px">Si no es marca cap opció, l'alumne és normatiu.</div>
+
+        <div class="personal-field" style="margin-top:20px">
+          <label class="form-label">Aspectes conductuals o necessitats concretes</label>
+          <textarea class="modal-textarea" id="pEspecific" placeholder="Ex: Dislèxia i lateralitat creuada · No té drets d'imatge a Instagram…" rows="3" style="width:100%"></textarea>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <span class="panel-footer-info">Es guarda a la pestanya «Alumnes»</span>
+        <button class="btn btn-primary" onclick="savePersonalDrawer()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRAWER: OBSERVACIONS ALUMNE (des de pàg. observacions) -->
+  <div class="panel-overlay" id="obsDrawerOverlay" onclick="if(event.target===this) closeObsDrawer()">
+    <div class="panel-drawer">
+      <div class="panel-header">
+        <div class="panel-header-text">
+          <div class="panel-header-title" id="obsDrawerName">—</div>
+          <div class="panel-header-meta" id="obsDrawerMeta">Observacions</div>
+        </div>
+        <button class="panel-close" onclick="closeObsDrawer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="obs-drawer-toolbar">
+        <button class="btn btn-primary" onclick="openAddObsModal(currentObsStudentId)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Afegir observació
+        </button>
+      </div>
+      <div class="panel-body" id="obsDrawerList">
+        <div class="list-empty" id="obsDrawerEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Cap observació per aquest alumne</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NOVA OBSERVACIÓ -->
+  <div class="modal-overlay" id="addObsOverlay" onclick="if(event.target===this) closeAddObsModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div><div class="modal-header-title">Nova observació</div><div class="modal-header-sub">Es guardarà a la columna «Observacions» de la pestanya de l'assignatura</div></div>
+        <button class="modal-close" onclick="closeAddObsModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field"><div class="modal-label">Alumne</div><select class="modal-input" id="obsAlumne"></select></div>
+        <div class="modal-field"><div class="modal-label">Trimestre</div>
+          <select class="modal-input" id="obsTrimestre">
+            <option value="1">1r Trimestre</option>
+            <option value="2">2n Trimestre</option>
+            <option value="3">3r Trimestre</option>
+          </select>
+        </div>
+        <div class="modal-field"><div class="modal-label">Assignatura</div>
+          <select class="modal-input" id="obsMateria">
+            <option value="general">General</option>
+            <option value="matematiques">Matemàtiques</option>
+            <option value="catala">Català</option>
+            <option value="medi">Medi Natural</option>
+            <option value="musica">Música</option>
+            <option value="angles">Anglès</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <div class="modal-label">Observació</div>
+          <textarea class="modal-textarea" id="obsText" placeholder="Ex: Confon la p i la d quan llegeix en veu alta…" rows="4"></textarea>
+          <div class="modal-hint">Ctrl+Enter per guardar ràpidament</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAddObsModal()">Cancel·lar</button>
+        <button class="btn btn-primary" id="saveObsBtn" onclick="saveObservacio()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NOU ÍTEM REGISTRE -->
+  <div class="modal-overlay" id="newItemOverlay" onclick="if(event.target===this) closeNewItemModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div><div class="modal-header-title">Nou ítem de seguiment</div><div class="modal-header-sub">Es crearà una nova columna al full «Registres d'aula»</div></div>
+        <button class="modal-close" onclick="closeNewItemModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field"><div class="modal-label">Nom de l'ítem</div><input class="modal-input" id="newItemName" type="text" placeholder="Ex: Retorn veu de l'alumne"></div>
+        <div class="modal-field">
+          <div class="modal-label">Tipus</div>
+          <div class="type-selector">
+            <div class="type-option selected" data-type="checkbox" onclick="selectType(this)">
+              <div class="type-option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg></div>
+              <div class="type-option-text"><strong>Casella</strong><span>Sí / No per cada alumne</span></div>
+            </div>
+            <div class="type-option" data-type="text" onclick="selectType(this)">
+              <div class="type-option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg></div>
+              <div class="type-option-text"><strong>Text</strong><span>Camp de text lliure</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeNewItemModal()">Cancel·lar</button>
+        <button class="btn btn-primary" onclick="addRegistreItem()">Crear ítem</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIG -->
+  <div class="modal-overlay" id="configOverlay" onclick="if(event.target===this) closeConfig()">
+    <div class="modal">
+      <div class="modal-header">
+        <div><div class="modal-header-title">Connexió amb Google Sheets</div><div class="modal-header-sub">Via Apps Script — gratuït i sense límits</div></div>
+        <button class="modal-close" onclick="closeConfig()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <div class="modal-label">URL del Web App (Apps Script)</div>
+          <input class="modal-input" id="cfgScriptUrl" type="text" placeholder="https://script.google.com/macros/s/…/exec">
+          <div class="modal-hint">La URL acaba sempre en <code>/exec</code></div>
+        </div>
+        <div class="modal-field">
+          <div class="modal-label">🤖 Clau API de Gemini <span style="font-weight:400;color:var(--text-muted)">(opcional — per al generador de comentaris)</span></div>
+          <input class="modal-input" id="cfgGeminiKey" type="password" placeholder="AIza…">
+          <div class="modal-hint">Obté la clau gratuïta a <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--crimson)">aistudio.google.com/apikey</a>. Es desa localment al dispositiu.</div>
+        </div>
+        <hr class="modal-divider">
+        <div class="modal-field">
+          <div class="modal-label">🔔 Notificacions diàries</div>
+          <div class="modal-hint" style="margin-bottom:8px">L'app t'avisarà cada dia a les 7:00 amb les tasques, alertes del planning i events del calendari d'aquell dia.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" id="notifToggleBtn" onclick="requestNotifPermission()">🔔 Activar notificacions</button>
+            <button class="btn btn-ghost btn-sm" onclick="testNotification()" title="Envia una notificació de prova ara">Provar ara</button>
+          </div>
+        </div>
+        <hr class="modal-divider">
+        <p class="modal-steps-title">Com obtenir la URL</p>
+        <div class="modal-step"><div class="modal-step-num">1</div><div>Al teu Google Sheets: <strong>Extensions → Apps Script</strong></div></div>
+        <div class="modal-step"><div class="modal-step-num">2</div><div>Enganxa el codi <code>Code.gs</code> i desa</div></div>
+        <div class="modal-step"><div class="modal-step-num">3</div><div><strong>Implementa → Nova implementació</strong> · App web · Accés: Tothom</div></div>
+        <div class="modal-step"><div class="modal-step-num">4</div><div>Copia la URL <code>/exec</code> i enganxa-la aquí</div></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeConfig()">Cancel·lar</button>
+        <button class="btn btn-primary" onclick="saveConfig()">Guardar i connectar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL: NOU ÍTEM DE NOTES -->
+  <div class="modal-overlay" id="newNotaOverlay" onclick="if(event.target===this) closeNewNotaModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-header-title">Nou ítem de notes</div>
+          <div class="modal-header-sub">S'afegirà com a columna al full de càlcul de l'assignatura</div>
+        </div>
+        <button class="modal-close" onclick="closeNewNotaModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <div class="modal-label">Nom de l'ítem</div>
+          <input class="modal-input" id="notaItemNom" type="text" placeholder="Ex: Prova unitat 1">
+        </div>
+        <div class="modal-row">
+          <div class="modal-field">
+            <div class="modal-label">Puntuació màxima</div>
+            <input class="modal-input" id="notaItemMax" type="number" min="1" step="0.5" value="10" placeholder="10">
+            <div class="modal-hint">Sobre quants punts és la prova (ex: 20, 10, 5…)</div>
+          </div>
+          <div class="modal-field">
+            <div class="modal-label">Pes (importància)</div>
+            <div class="pes-selector" id="pesSelectorNota">
+              <button type="button" class="pes-btn active" data-val="1" onclick="selectPes(this)">
+                <span class="pes-num">1</span>
+                <span class="pes-label">Important</span>
+              </button>
+              <button type="button" class="pes-btn" data-val="2" onclick="selectPes(this)">
+                <span class="pes-num">2</span>
+                <span class="pes-label">Bastant important</span>
+              </button>
+              <button type="button" class="pes-btn" data-val="3" onclick="selectPes(this)">
+                <span class="pes-num">3</span>
+                <span class="pes-label">Molt important</span>
+              </button>
+            </div>
+            <input type="hidden" id="notaItemPes" value="1">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeNewNotaModal()">Cancel·lar</button>
+        <button class="btn btn-primary" onclick="addNotaItem()">Crear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ACTITUD -->
+  <div class="modal-overlay" id="actitudOverlay" onclick="if(event.target===this)closeActitudPanel()">
+    <div class="modal actitud-modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-header-title" id="actitudTitle">Actitud</div>
+          <div class="modal-header-sub">Avaluació dels 5 aspectes per alumne · Pes 2</div>
+        </div>
+        <button class="modal-close" onclick="closeActitudPanel()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body actitud-body">
+        <div id="actitudTable"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeActitudPanel()">Tancar</button>
+        <button class="btn btn-primary" onclick="saveActitud()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: COMENTARI DE SESSIÓ (ràpid) -->
+  <div class="modal-overlay" id="planComentOverlay" onclick="if(event.target===this)closePlanComent()">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-header-title" id="planComentTitle">Comentari de sessió</div>
+          <div class="modal-header-sub">Com ha anat? Coses a millorar...</div>
+        </div>
+        <button class="modal-close" onclick="closePlanComent()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <textarea class="modal-textarea" id="planComentText" rows="4"
+          placeholder="Ex: Bona participació en general. Cal reforçar la resolució de problemes. La propera vegada provar treball en grups petits."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="document.getElementById('planComentText').value='';savePlanComent()">Esborrar</button>
+        <button class="btn btn-secondary" onclick="closePlanComent()">Cancel·lar</button>
+        <button class="btn btn-primary" onclick="savePlanComent()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NOTA DEL DIA -->
+  <div class="modal-overlay" id="planNoteDayOverlay" onclick="if(event.target===this)closePlanNoteDay()">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-header-title">Nota del dia</div>
+          <div class="modal-header-sub" id="planNoteDaySub">Cosa a tenir en compte durant tot el dia</div>
+        </div>
+        <button class="modal-close" onclick="closePlanNoteDay()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <div class="modal-label">Dia</div>
+          <div class="trim-sel-row" id="planNoteDaySelector" style="margin-bottom:0">
+            <button class="trim-sel-btn" data-dia="dl" onclick="selectPlanNoteDay('dl',this)">Dl</button>
+            <button class="trim-sel-btn" data-dia="dm" onclick="selectPlanNoteDay('dm',this)">Dm</button>
+            <button class="trim-sel-btn" data-dia="dc" onclick="selectPlanNoteDay('dc',this)">Dc</button>
+            <button class="trim-sel-btn" data-dia="dj" onclick="selectPlanNoteDay('dj',this)">Dj</button>
+            <button class="trim-sel-btn" data-dia="dv" onclick="selectPlanNoteDay('dv',this)">Dv</button>
+          </div>
+        </div>
+        <div class="modal-field">
+          <div class="modal-label">Nota</div>
+          <textarea class="modal-textarea" id="planNoteDayText" rows="3"
+            placeholder="Ex: Reunió de coordinació a les 12h. Recordar portar el dossier de tutoria."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="clearPlanNoteDay()">Esborrar</button>
+        <button class="btn btn-secondary" onclick="closePlanNoteDay()">Cancel·lar</button>
+        <button class="btn btn-primary" onclick="savePlanNoteDay()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ALERTA TRIMESTRE NO ACTUAL -->
+  <div class="modal-overlay" id="trimAlertOverlay">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-header-title">⚠ Trimestre diferent al actual</div>
+          <div class="modal-header-sub">Estàs editant un trimestre que no correspon a la data d'avui</div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p id="trimAlertMsg" style="font-size:14px;line-height:1.6;color:var(--text-main)"></p>
+        <label class="trim-alert-check">
+          <input type="checkbox" id="trimAlertNoMostrar">
+          No tornar a mostrar aquest avís durant 1 hora
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="trimAlertNo">No, porta'm al trimestre actual</button>
+        <button class="btn btn-primary" id="trimAlertSi">Sí, continuar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+    <span id="toastMsg"></span>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/notes.js"></script>
+  <script src="js/vedrunu.js"></script>
+
+    <!-- MODAL: gestionar categories del calendari -->
+    <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+          <div><div class="modal-header-title">Categories</div><div class="modal-header-sub">Afegeix o elimina categories per als events</div></div>
+          <button class="modal-close" onclick="closeCal2Categories()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="cal2CatList" style="margin-bottom:16px"></div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <div class="modal-field" style="flex:1;margin-bottom:0">
+              <div class="modal-label">Nom</div>
+              <input class="modal-input" id="cal2CatNom" type="text" placeholder="Ex: Reciclatge">
+            </div>
+            <div class="modal-field" style="margin-bottom:0">
+              <div class="modal-label">Color</div>
+              <input type="color" id="cal2CatColor" value="#8B5CF6" style="width:44px;height:38px;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;padding:2px">
+            </div>
+            <button class="btn btn-primary" onclick="addCal2Category()" style="flex-shrink:0">Afegir</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="closeCal2Categories()">Fet</button>
+        </div>
+      </div>
+    </div>
+  <script>
+    // Registra el service worker per càrrega ràpida i offline
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+  <!-- VEDRUNU — Assistent IA -->
+  <button class="vedrunu-fab" id="vedrunuFab" onclick="toggleVedrunu()" title="Vedrunu — el teu assistent">
+    <img src="img/vedrunu-icon.png" alt="Vedrunu" width="36" height="36">
+  </button>
+
+  <div class="vedrunu-panel" id="vedrunuPanel">
+    <div class="vedrunu-header">
+      <div class="vedrunu-header-left">
+        <div class="vedrunu-avatar">
+          <img src="img/vedrunu-icon.png" alt="Vedrunu" width="24" height="24">
+        </div>
+        <div>
+          <div class="vedrunu-title">Vedrunu</div>
+          <div class="vedrunu-sub">El teu assistent d'aula</div>
+        </div>
+      </div>
+      <button class="vedrunu-close" onclick="toggleVedrunu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="vedrunu-messages" id="vedrunuMessages"></div>
+    <div class="vedrunu-input-row">
+      <textarea class="vedrunu-input" id="vedrunuInput" placeholder="Pregunta'm el que vulguis…" rows="1" style="resize:none"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();vedrunuSend();}"
+        oninput="_vedrunuAutosize(this)"></textarea>
+      <button class="vedrunu-send" id="vedrunuSend" onclick="vedrunuSend()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
+</body>
+</html>
