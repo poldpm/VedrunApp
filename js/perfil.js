@@ -1,0 +1,606 @@
+/* ============================================================
+   PERFIL DEL MESTRE — perfil.js
+   Nom, curs de tutoria i assignatures per grup (tota la primària).
+   TOT es guarda al Google Sheets (premissa: res només en local).
+   ============================================================ */
+
+// Cursos de primària (cada un amb 3 línies: A, B, C)
+const PERFIL_CURSOS = ['1r', '2n', '3r', '4t', '5è', '6è'];
+const PERFIL_LINIES = ['A', 'B', 'C'];
+
+// Assignatures per curs. Cada curs pot tenir la seva llista.
+const PERFIL_ASSIGS_PER_CURS = {
+  '1r': ['Matemàtiques','Català','Castellà','Anglès','Medi','Tallers','Ambients','Educació Física','Superequip','Cultura Religiosa','Música'],
+  '2n': ['Matemàtiques','Català','Castellà','Anglès','Medi','Tallers','Ambients','Educació Física','Superequip','Cultura Religiosa','Música'],
+  '3r': ['Català','Castellà','Anglès','Matemàtiques','Medi','Música','Tallers','Educació Física','Cultura Religiosa','Tutoria','Lectura','Pràcticum'],
+  '4t': ['Català','Castellà','Anglès','Matemàtiques','Medi','Música','Tallers','Educació Física','Cultura Religiosa','Tutoria','Lectura','Pràcticum'],
+  '5è': ['Català','Castellà','Anglès','Matemàtiques','Medi','Música','Tallers','Educació Física','Cultura Religiosa','Lectura','Emprenedoria','Laboratori'],
+  '6è': ['Català','Castellà','Anglès','Matemàtiques','Medi','Música','Tallers','Educació Física','Cultura Religiosa','Lectura','Hort/Francès','Educació en valors'],
+};
+function _assigsDeCurs(curs) { return PERFIL_ASSIGS_PER_CURS[curs] || []; }
+
+// Estat del perfil
+// tutorCurs: '2n', tutorLinia: 'C'  → tutor de 2n C
+// classes: { "2n C": ['Matemàtiques', ...], "5è A": ['Música'], ... }
+let _perfil = {
+  nom: '',
+  tutorCurs: null,
+  tutorLinia: null,
+  classes: {},
+};
+
+// Compatibilitat: migra perfils antics (tutor:'A', classes:{A:[...]})
+function _perfilMigrar(p) {
+  if (!p) return p;
+  if (p.tutor && !p.tutorLinia) {
+    p.tutorCurs = '2n';
+    p.tutorLinia = p.tutor;
+    const noves = {};
+    Object.keys(p.classes || {}).forEach(k => {
+      if (['A','B','C'].includes(k)) noves['2n ' + k] = p.classes[k];
+      else noves[k] = p.classes[k];
+    });
+    p.classes = noves;
+    delete p.tutor;
+  }
+  return p;
+}
+
+function _grupKey(curs, linia) { return curs + ' ' + linia; }
+
+function initPerfil() {
+  const cached = localStorage.getItem('vedruna_perfil');
+  if (cached) { try { _perfil = _perfilMigrar(JSON.parse(cached)); } catch(e) {} }
+  _perfilRender();
+  _perfilLoadFromSheets();
+}
+
+async function _perfilLoadFromSheets() {
+  if (!config.scriptUrl) return;
+  try {
+    const r = await appsScriptGet({ action: 'loadProfile' });
+    if (r.ok && r.profile) {
+      _perfil = _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{} }, r.profile));
+      localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil));
+      _perfilRender();
+      _perfilUpdateNav();
+      perfilRenderAllSelectors();
+    }
+  } catch(e) { /* silenciós */ }
+}
+
+function _perfilRender() {
+  const nomEl = document.getElementById('perfilNom');
+  if (nomEl) nomEl.value = _perfil.nom || '';
+  _perfilUpdateAvatar();
+  _perfilRenderTutorSel();
+  _perfilRenderGrups();
+}
+
+// Selector de tutoria: curs + línia
+function _perfilRenderTutorSel() {
+  const cont = document.getElementById('perfilTutorSel');
+  if (!cont) return;
+  const cursos = PERFIL_CURSOS.map(c =>
+    `<button class="perfil-grup-btn ${_perfil.tutorCurs===c?'active':''}" onclick="_perfilSetTutorCurs('${c}')">${c}</button>`
+  ).join('');
+  let liniesHtml = '';
+  if (_perfil.tutorCurs) {
+    liniesHtml = `<div class="perfil-tutor-linies">
+      <span class="perfil-tutor-lin-label">Línia:</span>
+      ${PERFIL_LINIES.map(l =>
+        `<button class="perfil-linia-btn ${_perfil.tutorLinia===l?'active':''}" onclick="_perfilSetTutorLinia('${l}')">${_perfil.tutorCurs} ${l}</button>`
+      ).join('')}
+    </div>`;
+  }
+  cont.innerHTML = `<div class="perfil-tutor-cursos">${cursos}</div>${liniesHtml}`;
+}
+
+function _perfilSetTutorCurs(curs) {
+  _perfil.tutorCurs = curs;
+  _perfil.tutorLinia = null; // reinicia la línia en canviar de curs
+  _perfilRenderTutorSel();
+  _perfilRenderGrups();
+}
+function _perfilSetTutorLinia(linia) {
+  _perfil.tutorLinia = linia;
+  _perfilRenderTutorSel();
+  _perfilRenderGrups();
+}
+
+// Blocs de grups on triar assignatures
+function _perfilRenderGrups() {
+  const cont = document.getElementById('perfilGrupsAssigs');
+  if (!cont) return;
+  if (!_perfil.tutorCurs || !_perfil.tutorLinia) {
+    cont.innerHTML = '<p class="modal-hint">Primer tria de quin curs i línia ets tutor/a.</p>';
+    return;
+  }
+  const tutorKey = _grupKey(_perfil.tutorCurs, _perfil.tutorLinia);
+
+  // Munta la llista de tots els grups (curs+línia), amb el de tutoria primer
+  const tots = [];
+  PERFIL_CURSOS.forEach(c => PERFIL_LINIES.forEach(l => tots.push(_grupKey(c, l))));
+  const ordre = [tutorKey, ...tots.filter(k => k !== tutorKey)];
+
+  cont.innerHTML = `
+    <div class="perfil-grup-filter">
+      <span class="modal-hint" style="margin:0">Grups on fas classe. El de tutoria ja hi és; afegeix-ne d'altres amb el desplegable:</span>
+      <select class="modal-input perfil-grup-add" id="perfilGrupAdd" onchange="_perfilAddGrup(this.value)">
+        <option value="">+ Afegir grup…</option>
+        ${tots.filter(k => k !== tutorKey && !_perfil.classes[k]).map(k => `<option value="${k}">${k}</option>`).join('')}
+      </select>
+    </div>
+    <div id="perfilGrupBlocks"></div>`;
+  _perfilRenderGrupBlocks();
+}
+
+function _perfilRenderGrupBlocks() {
+  const cont = document.getElementById('perfilGrupBlocks');
+  if (!cont) return;
+  const tutorKey = _grupKey(_perfil.tutorCurs, _perfil.tutorLinia);
+
+  // Grups a mostrar: el de tutoria + els que tinguin assignatures assignades
+  const keys = [tutorKey, ...Object.keys(_perfil.classes).filter(k => k !== tutorKey)];
+  const vistos = new Set();
+
+  cont.innerHTML = keys.filter(k => { if (vistos.has(k)) return false; vistos.add(k); return true; }).map(key => {
+    const curs = key.split(' ')[0];
+    const sel = _perfil.classes[key] || [];
+    const esTutor = key === tutorKey;
+    const chips = _assigsDeCurs(curs).map(a =>
+      `<button type="button" class="perfil-assig-chip ${sel.includes(a)?'active':''}"
+        onclick="_perfilToggleAssig('${key}','${a.replace(/'/g,"\\'")}')">${a}</button>`
+    ).join('');
+    const treure = esTutor ? '' : `<button class="perfil-grup-remove" onclick="_perfilRemoveGrup('${key}')" title="Treure aquest grup">×</button>`;
+    return `<div class="perfil-grup-block">
+      <div class="perfil-grup-block-head">
+        <span class="perfil-grup-block-title">${escapeHtml(key)}${esTutor?'<span class="es-tutor">Tutoria</span>':''}</span>
+        ${treure}
+      </div>
+      <div class="perfil-assig-chips">${chips}</div>
+    </div>`;
+  }).join('');
+}
+
+function _perfilAddGrup(key) {
+  if (!key) return;
+  if (!_perfil.classes[key]) _perfil.classes[key] = [];
+  _perfilRenderGrups();
+}
+function _perfilRemoveGrup(key) {
+  delete _perfil.classes[key];
+  _perfilRenderGrups();
+}
+
+function _perfilToggleAssig(key, assig) {
+  if (!_perfil.classes[key]) _perfil.classes[key] = [];
+  const arr = _perfil.classes[key];
+  const idx = arr.indexOf(assig);
+  if (idx === -1) arr.push(assig); else arr.splice(idx, 1);
+  // No esborrem el grup encara que quedi buit si és un afegit manualment;
+  // però si no és el de tutoria i queda buit, el deixem (l'usuari el pot treure amb ×)
+  _perfilRenderGrupBlocks();
+}
+
+function _perfilUpdateAvatar() {
+  const nom = (document.getElementById('perfilNom')?.value || _perfil.nom || 'M').trim();
+  const inicials = nom ? nom.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase() : 'M';
+  const big = document.getElementById('perfilAvatarBig');
+  if (big) big.textContent = inicials || 'M';
+}
+
+function _perfilUpdateNav() {
+  const av = document.getElementById('navProfileAvatar');
+  const nm = document.getElementById('navProfileName');
+  const nom = (_perfil.nom || '').trim();
+  const inicials = nom ? nom.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase() : 'M';
+  if (av) av.textContent = inicials || 'M';
+  if (nm) nm.textContent = nom || 'El meu perfil';
+}
+
+async function perfilSave() {
+  _perfil.nom = (document.getElementById('perfilNom')?.value || '').trim();
+  if (!_perfil.tutorCurs || !_perfil.tutorLinia) { showToast('Tria de quin curs i línia ets tutor/a', 'error'); return; }
+  localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil));
+  _perfilUpdateNav();
+  perfilRenderAllSelectors();
+  if (config.scriptUrl) {
+    try {
+      await appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) });
+      showToast('Perfil desat ✓', 'success');
+    } catch(e) {
+      showToast('Desat localment; error desant al servidor: ' + e.message, 'error');
+    }
+  } else {
+    showToast('Perfil desat localment (configura la connexió per sincronitzar)', 'info');
+  }
+}
+
+/* ============================================================
+   CÀRREGA DELS ALUMNES DEL GRUP DE TUTORIA (full centralitzat)
+   ============================================================ */
+// Guarda les dades completes dels alumnes del grup de tutoria
+let _tutoriaAlumnes = [];   // amb dataNaix, mare, pare, etc.
+let _tutoriaGrup    = null; // "2n C"
+
+function _perfilTutorGrupKey() {
+  if (_perfil && _perfil.tutorCurs && _perfil.tutorLinia) return _perfil.tutorCurs + ' ' + _perfil.tutorLinia;
+  return null;
+}
+
+async function _loadTutoriaGrup() {
+  const grup = _perfilTutorGrupKey();
+  if (!grup || !config.scriptUrl) return;
+  _tutoriaGrup = grup;
+
+  // Cache: aplica immediatament si el tenim
+  const cacheKey = 'tutoriacache_' + grup;
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const c = JSON.parse(raw);
+      if (c && c.alumnes && c.alumnes.length) {
+        _aplicaTutoriaAlumnes(c.alumnes);
+        // Si és recent (<10 min), no refresquis
+        if (Date.now() - (c.ts||0) < 600000) return;
+      }
+    }
+  } catch(e) {}
+
+  try {
+    const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
+    if (r.ok && r.alumnes && r.alumnes.length) {
+      _aplicaTutoriaAlumnes(r.alumnes);
+      try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes: r.alumnes, ts: Date.now() })); } catch(e) {}
+    }
+  } catch(e) { /* silenciós */ }
+}
+
+function _aplicaTutoriaAlumnes(alumnes) {
+  // Protecció: mai substitueixis per una llista buida (evita pèrdua de dades
+  // si el servidor retorna buit per un error temporal)
+  if (!alumnes || !alumnes.length) return;
+  _tutoriaAlumnes = alumnes;
+  _grupStudentsCarregat = (_perfilTutorGrupKey() || '') + '|';
+  students = alumnes.map(function(a) { return { id: a.id, nom: a.nom, genere: a.genere }; });
+  personal = {};
+  alumnes.forEach(function(a) {
+    personal[a.id] = {
+      mare: a.mare, pare: a.pare, emailMare: a.emailMare, emailPare: a.emailPare,
+      obs: a.obs, pi: a.pi, am: a.am, especific: a.especific, eap: a.eap,
+      dataNaix: a.dataNaix, rowId: a.rowId,
+    };
+  });
+  _saveMainToCache();
+  _paintAllViews();
+  if (typeof _refreshAniversaris === 'function') _refreshAniversaris();
+}
+
+/* ============================================================
+   ANIVERSARIS AL PLANNING
+   Per cada alumne del grup de tutoria amb data de naixement,
+   posa una nota automàtica el dia del seu aniversari.
+   ============================================================ */
+
+// Retorna els noms dels alumnes que fan anys en una data (Date o 'YYYY-MM-DD')
+function aniversarisDelDia(data) {
+  if (!_tutoriaAlumnes || !_tutoriaAlumnes.length) return [];
+  let mes, dia;
+  if (data instanceof Date) {
+    mes = data.getMonth() + 1; dia = data.getDate();
+  } else {
+    const p = data.toString().split('-'); // YYYY-MM-DD
+    if (p.length < 3) return [];
+    mes = parseInt(p[1]); dia = parseInt(p[2]);
+  }
+  const noms = [];
+  _tutoriaAlumnes.forEach(a => {
+    if (!a.dataNaix) return;
+    const pn = a.dataNaix.toString().split('-'); // YYYY-MM-DD
+    if (pn.length < 3) return;
+    const m = parseInt(pn[1]), d = parseInt(pn[2]);
+    if (m === mes && d === dia) noms.push(a.nom);
+  });
+  return noms;
+}
+
+// Recalcula i repinta el planning (perquè apareguin els aniversaris)
+function _refreshAniversaris() {
+  if (typeof renderPlanning === 'function') {
+    const page = document.getElementById('page-planning');
+    if (page && !page.classList.contains('page-hidden')) renderPlanning();
+  }
+}
+
+/* ============================================================
+   PONT PERFIL → MENÚ D'ASSIGNATURES
+   Genera la llista d'assignatures del menú lateral a partir
+   de les assignatures triades al perfil (de tots els grups).
+   ============================================================ */
+
+// Converteix un nom d'assignatura del perfil a una clau interna estable
+// Clau interna d'una assignatura (nom normalitzat). El grup es gestiona
+// per separat (a notesContext.grup i _notesTabName al backend), així que
+// aquesta clau NO porta el grup — dues assignatures iguals de grups
+// diferents comparteixen clau de matèria però tenen pestanyes separades.
+function _assigKey(nom) {
+  return _normNomSimple(nom).replace(/[^a-z0-9]/g, '');
+}
+function _normNomSimple(s) {
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+// Icona SVG per a cada assignatura (per nom normalitzat)
+function _assigIcon(nom) {
+  const n = _normNomSimple(nom);
+  const ic = {
+    matematiques: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12h8M12 8v8"/>',
+    catala:       '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+    castella:     '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+    angles:       '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    medi:         '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20"/><path d="M2 12h20"/>',
+    musica:       '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    tallers:      '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    ambients:     '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20"/><path d="M2 12h20"/>',
+    educaciofisica:'<circle cx="12" cy="5" r="2"/><path d="M12 7v6l-3 8M12 13l3 8M7 10h10"/>',
+    superequip:   '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>',
+    culturareligiosa:'<path d="M12 2v20M5 9h14"/>',
+    tutoria:      '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+    lectura:      '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+    practicum:    '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    emprenedoria: '<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>',
+    laboratori:   '<path d="M9 3h6M10 3v6l-4 8a2 2 0 0 0 2 3h8a2 2 0 0 0 2-3l-4-8V3"/>',
+    horfrances:   '<path d="M12 2v20M5 9h14"/>',
+    educacioenvalors:'<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+  };
+  return ic[n] || '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12h8"/>';
+}
+
+// Recull totes les assignatures úniques que fa el mestre (de tots els grups)
+function _perfilAssignaturesUniques() {
+  const set = new Map(); // nom normalitzat → nom original (per mostrar)
+  if (_perfil && _perfil.classes) {
+    Object.values(_perfil.classes).forEach(arr => {
+      (arr||[]).forEach(a => {
+        const k = _normNomSimple(a);
+        if (!set.has(k)) set.set(k, a);
+      });
+    });
+  }
+  return Array.from(set.values());
+}
+
+// Genera el menú lateral d'assignatures a partir del perfil
+function perfilRenderNavAssigs() {
+  const cont = document.getElementById('navAssignatures');
+  if (!cont) return;
+
+  // Construeix la llista d'entrades: assignatura + grup
+  // { nom, grup } — una entrada per cada combinació assignatura/grup
+  const entrades = [];
+  if (_perfil && _perfil.classes) {
+    Object.keys(_perfil.classes).forEach(grup => {
+      (_perfil.classes[grup] || []).forEach(nom => {
+        entrades.push({ nom, grup });
+      });
+    });
+  }
+
+  if (!entrades.length) {
+    cont.innerHTML = '<div class="nav-assig-empty">Configura les teves assignatures al Perfil</div>';
+    return;
+  }
+
+  // Saber si una assignatura apareix a més d'un grup (per mostrar el grup al costat)
+  const compta = {};
+  entrades.forEach(e => { const k = _normNomSimple(e.nom); compta[k] = (compta[k]||0) + 1; });
+
+  const tutorKey = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+
+  // Ordena: primer el grup de tutoria, després la resta
+  entrades.sort((a, b) => {
+    if (a.grup === tutorKey && b.grup !== tutorKey) return -1;
+    if (b.grup === tutorKey && a.grup !== tutorKey) return 1;
+    return a.grup.localeCompare(b.grup) || a.nom.localeCompare(b.nom);
+  });
+
+  cont.innerHTML = entrades.map(e => {
+    const key = _assigKey(e.nom);
+    const multi = compta[_normNomSimple(e.nom)] > 1;
+    // Mostra el grup si l'assignatura es fa a més d'un grup, o si no és el grup de tutoria
+    const mostraGrup = multi || e.grup !== tutorKey;
+    const sufix = mostraGrup ? ` <span class="nav-assig-grup">${escapeHtml(e.grup)}</span>` : '';
+    return `<a class="nav-item" href="#" onclick="openNotesAuto('${key}','${e.grup}'); return false;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${_assigIcon(e.nom)}</svg>
+      <span class="nav-assig-label">${escapeHtml(e.nom)}${sufix}</span>
+    </a>`;
+  }).join('');
+
+  // Registra els noms al mapa MATERIES
+  entrades.forEach(e => {
+    const key = _assigKey(e.nom);
+    if (typeof MATERIES !== 'undefined' && !MATERIES[key]) MATERIES[key] = e.nom;
+  });
+}
+
+/* ============================================================
+   CARREGAR ALUMNES D'UN GRUP PER AVALUAR (notes d'assignatura)
+   Si el grup és el de tutoria, ja hi són. Si no, els carrega
+   del full "grups" i, si l'assignatura és desdoblada, filtra.
+   ============================================================ */
+let _grupStudentsCarregat = null; // "2n C|Matemàtiques"
+
+async function _ensureGrupStudents(grup, materia) {
+  if (!grup || !config.scriptUrl) return;
+  const clau = grup + '|' + (materia||'');
+  if (_grupStudentsCarregat === clau) return; // ja carregat en memòria
+
+  // 1) CACHE: si tenim els alumnes d'aquest grup+assignatura en cache, usa'ls ja
+  const cacheKey = 'grupcache_' + clau;
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const c = JSON.parse(raw);
+      if (c && c.alumnes && c.alumnes.length) {
+        _aplicaGrupStudents(c.alumnes);
+        _grupStudentsCarregat = clau;
+        // Si el cache té menys de 10 min, no cal refrescar
+        if (Date.now() - (c.ts||0) < 600000) return;
+        // Si és més vell, refresca en segon pla (sense bloquejar)
+        _refreshGrupStudents(grup, materia, clau, cacheKey);
+        return;
+      }
+    }
+  } catch(e) {}
+
+  // 2) Sense cache: carrega ara (bloquejant només la primera vegada)
+  await _refreshGrupStudents(grup, materia, clau, cacheKey);
+}
+
+// Aplica una llista d'alumnes a students/personal
+function _aplicaGrupStudents(alumnes) {
+  students = alumnes.map(a => ({ id: a.id, nom: a.nom, genere: a.genere }));
+  personal = {};
+  alumnes.forEach(a => {
+    personal[a.id] = { mare:a.mare, pare:a.pare, emailMare:a.emailMare, emailPare:a.emailPare,
+      obs:a.obs, pi:a.pi, am:a.am, especific:a.especific, eap:a.eap, dataNaix:a.dataNaix, rowId:a.rowId };
+  });
+}
+
+// Carrega els alumnes del grup del backend (aplica desdoblament) i desa en cache
+async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
+  try {
+    const r = await appsScriptGet({ action:'getGrupAlumnes', grup: grup });
+    let alumnes = (r.ok && r.alumnes) ? r.alumnes : [];
+
+    if (materia && alumnes.length) {
+      const parts = grup.split(' ');
+      const matNom = (typeof MATERIES !== 'undefined' && MATERIES[materia]) ? MATERIES[materia] : materia;
+      try {
+        const d = await appsScriptGet({ action:'getDesdoblament', curs:parts[0], linia:parts[1], assignatura:matNom });
+        if (d.ok && d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
+          const queden = new Set(d.alumnes.map(a => a.nom));
+          const filtrats = alumnes.filter(a => queden.has(a.nom));
+          if (filtrats.length) alumnes = filtrats;
+        }
+      } catch(e) {}
+    }
+
+    if (alumnes.length) {
+      _aplicaGrupStudents(alumnes);
+      _grupStudentsCarregat = clau;
+      try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes, ts: Date.now() })); } catch(e) {}
+      // Repinta si estem a la pàgina de notes d'aquest grup
+      if (typeof renderNotesTable === 'function' && notesContext && notesContext.grup === grup) {
+        try { renderNotesTable(); } catch(e) {}
+      }
+    }
+  } catch(e) { /* silenciós */ }
+}
+
+// Restaura els alumnes del grup de tutoria (per a la pàgina Alumnes,
+// registres, observacions... que sempre són del grup propi).
+function _restoreTutoriaStudents() {
+  if (!_tutoriaAlumnes || !_tutoriaAlumnes.length) return;
+  const grup = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+  // Si l'últim grup carregat ja és el de tutoria, no cal fer res
+  if (_grupStudentsCarregat && grup && _grupStudentsCarregat.split('|')[0] === grup) return;
+  students = _tutoriaAlumnes.map(a => ({ id:a.id, nom:a.nom, genere:a.genere }));
+  personal = {};
+  _tutoriaAlumnes.forEach(a => {
+    personal[a.id] = { mare:a.mare, pare:a.pare, emailMare:a.emailMare, emailPare:a.emailPare,
+      obs:a.obs, pi:a.pi, am:a.am, especific:a.especific, eap:a.eap, dataNaix:a.dataNaix, rowId:a.rowId };
+  });
+  _grupStudentsCarregat = grup ? (grup + '|') : null;
+}
+
+/* ============================================================
+   PONT PERFIL → SELECTORS D'ASSIGNATURA (Observacions, Assoliments)
+   Fa que aquests selectors mostrin les assignatures del perfil,
+   no la llista fixa per defecte.
+   ============================================================ */
+
+// Recull totes les entrades assignatura+grup del perfil (com el menú)
+// Retorna [{nom, grup, key, label}] on key inclou el grup i label el mostra
+function _perfilEntradesAmbGrup() {
+  const entrades = [];
+  if (_perfil && _perfil.classes) {
+    Object.keys(_perfil.classes).forEach(grup => {
+      (_perfil.classes[grup] || []).forEach(nom => {
+        entrades.push({ nom, grup });
+      });
+    });
+  }
+  const tutorKey = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+  // Compta per saber si una assignatura es repeteix a diversos grups
+  const compta = {};
+  entrades.forEach(e => { const k = _normNomSimple(e.nom); compta[k] = (compta[k]||0) + 1; });
+  // Ordena: tutoria primer
+  entrades.sort((a, b) => {
+    if (a.grup === tutorKey && b.grup !== tutorKey) return -1;
+    if (b.grup === tutorKey && a.grup !== tutorKey) return 1;
+    return a.grup.localeCompare(b.grup) || a.nom.localeCompare(b.nom);
+  });
+  return entrades.map(e => {
+    // Clau única que inclou el grup (perquè Tallers 2n C ≠ Tallers 3r C)
+    const key = _assigKey(e.nom) + '__' + _normNomSimple(e.grup).replace(/[^a-z0-9]/g, '');
+    // Sempre distingim el grup al text
+    const label = e.nom + ' · ' + e.grup;
+    return { nom: e.nom, grup: e.grup, key, label };
+  });
+}
+
+// Actualitza el <select> d'Observacions amb assignatura+grup del perfil
+function _perfilRenderObsSelector() {
+  const sel = document.getElementById('obsMateria');
+  if (!sel) return;
+  const entrades = _perfilEntradesAmbGrup();
+  if (!entrades.length) return; // sense perfil, deixa les opcions per defecte
+
+  const prev = sel.value;
+  let html = '<option value="general">General</option>';
+  entrades.forEach(e => {
+    // Registra al mapa MATERIES perquè es mostri bé el títol amb grup
+    if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
+    // Guarda el grup associat a la clau
+    _assigGrupMap[e.key] = e.grup;
+    _assigNomMap[e.key] = e.nom;
+    html += `<option value="${e.key}">${escapeHtml(e.label)}</option>`;
+  });
+  sel.innerHTML = html;
+  if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
+}
+
+// Actualitza els botons del selector d'Assoliments amb assignatura+grup del perfil
+function _perfilRenderAssimSelector() {
+  const cont = document.getElementById('assimMateriaSelector');
+  if (!cont) return;
+  const entrades = _perfilEntradesAmbGrup();
+  if (!entrades.length) return; // sense perfil, deixa els botons per defecte
+
+  cont.innerHTML = entrades.map((e, i) => {
+    if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
+    if (typeof ASSIM_MATERIES !== 'undefined' && !ASSIM_MATERIES[e.key]) ASSIM_MATERIES[e.key] = e.label;
+    _assigGrupMap[e.key] = e.grup;
+    _assigNomMap[e.key] = e.nom;
+    return `<button class="trim-sel-btn${i===0?' active':''}" data-mat="${e.key}" onclick="selectAssimMateria('${e.key}',this)">${escapeHtml(e.label)}</button>`;
+  }).join('');
+
+  // Si la matèria activa ja no existeix, selecciona la primera
+  if (typeof _assimMateria !== 'undefined') {
+    const existeix = entrades.some(e => e.key === _assimMateria);
+    if (!existeix && entrades.length) _assimMateria = entrades[0].key;
+  }
+}
+
+// Mapes clau→grup i clau→nom base (per als selectors amb grup)
+let _assigGrupMap = {};
+let _assigNomMap = {};
+
+// Actualitza TOTS els selectors d'assignatura del perfil d'un cop
+function perfilRenderAllSelectors() {
+  if (typeof perfilRenderNavAssigs === 'function') perfilRenderNavAssigs();
+  _perfilRenderObsSelector();
+  _perfilRenderAssimSelector();
+}
