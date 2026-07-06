@@ -13,4 +13,4 @@
    tots els fitxers MENYS aquest. Així el token es manté.
    ============================================================ */
 
-window.APP_TOKEN = 'vedruna-2026-canvia-per-una-cadena-llarga-teva';
+window.APP_TOKEN = 'PoldelPozoMurgou1899@';
