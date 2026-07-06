@@ -1,0 +1,379 @@
+/* ============================================================
+   HORARI — plantilla setmanal que omple el planning
+   Estructura: _horari = { "dl_f1": "Matemàtiques", "dl_f2": "Català", ... }
+   Clau = diaId_franjaId (els mateixos que el planning).
+   Es desa al Google Sheets (clau 'horari' a _AppData) i en cache local.
+   En aplicar-lo, escriu l'assignatura a cada cel·la del planning de
+   totes les setmanes del curs, SENSE esborrar el que ja hi hagi escrit.
+   ============================================================ */
+
+let _horari = {};
+let _horariEditKey = null;
+
+// Franja de pati/esbarjo (editable per anotar la zona de vigilància) — f3 (10:40–11:10)
+const HORARI_FRANJA_PATI = 'f3';
+
+// Zones de vigilància del pati (suggeriments ràpids)
+const PATI_ZONES = [
+  'Pista 1', 'Pista 2', 'Pista 3', 'Sorrera', 'Placeta',
+  'Pati central 1', 'Pati central 2', 'Pedretes 1', 'Pedretes 2'
+];
+
+// Rols/icones extra que un mestre pot tenir durant el pati (a més de la zona).
+// Es guarden a part de la zona; una casella pot tenir-ne diverses.
+const PATI_ROLS = [
+  { id: 'bagul',    emoji: '🧰', nom: 'Bagul de material' },
+  { id: 'campana',  emoji: '🔔', nom: 'Campana (música)' },
+  { id: 'agents',   emoji: '💬', nom: 'Agents del joc' },
+  { id: 'referent', emoji: '🧍', nom: 'Referent d\'en Víctor' },
+];
+
+// Inicialitza la pàgina
+function initHorari() {
+  // Cache local immediat
+  try {
+    const cached = JSON.parse(localStorage.getItem('horari') || 'null');
+    if (cached && typeof cached === 'object') _horari = cached;
+  } catch(e) {}
+  renderHorari();
+  _horariLoadFromSheets();
+}
+
+async function _horariLoadFromSheets() {
+  if (!config.scriptUrl) return;
+  try {
+    const r = await appsScriptGet({ action: 'loadHorari' });
+    if (r.ok && r.horari && typeof r.horari === 'object') {
+      _horari = r.horari;
+      try { localStorage.setItem('horari', JSON.stringify(_horari)); } catch(e) {}
+      renderHorari();
+    }
+  } catch(e) { /* silenciós: ja tenim el cache */ }
+}
+
+// Renderitza la graella de l'horari
+function renderHorari() {
+  const grid = document.getElementById('horariGrid');
+  if (!grid) return;
+  const dies = (typeof PLAN_DIES !== 'undefined') ? PLAN_DIES : [
+    {id:'dl',nom:'Dilluns'},{id:'dm',nom:'Dimarts'},{id:'dc',nom:'Dimecres'},{id:'dj',nom:'Dijous'},{id:'dv',nom:'Divendres'}
+  ];
+  const franges = (typeof PLAN_FRANGES !== 'undefined') ? PLAN_FRANGES : [];
+
+  let html = '<thead><tr><th class="horari-hora-head"></th>';
+  dies.forEach(d => { html += `<th>${d.nom.slice(0,2)}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  franges.forEach(franja => {
+    html += `<tr><td class="horari-hora">${franja.hora}</td>`;
+    dies.forEach(dia => {
+      const key = dia.id + '_' + franja.id;
+      const esPati = franja.id === HORARI_FRANJA_PATI;
+      if (esPati) {
+        // El pati és editable. El valor pot ser un text (zona) o un objecte
+        // { zona, rols:[] }. Mostra la zona i les icones dels rols.
+        const val = _horari[key];
+        const zona = _patiZona(val);
+        const rols = _patiRols(val);
+        const icones = rols.map(rid => {
+          const r = PATI_ROLS.find(x => x.id === rid);
+          return r ? r.emoji : '';
+        }).join(' ');
+        const txt = zona || 'Pati';
+        const inner = escapeHtml(txt) + (icones ? `<div class="horari-pati-icones">${icones}</div>` : '');
+        html += `<td><div class="horari-cell pati" onclick="obreHorariCell('${key}')">${inner}</div></td>`;
+      } else {
+        const assig = _horari[key] || '';
+        const cls = assig ? 'horari-cell' : 'horari-cell buida';
+        html += `<td><div class="${cls}" onclick="obreHorariCell('${key}')">${assig ? escapeHtml(assig) : '+'}</div></td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  grid.innerHTML = html;
+}
+
+// Llista de matèries que fa l'usuari (del perfil), per a suggeriments
+function _horariAssigsDisponibles() {
+  const set = new Set();
+  // Del perfil
+  if (typeof _perfil !== 'undefined' && _perfil && _perfil.classes) {
+    Object.values(_perfil.classes).forEach(arr => (arr||[]).forEach(nom => set.add(nom)));
+  }
+  // De les que ja hi ha a l'horari (només franges normals, no el pati)
+  Object.keys(_horari).forEach(k => {
+    if (k.split('_')[1] === HORARI_FRANJA_PATI) return;
+    const v = _horari[k];
+    if (v && typeof v === 'string') set.add(v);
+  });
+  return [...set].sort();
+}
+
+// Obre el modal per editar una casella
+function obreHorariCell(key) {
+  _horariEditKey = key;
+  const parts = key.split('_');
+  const dia = PLAN_DIES.find(d => d.id === parts[0]);
+  const franja = PLAN_FRANGES.find(f => f.id === parts[1]);
+  const esPati = parts[1] === HORARI_FRANJA_PATI;
+
+  document.getElementById('horariCellTitle').textContent =
+    (dia ? dia.nom : '') + ' · ' + (franja ? franja.hora : '') + (esPati ? ' · Pati' : '');
+
+  const inputEl = document.getElementById('horariCellAssig');
+  const labelEl = document.querySelector('#horariCellOverlay .modal-label');
+  const rolsBlock = document.getElementById('horariRolsBlock');
+  let suggeriments;
+
+  if (esPati) {
+    const val = _horari[key];
+    inputEl.value = _patiZona(val);
+    _horariRolsSel = _patiRols(val).slice(); // còpia de treball
+    if (labelEl) labelEl.textContent = 'Zona de vigilància';
+    inputEl.placeholder = 'Ex: Pista 1, Sorrera, Placeta…';
+    // Suggeriments: les 8 zones fixes + les ja usades
+    suggeriments = [...new Set([...PATI_ZONES, ..._horariZonesPati()])];
+    // Mostra el bloc de rols amb l'estat actual
+    rolsBlock.style.display = 'block';
+    _renderHorariRols();
+  } else {
+    inputEl.value = _horari[key] || '';
+    if (labelEl) labelEl.textContent = 'Matèria';
+    inputEl.placeholder = 'Ex: Matemàtiques';
+    suggeriments = _horariAssigsDisponibles();
+    rolsBlock.style.display = 'none';
+    _horariRolsSel = [];
+  }
+
+  document.getElementById('horariAssigList').innerHTML =
+    suggeriments.map(a => `<option value="${escapeHtml(a)}">`).join('');
+  document.getElementById('horariQuickChips').innerHTML =
+    suggeriments.map(a => `<span class="horari-quick-chip" onclick="_triaHorariChip('${escapeHtml(a).replace(/'/g,"\\'")}')">${escapeHtml(a)}</span>`).join('');
+
+  document.getElementById('horariCellOverlay').classList.add('open');
+  setTimeout(() => inputEl.focus(), 60);
+}
+
+// Selecció de rols en curs (mentre el modal és obert)
+let _horariRolsSel = [];
+
+// Renderitza els botons de rols del pati (marcats/desmarcats)
+function _renderHorariRols() {
+  const cont = document.getElementById('horariRolsChips');
+  if (!cont) return;
+  cont.innerHTML = PATI_ROLS.map(r => {
+    const actiu = _horariRolsSel.includes(r.id);
+    return `<button type="button" class="horari-rol-chip${actiu ? ' actiu' : ''}" onclick="_toggleHorariRol('${r.id}')">
+      <span class="horari-rol-emoji">${r.emoji}</span> ${escapeHtml(r.nom)}
+    </button>`;
+  }).join('');
+}
+
+function _toggleHorariRol(rid) {
+  const i = _horariRolsSel.indexOf(rid);
+  if (i >= 0) _horariRolsSel.splice(i, 1);
+  else _horariRolsSel.push(rid);
+  _renderHorariRols();
+}
+
+// Zones de pati ja fetes servir (per suggerir-les)
+function _horariZonesPati() {
+  const set = new Set();
+  Object.keys(_horari).forEach(k => {
+    if (k.split('_')[1] === HORARI_FRANJA_PATI) {
+      const z = _patiZona(_horari[k]);
+      if (z) set.add(z);
+    }
+  });
+  return [...set].sort();
+}
+
+// Extreu la zona d'un valor de pati (text simple o objecte {zona,rols})
+function _patiZona(val) {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  return val.zona || '';
+}
+// Extreu els rols (array d'ids) d'un valor de pati
+function _patiRols(val) {
+  if (!val || typeof val === 'string') return [];
+  return Array.isArray(val.rols) ? val.rols : [];
+}
+
+function _triaHorariChip(nom) {
+  document.getElementById('horariCellAssig').value = nom;
+}
+
+function closeHorariCell() {
+  document.getElementById('horariCellOverlay').classList.remove('open');
+  _horariEditKey = null;
+}
+
+function desarHorariCell() {
+  if (!_horariEditKey) return;
+  const parts = _horariEditKey.split('_');
+  const esPati = parts[1] === HORARI_FRANJA_PATI;
+  const val = document.getElementById('horariCellAssig').value.trim();
+
+  if (esPati) {
+    // Pati: guarda zona + rols. Si no hi ha ni zona ni cap rol, esborra.
+    if (!val && _horariRolsSel.length === 0) {
+      delete _horari[_horariEditKey];
+    } else if (_horariRolsSel.length === 0) {
+      // Només zona: guarda text simple (més net)
+      _horari[_horariEditKey] = val;
+    } else {
+      _horari[_horariEditKey] = { zona: val, rols: _horariRolsSel.slice() };
+    }
+  } else {
+    if (val) _horari[_horariEditKey] = val;
+    else delete _horari[_horariEditKey];
+  }
+
+  closeHorariCell();
+  renderHorari();
+  _horariPersist();
+}
+
+function buidarHorariCell() {
+  if (!_horariEditKey) return;
+  delete _horari[_horariEditKey];
+  closeHorariCell();
+  renderHorari();
+  _horariPersist();
+}
+
+// Desa l'horari (cache + núvol)
+function _horariPersist() {
+  try { localStorage.setItem('horari', JSON.stringify(_horari)); } catch(e) {}
+  if (config.scriptUrl) {
+    appsScriptPost({ action: 'saveHorari', horari: _horari }).catch(()=>{});
+  }
+}
+
+/* ---- Importació ràpida ---- */
+function obreImportHorari() {
+  document.getElementById('importHorariText').value = '';
+  document.getElementById('importHorariPreview').innerHTML = '';
+  document.getElementById('importHorariOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('importHorariText').focus(), 60);
+}
+function closeImportHorari() {
+  document.getElementById('importHorariOverlay').classList.remove('open');
+}
+
+// Analitza el text enganxat i el converteix a l'estructura de l'horari
+function _parseImportHorari(text) {
+  const dies = PLAN_DIES.map(d => d.id);
+  // Franges editables (sense el pati)
+  const franges = PLAN_FRANGES.map(f => f.id).filter(fid => fid !== HORARI_FRANJA_PATI);
+  const files = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length);
+  const nou = {};
+  files.forEach((fila, i) => {
+    if (i >= franges.length) return; // més files que franges: ignora la resta
+    // Separa per tabulador o coma
+    const cols = fila.split(/\t|,|;/).map(c => c.trim());
+    cols.forEach((assig, j) => {
+      if (j >= dies.length) return;
+      if (assig) nou[dies[j] + '_' + franges[i]] = assig;
+    });
+  });
+  return nou;
+}
+
+// Actualitza la previsualització mentre s'escriu
+function _renderImportPreview() {
+  const text = document.getElementById('importHorariText').value;
+  const preview = document.getElementById('importHorariPreview');
+  if (!text.trim()) { preview.innerHTML = ''; return; }
+  const parsed = _parseImportHorari(text);
+  const n = Object.keys(parsed).length;
+  preview.innerHTML = `<strong>${n}</strong> caselles detectades.`;
+}
+
+function aplicarImportHorari() {
+  const text = document.getElementById('importHorariText').value;
+  if (!text.trim()) { showToast('Enganxa primer l\'horari', 'error'); return; }
+  const parsed = _parseImportHorari(text);
+  if (!Object.keys(parsed).length) { showToast('No s\'ha pogut llegir cap matèria', 'error'); return; }
+  // Fusiona amb l'horari existent (l'import té prioritat)
+  _horari = Object.assign({}, _horari, parsed);
+  closeImportHorari();
+  renderHorari();
+  _horariPersist();
+  showToast(`${Object.keys(parsed).length} caselles importades ✓`, 'success');
+}
+
+/* ---- Aplicar l'horari al planning de tot el curs ---- */
+async function aplicarHorariAlPlanning() {
+  const claus = Object.keys(_horari);
+  if (!claus.length) { showToast('Primer omple l\'horari', 'error'); return; }
+  if (!confirm('Aplicar l\'horari a totes les setmanes del curs?\n\nS\'omplirà la matèria a cada franja. No s\'esborrarà res del que ja hagis escrit (comentaris, alertes…).')) return;
+  if (!config.scriptUrl) { showToast('Cal estar connectat', 'error'); return; }
+
+  showToast('Aplicant horari a tot el curs…', 'success');
+  const setmanes = _horariSetmanesDelCurs();
+
+  try {
+    // Una sola crida: el backend ho aplica a totes les setmanes de cop
+    const r = await appsScriptPost({ action: 'aplicarHorariPlanning', horari: _horari, weekIds: setmanes });
+    // Crea/registra les matèries de l'horari
+    await _horariCreaAssignatures();
+    if (r && r.ok) {
+      showToast(`Horari aplicat: ${r.tocades} caselles omplertes a tot el curs ✓`, 'success');
+      // Refresca la setmana visible del planning des del núvol
+      if (typeof getPlanWeekId === 'function' && typeof loadPlanningWeekFromSheets === 'function') {
+        try {
+          const wid = getPlanWeekId(typeof _planWeekOffset !== 'undefined' ? _planWeekOffset : 0);
+          await loadPlanningWeekFromSheets(wid);
+        } catch(e) {}
+      }
+      if (typeof renderPlanning === 'function') { try { renderPlanning(); } catch(e) {} }
+    } else {
+      showToast('No s\'ha pogut aplicar: ' + ((r && r.error) || 'error'), 'error');
+    }
+  } catch(e) {
+    showToast('Error aplicant l\'horari: ' + e.message, 'error');
+  }
+}
+
+// Retorna els IDs de setmana de tot el curs (format YYYY_S##)
+function _horariSetmanesDelCurs() {
+  // Curs: 8 setembre 2026 → 18 juny 2027 (mateix rang que el planning)
+  const inici = new Date(2026, 8, 8);   // 8 set 2026
+  const fi    = new Date(2027, 5, 18);  // 18 juny 2027
+  const setmanes = [];
+  const d = new Date(inici);
+  while (d <= fi) {
+    setmanes.push(_weekIdDeData(d));
+    d.setDate(d.getDate() + 7);
+  }
+  return setmanes;
+}
+
+// Calcula l'ID de setmana (YYYY_S##) d'una data, igual que getPlanWeekId
+function _weekIdDeData(date) {
+  const tmp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+  return tmp.getUTCFullYear() + '_S' + String(weekNo).padStart(2, '0');
+}
+
+// Crea a l'app les assignatures que apareixen a l'horari i encara no existeixen
+async function _horariCreaAssignatures() {
+  // Només les matèries de les franges normals (exclou el pati, que pot ser objecte)
+  const assigs = [...new Set(
+    Object.keys(_horari)
+      .filter(k => k.split('_')[1] !== HORARI_FRANJA_PATI)
+      .map(k => _horari[k])
+      .filter(v => v && typeof v === 'string')
+  )];
+  if (!assigs.length) return;
+  // Desa la llista de matèries de l'horari perquè l'app les reconegui.
+  // (Es guarden com a matèries personalitzades a _AppData.)
+  if (config.scriptUrl) {
+    try { await appsScriptPost({ action: 'saveHorariAssigs', assigs }); } catch(e) {}
+  }
+}
