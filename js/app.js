@@ -3807,6 +3807,7 @@ function _renderAssimTable() {
 function _renderAssimResum() {
   const objectius = assimObjLoad();
   const list = document.getElementById('assimResum');
+  if (!list) return; // el resum no es mostra en aquesta pantalla: no facis res
   if (!objectius.length || !students.length) {
     list.innerHTML = '<p class="home-empty-hint">Afegeix objectius per veure el resum.</p>';
     return;
