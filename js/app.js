@@ -1156,14 +1156,16 @@ async function renderFitxa(studentId) {
    ============================================================ */
 // Cache del resum de notes (vàlid 2 min) per evitar recarregar en navegar entre fitxes
 let _notesResumCache = null;
+let _notesResumMats  = null; // llista [{key,nom}] d'assignatures amb pestanya de notes
 let _notesResumTs    = 0;
 
 // Precarrega el resum en segon pla (sense bloquejar). Crida després de l'arrencada.
 async function _prefetchNotesResum() {
   if (!config.scriptUrl || (_notesResumCache && Date.now() - _notesResumTs < 120000)) return;
   try {
-    const r = await appsScriptGet({ action: 'getNotesResum' });
-    if (r.ok) { _notesResumCache = r.resum; _notesResumTs = Date.now(); }
+    const grup = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+    const r = await appsScriptGet({ action: 'getNotesResum', grup: grup || '' });
+    if (r.ok) { _notesResumCache = r.resum; _notesResumMats = r.mats || null; _notesResumTs = Date.now(); }
   } catch(e) {}
 }
 
@@ -1187,24 +1189,44 @@ async function loadFitxaNotes(studentId, container) {
     return;
   }
 
-  const MATS_SHOW = ['matematiques','catala','medi','musica','angles','carpeta'];
   const TRIMS = [1, 2, 3];
+  const tutorGrup = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
 
-  // Usa el resum cachejat (1 sola crida per tota la classe, no per alumne)
-  let resum;
+  // Usa el resum cachejat (1 sola crida per tota la classe, no per alumne). El
+  // resum es demana pel grup de tutoria: així llegeix les pestanyes reals
+  // per-grup ("1T_Matemàtiques_2n C") i cobreix qualsevol assignatura del perfil.
+  let resum, mats;
   if (_notesResumCache && Date.now() - _notesResumTs < 120000) {
-    resum = _notesResumCache;
+    resum = _notesResumCache; mats = _notesResumMats;
   } else {
     try {
-      const r = await appsScriptGet({ action: 'getNotesResum' });
+      const r = await appsScriptGet({ action: 'getNotesResum', grup: tutorGrup || '' });
       if (!r.ok) throw new Error(r.error);
-      resum = r.resum;
-      _notesResumCache = resum; _notesResumTs = Date.now();
+      resum = r.resum; mats = r.mats || null;
+      _notesResumCache = resum; _notesResumMats = mats; _notesResumTs = Date.now();
     } catch(e) {
       container.innerHTML = '<p class="fitxa-empty-field">Error carregant notes.</p>';
       return;
     }
   }
+
+  // Assignatures a mostrar = les del perfil al grup de tutoria (etiqueta real),
+  // més qualsevol pestanya de notes que no hi sigui (p. ex. Carpeta Viatgera).
+  // La clau normalitzada coincideix amb la del backend, així es casen les dades.
+  const _kn = s => (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  let _showList = (typeof _perfil !== 'undefined' && _perfil.classes && _perfil.classes[tutorGrup])
+    ? _perfil.classes[tutorGrup].map(nom => ({ key: _kn(nom), nom }))
+    : [];
+  if (Array.isArray(mats)) {
+    const _have = new Set(_showList.map(x => x.key));
+    mats.forEach(m => { if (!_have.has(m.key)) { _showList.push({ key: m.key, nom: m.nom }); _have.add(m.key); } });
+  }
+  if (!_showList.length) {
+    _showList = (Array.isArray(mats) && mats.length) ? mats.slice()
+      : Object.keys(resum || {}).map(k => ({ key: k, nom: (typeof MATERIES !== 'undefined' && MATERIES[k]) || k }));
+  }
+  const MATS_SHOW = _showList.map(x => x.key);
+  const LBL = {}; _showList.forEach(x => { LBL[x.key] = x.nom; });
 
   // Nom de l'alumne (per remapejar per nom, ja que l'ordre del full pot diferir del roster)
   const _stud = (typeof students !== 'undefined') ? students.find(s => String(s.id) === String(studentId)) : null;
@@ -1258,7 +1280,7 @@ async function loadFitxaNotes(studentId, container) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <div>
         <strong>${totalNETrim} activitat${totalNETrim!==1?'s':''} no entregada${totalNETrim!==1?'s':''}</strong> al ${trimLabel}
-        <div class="fitxa-ne-detail">${MATS_SHOW.filter(m=>neTrimActual[m]>0).map(m=>`${MATERIES[m]}: ${neTrimActual[m]}`).join(' · ')}</div>
+        <div class="fitxa-ne-detail">${MATS_SHOW.filter(m=>neTrimActual[m]>0).map(m=>`${LBL[m]}: ${neTrimActual[m]}`).join(' · ')}</div>
       </div>
     </div>` : ''}
     <table class="fitxa-notes-table">
@@ -1266,7 +1288,7 @@ async function loadFitxaNotes(studentId, container) {
       <tbody>
         ${MATS_SHOW.map(k => `
           <tr>
-            <td>${MATERIES[k]}</td>
+            <td>${LBL[k]}</td>
             ${TRIMS.map(t => `<td>${Q(resultat[k][t]?.arrod ?? null)}</td>`).join('')}
           </tr>`).join('')}
       </tbody>

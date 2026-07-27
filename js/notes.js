@@ -406,6 +406,7 @@ async function updateNota(itemId, studentId, punts) {
   refreshStudentRow(studentId);
   _cacheDel();
   if (typeof _notesResumCache !== 'undefined') _notesResumCache = null; // invalida resum fitxa
+  if (typeof _notesResumMats !== 'undefined') _notesResumMats = null;
   if (!config.scriptUrl) return;
   const _st = students.find(x => x.id === studentId);
   const _nom = _st ? _st.nom : '';

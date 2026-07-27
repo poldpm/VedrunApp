@@ -180,7 +180,7 @@ function handleRequest(e) {
       case 'saveObservacio':       result = saveObservacio(ss, body.studentId, body.materia, body.trimestre, body.text, body.replace||false); break;
       case 'deleteObservacio':     result = deleteObservacio(ss, body.studentId, body.materia, body.trimestre); break;
       case 'getNotes':             result = getNotes(ss, body&&body.materia||p.materia, body&&body.trimestre||p.trimestre, body&&body.grup||p.grup); break;
-      case 'getNotesResum':        result = getNotesResum(ss); break;
+      case 'getNotesResum':        result = getNotesResum(ss, (body&&body.grup)||p.grup); break;
       case 'addNotaItem':          result = addNotaItem(ss, body.materia, body.trimestre, body.item, body.alumnes, body.grup); break;
       case 'deleteNotaItem':       result = deleteNotaItem(ss, body.materia, body.trimestre, body.itemId, body.grup); break;
       case 'updateNota':           result = updateNota(ss, body.materia, body.trimestre, body.itemId, body.studentId, body.punts, body.grup, body.nom); break;
@@ -1142,69 +1142,100 @@ function getNotes(ss, materia, trimestre, grup) {
 /* Retorna la nota final arrodonida i el comptador de NE de CADA alumne
    per TOTES les assignatures i trimestres, en una sola crida.
    Usat per la fitxa de l'alumne (evita 18 crides per alumne). */
-function getNotesResum(ss) {
-  var MATS  = ['matematiques','catala','medi','musica','angles','carpeta'];
+// Resum de notes per a la fitxa de l'alumne. ENUMERA les pestanyes de notes
+// REALS del grup (p. ex. "1T_Matemàtiques_2n C") en comptes d'assumir una
+// llista fixa de matèries amb noms sense grup. Així funciona per a qualsevol
+// assignatura del perfil (Castellà, L'art del traç, Tallers…) i per a les
+// pestanyes per-grup. Si no es passa grup, inclou també les pestanyes llegades
+// sense sufix de grup.
+function getNotesResum(ss, grup) {
   var TRIMS = [1, 2, 3];
-  var resum = {}; // { materia: { trim: { notes:{sid:arrod}, ne:{sid:count} } } }
+  var suf = (grup && grup.toString().trim()) ? ('_' + grup.toString().trim()) : '';
 
-  MATS.forEach(function(mat) {
-    resum[mat] = {};
-    var nomBase = MATERIA_NOM[mat];
-    if (!nomBase) return;
-    TRIMS.forEach(function(trim) {
-      var sh = ss.getSheetByName(trim+'T_'+nomBase);
-      if (!sh) { resum[mat][trim] = null; return; }
-      var lc = sh.getLastColumn(), lr = sh.getLastRow();
-      if (lc < 2 || lr < DATA_ROW) { resum[mat][trim] = null; return; }
+  // Normalitza per agrupar la mateixa assignatura entre trimestres.
+  function _norm(s){ return (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+  // Mapa nom-base conegut → clau curta (matematiques, medi…), per mantenir la
+  // compatibilitat amb qui consumeix el resum amb claus fixes (context del xat).
+  var NOM2KEY = {};
+  Object.keys(MATERIA_NOM).forEach(function(k){ NOM2KEY[_norm(MATERIA_NOM[k])] = k; });
 
-      var allData  = sh.getRange(1, 1, lr, lc).getValues();
-      var allNotes = sh.getRange(1, 1, 1, lc).getNotes()[0];
-      var headers  = allData[0];
-      var numAlumnes = Math.floor((lr - DATA_ROW + 1) / 2);
+  // Recull les pestanyes de notes d'aquest grup: { key: { nom, trims:{1:sh,…} } }
+  var mats = {};
+  ss.getSheets().forEach(function(sh){
+    var m = sh.getName().match(/^([123])T_(.+)$/);
+    if (!m) return;
+    var trim = parseInt(m[1], 10), base = m[2];
+    if (suf) {
+      if (base.length <= suf.length || base.slice(-suf.length) !== suf) return;
+      base = base.slice(0, -suf.length);
+    }
+    if (!base) return;
+    var key = NOM2KEY[_norm(base)] || _norm(base);
+    if (!mats[key]) mats[key] = { nom: base, trims: {} };
+    mats[key].trims[trim] = sh;
+  });
 
-      // Localitza columnes d'ítems (amb pes) i la columna Nota
-      var itemCols = [], notaCol = -1;
-      headers.forEach(function(h, col) {
-        var meta = allNotes[col] || '';
-        if (meta === CARPETA_NOTE) {
-          itemCols.push({ col: col, max: 10, pes: 2, readonly: true });
-        } else if (meta === '10|2|actitud_ref') {
-          itemCols.push({ col: col, max: 10, pes: 2, readonly: true });
-        } else {
-          var parts = meta.split('|');
-          if (parts.length === 3 && !isNaN(parseFloat(parts[0]))) {
-            itemCols.push({ col: col, max: parseFloat(parts[0]), pes: parseFloat(parts[1]), readonly: false });
-          }
-        }
-        if ((h||'').toString().trim() === 'Nota') notaCol = col;
-      });
-
-      var notes = {}, neCount = {}, rowNoms = [];
-      for (var si = 0; si < numAlumnes; si++) {
-        var rowP = DATA_ROW - 1 + si*2;
-        rowNoms[si] = (allData[rowP] && allData[rowP][0]) ? allData[rowP][0].toString().trim() : '';
-        if (!allData[rowP]) continue;
-        var sumV = 0, sumP = 0, ne = 0;
-        itemCols.forEach(function(ic) {
-          var v = allData[rowP][ic.col];
-          if (v === 'NE') { ne++; sumP += ic.pes; return; } // compta com a 0
-          if (v === '' || v === null) {
-            // readonly pot tenir el valor a la fila següent (fusionada)
-            if (ic.readonly && allData[rowP+1]) v = allData[rowP+1][ic.col];
-            if (v === '' || v === null) return;
-          }
-          var n = ic.readonly ? parseFloat(v) : Math.round(parseFloat(v)/ic.max*10*100)/100;
-          if (!isNaN(n)) { sumV += n * ic.pes; sumP += ic.pes; }
-        });
-        var mitj = sumP > 0 ? sumV/sumP : null;
-        notes[si]   = mitj !== null ? Math.floor(mitj + 0.5) : null;
-        neCount[si] = ne;
-      }
-      resum[mat][trim] = { notes: notes, ne: neCount, rowNoms: rowNoms };
+  var resum = {}, ordre = [];
+  Object.keys(mats).forEach(function(key){
+    ordre.push({ key: key, nom: mats[key].nom });
+    resum[key] = {};
+    TRIMS.forEach(function(trim){
+      resum[key][trim] = mats[key].trims[trim] ? _resumOneSheet(mats[key].trims[trim]) : null;
     });
   });
 
-  return { ok: true, resum: resum };
+  return { ok: true, resum: resum, mats: ordre };
+}
+
+// Extreu { notes, ne, rowNoms } d'una pestanya de notes (1 sola lectura del rang).
+function _resumOneSheet(sh) {
+  var lc = sh.getLastColumn(), lr = sh.getLastRow();
+  if (lc < 2 || lr < DATA_ROW) return null;
+
+  var allData  = sh.getRange(1, 1, lr, lc).getValues();
+  var allNotes = sh.getRange(1, 1, 1, lc).getNotes()[0];
+  var headers  = allData[0];
+  var numAlumnes = Math.floor((lr - DATA_ROW + 1) / 2);
+
+  // Localitza columnes d'ítems (amb pes) i la columna Nota
+  var itemCols = [], notaCol = -1;
+  headers.forEach(function(h, col) {
+    var meta = allNotes[col] || '';
+    if (meta === CARPETA_NOTE) {
+      itemCols.push({ col: col, max: 10, pes: 2, readonly: true });
+    } else if (meta === '10|2|actitud_ref') {
+      itemCols.push({ col: col, max: 10, pes: 2, readonly: true });
+    } else {
+      var parts = meta.split('|');
+      if (parts.length === 3 && !isNaN(parseFloat(parts[0]))) {
+        itemCols.push({ col: col, max: parseFloat(parts[0]), pes: parseFloat(parts[1]), readonly: false });
+      }
+    }
+    if ((h||'').toString().trim() === 'Nota') notaCol = col;
+  });
+
+  var notes = {}, neCount = {}, rowNoms = [];
+  for (var si = 0; si < numAlumnes; si++) {
+    var rowP = DATA_ROW - 1 + si*2;
+    rowNoms[si] = (allData[rowP] && allData[rowP][0]) ? allData[rowP][0].toString().trim() : '';
+    if (!allData[rowP]) continue;
+    var sumV = 0, sumP = 0, ne = 0;
+    itemCols.forEach(function(ic) {
+      var v = allData[rowP][ic.col];
+      if (v === 'NE') { ne++; sumP += ic.pes; return; } // compta com a 0
+      if (v === '' || v === null) {
+        // readonly pot tenir el valor a la fila següent (fusionada)
+        if (ic.readonly && allData[rowP+1]) v = allData[rowP+1][ic.col];
+        if (v === '' || v === null) return;
+      }
+      var n = ic.readonly ? parseFloat(v) : Math.round(parseFloat(v)/ic.max*10*100)/100;
+      if (!isNaN(n)) { sumV += n * ic.pes; sumP += ic.pes; }
+    });
+    var mitj = sumP > 0 ? sumV/sumP : null;
+    notes[si]   = mitj !== null ? Math.floor(mitj + 0.5) : null;
+    neCount[si] = ne;
+  }
+  return { notes: notes, ne: neCount, rowNoms: rowNoms };
 }
 
 /* ============================================================
