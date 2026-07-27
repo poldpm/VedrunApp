@@ -1512,9 +1512,11 @@ async function saveObservacio() {
     try {
       // Les observacions es desen al full "Grups" compartit (les veu tot el claustre).
       // Necessitem el rowId de l'alumne i el grup de l'assignatura.
-      const grup = (typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
-        ? _assigGrupMap[materia]
-        : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null);
+      const grup = (personal[studentId] && personal[studentId].grupOrigen)
+        ? personal[studentId].grupOrigen
+        : ((typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
+            ? _assigGrupMap[materia]
+            : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null));
       const rowId = (personal[studentId] && personal[studentId].rowId) || studentId;
       let r;
       if (grup) {
@@ -1549,9 +1551,11 @@ async function replaceObservacio(studentId, materia, trimestre) {
   resetSaveObsBtn(); closeAddObsModal(); refreshObsViews(studentId);
   if (config.scriptUrl) {
     try {
-      const grup = (typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
-        ? _assigGrupMap[materia]
-        : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null);
+      const grup = (personal[studentId] && personal[studentId].grupOrigen)
+        ? personal[studentId].grupOrigen
+        : ((typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
+            ? _assigGrupMap[materia]
+            : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null));
       const rowId = (personal[studentId] && personal[studentId].rowId) || studentId;
       let r;
       if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text });
@@ -1569,9 +1573,11 @@ async function deleteObservacioMateria(studentId, materia, trimestre) {
   refreshObsViews(studentId);
   if (config.scriptUrl) {
     try {
-      const grup = (typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
-        ? _assigGrupMap[materia]
-        : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null);
+      const grup = (personal[studentId] && personal[studentId].grupOrigen)
+        ? personal[studentId].grupOrigen
+        : ((typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
+            ? _assigGrupMap[materia]
+            : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null));
       const rowId = (personal[studentId] && personal[studentId].rowId) || studentId;
       if (grup) await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text: '' });
       else await appsScriptPost({action:'deleteObservacio',studentId,materia,trimestre:String(trimestre)});
@@ -2885,6 +2891,30 @@ async function grupsCanviaAssig() {
   const hint = document.getElementById('grupsAssigHint');
   if (!sel) return;
   const matKey = sel.value;
+
+  // Assignatura de desdoblament rotatori: carrega el grup actual (barrejant classes)
+  const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[matKey] : null;
+  if (dd) {
+    if (typeof _renderDesdobBar === 'function') _renderDesdobBar('grupsDesdobBar', dd.curs, dd.assig, () => grupsCanviaAssig());
+    if (hint) hint.textContent = 'Carregant alumnes…';
+    let alumnes = [];
+    try {
+      if (typeof _desdobCarregaGrups === 'function') await _desdobCarregaGrups(dd.curs, dd.assig);
+      const g = (typeof _desdobGrupActual === 'function') ? _desdobGrupActual(dd.curs, dd.assig) : null;
+      if (g) {
+        const r = await appsScriptGet({ action:'getDesdobGrup', curs:dd.curs, assignatura:dd.assig, grup:g });
+        alumnes = (r && r.ok && r.alumnes) ? r.alumnes : [];
+      }
+    } catch(e) {}
+    _grupsAlumnes = alumnes.length ? alumnes : students.slice();
+    if (hint) hint.textContent = `${_grupsAlumnes.length} alumnes`;
+    _grupsCondicions = [];
+    _renderGrupsCondicions();
+    _updateGrupsHint();
+    return;
+  }
+  const _gb = document.getElementById('grupsDesdobBar'); if (_gb) _gb.innerHTML = '';
+
   const grup = (typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null;
   const nomBase = (typeof _assigNomMap !== 'undefined') ? _assigNomMap[matKey] : null;
 
@@ -3517,6 +3547,17 @@ async function _assimLoadGrupStudents(matKey) {
       && typeof _perfilRenderAssimSelector === 'function') {
     _perfilRenderAssimSelector();
   }
+  // Assignatura de desdoblament rotatori (p. ex. Tallers 3r): mostra el
+  // selector de grup i carrega el grup actual (barrejant classes).
+  const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[matKey] : null;
+  if (dd) {
+    if (typeof _renderDesdobBar === 'function') _renderDesdobBar('assimDesdobBar', dd.curs, dd.assig, () => _assimLoadGrupStudents(matKey));
+    if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(dd.curs, dd.assig);
+    renderAssoliments();
+    return;
+  }
+  const _bar = document.getElementById('assimDesdobBar'); if (_bar) _bar.innerHTML = '';
+
   const grup = (typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null;
   const nomBase = (typeof _assigNomMap !== 'undefined') ? _assigNomMap[matKey] : null;
   if (!grup) {

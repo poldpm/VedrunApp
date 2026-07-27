@@ -3458,3 +3458,19 @@ body {
 .horari-rol-chip:hover { border-color: var(--crimson); }
 .horari-rol-chip.actiu { border-color: var(--crimson); background: #FBEAED; color: var(--garnet-text); }
 .horari-rol-emoji { font-size: 18px; }
+
+/* ── Selector de grup de desdoblament (Tallers rotatoris) ── */
+.desdob-bar-wrap:empty { display: none; }
+.desdob-bar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 8px 10px; background: #FBEAED; border: 1px solid #F5D0D6;
+  border-radius: 12px;
+}
+.desdob-bar-label { font-size: 13px; font-weight: 600; color: var(--garnet-text); margin-right: 2px; }
+.desdob-chip {
+  border: 1px solid #E3B5BD; background: #fff; color: var(--garnet-text);
+  border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.12s var(--ease);
+}
+.desdob-chip:hover { border-color: var(--crimson); }
+.desdob-chip.actiu { background: var(--crimson); border-color: var(--crimson); color: #fff; }

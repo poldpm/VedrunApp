@@ -505,6 +505,13 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div id="perfilGrupsAssigs"></div>
         </div>
 
+        <!-- Assignatures de desdoblament rotatori (Tallers) -->
+        <div class="perfil-card">
+          <div class="perfil-card-title">Tallers i desdoblaments rotatoris</div>
+          <p class="modal-hint" style="margin:0 0 12px">Assignatures amb grups que roten (p. ex. Tallers de 3r). Tria el grup que tens ara: es queda fix fins que el canviïs.</p>
+          <div id="perfilDesdobBlocks"></div>
+        </div>
+
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="btn btn-primary" onclick="perfilSave()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -608,6 +615,7 @@ Català, Matemàtiques, Anglès, Medi, Català
               <div class="modal-label">Assignatura</div>
               <select class="modal-input" id="grupsAssigSelector" onchange="grupsCanviaAssig()"></select>
               <div class="modal-hint" id="grupsAssigHint"></div>
+              <div id="grupsDesdobBar" class="desdob-bar-wrap"></div>
             </div>
           </div>
 
@@ -692,6 +700,7 @@ Català, Matemàtiques, Anglès, Medi, Català
               <button class="trim-sel-btn" data-mat="musica" onclick="selectAssimMateria('musica',this)">Música</button>
               <button class="trim-sel-btn" data-mat="angles" onclick="selectAssimMateria('angles',this)">Anglès</button>
             </div>
+            <div id="assimDesdobBar" class="desdob-bar-wrap"></div>
           </div>
         </div>
       </div>
@@ -1271,6 +1280,7 @@ Català, Matemàtiques, Anglès, Medi, Català
             <button class="trim-sel-btn" data-trim="2" onclick="openNotes(notesContext.materia, 2)">2n Trim.</button>
             <button class="trim-sel-btn" data-trim="3" onclick="openNotes(notesContext.materia, 3)">3r Trim.</button>
           </div>
+          <div id="notesDesdobBar" class="desdob-bar-wrap" style="margin-top:10px;"></div>
         </div>
         <div class="notes-header-actions">
           <button class="btn btn-ghost" onclick="openGrupAlumnesModal()" title="Veure les fitxes dels alumnes d'aquest grup">

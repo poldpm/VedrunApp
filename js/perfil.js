@@ -28,6 +28,8 @@ let _perfil = {
   tutorCurs: null,
   tutorLinia: null,
   classes: {},
+  desdob: [],       // assignatures especialistes de desdoblament: [{ curs, assig }]
+  desdobGrup: {},   // grup actual per desdoblament: { "curs|assig": "3r A" }
 };
 
 // Compatibilitat: migra perfils antics (tutor:'A', classes:{A:[...]})
@@ -61,7 +63,9 @@ async function _perfilLoadFromSheets() {
   try {
     const r = await appsScriptGet({ action: 'loadProfile' });
     if (r.ok && r.profile) {
-      _perfil = _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{} }, r.profile));
+      _perfil = _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{}, desdob:[], desdobGrup:{} }, r.profile));
+      if (!Array.isArray(_perfil.desdob)) _perfil.desdob = [];
+      if (!_perfil.desdobGrup || typeof _perfil.desdobGrup !== 'object') _perfil.desdobGrup = {};
       localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil));
       _perfilRender();
       _perfilUpdateNav();
@@ -78,6 +82,7 @@ function _perfilRender() {
   _perfilUpdateAvatar();
   _perfilRenderTutorSel();
   _perfilRenderGrups();
+  if (typeof _perfilRenderDesdob === 'function') _perfilRenderDesdob();
 }
 
 // Selector de tutoria: curs + línia
@@ -426,10 +431,11 @@ function perfilRenderNavAssigs() {
     </a>`;
   }).join('');
 
-  // Registra els noms al mapa MATERIES
+  // Registra els noms al mapa MATERIES i els desdoblaments (clau simple)
   entrades.forEach(e => {
     const key = _assigKey(e.nom);
     if (typeof MATERIES !== 'undefined' && !MATERIES[key]) MATERIES[key] = e.nom;
+    if (e.desdob) _assigDesdobMap[key] = { curs: e.curs, assig: e.nom };
   });
 }
 
@@ -473,7 +479,8 @@ function _aplicaGrupStudents(alumnes) {
   personal = {};
   alumnes.forEach(a => {
     personal[a.id] = { mare:a.mare, pare:a.pare, emailMare:a.emailMare, emailPare:a.emailPare,
-      obs:a.obs, pi:a.pi, am:a.am, especific:a.especific, eap:a.eap, seient:a.seient, dataNaix:a.dataNaix, rowId:a.rowId };
+      obs:a.obs, pi:a.pi, am:a.am, especific:a.especific, eap:a.eap, seient:a.seient, dataNaix:a.dataNaix, rowId:a.rowId,
+      grupOrigen:a.grupOrigen || null };
   });
 }
 
@@ -541,6 +548,10 @@ function _perfilEntradesAmbGrup() {
       });
     });
   }
+  // Assignatures de desdoblament rotatori (una sola entrada per curs, p. ex. "Tallers · 3r")
+  (_perfil && Array.isArray(_perfil.desdob) ? _perfil.desdob : []).forEach(d => {
+    if (d && d.assig && d.curs) entrades.push({ nom: d.assig, grup: d.curs, desdob: true, curs: d.curs });
+  });
   const tutorKey = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
   // Compta per saber si una assignatura es repeteix a diversos grups
   const compta = {};
@@ -558,7 +569,7 @@ function _perfilEntradesAmbGrup() {
     // (el grup de tutoria ja se sobreentén).
     const esTutoria = tutorKey && e.grup === tutorKey;
     const label = esTutoria ? e.nom : (e.nom + ' · ' + e.grup);
-    return { nom: e.nom, grup: e.grup, key, label };
+    return { nom: e.nom, grup: e.grup, key, label, desdob: !!e.desdob, curs: e.curs || null };
   });
 }
 
@@ -574,8 +585,9 @@ function _perfilRenderObsSelector() {
   entrades.forEach(e => {
     // Registra al mapa MATERIES perquè es mostri bé el títol amb grup
     if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
-    // Guarda el grup associat a la clau
-    _assigGrupMap[e.key] = e.grup;
+    // Guarda el grup (o el desdoblament) associat a la clau
+    if (e.desdob) _assigDesdobMap[e.key] = { curs: e.curs, assig: e.nom };
+    else _assigGrupMap[e.key] = e.grup;
     _assigNomMap[e.key] = e.nom;
     html += `<option value="${e.key}">${escapeHtml(e.label)}</option>`;
   });
@@ -593,7 +605,8 @@ function _perfilRenderAssimSelector() {
   cont.innerHTML = entrades.map((e, i) => {
     if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
     if (typeof ASSIM_MATERIES !== 'undefined' && !ASSIM_MATERIES[e.key]) ASSIM_MATERIES[e.key] = e.label;
-    _assigGrupMap[e.key] = e.grup;
+    if (e.desdob) _assigDesdobMap[e.key] = { curs: e.curs, assig: e.nom };
+    else _assigGrupMap[e.key] = e.grup;
     _assigNomMap[e.key] = e.nom;
     return `<button class="trim-sel-btn${i===0?' active':''}" data-mat="${e.key}" onclick="selectAssimMateria('${e.key}',this)">${escapeHtml(e.label)}</button>`;
   }).join('');
@@ -608,6 +621,162 @@ function _perfilRenderAssimSelector() {
 // Mapes clau→grup i clau→nom base (per als selectors amb grup)
 let _assigGrupMap = {};
 let _assigNomMap = {};
+
+/* ============================================================
+   DESDOBLAMENTS ROTATORIS (p. ex. Tallers 3r)
+   Una assignatura amb grups que roten cada X sessions. El grup
+   actual es guarda al perfil (i, per tant, al Google Sheet) i es
+   manté fix fins que el mestre el canvia. Els alumnes es carreguen
+   barrejant totes les classes del curs (backend getDesdobGrup).
+   ============================================================ */
+let _assigDesdobMap = {};    // clau d'assignatura → { curs, assig }
+let _desdobGrupsCache = {};  // "curs|assig" → [noms de grup]
+
+function _desdobMapKey(curs, assig) { return curs + '|' + assig; }
+
+// Grup actual (persistit). Si no n'hi ha cap, agafa el primer conegut.
+function _desdobGrupActual(curs, assig) {
+  const k = _desdobMapKey(curs, assig);
+  if (_perfil.desdobGrup && _perfil.desdobGrup[k]) return _perfil.desdobGrup[k];
+  const gs = _desdobGrupsCache[k];
+  return (gs && gs.length) ? gs[0] : null;
+}
+
+// Fixa el grup actual i el desa al perfil (Sheet + cache local).
+async function _desdobSetGrup(curs, assig, grup) {
+  if (!_perfil.desdobGrup || typeof _perfil.desdobGrup !== 'object') _perfil.desdobGrup = {};
+  _perfil.desdobGrup[_desdobMapKey(curs, assig)] = grup;
+  try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch(e) {}
+  if (config.scriptUrl) {
+    try { await appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }); } catch(e) {}
+  }
+}
+
+// Carrega (i cacheja) la llista de grups d'un bloc de desdoblament.
+async function _desdobCarregaGrups(curs, assig) {
+  const k = _desdobMapKey(curs, assig);
+  if (_desdobGrupsCache[k]) return _desdobGrupsCache[k];
+  if (!config.scriptUrl) return [];
+  try {
+    const r = await appsScriptGet({ action: 'getDesdobGrups', curs: curs, assignatura: assig });
+    _desdobGrupsCache[k] = (r && r.ok && Array.isArray(r.grups)) ? r.grups : [];
+  } catch(e) { _desdobGrupsCache[k] = []; }
+  return _desdobGrupsCache[k];
+}
+
+// Carrega els alumnes del grup ACTUAL i els aplica (students/personal).
+async function _loadDesdobStudents(curs, assig) {
+  if (!config.scriptUrl) return;
+  await _desdobCarregaGrups(curs, assig);
+  const grup = _desdobGrupActual(curs, assig);
+  if (!grup) return;
+  const clau = 'desdob|' + _desdobMapKey(curs, assig) + '|' + grup;
+  if (_grupStudentsCarregat === clau) return;
+  const cacheKey = 'desdobcache_' + clau;
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const c = JSON.parse(raw);
+      if (c && c.alumnes && c.alumnes.length) {
+        _aplicaGrupStudents(c.alumnes);
+        _grupStudentsCarregat = clau;
+        if (Date.now() - (c.ts || 0) < 600000) return;
+      }
+    }
+  } catch(e) {}
+  try {
+    const r = await appsScriptGet({ action: 'getDesdobGrup', curs: curs, assignatura: assig, grup: grup });
+    const alumnes = (r && r.ok && r.alumnes) ? r.alumnes : [];
+    if (alumnes.length) {
+      _aplicaGrupStudents(alumnes);
+      _grupStudentsCarregat = clau;
+      try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes, ts: Date.now() })); } catch(e) {}
+    }
+  } catch(e) {}
+}
+
+// Renderitza la barra de chips per triar/canviar el grup de desdoblament.
+// onChange() es crida quan es canvia de grup (perquè la pàgina recarregui).
+let _desdobBarRegistry = {};
+function _renderDesdobBar(containerId, curs, assig, onChange) {
+  const cont = document.getElementById(containerId);
+  if (!cont) return;
+  _desdobBarRegistry[containerId] = { curs, assig, onChange };
+  const pintar = () => {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const grups = _desdobGrupsCache[_desdobMapKey(curs, assig)] || [];
+    const actual = _desdobGrupActual(curs, assig);
+    if (!grups.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<div class="desdob-bar"><span class="desdob-bar-label">Grup de ' + escapeHtml(assig) + ':</span>' +
+      grups.map(g => {
+        const gEsc = g.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `<button type="button" class="desdob-chip${g === actual ? ' actiu' : ''}" onclick="_desdobTriaGrup('${curs}','${assig.replace(/'/g,"\\'")}','${gEsc}','${containerId}')">${escapeHtml(g)}</button>`;
+      }).join('') + '</div>';
+  };
+  pintar();
+  if (!_desdobGrupsCache[_desdobMapKey(curs, assig)]) _desdobCarregaGrups(curs, assig).then(pintar);
+}
+
+async function _desdobTriaGrup(curs, assig, grup, containerId) {
+  await _desdobSetGrup(curs, assig, grup);
+  _grupStudentsCarregat = null; // força recàrrega
+  // Repinta totes les barres d'aquest desdoblament
+  Object.keys(_desdobBarRegistry).forEach(id => {
+    const b = _desdobBarRegistry[id];
+    if (b && b.curs === curs && b.assig === assig) _renderDesdobBar(id, curs, assig, b.onChange);
+  });
+  const b = _desdobBarRegistry[containerId];
+  if (b && typeof b.onChange === 'function') b.onChange(grup);
+}
+
+// --- Gestió al Perfil: afegir/treure assignatures de desdoblament ---
+function _perfilRenderDesdob() {
+  const cont = document.getElementById('perfilDesdobBlocks');
+  if (!cont) return;
+  const items = Array.isArray(_perfil.desdob) ? _perfil.desdob : [];
+  const cursos = (typeof PERFIL_CURSOS !== 'undefined') ? PERFIL_CURSOS : ['1r','2n','3r','4t','5è','6è'];
+  let html = '';
+  items.forEach((d, i) => {
+    html += `<div class="perfil-grup-block">
+      <div class="perfil-grup-block-head">
+        <span class="perfil-grup-block-title">${escapeHtml(d.assig)} · ${escapeHtml(d.curs)}<span class="es-tutor">desdoblament</span></span>
+        <button class="perfil-grup-remove" onclick="_perfilTreuDesdob(${i})" title="Treure">×</button>
+      </div>
+      <div id="perfilDesdobBar_${i}"></div>
+    </div>`;
+  });
+  html += `<div class="perfil-desdob-add" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <select class="modal-input" id="perfilDesdobCurs" style="max-width:90px">${cursos.map(c=>`<option value="${c}"${c==='3r'?' selected':''}>${c}</option>`).join('')}</select>
+    <input class="modal-input" id="perfilDesdobAssig" value="Tallers" style="max-width:150px" placeholder="Assignatura">
+    <button type="button" class="btn btn-ghost" onclick="_perfilAfegeixDesdob()">+ Afegir</button>
+  </div>`;
+  cont.innerHTML = html;
+  items.forEach((d, i) => {
+    if (typeof _renderDesdobBar === 'function') _renderDesdobBar('perfilDesdobBar_' + i, d.curs, d.assig, () => {});
+  });
+}
+
+function _perfilAfegeixDesdob() {
+  const curs = (document.getElementById('perfilDesdobCurs') || {}).value || '';
+  const assig = ((document.getElementById('perfilDesdobAssig') || {}).value || '').trim();
+  if (!curs || !assig) return;
+  if (!Array.isArray(_perfil.desdob)) _perfil.desdob = [];
+  if (_perfil.desdob.some(d => d.curs === curs && _normNomSimple(d.assig) === _normNomSimple(assig))) {
+    if (typeof showToast === 'function') showToast('Aquesta ja hi és', 'info');
+    return;
+  }
+  _perfil.desdob.push({ curs, assig });
+  _perfilRenderDesdob();
+  if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
+}
+
+function _perfilTreuDesdob(i) {
+  if (!Array.isArray(_perfil.desdob)) return;
+  _perfil.desdob.splice(i, 1);
+  _perfilRenderDesdob();
+  if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
+}
 
 // Actualitza TOTS els selectors d'assignatura del perfil d'un cop
 function perfilRenderAllSelectors() {

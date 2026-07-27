@@ -154,16 +154,32 @@ async function openNotes(materia, trimestre, grup) {
     if (!ok) { openNotes(materia, trimActual, grup); return; }
   }
 
-  notesContext = { materia, trimestre, grup: grup || notesContext.grup || null };
+  // Desdoblament rotatori (p. ex. Tallers 3r): grup actual, barrejant classes
+  const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[materia] : null;
+  notesContext = { materia, trimestre, grup: dd ? null : (grup || notesContext.grup || null), desdob: dd || null };
 
-  // Si l'assignatura és d'un grup concret, carrega'n els alumnes en segon pla
-  // (amb cache: instantani si ja s'han carregat abans). No bloqueja l'obertura.
-  if (notesContext.grup && typeof _ensureGrupStudents === 'function') {
+  if (dd && typeof _loadDesdobStudents === 'function') {
+    if (typeof _renderDesdobBar === 'function') {
+      _renderDesdobBar('notesDesdobBar', dd.curs, dd.assig, () => {
+        if (typeof _grupStudentsCarregat !== 'undefined') _grupStudentsCarregat = null;
+        _loadDesdobStudents(dd.curs, dd.assig).then(() => { if (typeof renderNotesTable === 'function') { try { renderNotesTable(); } catch(e) {} } });
+      });
+    }
+    _loadDesdobStudents(dd.curs, dd.assig).then(() => {
+      if (typeof renderNotesTable === 'function') { try { renderNotesTable(); } catch(e) {} }
+    });
+  } else if (notesContext.grup && typeof _ensureGrupStudents === 'function') {
+    // Assignatura d'un grup concret: carrega'n els alumnes en segon pla (amb cache).
+    const _nb = document.getElementById('notesDesdobBar'); if (_nb) _nb.innerHTML = '';
     _ensureGrupStudents(notesContext.grup, materia).then(() => {
       if (notesContext.grup === (grup || notesContext.grup) && typeof renderNotesTable === 'function') {
         try { renderNotesTable(); } catch(e) {}
       }
     });
+  } else {
+    // Assignatura de tutoria: assegura't que els alumnes actius són els del grup propi.
+    const _nb = document.getElementById('notesDesdobBar'); if (_nb) _nb.innerHTML = '';
+    if (typeof _restoreTutoriaStudents === 'function') { try { _restoreTutoriaStudents(); } catch(e) {} }
   }
 
   // Aplica cache immediatament (zero delay visual)
