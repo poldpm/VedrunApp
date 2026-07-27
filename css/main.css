@@ -3478,3 +3478,14 @@ body {
 .desdob-bar-info .desdob-bar-label { color: var(--garnet-mid); font-weight: 600; }
 .perfil-altre-grup { margin-top: 8px; }
 .perfil-altre-assig { display: block; font-size: 13px; font-weight: 600; color: var(--garnet-text); margin-bottom: 4px; }
+
+/* ── Dies festius / vacances al planning (dia sencer no lectiu) ── */
+.plan-th-festa { background: #FBEAED !important; }
+.plan-td-festa {
+  background: repeating-linear-gradient(45deg, #FAFAFA, #FAFAFA 8px, #F2F2F3 8px, #F2F2F3 16px);
+  border: 1px solid #ECECEC;
+}
+.plan-festa-tag {
+  font-weight: 700; color: var(--garnet-text); font-size: 13px;
+  text-align: center; padding: 8px 4px; line-height: 1.25;
+}

@@ -1843,6 +1843,21 @@ function planCalEvents(diaId, franja) {
 }
 
 /* --- Render --- */
+// Retorna l'event de FESTA/VACANCES (dia sencer no lectiu) d'un dia del planning,
+// o null. Es basa en les categories no lectives del calendari escolar.
+function _planDiaFesta(diaId) {
+  const diaIdx = PLAN_DIES.findIndex(d => d.id === diaId);
+  if (diaIdx < 0) return null;
+  const dataDia = new Date(getPlanMondayDate(_planWeekOffset));
+  dataDia.setDate(dataDia.getDate() + diaIdx);
+  const y = dataDia.getFullYear();
+  const ds = `${y}-${String(dataDia.getMonth()+1).padStart(2,'0')}-${String(dataDia.getDate()).padStart(2,'0')}`;
+  const NO_LECTIU = ['festiu', 'vacances', 'local', 'lliure'];
+  let evs = [];
+  try { evs = JSON.parse(localStorage.getItem('cal2_events_' + y) || '[]'); } catch(e) {}
+  return evs.find(e => e.data === ds && NO_LECTIU.indexOf(e.catId) !== -1) || null;
+}
+
 function renderPlanning() {
   const titleEl = document.getElementById('planWeekTitle');
   if (!titleEl) return; // element no present (pàgina no carregada)
@@ -1867,16 +1882,19 @@ function renderPlanning() {
   const today = new Date();
   const toStr = d => d.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
 
+  const festes = {}; // diaId → event de festa (o undefined)
   let html = '<thead><tr><th class="plan-th-hora"></th>';
   PLAN_DIES.forEach((dia, i) => {
     const dateD = new Date(dl); dateD.setDate(dl.getDate() + i);
     const isToday = dateD.toDateString() === today.toDateString();
     const _dayNotes = planDayNoteLoad(dia.id);
     const _diaId = dia.id;
+    const festa = _planDiaFesta(dia.id);
+    festes[dia.id] = festa;
     // Aniversaris automàtics d'aquest dia (alumnes del grup de tutoria)
     let _aniv = [];
     if (typeof aniversarisDelDia === 'function') _aniv = aniversarisDelDia(dateD);
-    html += `<th class="plan-th-dia${isToday ? ' plan-th-today' : ''}">
+    html += `<th class="plan-th-dia${isToday ? ' plan-th-today' : ''}${festa ? ' plan-th-festa' : ''}">
       <div class="plan-th-dia-top">${dia.nom}<span class="plan-th-date">${toStr(dateD)}</span>
         <button class="plan-day-add-note" onclick="event.stopPropagation();openPlanNoteDay('${_diaId}')" title="Afegir nota del dia">+</button>
       </div>
@@ -1886,12 +1904,20 @@ function renderPlanning() {
   });
   html += '</tr></thead><tbody>';
 
-  PLAN_FRANGES.forEach(franja => {
+  PLAN_FRANGES.forEach((franja, fi) => {
     const isPati = franja.id === 'f3' || franja.id === 'f6';
     html += `<tr class="${isPati ? 'plan-row-pati' : 'plan-row'}">`;
     html += `<td class="plan-td-hora">${franja.hora}</td>`;
 
     PLAN_DIES.forEach(dia => {
+      const festa = festes[dia.id];
+      if (festa) {
+        // Dia festiu/vacances: casella buida (sense assignatures). El nom, un cop a dalt.
+        html += fi === 0
+          ? `<td class="plan-td-festa"><div class="plan-festa-tag">🎉 ${escapeHtml(festa.titol)}</div></td>`
+          : '<td class="plan-td-festa"></td>';
+        return;
+      }
       const data = planCellLoad(dia.id, franja.id);
       const key  = planCellKey(dia.id, franja.id);
       const calEvs = planCalEvents(dia.id, franja);
