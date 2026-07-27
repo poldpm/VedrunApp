@@ -166,7 +166,21 @@ async function openNotes(materia, trimestre, grup) {
     if (typeof _renderDesdobControl === 'function') {
       _renderDesdobControl('notesDesdobBar', dd, () => {
         if (typeof _grupStudentsCarregat !== 'undefined') _grupStudentsCarregat = null;
-        _loadDesdobStudents(dd.curs, dd.assig).then(() => { if (typeof renderNotesTable === 'function') { try { renderNotesTable(); } catch(e) {} } });
+        _loadDesdobStudents(dd.curs, dd.assig).then(() => {
+          // El nou grup té altres alumnes: cal re-remapejar les notes pel nom, si no
+          // surten en blanc. Pintem del cache a l'instant i refresquem en segon pla.
+          try {
+            const cached = (typeof _cacheGet === 'function') ? _cacheGet() : null;
+            if (cached && typeof _remapValorsPerNom === 'function') {
+              notesItems  = sortCarpetaLast(cached.items || []);
+              notesValors = _remapValorsPerNom(cached.valors || {}, cached.rowNoms);
+              noEntregats = _remapValorsPerNom(cached.noEntregats || {}, cached.rowNoms);
+              _injectActitudItem(notesContext.materia, parseInt(notesContext.trimestre));
+            }
+          } catch(e) {}
+          if (typeof renderNotesTable === 'function') { try { renderNotesTable(); } catch(e) {} }
+          if (typeof _loadNotesBackground === 'function') _loadNotesBackground();
+        });
       });
     }
     _loadDesdobStudents(dd.curs, dd.assig).then(() => {

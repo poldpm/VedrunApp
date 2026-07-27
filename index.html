@@ -1789,15 +1789,16 @@ Català, Matemàtiques, Anglès, Medi, Català
     <span id="toastMsg"></span>
   </div>
 
-  <script src="js/config.local.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/notes.js"></script>
-  <script src="js/seients.js"></script>
-  <script src="js/perfil.js"></script>
-  <script src="js/grupview.js"></script>
-  <script src="js/postits.js"></script>
-  <script src="js/horari.js"></script>
-  <script src="js/vedrunu.js"></script>
+  <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
+  <script defer src="js/config.local.js"></script>
+  <script defer src="js/app.js"></script>
+  <script defer src="js/notes.js"></script>
+  <script defer src="js/seients.js"></script>
+  <script defer src="js/perfil.js"></script>
+  <script defer src="js/grupview.js"></script>
+  <script defer src="js/postits.js"></script>
+  <script defer src="js/horari.js"></script>
+  <script defer src="js/vedrunu.js"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

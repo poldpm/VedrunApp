@@ -149,6 +149,7 @@ async function _seientsAssegurraAlumnes() {
 
 async function _seientsLoadFromSheets() {
   if (!config.scriptUrl) return;
+  if (typeof _recentFullLoad === 'function' && _recentFullLoad()) return; // el bootstrap ja els ha portat
   try {
     const r = await appsScriptGet({ action: 'loadSeients' });
     if (r.ok) _applySeientsData(r);

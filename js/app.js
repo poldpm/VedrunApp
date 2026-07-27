@@ -768,7 +768,7 @@ function _paintAllViews() {
   if (isVisible('calendari'))    renderCalendari();
   if (isVisible('fitxa') && currentFitxaStudentId !== null) renderFitxa(currentFitxaStudentId);
   if (document.getElementById('panelOverlay').classList.contains('open')) renderPanelStudents(students);
-  initComentaris();
+  if (isVisible('comentaris')) initComentaris();
 }
 
 // Carrega l'estat principal des del cache local (instantani, sense xarxa)
@@ -1167,6 +1167,19 @@ async function _prefetchNotesResum() {
   } catch(e) {}
 }
 
+// Troba la posició d'un alumne a la pestanya de notes pel NOM (rowNoms del backend),
+// perquè l'ordre de files pot diferir del roster. -1 si no el troba.
+function _fitxaPosPerNom(nom, rowNoms) {
+  if (!nom || !Array.isArray(rowNoms)) return -1;
+  const norm = (typeof _normNomSimple === 'function') ? _normNomSimple
+    : (s => (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim());
+  const target = norm(nom);
+  for (let i = 0; i < rowNoms.length; i++) {
+    if (rowNoms[i] && norm(rowNoms[i]) === target) return i;
+  }
+  return -1;
+}
+
 async function loadFitxaNotes(studentId, container) {
   container.innerHTML = '<p class="fitxa-empty-field">Carregant notes…</p>';
   if (!config.scriptUrl) {
@@ -1193,6 +1206,10 @@ async function loadFitxaNotes(studentId, container) {
     }
   }
 
+  // Nom de l'alumne (per remapejar per nom, ja que l'ordre del full pot diferir del roster)
+  const _stud = (typeof students !== 'undefined') ? students.find(s => String(s.id) === String(studentId)) : null;
+  const _nomAl = _stud ? _stud.nom : null;
+
   // Extreu les dades d'aquest alumne del resum global
   const resultat = {};
   const neTotal  = {};
@@ -1202,8 +1219,14 @@ async function loadFitxaNotes(studentId, container) {
     TRIMS.forEach(trim => {
       const d = resum[mat] && resum[mat][trim];
       if (!d) { resultat[mat][trim] = null; return; }
-      const arrod = d.notes[studentId] ?? null;
-      const ne    = d.ne[studentId] || 0;
+      // Posició pel NOM (rowNoms); si no hi ha rowNoms o no casa, cau a studentId (compat.)
+      let pos = studentId;
+      if (_nomAl && Array.isArray(d.rowNoms)) {
+        const idx = _fitxaPosPerNom(_nomAl, d.rowNoms);
+        if (idx !== -1) pos = idx;
+      }
+      const arrod = d.notes[pos] ?? null;
+      const ne    = d.ne[pos] || 0;
       resultat[mat][trim] = { arrod, ne };
       neTotal[mat] += ne;
     });
@@ -1805,6 +1828,27 @@ function _franjaFi(franja) {
   return last ? parseInt(last[1]) * 60 + parseInt(last[2]) : null;
 }
 // Retorna els events del calendari que cauen en un dia+franja determinats
+// Cache d'events del planning per a UN render (s'invalida a l'inici de renderPlanning).
+// Evita reparsejar l'array anual d'events a cada cel·la (40×) i per dia (5×).
+let _planEvsMemo = null;
+function _planLoadEvs(y) {
+  if (!_planEvsMemo) _planEvsMemo = {};
+  if (_planEvsMemo[y] === undefined) {
+    try { _planEvsMemo[y] = JSON.parse(localStorage.getItem('cal2_events_' + y) || '[]'); }
+    catch(e) { _planEvsMemo[y] = []; }
+  }
+  return _planEvsMemo[y];
+}
+function _planLoadGcal() {
+  if (!_planEvsMemo) _planEvsMemo = {};
+  if (_planEvsMemo._gcal === undefined) {
+    let g = [];
+    try { _hydrateGCalCache(); Object.values(_cal2GCalCache || {}).forEach(arr => { g = g.concat(arr || []); }); } catch(e) {}
+    _planEvsMemo._gcal = g;
+  }
+  return _planEvsMemo._gcal;
+}
+
 function planCalEvents(diaId, franja) {
   const diaIdx = PLAN_DIES.findIndex(d => d.id === diaId);
   if (diaIdx < 0) return [];
@@ -1819,12 +1863,10 @@ function planCalEvents(diaId, franja) {
   const horariIni = _franjaInici(PLAN_FRANGES[0]);
   const horariFi  = _franjaFi(PLAN_FRANGES[PLAN_FRANGES.length - 1]);
 
-  // Events locals de l'app + events de Google Calendar (de tots els mesos cachejats)
-  _hydrateGCalCache();
-  const locals = JSON.parse(localStorage.getItem('cal2_events_' + y) || '[]');
-  let gcal = [];
-  Object.values(_cal2GCalCache || {}).forEach(arr => { gcal = gcal.concat(arr || []); });
-  const evs = [...locals, ...gcal];
+  // Events locals de l'app + Google Calendar (memoïtzats: es parsegen 1 cop per render)
+  const locals = _planLoadEvs(y);
+  const gcal = _planLoadGcal();
+  const evs = gcal.length ? locals.concat(gcal) : locals;
 
   return evs.filter(ev => {
     if (ev.data !== ds) return false;
@@ -1853,8 +1895,7 @@ function _planDiaCal(diaId) {
   dataDia.setDate(dataDia.getDate() + diaIdx);
   const y = dataDia.getFullYear();
   const ds = `${y}-${String(dataDia.getMonth()+1).padStart(2,'0')}-${String(dataDia.getDate()).padStart(2,'0')}`;
-  let evs = [];
-  try { evs = JSON.parse(localStorage.getItem('cal2_events_' + y) || '[]'); } catch(e) {}
+  const evs = (typeof _planLoadEvs === 'function') ? _planLoadEvs(y) : (function(){ try { return JSON.parse(localStorage.getItem('cal2_events_' + y) || '[]'); } catch(e) { return []; } })();
   // Tots els dies d'escola són catId 'festiu' (gris); acceptem també les catIds
   // antigues per compatibilitat. Distingim pel títol: "tarda no lectiva" → només
   // tarda; "inici de classes" → dia normal (no buida res).
@@ -1869,6 +1910,7 @@ function renderPlanning() {
   const titleEl = document.getElementById('planWeekTitle');
   if (!titleEl) return; // element no present (pàgina no carregada)
   titleEl.textContent = getPlanWeekLabel(_planWeekOffset);
+  _planEvsMemo = null; // invalida el cache d'events: es reparsejarà 1 cop en aquest render
 
   // Notes setmana
   const notes = localStorage.getItem(planWeekNotesKey()) || '';
@@ -4110,7 +4152,10 @@ async function _actitudLoadFromSheets(materia, trimestre) {
 /* Timestamp de l'última càrrega global; evita recàrregues redundants en obrir seccions */
 let _lastFullLoadTs = 0;
 let _lastCalLoad = 0;
-function _recentFullLoad() { return Date.now() - _lastFullLoadTs < 5000; }
+// True si el bootstrap ha portat TOTES les dades fa poc: els carregadors per
+// pàgina (perfil/horari/post-its/seients) el fan servir per no refer una crida
+// redundant en navegar (segueixen pintant del cache local igualment).
+function _recentFullLoad() { return _lastFullLoadTs > 0 && Date.now() - _lastFullLoadTs < 60000; }
 
 /* --- CÀRREGA INICIAL COMPLETA (una sola crida consolidada) --- */
 async function loadAllFromSheets() {

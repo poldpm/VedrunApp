@@ -29,6 +29,7 @@ function initPostits() {
 
 async function _postitsLoadFromSheets() {
   if (!config.scriptUrl) return;
+  if (typeof _recentFullLoad === 'function' && _recentFullLoad()) return; // el bootstrap ja els ha portat
   try {
     const r = await appsScriptGet({ action: 'loadPostits' });
     if (r.ok && Array.isArray(r.postits)) {

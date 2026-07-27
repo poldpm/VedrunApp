@@ -87,6 +87,7 @@ function initPerfil() {
 
 async function _perfilLoadFromSheets() {
   if (!config.scriptUrl) return;
+  if (typeof _recentFullLoad === 'function' && _recentFullLoad()) return; // el bootstrap ja l'ha portat
   try {
     const r = await appsScriptGet({ action: 'loadProfile' });
     if (r.ok && r.profile) {

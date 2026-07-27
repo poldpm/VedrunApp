@@ -41,6 +41,7 @@ function initHorari() {
 
 async function _horariLoadFromSheets() {
   if (!config.scriptUrl) return;
+  if (typeof _recentFullLoad === 'function' && _recentFullLoad()) return; // el bootstrap ja l'ha portat
   try {
     const r = await appsScriptGet({ action: 'loadHorari' });
     if (r.ok && r.horari && typeof r.horari === 'object') {
