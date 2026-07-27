@@ -4618,7 +4618,8 @@ function renderComentRubrica() {
   const genBtn    = document.getElementById('comentGenBtn');
 
   if (!rubrica || !rubrica.objectius.length) {
-    container.innerHTML = `<p class="fitxa-empty-field" style="margin-top:12px">Rúbrica de ${rubrica?.nom || _comentAssig} encara no disponible. S'afegirà quan tinguis els objectius definitius.</p>`;
+    const nomAssig = rubrica?.nom || document.querySelector('#comentAssigSelector .trim-sel-btn.active')?.textContent.trim() || _comentAssig;
+    container.innerHTML = `<p class="fitxa-empty-field" style="margin-top:12px">Rúbrica de ${escapeHtml(nomAssig)} encara no disponible. S'afegirà quan tinguis els objectius definitius.</p>`;
     if (genBtn) genBtn.disabled = true;
     return;
   }
@@ -4813,6 +4814,21 @@ function copiarComentari() {
 }
 
 function initComentaris() {
+  // Botons d'assignatura: des del perfil (grup de tutoria), no una llista fixa.
+  // Així no surt "Música" si no la fas, i hi surten les teves (Castellà, L'art
+  // del traç…). Les que encara no tenen rúbrica ho indiquen en seleccionar-les.
+  const selBar = document.getElementById('comentAssigSelector');
+  if (selBar) {
+    const grup = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+    const _kn = s => (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    let subs = (typeof _perfil !== 'undefined' && _perfil.classes && grup && _perfil.classes[grup]) ? _perfil.classes[grup] : [];
+    if (!subs.length) subs = ['Matemàtiques','Català','Medi','Anglès']; // reserva
+    const items = subs.map(nom => ({ key: _kn(nom), nom }));
+    if (!items.some(it => it.key === _comentAssig)) _comentAssig = items.length ? items[0].key : 'matematiques';
+    selBar.innerHTML = items.map(it =>
+      `<button class="trim-sel-btn${it.key===_comentAssig?' active':''}" data-assig="${it.key}" onclick="selectComentAssig('${it.key}',this)">${escapeHtml(it.nom)}</button>`
+    ).join('');
+  }
   // Omple el selector d'alumnes
   const sel = document.getElementById('comentAlumneSelect');
   if (!sel) return;

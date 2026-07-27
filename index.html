@@ -544,13 +544,8 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="coment-controls">
           <div class="coment-control-field">
             <label class="modal-label">Assignatura</label>
-            <div class="trim-sel-row" style="flex-wrap:wrap;gap:6px" id="comentAssigSelector">
-              <button class="trim-sel-btn active" data-assig="matematiques" onclick="selectComentAssig('matematiques',this)">Mates</button>
-              <button class="trim-sel-btn" data-assig="catala" onclick="selectComentAssig('catala',this)">Català</button>
-              <button class="trim-sel-btn" data-assig="medi" onclick="selectComentAssig('medi',this)">Medi</button>
-              <button class="trim-sel-btn" data-assig="musica" onclick="selectComentAssig('musica',this)">Música</button>
-              <button class="trim-sel-btn" data-assig="angles" onclick="selectComentAssig('angles',this)">Anglès</button>
-            </div>
+            <!-- Els botons d'assignatura es generen dinàmicament des del perfil a initComentaris() -->
+            <div class="trim-sel-row" style="flex-wrap:wrap;gap:6px" id="comentAssigSelector"></div>
           </div>
           <div class="coment-control-field">
             <label class="modal-label">Alumne</label>
