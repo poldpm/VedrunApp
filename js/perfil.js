@@ -376,16 +376,9 @@ function perfilRenderNavAssigs() {
   const cont = document.getElementById('navAssignatures');
   if (!cont) return;
 
-  // Construeix la llista d'entrades: assignatura + grup
-  // { nom, grup } — una entrada per cada combinació assignatura/grup
-  const entrades = [];
-  if (_perfil && _perfil.classes) {
-    Object.keys(_perfil.classes).forEach(grup => {
-      (_perfil.classes[grup] || []).forEach(nom => {
-        entrades.push({ nom, grup });
-      });
-    });
-  }
+  // Construeix la llista d'entrades: tutoria + altres cursos (mateixa font que
+  // la resta de selectors, així les assignatures d'altres cursos també hi surten).
+  const entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
 
   if (!entrades.length) {
     cont.innerHTML = '<div class="nav-assig-empty">Configura les teves assignatures al Perfil</div>';

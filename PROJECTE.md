@@ -5,7 +5,7 @@
 > qualsevol persona (o Claude Code) pugui continuar el desenvolupament sense
 > perdre context.
 
-**Versió actual:** v91 (cache `vedruna-v91` al `sw.js`)
+**Versió actual:** v92 (cache `vedruna-v92` al `sw.js`)
 **Idioma de tota la interfície i la documentació:** Català
 **Autor/mantenidor:** Pol (tutor de 2n de Primària)
 
