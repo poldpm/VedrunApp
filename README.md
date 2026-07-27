@@ -1,38 +1,57 @@
-# Vedruna Escorial Vic — Gestió de Notes
+# App "Gestió de Curs" — Vedruna Escorial Vic
 
-App web per a la gestió de notes de 2n de Primària, connectada amb Google Sheets via Apps Script.
+Aplicació web (PWA) per a la gestió del dia a dia d'un mestre de Primària,
+connectada amb Google Sheets via Google Apps Script. HTML/CSS/JS purs, sense
+frameworks. Interfície en català.
 
-## Estructura del projecte
-
-```
-vedruna-app/
-├── index.html          # Pàgina principal
-├── css/
-│   └── main.css        # Tots els estils
-├── js/
-│   └── app.js          # Tota la lògica
-├── img/
-│   ├── logo-horitzontal.png
-│   └── logo-vertical.png
-└── README.md
-```
-
-## Configuració inicial
-
-1. Obre el teu Google Sheets
-2. **Extensions → Apps Script** → Enganxa el codi del backend
-3. **Implementa → Nova implementació** → App web → Accés: Tothom
-4. Copia la URL `/exec` i enganxa-la a la configuració de l'app
+> **Per a la documentació completa** (arquitectura, decisions, regles,
+> credencials, workflow i model de dades), vegeu **[PROJECTE.md](PROJECTE.md)**.
 
 ## Tecnologies
 
 - HTML / CSS / JavaScript vanilla (sense frameworks)
 - Google Sheets com a base de dades
-- Google Apps Script com a backend/API
-- Allotjament: GitHub Pages (estàtic)
+- Google Apps Script com a backend/API (`Code.gs`)
+- PWA instal·lable (manifest + service worker)
+- Allotjament: GitHub Pages (estàtic, HTTPS)
 
-## Desplegament a GitHub Pages
+## Estructura (resum)
 
-1. Puja el projecte a un repositori GitHub
-2. Settings → Pages → Branch: main → Folder: / (root)
-3. L'app estarà disponible a `https://[usuari].github.io/[repo]/`
+```
+vedruna-app/
+├── index.html              # Totes les pàgines i modals
+├── Code.gs                 # Backend (Apps Script)
+├── sw.js                   # Service worker (PWA). Bump de versió a cada canvi de frontend!
+├── manifest.webmanifest    # Manifest PWA
+├── manual.html             # Manual d'usuari
+├── PROJECTE.md             # Documentació completa del projecte
+├── css/main.css            # Tots els estils
+├── js/
+│   ├── config.local.js     # Token del dispositiu (NO se substitueix en actualitzar)
+│   ├── app.js              # Nucli de l'app
+│   ├── perfil.js, notes.js, seients.js, grupview.js,
+│   ├── postits.js, horari.js, vedrunu.js
+└── img/                    # Icones, logo, favicons
+```
+
+## Configuració inicial (backend)
+
+1. Obre el Google Sheets personal del mestre.
+2. **Extensions → Apps Script** → enganxa `Code.gs`.
+3. Posa les credencials a les **Script Properties** (executa `configuraCredencials()`
+   un cop, o afegeix-les manualment): `GRUPS_ID`, `DESDOB_ID`, `GEMINI_KEY`, `APP_TOKEN`.
+4. **Implementa → Nova implementació** → App web → Executar com: JO, Accés: qualsevol.
+5. Copia la URL `/exec`.
+
+## Configuració (frontend)
+
+1. Posa el mateix `APP_TOKEN` a `js/config.local.js` (`window.APP_TOKEN`).
+2. Puja el projecte a GitHub Pages.
+3. A l'app, enganxa la URL `/exec` a Configuració i connecta.
+
+## Aplicar canvis
+
+- **Frontend:** puja a GitHub + `Ctrl+Shift+R`. **Recorda pujar la versió del
+  cache a `sw.js`** (`const CACHE = 'vedruna-vNN'`).
+- **Backend:** enganxa `Code.gs` i desplega una **Nova versió** (mantenint la URL).
+- **`js/config.local.js`:** no el substitueixis mai (manté el token).

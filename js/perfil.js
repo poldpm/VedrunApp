@@ -11,7 +11,7 @@ const PERFIL_LINIES = ['A', 'B', 'C'];
 // Assignatures per curs. Cada curs pot tenir la seva llista.
 const PERFIL_ASSIGS_PER_CURS = {
   '1r': ['Matemàtiques','Català','Castellà','Anglès','Medi','Tallers','Ambients','Educació Física','Superequip','Cultura Religiosa','Música'],
-  '2n': ['Matemàtiques','Català','Castellà','Anglès','Medi','Tallers','Ambients','Educació Física','Superequip','Cultura Religiosa','Música'],
+  '2n': ['Matemàtiques','Català','Castellà','Anglès','Medi','Tallers','Ambients','Educació Física','L\'art del traç','Cultura Religiosa','Música'],
   '3r': ['Català','Castellà','Anglès','Matemàtiques','Medi','Música','Tallers','Educació Física','Cultura Religiosa','Tutoria','Lectura','Pràcticum'],
   '4t': ['Català','Castellà','Anglès','Matemàtiques','Medi','Música','Tallers','Educació Física','Cultura Religiosa','Tutoria','Lectura','Pràcticum'],
   '5è': ['Català','Castellà','Anglès','Matemàtiques','Medi','Música','Tallers','Educació Física','Cultura Religiosa','Lectura','Emprenedoria','Laboratori'],
