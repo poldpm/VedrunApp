@@ -158,6 +158,10 @@ async function openNotes(materia, trimestre, grup) {
   const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[materia] : null;
   notesContext = { materia, trimestre, grup: dd ? null : (grup || notesContext.grup || null), desdob: dd || null };
 
+  // Tallers (rotatori) no s'avalua per trimestres: amaga els chips de trimestre.
+  const _trimSel = document.getElementById('notesTrimSelector');
+  if (_trimSel) _trimSel.style.display = (dd && dd.rotatori) ? 'none' : 'flex';
+
   if (dd && typeof _loadDesdobStudents === 'function') {
     if (typeof _renderDesdobControl === 'function') {
       _renderDesdobControl('notesDesdobBar', dd, () => {

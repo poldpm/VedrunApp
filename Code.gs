@@ -772,13 +772,57 @@ function getDesdobGrup(ss, curs, assig, grup) {
   }
   var alumnesTokens = tots.map(function(a){ return { ref:a, tokens:_tokens(a.nom) }; });
 
-  // Match nom → alumne
-  var resultat = [], noTrobats = [];
+  // Per cada nom del desdoblament: match FORT al full "Grups" (fitxa completa).
+  // Si no es troba (o la classe encara no està plena), es crea un registre mínim
+  // amb el nom, així la llista surt sencera igualment i s'hi poden posar notes.
+  var usats = {};
+  var resultat = [], sensePerfil = 0;
   for (var n = 0; n < noms.length; n++) {
-    var m = _matchAlumne(noms[n], alumnesTokens);
-    if (m) resultat.push(m); else noTrobats.push(noms[n]);
+    var nom = noms[n];
+    var m = _matchAlumneFort(nom, alumnesTokens);
+    if (m && !usats[m.id]) {
+      usats[m.id] = true;
+      resultat.push(m);
+    } else {
+      resultat.push({
+        id: 'd_' + _normNom(nom).replace(/[^a-z0-9]/g, '') + '_' + n,
+        nom: _netejaGrupNom(nom),
+        nomPila: _netejaGrupNom(nom).split(' ')[0],
+        genere: 'm',
+        grupOrigen: null,
+        senseFitxa: true
+      });
+      sensePerfil++;
+    }
   }
-  return { ok:true, existeix:true, grup:grup, alumnes:resultat, noTrobats:noTrobats, total:noms.length, trobats:resultat.length };
+  return { ok:true, existeix:true, grup:grup, alumnes:resultat, total:noms.length, trobats: resultat.length - sensePerfil, sensePerfil: sensePerfil };
+}
+
+// Com _matchAlumne però NOMÉS accepta coincidències FORTES (tots els mots hi són,
+// o com a mínim 2 en comú). Evita fusionar noms diferents quan la classe està
+// incompleta (p. ex. "Bruna Solà" no es confon amb "Bruna Olmos").
+function _matchAlumneFort(nomDesdob, alumnesTokens) {
+  var td = _tokens(nomDesdob);
+  if (!td.length) return null;
+  var best = null, bestScore = 0, bestTots = false, bestComuns = 0;
+  for (var i = 0; i < alumnesTokens.length; i++) {
+    var at = alumnesTokens[i].tokens;
+    var score = 0, comuns = 0, totsHi = true;
+    for (var j = 0; j < td.length; j++) {
+      var t = td[j];
+      if (at.indexOf(t) !== -1) { comuns++; score += 5; }
+      else if (t.length === 1) {
+        var trob = false;
+        for (var m = 0; m < at.length; m++) { if (at[m].charAt(0) === t) { score += 3; trob = true; break; } }
+        if (!trob) totsHi = false;
+      } else { totsHi = false; }
+    }
+    if (comuns === 0) continue;
+    if (totsHi) score += 10;
+    if (score > bestScore) { bestScore = score; best = alumnesTokens[i].ref; bestTots = totsHi; bestComuns = comuns; }
+  }
+  if (best && (bestTots || bestComuns >= 2)) return best;
+  return null;
 }
 
 // Comprova si un títol de bloc (normalitzat) conté l'assignatura.
