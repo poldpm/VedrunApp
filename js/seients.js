@@ -53,8 +53,12 @@ function _seientsMarkerDragStart(e, tipus) {
   if (!marker) return;
   const canvas = document.getElementById('seientsCanvas');
   const rect = canvas.getBoundingClientRect();
+  // Cachegem rect + element + marcador a l'inici (com el drag de grups): així el
+  // moviment no fa getBoundingClientRect ni querySelector a cada mousemove.
   _seientsMarkerDrag = {
-    tipus,
+    tipus, marker, rect,
+    el: canvas.querySelector(`[data-marker="${tipus}"]`),
+    raf: 0,
     offsetX: e.clientX - rect.left - marker.x,
     offsetY: e.clientY - rect.top - marker.y,
   };
@@ -62,17 +66,20 @@ function _seientsMarkerDragStart(e, tipus) {
   document.addEventListener('mouseup', _seientsMarkerDragEnd);
 }
 function _seientsMarkerDragMove(e) {
-  if (!_seientsMarkerDrag) return;
-  const canvas = document.getElementById('seientsCanvas');
-  const rect = canvas.getBoundingClientRect();
-  const marker = _seientsMarkers.find(m => m.tipus === _seientsMarkerDrag.tipus);
-  if (!marker) return;
-  marker.x = Math.max(0, Math.min(rect.width - 40, e.clientX - rect.left - _seientsMarkerDrag.offsetX));
-  marker.y = Math.max(0, Math.min(rect.height - 30, e.clientY - rect.top - _seientsMarkerDrag.offsetY));
-  const el = canvas.querySelector(`[data-marker="${_seientsMarkerDrag.tipus}"]`);
-  if (el) { el.style.left = marker.x + 'px'; el.style.top = marker.y + 'px'; }
+  const d = _seientsMarkerDrag;
+  if (!d) return;
+  const rect = d.rect, marker = d.marker;
+  marker.x = Math.max(0, Math.min(rect.width - 40, e.clientX - rect.left - d.offsetX));
+  marker.y = Math.max(0, Math.min(rect.height - 30, e.clientY - rect.top - d.offsetY));
+  if (!d.raf && typeof requestAnimationFrame === 'function') {
+    d.raf = requestAnimationFrame(() => {
+      d.raf = 0;
+      if (d.el) { d.el.style.left = marker.x + 'px'; d.el.style.top = marker.y + 'px'; }
+    });
+  } else if (d.el) { d.el.style.left = marker.x + 'px'; d.el.style.top = marker.y + 'px'; }
 }
 function _seientsMarkerDragEnd() {
+  if (_seientsMarkerDrag && _seientsMarkerDrag.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(_seientsMarkerDrag.raf);
   _seientsMarkerDrag = null;
   document.removeEventListener('mousemove', _seientsMarkerDragMove);
   document.removeEventListener('mouseup', _seientsMarkerDragEnd);

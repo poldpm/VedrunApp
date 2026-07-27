@@ -400,7 +400,7 @@ function perfilRenderNavAssigs() {
   });
 
   cont.innerHTML = entrades.map(e => {
-    const key = _assigKey(e.nom);
+    const key = _navMateriaKey(e);
     const multi = compta[_normNomSimple(e.nom)] > 1;
     // Mostra el grup si l'assignatura es fa a més d'un grup, o si no és el grup de tutoria
     const mostraGrup = multi || e.grup !== tutorKey;
@@ -411,12 +411,22 @@ function perfilRenderNavAssigs() {
     </a>`;
   }).join('');
 
-  // Registra els noms al mapa MATERIES i els desdoblaments (clau simple)
+  // Registra els noms al mapa MATERIES i els desdoblaments amb la MATEIXA clau
+  // (qualificada pel curs a "altres cursos", perquè Tallers 3r ≠ Tallers 4t).
   entrades.forEach(e => {
-    const key = _assigKey(e.nom);
-    if (typeof MATERIES !== 'undefined' && !MATERIES[key]) MATERIES[key] = e.nom;
+    const key = _navMateriaKey(e);
+    if (typeof MATERIES !== 'undefined' && !MATERIES[key]) MATERIES[key] = e.altres ? (e.nom + ' · ' + e.curs) : e.nom;
     if (e.altres) _assigDesdobMap[key] = { curs: e.curs, assig: e.nom, rotatori: e.rotatori };
   });
+}
+
+// Clau de "matèria" per al menú de Notes. A la tutoria, clau simple (com sempre).
+// A altres cursos, s'hi afegeix el curs perquè la mateixa assignatura a dos cursos
+// no comparteixi ni clau ni pestanya de notes (p. ex. tallers_3r vs tallers_4t).
+function _navMateriaKey(e) {
+  return e.altres
+    ? _assigKey(e.nom) + '_' + _normNomSimple(e.curs || '').replace(/[^a-z0-9]/g, '')
+    : _assigKey(e.nom);
 }
 
 /* ============================================================

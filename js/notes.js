@@ -252,11 +252,14 @@ function _remapValorsPerNom(valors, rowNoms) {
   // Mapa: posició al full → studentId (pel nom)
   const _norm = s => (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
   const posToId = {};
+  const usats = {};
   rowNoms.forEach((nom, pos) => {
     const n = _norm(nom);
     if (!n) return;
-    const st = students.find(s => _norm(s.nom) === n);
-    if (st) posToId[pos] = st.id;
+    // Primer alumne SENSE assignar amb aquest nom → desambigua noms duplicats
+    // (dos "Marc Puig"): cada posició casa amb un alumne diferent, no el mateix.
+    const st = students.find(s => !usats[s.id] && _norm(s.nom) === n);
+    if (st) { posToId[pos] = st.id; usats[st.id] = true; }
   });
   const out = {};
   Object.keys(valors).forEach(itemId => {
