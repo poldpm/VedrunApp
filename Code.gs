@@ -731,6 +731,15 @@ function getDesdobGrups(ss, curs, assig) {
 // Params: curs ('3r'), assig ('Tallers'), grup (nom de columna: '3r A', 'Desdoblament'…).
 // Retorna { ok, alumnes:[...registres complets...], noTrobats, total, trobats }.
 function getDesdobGrup(ss, curs, assig, grup) {
+  // Cache de 6 h (el desdoblament gairebé no canvia); estalvia openById + lectura
+  // del full + 3 lectures de rosters a cada càrrega d'un grup rotatori.
+  var cacheKey = 'desdobgrup_' + curs + '_' + assig + '_' + grup;
+  try { var c = CacheService.getScriptCache().get(cacheKey); if (c) return JSON.parse(c); } catch(e) {}
+  var res = _getDesdobGrupRaw(ss, curs, assig, grup);
+  try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(res), 21600); } catch(e) {}
+  return res;
+}
+function _getDesdobGrupRaw(ss, curs, assig, grup) {
   var dss = getDesdobSpreadsheet(ss);
   if (!dss) return { ok:true, existeix:false, alumnes:[], motiu:'Sense full de desdoblaments' };
   var sh = dss.getSheetByName(_desdobTabName(curs));
@@ -854,7 +863,10 @@ function _blocConteAssig(titolNorm, assigNorm) {
    ============================================================ */
 
 function getGrupObs(ss, grup) {
-  var gss = getGrupsSpreadsheet(ss) || ss;
+  return _getGrupObsWith(getGrupsSpreadsheet(ss) || ss, grup);
+}
+// Variant que reutilitza un full "Grups" ja obert (evita reobrir-lo al bootstrap).
+function _getGrupObsWith(gss, grup) {
   var v = sheetGetJSON(gss, '_AppData', 'obs_' + grup);
   return { ok:true, obs: v ? JSON.parse(v) : {} };
 }
@@ -963,15 +975,18 @@ function getRegistre(ss) {
   if (lc < 2) return { ok:true, items:[], data:{} };
   var headers = sh.getRange(1,2,1,lc-1).getValues()[0];
   var notes   = sh.getRange(1,2,1,lc-1).getNotes()[0];
+  // Lectura ÚNICA de tot el bloc de dades (evita N+1: abans es llegia columna a columna)
+  var block = (lr >= 2) ? sh.getRange(2,2,lr-1,lc-1).getValues() : [];
   var items = [], data = {};
   headers.forEach(function(nom,idx) {
     if (!nom) return;
     var parts = (notes[idx]||'').split('|');
     var tipus = parts[0]||'checkbox', id = parseInt(parts[1])||(idx+1000);
     items.push({ id:id, nom:nom.toString(), tipus:tipus }); data[id] = {};
-    if (lr >= 2) sh.getRange(2,idx+2,lr-1,1).getValues().forEach(function(row,ri){
-      data[id][ri] = tipus==='checkbox'?(row[0]===true):(row[0]?row[0].toString():'');
-    });
+    for (var ri = 0; ri < block.length; ri++) {
+      var v = block[ri][idx];
+      data[id][ri] = tipus==='checkbox' ? (v===true) : (v ? v.toString() : '');
+    }
   });
   return { ok:true, items:items, data:data };
 }
@@ -1015,8 +1030,11 @@ function getObservacions(ss) {
       var lr = sh.getLastRow(); if (lr < DATA_ROW) return;
       sh.getRange(DATA_ROW,oc,lr-DATA_ROW+1,1).getValues().forEach(function(row,idx){
         var txt = (row[0]||'').toString().trim(); if (!txt) return;
-        if (!obs[idx]) obs[idx] = {};
-        obs[idx][t+'_'+key] = txt;
+        // Cada alumne ocupa 2 files; l'observació és a la superior (idx parell).
+        // saveObservacio escriu a sid*2+DATA_ROW, així que sid = idx/2 (no idx).
+        var sid = Math.floor(idx/2);
+        if (!obs[sid]) obs[sid] = {};
+        obs[sid][t+'_'+key] = txt;
       });
     });
   }
@@ -1161,9 +1179,10 @@ function getNotesResum(ss) {
         if ((h||'').toString().trim() === 'Nota') notaCol = col;
       });
 
-      var notes = {}, neCount = {};
+      var notes = {}, neCount = {}, rowNoms = [];
       for (var si = 0; si < numAlumnes; si++) {
         var rowP = DATA_ROW - 1 + si*2;
+        rowNoms[si] = (allData[rowP] && allData[rowP][0]) ? allData[rowP][0].toString().trim() : '';
         if (!allData[rowP]) continue;
         var sumV = 0, sumP = 0, ne = 0;
         itemCols.forEach(function(ic) {
@@ -1181,7 +1200,7 @@ function getNotesResum(ss) {
         notes[si]   = mitj !== null ? Math.floor(mitj + 0.5) : null;
         neCount[si] = ne;
       }
-      resum[mat][trim] = { notes: notes, ne: neCount };
+      resum[mat][trim] = { notes: notes, ne: neCount, rowNoms: rowNoms };
     });
   });
 
@@ -1296,7 +1315,7 @@ function updateNota(ss, materia, trimestre, itemId, studentId, punts, grup, nom)
   }
   if (rowP === -1) { var si=parseInt(studentId); rowP = si*2+DATA_ROW; }
   var rowN = rowP+1;
-  var maxP=parseFloat((sh.getRange(1,col).getNote()||'10|1|0').split('|')[0]);
+  var maxP=parseFloat((metas[col-1]||'10|1|0').split('|')[0]); // ja llegit a dalt (evita un getNote extra)
 
   // Si la cel·la conté 'NE' i estem enviant 0 o buit → crida espúria, ignora
   var curVal=sh.getRange(rowP,col).getValue();
@@ -1612,8 +1631,8 @@ function getOrCreateMateriaSheet(ss, tabName){
     s.autoResizeColumn(1); if(s.getColumnWidth(1)<140) s.setColumnWidth(1,140);
     s.getRange(1,2).setValue(COL_OBS).setFontWeight('bold')
       .setBackground(GARNET_HEADER).setFontColor(GARNET_TEXT).setFontFamily('Nunito');
+    applyFormatToNotesSheet(s); // el format complet només cal en CREAR el full (és estable)
   } else { ensureObsIsLastColumn(s); }
-  applyFormatToNotesSheet(s);
   return s;
 }
 function getOrCreateRegistreSheet(ss, alumnes){
@@ -2262,9 +2281,9 @@ function bootstrap(ss, weekIds) {
       var ga = getGrupAlumnes(gss, tutorGrup);
       result.grupAlumnes = ga.alumnes || [];
       result.grupAlumnesOk = true;
-      // Observacions compartides del grup de tutoria
+      // Observacions compartides del grup de tutoria (reusant el gss ja obert)
       try {
-        var go = getGrupObs(ss, tutorGrup);
+        var go = _getGrupObsWith(gss, tutorGrup);
         result.grupObs = go.obs || {};
       } catch(e) { result.grupObs = {}; }
     } else {
@@ -2287,8 +2306,15 @@ function bootstrap(ss, weekIds) {
   result.assim     = appDataBundle.assim;
   result.actitud   = appDataBundle.actitud;
 
-  // 6) Seients
-  try { result.seients = loadSeients(ss); } catch(e) { result.seients = null; }
+  // 6) Seients (de la lectura única de _AppData; evita 3 lectures redundants)
+  try {
+    result.seients = {
+      ok: true,
+      layout:  appData['seients_layout']  ? JSON.parse(appData['seients_layout'])  : [],
+      history: appData['seients_history'] ? JSON.parse(appData['seients_history']) : {},
+      markers: appData['seients_markers'] ? JSON.parse(appData['seients_markers']) : []
+    };
+  } catch(e) { result.seients = null; }
 
   // 7) Post-its (de la lectura única de _AppData)
   try {
