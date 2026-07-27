@@ -1853,10 +1853,14 @@ function _planDiaCal(diaId) {
   dataDia.setDate(dataDia.getDate() + diaIdx);
   const y = dataDia.getFullYear();
   const ds = `${y}-${String(dataDia.getMonth()+1).padStart(2,'0')}-${String(dataDia.getDate()).padStart(2,'0')}`;
-  const NO_LECTIU = ['festiu', 'vacances', 'local', 'lliure'];
   let evs = [];
   try { evs = JSON.parse(localStorage.getItem('cal2_events_' + y) || '[]'); } catch(e) {}
-  const festa = evs.find(e => e.data === ds && NO_LECTIU.indexOf(e.catId) !== -1) || null;
+  // Tots els dies d'escola són catId 'festiu' (gris); acceptem també les catIds
+  // antigues per compatibilitat. Distingim pel títol: "tarda no lectiva" → només
+  // tarda; "inici de classes" → dia normal (no buida res).
+  const NO_LECTIU = ['festiu', 'vacances', 'local', 'lliure'];
+  const esNoLectiu = e => NO_LECTIU.indexOf(e.catId) !== -1 && !/tarda no lectiva|inici de classes/i.test(e.titol || '');
+  const festa = evs.find(e => e.data === ds && esNoLectiu(e)) || null;
   const tarda = festa ? null : (evs.find(e => e.data === ds && /tarda no lectiva/i.test(e.titol || '')) || null);
   return { festa, tarda };
 }
@@ -2353,13 +2357,10 @@ function cal2SaveEvents(year, evs)  { localStorage.setItem('cal2_events_' + year
    Es "sembra" un sol cop per mestre (flag a localStorage). Així una còpia
    nova de l'app ja porta els festius i vacances. Idempotent: no duplica.
    Per actualitzar el curs vinent: canvia les dades i puja CAL_ESCOLA_SEED_VER. */
-const CAL_ESCOLA_SEED_VER = 'escola-2026-27';
+const CAL_ESCOLA_SEED_VER = 'escola-2026-27-v2';
+// Un sol color (gris) per a tots els dies d'escola: el nom ja diu què és.
 const CAL_ESCOLA_CATS = [
-  { id:'festiu',   nom:'Festiu',            color:'#E4022D' },
-  { id:'local',    nom:'Festa local',       color:'#7A1E2E' },
-  { id:'lliure',   nom:'Lliure disposició', color:'#F19E9E' },
-  { id:'vacances', nom:'Vacances',          color:'#B0B0B0' },
-  { id:'escola',   nom:'Escola',            color:'#22C55E' },
+  { id:'festiu', nom:'Festiu', color:'#9AA0A6' },
 ];
 const CAL_ESCOLA_EVENTS = {
   '2026': [
@@ -2403,18 +2404,21 @@ const CAL_ESCOLA_EVENTS = {
 };
 function _calSeedEscola() {
   try {
-    if (localStorage.getItem('cal_escola_seed') === CAL_ESCOLA_SEED_VER) return; // ja sembrat
-    // Categories (sense duplicar per id)
-    const cats = cal2LoadCats();
-    CAL_ESCOLA_CATS.forEach(nc => { if (!cats.find(c => c.id === nc.id)) cats.push(nc); });
+    if (localStorage.getItem('cal_escola_seed') === CAL_ESCOLA_SEED_VER) return; // ja fet
+    const SCHOOL = ['festiu','vacances','local','lliure','escola']; // catIds (nou + versions antigues)
+    // Una sola categoria grisa "Festiu"; treu les de colors de versions anteriors.
+    const cats = cal2LoadCats().filter(c => SCHOOL.indexOf(c.id) === -1);
+    CAL_ESCOLA_CATS.forEach(nc => cats.push(nc));
     cal2SaveCats(cats);
-    // Events per any (sense duplicar per data+títol → respecta el que ja hi hagi)
     Object.keys(CAL_ESCOLA_EVENTS).forEach(any => {
       const evs = cal2LoadEvents(any);
+      // Recolora els events d'escola ja existents cap a 'festiu' (gris)
+      evs.forEach(e => { if (SCHOOL.indexOf(e.catId) !== -1) e.catId = 'festiu'; });
+      // Afegeix els que falten (per data+títol → respecta el que ja hi hagi)
       CAL_ESCOLA_EVENTS[any].forEach((t, i) => {
-        const [data, titol, cat] = t;
+        const data = t[0], titol = t[1];
         if (!evs.find(e => e.data === data && e.titol === titol)) {
-          evs.push({ id:'esc_'+data+'_'+i, titol, data, hora:'', catId:cat, desc:'', link:'' });
+          evs.push({ id:'esc_'+data+'_'+i, titol, data, hora:'', catId:'festiu', desc:'', link:'' });
         }
       });
       cal2SaveEvents(any, evs);
