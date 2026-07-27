@@ -674,19 +674,37 @@ function _desdobLocalitzaBloc(rng, assig) {
   if (titolRow === -1 || headerRow === -1) return null;
   var assigNorm = _normNom(assig);
   var titols = rng[titolRow];
-  var blocStartCol = -1;
+  var headers = rng[headerRow];
+  // 1) Columna on hi ha el TÍTOL del bloc que conté l'assignatura
+  var titleCol = -1;
   for (var c = 0; c < titols.length; c++) {
     var t = (titols[c]||'').toString();
     if (!t) continue;
     var tn = _normNom(t);
-    if (tn.indexOf(assigNorm) !== -1 || _blocConteAssig(tn, assigNorm)) { blocStartCol = c; break; }
+    if (tn.indexOf(assigNorm) !== -1 || _blocConteAssig(tn, assigNorm)) { titleCol = c; break; }
   }
-  if (blocStartCol === -1) return null;
-  var nextBloc = titols.length;
-  for (var c2 = blocStartCol+1; c2 < titols.length; c2++) {
-    if ((titols[c2]||'').toString().trim()) { nextBloc = c2; break; }
+  if (titleCol === -1) return null;
+  // 2) El títol pot estar desalineat respecte les columnes de grup (p. ex.
+  //    "MATES i PRÀCTICUM" una columna a la dreta del seu "3r A"). Ens situem
+  //    a la capçalera de grup no buida més propera al títol...
+  var pivot = titleCol;
+  if (!(headers[pivot]||'').toString().trim()) {
+    for (var d = 1; d <= 4; d++) {
+      if ((headers[pivot+d]||'').toString().trim()) { pivot = pivot+d; break; }
+      if (pivot-d >= 0 && (headers[pivot-d]||'').toString().trim()) { pivot = pivot-d; break; }
+    }
   }
-  return { titolRow: titolRow, headerRow: headerRow, blocStartCol: blocStartCol, nextBloc: nextBloc };
+  // 3) ...i expandim a la RUN contigua de capçaleres no buides = columnes del bloc.
+  //    (Els blocs estan separats per columnes de capçalera buides.)
+  var colStart = pivot, colEnd = pivot;
+  while (colStart-1 >= 0 && (headers[colStart-1]||'').toString().trim()) colStart--;
+  while (colEnd+1 < headers.length && (headers[colEnd+1]||'').toString().trim()) colEnd++;
+  return { titolRow: titolRow, headerRow: headerRow, blocStartCol: colStart, nextBloc: colEnd+1 };
+}
+
+// Treu decoracions del nom d'un grup per mostrar-lo net (⭐, *, ⚠…).
+function _netejaGrupNom(s) {
+  return (s||'').toString().replace(/[*⭐⚠]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 // Llista els grups (columnes de capçalera) del bloc d'una assignatura.
@@ -703,10 +721,10 @@ function getDesdobGrups(ss, curs, assig) {
   var headers = rng[loc.headerRow];
   var grups = [];
   for (var c = loc.blocStartCol; c < loc.nextBloc; c++) {
-    var h = (headers[c]||'').toString().trim();
+    var h = _netejaGrupNom(headers[c]);
     if (h) grups.push(h);
   }
-  return { ok:true, grups:grups, bloc: (rng[loc.titolRow][loc.blocStartCol]||'').toString().trim() };
+  return { ok:true, grups:grups, bloc: _netejaGrupNom(rng[loc.titolRow][loc.blocStartCol]) };
 }
 
 // Alumnes d'un grup de desdoblament concret, buscats a TOTES les classes del curs.
