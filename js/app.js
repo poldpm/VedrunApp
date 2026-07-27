@@ -2317,6 +2317,80 @@ function cal2CatById(id) { return cal2LoadCats().find(c => c.id === id) || { col
 function cal2LoadEvents(year) { return JSON.parse(localStorage.getItem('cal2_events_' + year) || '[]'); }
 function cal2SaveEvents(year, evs)  { localStorage.setItem('cal2_events_' + year, JSON.stringify(evs)); _calSaveToSheets(year); }
 
+/* ── CALENDARI ESCOLAR (Vedruna Escorial Vic) — sembra automàtica ──
+   Es "sembra" un sol cop per mestre (flag a localStorage). Així una còpia
+   nova de l'app ja porta els festius i vacances. Idempotent: no duplica.
+   Per actualitzar el curs vinent: canvia les dades i puja CAL_ESCOLA_SEED_VER. */
+const CAL_ESCOLA_SEED_VER = 'escola-2026-27';
+const CAL_ESCOLA_CATS = [
+  { id:'festiu',   nom:'Festiu',            color:'#E4022D' },
+  { id:'local',    nom:'Festa local',       color:'#7A1E2E' },
+  { id:'lliure',   nom:'Lliure disposició', color:'#F19E9E' },
+  { id:'vacances', nom:'Vacances',          color:'#B0B0B0' },
+  { id:'escola',   nom:'Escola',            color:'#22C55E' },
+];
+const CAL_ESCOLA_EVENTS = {
+  '2026': [
+    ['2026-09-08','Inici de classes','escola'],
+    ['2026-09-11','Diada de Catalunya','festiu'],
+    ['2026-10-12','Festa Nacional (Hispanitat)','festiu'],
+    ['2026-11-02','Lliure disposició','lliure'],
+    ['2026-12-07','Lliure disposició','lliure'],
+    ['2026-12-08','La Immaculada','festiu'],
+    ['2026-12-22','Vacances de Nadal','vacances'],
+    ['2026-12-23','Vacances de Nadal','vacances'],
+    ['2026-12-24','Vacances de Nadal','vacances'],
+    ['2026-12-25','Nadal','festiu'],
+    ['2026-12-26','Sant Esteve','festiu'],
+    ['2026-12-28','Vacances de Nadal','vacances'],
+    ['2026-12-29','Vacances de Nadal','vacances'],
+    ['2026-12-30','Vacances de Nadal','vacances'],
+    ['2026-12-31','Vacances de Nadal','vacances'],
+  ],
+  '2027': [
+    ['2027-01-01',"Cap d'Any",'festiu'],
+    ['2027-01-04','Vacances de Nadal','vacances'],
+    ['2027-01-05','Vacances de Nadal','vacances'],
+    ['2027-01-06','Reis','festiu'],
+    ['2027-02-08','Lliure disposició','lliure'],
+    ['2027-03-19','Tarda no lectiva (Mercat del Ram)','escola'],
+    ['2027-03-22','Vacances de Setmana Santa','vacances'],
+    ['2027-03-23','Vacances de Setmana Santa','vacances'],
+    ['2027-03-24','Vacances de Setmana Santa','vacances'],
+    ['2027-03-25','Vacances de Setmana Santa','vacances'],
+    ['2027-03-26','Divendres Sant','festiu'],
+    ['2027-03-29','Dilluns de Pasqua','festiu'],
+    ['2027-04-30','Lliure disposició','lliure'],
+    ['2027-05-01','Festa del Treball','festiu'],
+    ['2027-05-14','Lliure disposició','lliure'],
+    ['2027-05-17','Festa Local','local'],
+    ['2027-06-21','Últim dia (tarda no lectiva)','escola'],
+    ['2027-06-24','Sant Joan','festiu'],
+    ['2027-07-05','Festa Local (Festa Major de Vic)','local'],
+  ],
+};
+function _calSeedEscola() {
+  try {
+    if (localStorage.getItem('cal_escola_seed') === CAL_ESCOLA_SEED_VER) return; // ja sembrat
+    // Categories (sense duplicar per id)
+    const cats = cal2LoadCats();
+    CAL_ESCOLA_CATS.forEach(nc => { if (!cats.find(c => c.id === nc.id)) cats.push(nc); });
+    cal2SaveCats(cats);
+    // Events per any (sense duplicar per data+títol → respecta el que ja hi hagi)
+    Object.keys(CAL_ESCOLA_EVENTS).forEach(any => {
+      const evs = cal2LoadEvents(any);
+      CAL_ESCOLA_EVENTS[any].forEach((t, i) => {
+        const [data, titol, cat] = t;
+        if (!evs.find(e => e.data === data && e.titol === titol)) {
+          evs.push({ id:'esc_'+data+'_'+i, titol, data, hora:'', catId:cat, desc:'', link:'' });
+        }
+      });
+      cal2SaveEvents(any, evs);
+    });
+    localStorage.setItem('cal_escola_seed', CAL_ESCOLA_SEED_VER);
+  } catch(e) { /* silenciós */ }
+}
+
 /* Agendar */
 function cal2LoadAgendar() { return JSON.parse(localStorage.getItem('cal2_agendar') || '[]'); }
 function cal2SaveAgendar(a) { localStorage.setItem('cal2_agendar', JSON.stringify(a)); }
@@ -4037,6 +4111,8 @@ function _processAppData(r) {
   if (r.calEvents) Object.entries(r.calEvents).forEach(([y, evs]) => {
     if (evs && evs.length) localStorage.setItem('cal2_events_' + y, JSON.stringify(evs));
   });
+  // Sembra el calendari escolar (un cop per mestre; una còpia nova ja el porta)
+  if (typeof _calSeedEscola === 'function') _calSeedEscola();
   // Assoliments
   if (r.assim) Object.entries(r.assim).forEach(([key, val]) => {
     if (key.startsWith('obj_')) {
