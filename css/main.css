@@ -3474,3 +3474,7 @@ body {
 }
 .desdob-chip:hover { border-color: var(--crimson); }
 .desdob-chip.actiu { background: var(--crimson); border-color: var(--crimson); color: #fff; }
+.desdob-bar-info { background: #F4F1F2; border-color: #E6DDDF; }
+.desdob-bar-info .desdob-bar-label { color: var(--garnet-mid); font-weight: 600; }
+.perfil-altre-grup { margin-top: 8px; }
+.perfil-altre-assig { display: block; font-size: 13px; font-weight: 600; color: var(--garnet-text); margin-bottom: 4px; }

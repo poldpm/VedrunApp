@@ -2895,14 +2895,18 @@ async function grupsCanviaAssig() {
   // Assignatura de desdoblament rotatori: carrega el grup actual (barrejant classes)
   const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[matKey] : null;
   if (dd) {
-    if (typeof _renderDesdobBar === 'function') _renderDesdobBar('grupsDesdobBar', dd.curs, dd.assig, () => grupsCanviaAssig());
+    if (typeof _renderDesdobControl === 'function') _renderDesdobControl('grupsDesdobBar', dd, () => grupsCanviaAssig());
     if (hint) hint.textContent = 'Carregant alumnes…';
     let alumnes = [];
     try {
       if (typeof _desdobCarregaGrups === 'function') await _desdobCarregaGrups(dd.curs, dd.assig);
+      const o = (typeof _desdobOpcions === 'function') ? _desdobOpcions(dd.curs, dd.assig) : { desdob:true };
       const g = (typeof _desdobGrupActual === 'function') ? _desdobGrupActual(dd.curs, dd.assig) : null;
-      if (g) {
+      if (g && o.desdob) {
         const r = await appsScriptGet({ action:'getDesdobGrup', curs:dd.curs, assignatura:dd.assig, grup:g });
+        alumnes = (r && r.ok && r.alumnes) ? r.alumnes : [];
+      } else if (g) {
+        const r = await appsScriptGet({ action:'getGrupAlumnes', grup:g });
         alumnes = (r && r.ok && r.alumnes) ? r.alumnes : [];
       }
     } catch(e) {}
@@ -3551,7 +3555,7 @@ async function _assimLoadGrupStudents(matKey) {
   // selector de grup i carrega el grup actual (barrejant classes).
   const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[matKey] : null;
   if (dd) {
-    if (typeof _renderDesdobBar === 'function') _renderDesdobBar('assimDesdobBar', dd.curs, dd.assig, () => _assimLoadGrupStudents(matKey));
+    if (typeof _renderDesdobControl === 'function') _renderDesdobControl('assimDesdobBar', dd, () => _assimLoadGrupStudents(matKey));
     if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(dd.curs, dd.assig);
     renderAssoliments();
     return;

@@ -159,8 +159,8 @@ async function openNotes(materia, trimestre, grup) {
   notesContext = { materia, trimestre, grup: dd ? null : (grup || notesContext.grup || null), desdob: dd || null };
 
   if (dd && typeof _loadDesdobStudents === 'function') {
-    if (typeof _renderDesdobBar === 'function') {
-      _renderDesdobBar('notesDesdobBar', dd.curs, dd.assig, () => {
+    if (typeof _renderDesdobControl === 'function') {
+      _renderDesdobControl('notesDesdobBar', dd, () => {
         if (typeof _grupStudentsCarregat !== 'undefined') _grupStudentsCarregat = null;
         _loadDesdobStudents(dd.curs, dd.assig).then(() => { if (typeof renderNotesTable === 'function') { try { renderNotesTable(); } catch(e) {} } });
       });
