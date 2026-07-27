@@ -217,6 +217,8 @@ function handleRequest(e) {
       case 'saveDesdobSheetId':      result = saveDesdobSheetId(ss, body.id); break;
       case 'getDesdobSheetId':       result = getDesdobSheetId(ss); break;
       case 'getDesdoblament':        result = getDesdoblament(ss, (body&&body.curs) || p.curs, (body&&body.linia) || p.linia, (body&&body.assignatura) || p.assignatura); break;
+      case 'getDesdobGrups':         result = getDesdobGrups(ss, (body&&body.curs) || p.curs, (body&&body.assignatura) || p.assignatura); break;
+      case 'getDesdobGrup':          result = getDesdobGrup(ss, (body&&body.curs) || p.curs, (body&&body.assignatura) || p.assignatura, (body&&body.grup) || p.grup); break;
       case 'getGrupObs':             result = getGrupObs(ss, (body&&body.grup) || p.grup); break;
       case 'saveGrupObs':            result = saveGrupObs(ss, body.grup, body.rowId, body.materia, body.text); break;
 
@@ -650,8 +652,119 @@ function _getDesdoblamentRaw(ss, curs, linia, assignatura) {
   };
 }
 
+/* ---- Grups de desdoblament ROTATORIS (p. ex. Tallers 3r) ----
+   A diferència de getDesdoblament (que filtra UNA classe), aquí un grup pot
+   barrejar alumnes de diverses classes del curs (A/B/C). S'agafa la columna
+   del grup demanat i es busquen els noms a TOTES les classes del curs. */
+
+// Localitza el bloc d'una assignatura dins d'una pestanya de desdoblaments.
+// Retorna { titolRow, headerRow, blocStartCol, nextBloc } o null.
+function _desdobLocalitzaBloc(rng, assig) {
+  var titolRow = -1, headerRow = -1;
+  var KEYWORDS = ['MATES','CATALÀ','ANGLÈS','TALLERS','PACBAL','AMBIENTS','PRÀCTICUM','PRACTICUM','CASTELLÀ','MEDI','LECTURA'];
+  for (var i = 0; i < rng.length; i++) {
+    var joined = rng[i].map(function(c){ return (c||'').toString().toUpperCase(); }).join(' ');
+    if (titolRow === -1) {
+      for (var k = 0; k < KEYWORDS.length; k++) {
+        if (joined.indexOf(KEYWORDS[k]) !== -1) { titolRow = i; break; }
+      }
+    }
+    if (joined.toLowerCase().indexOf('desdoblament') !== -1) { headerRow = i; break; }
+  }
+  if (titolRow === -1 || headerRow === -1) return null;
+  var assigNorm = _normNom(assig);
+  var titols = rng[titolRow];
+  var blocStartCol = -1;
+  for (var c = 0; c < titols.length; c++) {
+    var t = (titols[c]||'').toString();
+    if (!t) continue;
+    var tn = _normNom(t);
+    if (tn.indexOf(assigNorm) !== -1 || _blocConteAssig(tn, assigNorm)) { blocStartCol = c; break; }
+  }
+  if (blocStartCol === -1) return null;
+  var nextBloc = titols.length;
+  for (var c2 = blocStartCol+1; c2 < titols.length; c2++) {
+    if ((titols[c2]||'').toString().trim()) { nextBloc = c2; break; }
+  }
+  return { titolRow: titolRow, headerRow: headerRow, blocStartCol: blocStartCol, nextBloc: nextBloc };
+}
+
+// Llista els grups (columnes de capçalera) del bloc d'una assignatura.
+// Params: curs ('3r'), assig ('Tallers'). Retorna { ok, grups:[...], bloc }.
+function getDesdobGrups(ss, curs, assig) {
+  var dss = getDesdobSpreadsheet(ss);
+  if (!dss) return { ok:true, grups:[], motiu:'Sense full de desdoblaments' };
+  var sh = dss.getSheetByName(_desdobTabName(curs));
+  if (!sh) return { ok:true, grups:[], motiu:'Sense pestanya per a ' + curs };
+  var rng = sh.getDataRange().getValues();
+  if (!rng.length) return { ok:true, grups:[] };
+  var loc = _desdobLocalitzaBloc(rng, assig);
+  if (!loc) return { ok:true, grups:[], motiu:'No trobo el bloc de ' + assig };
+  var headers = rng[loc.headerRow];
+  var grups = [];
+  for (var c = loc.blocStartCol; c < loc.nextBloc; c++) {
+    var h = (headers[c]||'').toString().trim();
+    if (h) grups.push(h);
+  }
+  return { ok:true, grups:grups, bloc: (rng[loc.titolRow][loc.blocStartCol]||'').toString().trim() };
+}
+
+// Alumnes d'un grup de desdoblament concret, buscats a TOTES les classes del curs.
+// Params: curs ('3r'), assig ('Tallers'), grup (nom de columna: '3r A', 'Desdoblament'…).
+// Retorna { ok, alumnes:[...registres complets...], noTrobats, total, trobats }.
+function getDesdobGrup(ss, curs, assig, grup) {
+  var dss = getDesdobSpreadsheet(ss);
+  if (!dss) return { ok:true, existeix:false, alumnes:[], motiu:'Sense full de desdoblaments' };
+  var sh = dss.getSheetByName(_desdobTabName(curs));
+  if (!sh) return { ok:true, existeix:false, alumnes:[], motiu:'Sense pestanya per a ' + curs };
+  var rng = sh.getDataRange().getValues();
+  if (!rng.length) return { ok:true, existeix:true, alumnes:[] };
+  var loc = _desdobLocalitzaBloc(rng, assig);
+  if (!loc) return { ok:true, existeix:true, alumnes:[], motiu:'No trobo el bloc de ' + assig };
+
+  // Columna del grup demanat dins del bloc
+  var grupNorm = _normNom(grup);
+  var headers = rng[loc.headerRow];
+  var colGrup = -1;
+  for (var c = loc.blocStartCol; c < loc.nextBloc; c++) {
+    if (_normNom((headers[c]||'').toString()) === grupNorm) { colGrup = c; break; }
+  }
+  if (colGrup === -1) return { ok:true, existeix:true, alumnes:[], motiu:'El bloc no té el grup ' + grup };
+
+  // Noms escrits a la columna del grup
+  var noms = [];
+  for (var r = loc.headerRow+1; r < rng.length; r++) {
+    var v = (rng[r][colGrup]||'').toString().trim();
+    if (v) noms.push(v);
+  }
+
+  // Combina els rosters de totes les línies del curs, amb id global estable i únic
+  var gss = getGrupsSpreadsheet(ss) || ss;
+  var LINIES = ['A','B','C'];
+  var tots = [];
+  for (var li = 0; li < LINIES.length; li++) {
+    var gd = getGrupAlumnes(gss, curs + ' ' + LINIES[li]);
+    var arr = gd.alumnes || [];
+    for (var a = 0; a < arr.length; a++) {
+      var al = arr[a];
+      al.grupOrigen = curs + ' ' + LINIES[li];
+      al.id = (li + 1) * 1000 + (al.rowId || (a + 1)); // únic i estable entre sessions
+      tots.push(al);
+    }
+  }
+  var alumnesTokens = tots.map(function(a){ return { ref:a, tokens:_tokens(a.nom) }; });
+
+  // Match nom → alumne
+  var resultat = [], noTrobats = [];
+  for (var n = 0; n < noms.length; n++) {
+    var m = _matchAlumne(noms[n], alumnesTokens);
+    if (m) resultat.push(m); else noTrobats.push(noms[n]);
+  }
+  return { ok:true, existeix:true, grup:grup, alumnes:resultat, noTrobats:noTrobats, total:noms.length, trobats:resultat.length };
+}
+
 // Comprova si un títol de bloc (normalitzat) conté l'assignatura.
-// Gestiona títols compostos: "mates i tallers" conté "matematiques"? 
+// Gestiona títols compostos: "mates i tallers" conté "matematiques"?
 function _blocConteAssig(titolNorm, assigNorm) {
   // equivalències bàsiques
   var equiv = {
