@@ -680,6 +680,13 @@ function _getGeminiKey() {
 // Genera text amb Gemini. Si hi ha clau local la fa servir directament;
 // si no, passa la petició pel backend (que té la clau compartida).
 // Retorna el text generat o llança un error (amb .is429 si és límit de quota).
+// Detecta si l'error de Gemini es "model saturat" (Google respon en angles:
+// "high demand", "overloaded", "UNAVAILABLE", HTTP 503). Es temporal: reintentant
+// sol funcionar, per aixo es tracta diferent d'un error de debo.
+function _geminiEsSaturat(msg) {
+  return /high demand|overload|unavailable|try again later|503/i.test(String(msg || ''));
+}
+
 async function _geminiGenerate(prompt) {
   const localKey = _getGeminiKey();
   if (localKey) {
@@ -692,7 +699,8 @@ async function _geminiGenerate(prompt) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const err = new Error(data?.error?.message || ('HTTP ' + res.status));
-      err.is429 = res.status === 429;
+      err.is429  = res.status === 429;
+      err.isBusy = res.status === 503 || _geminiEsSaturat(err.message);
       throw err;
     }
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
@@ -703,7 +711,8 @@ async function _geminiGenerate(prompt) {
   const r = await appsScriptPost({ action: 'gemini', prompt });
   if (!r || r.ok === false) {
     const err = new Error((r && r.error) || 'Error de Gemini');
-    err.is429 = !!(r && r.is429);
+    err.is429  = !!(r && r.is429);
+    err.isBusy = _geminiEsSaturat(err.message);
     throw err;
   }
   return r.text;
@@ -4771,18 +4780,29 @@ Reescriu-lo com un ÚNIC PARÀGRAF cohesionat, natural i fluid. Segueix estricta
     try {
       text = await _callGemini();
     } catch(e) {
-      if (e.is429) {
-        // Límit de peticions: espera 4 segons i reintenta
-        document.getElementById('comentTextBox').innerHTML =
-          '<div class="coment-loading"><div class="coment-spinner"></div>Límit de peticions assolit, reintentant en 4 s…</div>';
-        await new Promise(r => setTimeout(r, 4000));
-        text = await _callGemini();
+      if (e.is429 || e.isBusy) {
+        // Saturat o massa peticions: son casos temporals. Avisem en catala i
+        // reintentem sol (fins a 2 cops), que sol ser prou per resoldre'l.
+        const _espera = e.isBusy ? 3000 : 4000;
+        const _txt = e.isBusy
+          ? 'La IA de Google va plena ara mateix. Ho torno a provar…'
+          : 'Límit de peticions assolit, reintentant…';
+        let _ok = false;
+        for (let _i = 0; _i < 2 && !_ok; _i++) {
+          document.getElementById('comentTextBox').innerHTML =
+            '<div class="coment-loading"><div class="coment-spinner"></div>' + _txt + '</div>';
+          await new Promise(r => setTimeout(r, _espera));
+          try { text = await _callGemini(); _ok = true; }
+          catch(e2) { if (!(e2.is429 || e2.isBusy) || _i === 1) throw e2; }
+        }
       } else throw e;
     }
     _mostrarComentari(text, rubrica, alumne, true);
   } catch(e) {
     _mostrarComentari(esborrany, rubrica, alumne, false);
-    const msg = e.is429
+    const msg = e.isBusy
+      ? "La IA de Google està saturada en aquest moment. T'he deixat l'esborrany de la rúbrica; torna-ho a provar d'aquí un minut."
+      : e.is429
       ? 'Gemini: massa peticions seguides. Espera uns segons i torna a intentar-ho.'
       : 'Error Gemini: ' + e.message;
     showToast(msg, 'error');
