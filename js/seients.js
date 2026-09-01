@@ -39,11 +39,22 @@ function seientsAddMarker(tipus) {
   else if (tipus === 'finestra') { x = w - 70; y = h/2; } // lateral
   _seientsMarkers.push({ tipus, x, y });
   renderSeients();
+  _seientsPersistMarkers();
 }
 
 function seientsRemoveMarker(tipus) {
   _seientsMarkers = _seientsMarkers.filter(m => m.tipus !== tipus);
   renderSeients();
+  _seientsPersistMarkers();
+}
+
+// Desa els marcadors (cache local + Google Sheets). Abans els marcadors només
+// arribaven al full en prémer "Desar distribució"; si no, es perdien.
+function _seientsPersistMarkers() {
+  try { localStorage.setItem('seients_markers', JSON.stringify(_seientsMarkers)); } catch(e) {}
+  if (config.scriptUrl) {
+    appsScriptPost({ action: 'saveSeients', markers: JSON.stringify(_seientsMarkers) }).catch(() => {});
+  }
 }
 
 // Drag dels marcadors pel canvas
@@ -83,7 +94,7 @@ function _seientsMarkerDragEnd() {
   _seientsMarkerDrag = null;
   document.removeEventListener('mousemove', _seientsMarkerDragMove);
   document.removeEventListener('mouseup', _seientsMarkerDragEnd);
-  try { localStorage.setItem('seients_markers', JSON.stringify(_seientsMarkers)); } catch(e) {}
+  _seientsPersistMarkers();
 }
 
 /* ---- Historial de parelles ---- */
@@ -170,7 +181,10 @@ function _applySeientsData(r) {
     _seientsLayout = r.layout;
     try { localStorage.setItem('seients_layout', JSON.stringify(r.layout)); } catch(e) {}
   }
-  if (r.markers && Array.isArray(r.markers)) {
+  // Només aplica els marcadors remots si en porten. Si el full encara no en té
+  // (loadSeients retorna []), NO s'han de buidar els que ja tenim a la pantalla:
+  // això és el que els feia desaparèixer de cop i esborrava també la còpia local.
+  if (r.markers && Array.isArray(r.markers) && r.markers.length) {
     _seientsMarkers = r.markers;
     try { localStorage.setItem('seients_markers', JSON.stringify(r.markers)); } catch(e) {}
   }
