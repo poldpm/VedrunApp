@@ -2028,8 +2028,11 @@ function geminiGenerate(prompt, contents) {
   if (!payloadContents) return { ok:false, error:'Prompt buit' };
 
   // Prova diversos models per si algun està deprecat
-  var models = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
-  var lastErr = '';
+  // Els models estan ordenats de manera que si la familia "flash" va saturada,
+  // el seguent intent caigui en una GENERACIO DIFERENT (altra capacitat), no en
+  // un germa que estara igual de ple.
+  var models = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite'];
+  var lastErr = '', saturat = false;
   for (var i = 0; i < models.length; i++) {
     try {
       var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + models[i] + ':generateContent?key=' + encodeURIComponent(key);
@@ -2050,10 +2053,16 @@ function geminiGenerate(prompt, contents) {
       } else {
         lastErr = (data && data.error && data.error.message) || ('HTTP ' + code);
         if (code === 429) return { ok:false, error: lastErr, is429:true };
+        // Model ple: esperar una mica abans del seguent. Sense pausa, els
+        // intents cauen tots dins del mateix pic de saturacio i no serveixen.
+        if (code === 503 || /high demand|overload|unavailable/i.test(lastErr)) {
+          saturat = true;
+          if (i < models.length - 1) Utilities.sleep(800);
+        }
       }
     } catch(e) { lastErr = e.message; }
   }
-  return { ok:false, error: lastErr || 'Error desconegut' };
+  return { ok:false, error: lastErr || 'Error desconegut', isBusy: saturat };
 }
 
 function loadSeients(ss) {
