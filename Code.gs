@@ -2650,11 +2650,31 @@ function provaEscripturaGoogle() {
   var linies = [];
   var diu = function (t) { linies.push(t); Logger.log(t); };
 
-  diu('--- Permisos concedits ---');
+  diu('--- Permisos REALMENT concedits ---');
+  var concedits = [];
   try {
-    var scopes = ScriptApp.getOAuthToken() ? 'token obtingut' : 'sense token';
-    diu('  ' + scopes);
-  } catch (e) { diu('  no s ha pogut llegir el token: ' + e.message); }
+    var tok = ScriptApp.getOAuthToken();
+    var resp = UrlFetchApp.fetch(
+      'https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + encodeURIComponent(tok),
+      { muteHttpExceptions: true });
+    var info = JSON.parse(resp.getContentText() || '{}');
+    concedits = String(info.scope || '').split(' ').filter(function (x) { return x; });
+    concedits.sort().forEach(function (sc) { diu('  ' + sc); });
+    if (!concedits.length) diu('  (no s han pogut llegir)');
+  } catch (e) { diu('  no s han pogut llegir: ' + e.message); }
+
+  diu('');
+  diu('--- Els que calen ---');
+  var calen = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/script.external_request',
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/tasks'
+  ];
+  calen.forEach(function (sc) {
+    var te = concedits.indexOf(sc) !== -1;
+    diu('  ' + (te ? '[SI] ' : '[FALTA] ') + sc);
+  });
 
   // ---- CALENDAR ----
   diu('');
