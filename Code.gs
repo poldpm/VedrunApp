@@ -2633,6 +2633,90 @@ function gwriteSync(canvis) {
 }
 
 
+
+/* ============================================================
+   DIAGNOSTIC — comprova que es pot ESCRIURE al Calendar i a Tasks
+   ------------------------------------------------------------
+   Executa aquesta funcio UN COP des de l'editor d'Apps Script
+   (tria "provaEscripturaGoogle" i prem Executar).
+
+   Que fa: crea un event de prova i una tasca de prova, comprova que
+   s'han creat, i tot seguit ELS ESBORRA. No queda res al teu Google.
+   Si falta cap permis, aqui es quan sortira la finestra d'autoritzacio.
+
+   El resultat surt al registre d'execucio (Ctrl+Enter per veure'l).
+   ============================================================ */
+function provaEscripturaGoogle() {
+  var linies = [];
+  var diu = function (t) { linies.push(t); Logger.log(t); };
+
+  diu('--- Permisos concedits ---');
+  try {
+    var scopes = ScriptApp.getOAuthToken() ? 'token obtingut' : 'sense token';
+    diu('  ' + scopes);
+  } catch (e) { diu('  no s ha pogut llegir el token: ' + e.message); }
+
+  // ---- CALENDAR ----
+  diu('');
+  diu('--- Google Calendar ---');
+  var idProva = 'provavedruna' + String(Date.now()).slice(-8);
+  try {
+    var dema = new Date(); dema.setDate(dema.getDate() + 1);
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    var d = dema.getFullYear() + '-' + pad(dema.getMonth() + 1) + '-' + pad(dema.getDate());
+
+    var creat = Calendar.Events.insert({
+      id: idProva,
+      summary: 'PROVA app (s esborra sola)',
+      start: { dateTime: d + 'T09:00:00', timeZone: 'Europe/Madrid' },
+      end:   { dateTime: d + 'T11:00:00', timeZone: 'Europe/Madrid' }
+    }, 'primary');
+    diu('  CREAT correctament. id = ' + creat.id);
+
+    // Comprova que l hora de fi es la bona (regla 3)
+    var llegit = Calendar.Events.get('primary', idProva);
+    diu('  Inici: ' + llegit.start.dateTime);
+    diu('  Fi:    ' + llegit.end.dateTime + '   <-- ha de ser a les 11:00, no a les 10:00');
+
+    // Comprova la idempotencia (regla 2): crear-lo un altre cop amb el mateix id
+    try {
+      Calendar.Events.insert({
+        id: idProva, summary: 'x',
+        start: { dateTime: d + 'T09:00:00', timeZone: 'Europe/Madrid' },
+        end:   { dateTime: d + 'T11:00:00', timeZone: 'Europe/Madrid' }
+      }, 'primary');
+      diu('  ATENCIO: repetir la creacio NO ha donat error (revisar)');
+    } catch (eDup) {
+      if (/already exists/i.test(eDup.message)) diu('  Repetir la creacio dona "ja existeix" -> correcte, no duplicara');
+      else diu('  Repetir dona un altre error: ' + eDup.message);
+    }
+
+    Calendar.Events.remove('primary', idProva);
+    diu('  ESBORRAT. No queda res al calendari.');
+  } catch (err) {
+    diu('  HA FALLAT: ' + err.message);
+    if (/permission|authoriz|scope/i.test(err.message)) diu('  >> Sembla un problema de PERMISOS.');
+    try { Calendar.Events.remove('primary', idProva); } catch (e2) {}
+  }
+
+  // ---- TASKS ----
+  diu('');
+  diu('--- Google Tasks ---');
+  try {
+    var t = Tasks.Tasks.insert({ title: 'PROVA app (s esborra sola)', notes: 'diagnostic' }, '@default');
+    diu('  CREADA correctament. id = ' + t.id);
+    Tasks.Tasks.remove('@default', t.id);
+    diu('  ESBORRADA. No queda res a Tasks.');
+  } catch (err2) {
+    diu('  HA FALLAT: ' + err2.message);
+    if (/permission|authoriz|scope/i.test(err2.message)) diu('  >> Sembla un problema de PERMISOS.');
+  }
+
+  diu('');
+  diu('--- Fi del diagnostic ---');
+  return linies.join('\n');
+}
+
 function jsonResponse(data){
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 }
