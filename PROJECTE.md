@@ -139,6 +139,33 @@ Propietats del script.
 - IMPORTANT: la clau de Gemini s'ha de crear amb un compte **Gmail personal**;
   el free tier no funciona amb comptes de Google Workspace de l'escola.
 
+### Permisos (oauthScopes) i escriptura al Calendar/Tasks
+
+Llegir tasques només concedeix `tasks.readonly`. Per **escriure-hi** cal el
+permís sencer, i Apps Script no el demana sol: falla amb *"You do not have
+permission to call tasks.tasks.insert"*.
+
+Solució: declarar els permisos explícitament al manifest. A l'editor →
+**Configuració del projecte** → marcar *"Mostra el fitxer appsscript.json"*, i
+afegir-hi (SENSE esborrar la resta del fitxer):
+
+```json
+"oauthScopes": [
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/script.external_request",
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/tasks"
+]
+```
+
+Aquests 4 són tots els que fa servir el `Code.gs`:
+`SpreadsheetApp` → spreadsheets · `UrlFetchApp` (Gemini) → script.external_request ·
+`CalendarApp` + servei avançat `Calendar` → calendar · servei avançat `Tasks` → tasks.
+
+⚠️ Declarar-los a mà **substitueix** la llista que Apps Script dedueix sol: si
+se'n falta cap, l'app peta. Després cal tornar a autoritzar (executant
+`provaEscripturaGoogle` des de l'editor) i **desplegar una versió nova**.
+
 ### Desplegament de l'Apps Script
 - **Executar com: JO (el propietari) + Accés: qualsevol.**
 - Això vol dir que l'app funciona amb el compte del propietari
