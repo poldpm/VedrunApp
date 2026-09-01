@@ -244,6 +244,7 @@ function handleRequest(e) {
       case 'loadAppData':            result = loadAppData(ss, parseWeekIds((body&&body.weekIds)||p.weekIds)); break;
       case 'getGCalEvents':          result = getGoogleCalendarEvents(parseInt((body&&body.year)||p.year), parseInt((body&&body.month)||p.month)); break;
       case 'getGoogleTasks':         result = getGoogleTasks(); break;
+      case 'gwriteSync':             result = gwriteSync(body && body.canvis); break;
       default: result = { ok:false, error:'Accio desconeguda: '+action };
     }
     return jsonResponse(result);
@@ -2435,6 +2436,202 @@ function getGoogleTasks() {
     return { ok: false, error: err.message };
   }
 }
+
+
+/* ============================================================
+   ESCRIPTURA A GOOGLE CALENDAR I GOOGLE TASKS
+   ------------------------------------------------------------
+   Regles que se segueixen (i per que):
+   1. L'id de Google es desa SEMPRE al costat de l'element. El genera el
+      frontend ABANS d'enviar-lo: per aixo crear es repetible sense duplicar.
+   2. Calendar: servei avancat (no CalendarApp), perque nomes ell deixa
+      enviar l'id propi. Si ja existeix, Google diu "already exists", i aixo
+      vol dir que la creacio anterior va funcionar (no es cap avaria).
+   3. L'hora de fi surt de la dada. "+1 hora" nomes quan no se'n sap cap.
+      Si l'hora de fi es anterior a la d'inici, vol dir l'endema.
+   4. Sempre s'envia timeZone.
+   5. Tasks: de "due" Google nomes es queda el DIA. L'app no demana hora a
+      les tasques, aixi que no promet res que Google llenci.
+   ============================================================ */
+
+function _gTz_() {
+  try { return Session.getScriptTimeZone() || 'Europe/Madrid'; }
+  catch (e) { return 'Europe/Madrid'; }
+}
+
+// "17:00h" -> "17:00" | "9h" -> "09:00" | buit -> null
+function _gHora_(h) {
+  if (!h) return null;
+  var m = String(h).match(/(\d{1,2})\s*[:.h]?\s*(\d{2})?/);
+  if (!m) return null;
+  var hh = parseInt(m[1], 10), mm = m[2] ? parseInt(m[2], 10) : 0;
+  if (isNaN(hh) || hh > 23 || mm > 59) return null;
+  return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+}
+function _gDiaSeguent_(d) {
+  var p = String(d).split('-');
+  var dt = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+  dt.setDate(dt.getDate() + 1);
+  var pad = function (x) { return (x < 10 ? '0' : '') + x; };
+  return dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
+}
+function _gMesUnaHora_(hhmm) {
+  var p = hhmm.split(':');
+  var h = (parseInt(p[0], 10) + 1) % 24;
+  return (h < 10 ? '0' : '') + h + ':' + p[1];
+}
+
+// Recurs d'esdeveniment (regles 3 i 4)
+function _gcalRecurs_(ev, id) {
+  var tz = _gTz_();
+  var r = { summary: String(ev.titol || 'Sense titol').substring(0, 1024) };
+  var desc = [];
+  if (ev.desc) desc.push(ev.desc);
+  if (ev.link) desc.push(ev.link);
+  if (desc.length) r.description = desc.join('\n\n');
+  if (id) r.id = id;
+
+  var ini = _gHora_(ev.hora);
+  if (!ini) {
+    // Tot el dia: "end" es EXCLUSIU, per aixo va a l'endema
+    r.start = { date: ev.data };
+    r.end   = { date: _gDiaSeguent_(ev.data) };
+    return r;
+  }
+  var fi = _gHora_(ev.horaFi);
+  if (!fi) fi = _gMesUnaHora_(ini);                 // nomes quan no se sap la durada
+  var dataFi = ev.data;
+  if (fi <= ini) dataFi = _gDiaSeguent_(ev.data);   // "de 23:00 a 00:30" = l'endema
+  r.start = { dateTime: ev.data + 'T' + ini + ':00', timeZone: tz };
+  r.end   = { dateTime: dataFi + 'T' + fi  + ':00', timeZone: tz };
+  return r;
+}
+
+function _gEsPassatger_(msg) {
+  return /rate limit|quota exceeded|backend error|internal error|try again|unavailable|503|429|timed? ?out|deadline/i.test(String(msg || ''));
+}
+function _gEsNoHiEs_(msg) {
+  return /not found|404|has been deleted|deleted/i.test(String(msg || ''));
+}
+// Reintent amb espera creixent (1s, 4s, 16s). Mai per errors d'autoritzacio.
+function _gRetry_(fn) {
+  var esperes = [1000, 4000, 16000];
+  for (var i = 0; ; i++) {
+    try { return fn(); }
+    catch (err) {
+      var m = String((err && err.message) || err);
+      if (!_gEsPassatger_(m) || i >= esperes.length) throw err;
+      Utilities.sleep(esperes[i]);
+    }
+  }
+}
+
+/* ---- Calendar ---- */
+function _gcalDesa_(ev) {
+  var calId = ev.gCal || 'primary';
+  if (!ev.data) return { ok: false, error: 'Sense data' };
+  if (!ev.gId)  return { ok: false, error: 'Sense id de Google' };
+
+  // 1r intent: CREAR amb el NOSTRE id (reintentar no duplica)
+  try {
+    var creat = _gRetry_(function () { return Calendar.Events.insert(_gcalRecurs_(ev, ev.gId), calId); });
+    return { ok: true, gId: creat.id, gCal: calId };
+  } catch (e) {
+    if (!/already exists/i.test(String(e.message))) return { ok: false, error: String(e.message) };
+  }
+  // Ja existia -> la creacio anterior va funcionar. Si el van esborrar des de
+  // Google, alla guanya Google i no el ressuscitem.
+  try {
+    var actual = Calendar.Events.get(calId, ev.gId);
+    if (actual && actual.status === 'cancelled') return { ok: false, gone: true, error: 'esborrat-a-google' };
+  } catch (eGet) {
+    if (_gEsNoHiEs_(eGet.message)) return { ok: false, gone: true, error: 'esborrat-a-google' };
+  }
+  try {
+    var upd = _gRetry_(function () { return Calendar.Events.patch(_gcalRecurs_(ev, null), calId, ev.gId); });
+    return { ok: true, gId: upd.id, gCal: calId };
+  } catch (e2) {
+    if (_gEsNoHiEs_(e2.message)) return { ok: false, gone: true, error: 'esborrat-a-google' };
+    return { ok: false, error: String(e2.message) };
+  }
+}
+
+function _gcalEsborra_(gId, gCal) {
+  try {
+    _gRetry_(function () { Calendar.Events.remove(gCal || 'primary', gId); });
+    return { ok: true };
+  } catch (err) {
+    if (_gEsNoHiEs_(err.message)) return { ok: true, jaNoHiEra: true };
+    return { ok: false, error: String(err.message) };
+  }
+}
+
+/* ---- Tasks ---- */
+function _gtaskRecurs_(t) {
+  var r = {
+    title:  String(t.titol || 'Sense titol').substring(0, 1024),
+    notes:  String(t.desc || '').substring(0, 8192),
+    status: t.feta ? 'completed' : 'needsAction'
+  };
+  // ATENCIO: de "due" Google nomes es queda el DIA (llenca l'hora).
+  if (t.data) r.due = t.data + 'T00:00:00.000Z';
+  return r;
+}
+
+function _gtaskDesa_(t) {
+  var llista = t.gList || '@default';
+  // Tasks no deixa enviar l'id: l'unica proteccio contra duplicats es no
+  // tornar a crear allo que ja te gId desat.
+  if (t.gId) {
+    try {
+      var upd = _gRetry_(function () { return Tasks.Tasks.patch(_gtaskRecurs_(t), llista, t.gId); });
+      return { ok: true, gId: upd.id, gList: llista };
+    } catch (e) {
+      if (_gEsNoHiEs_(e.message)) return { ok: false, gone: true, error: 'esborrada-a-google' };
+      return { ok: false, error: String(e.message) };
+    }
+  }
+  try {
+    var creat = _gRetry_(function () { return Tasks.Tasks.insert(_gtaskRecurs_(t), llista); });
+    return { ok: true, gId: creat.id, gList: llista };
+  } catch (err) {
+    return { ok: false, error: String(err.message) };
+  }
+}
+
+function _gtaskEsborra_(gId, gList) {
+  try {
+    _gRetry_(function () { Tasks.Tasks.remove(gList || '@default', gId); });
+    return { ok: true };
+  } catch (err) {
+    if (_gEsNoHiEs_(err.message)) return { ok: true, jaNoHiEra: true };
+    return { ok: false, error: String(err.message) };
+  }
+}
+
+/* ---- Punt d'entrada: tot en un sol lot (estalvia quota) ----
+   canvis = { events:[], tasks:[], esborrarEvents:[{gId,gCal}], esborrarTasks:[{gId,gList}] }
+   Torna un resultat per element, indexat per l'id LOCAL de l'app. */
+function gwriteSync(canvis) {
+  if (!canvis) return { ok: false, error: 'Sense canvis' };
+  if (typeof canvis === 'string') {
+    try { canvis = JSON.parse(canvis); } catch (e) { return { ok: false, error: 'Canvis illegibles' }; }
+  }
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); }
+  catch (e) { return { ok: false, error: 'Hi ha una altra sincronitzacio en marxa' }; }
+  try {
+    var res = { ok: true, events: {}, tasks: {}, esborrats: { events: {}, tasks: {} } };
+    (canvis.events || []).forEach(function (ev) { res.events[ev.id] = _gcalDesa_(ev); });
+    (canvis.tasks  || []).forEach(function (t)  { res.tasks[t.id]  = _gtaskDesa_(t); });
+    (canvis.esborrarEvents || []).forEach(function (d) { if (d && d.gId) res.esborrats.events[d.gId] = _gcalEsborra_(d.gId, d.gCal); });
+    (canvis.esborrarTasks  || []).forEach(function (d) { if (d && d.gId) res.esborrats.tasks[d.gId]  = _gtaskEsborra_(d.gId, d.gList); });
+    return res;
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
+  }
+}
+
 
 function jsonResponse(data){
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);

@@ -3491,3 +3491,18 @@ body {
   text-align: center; padding: 8px 6px; line-height: 1.3;
 }
 .plan-festa-tag-sm { font-size: 12px; font-weight: 600; color: var(--garnet-mid); }
+
+/* ── Escriure al Google (Calendar + Tasks) ── */
+.gwrite-row {
+  display: flex; align-items: flex-start; gap: 9px;
+  font-size: 13px; color: var(--text-main); cursor: pointer; line-height: 1.45;
+}
+.gwrite-row input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--crimson); flex-shrink: 0; cursor: pointer; }
+.gwrite-estat {
+  display: inline-block; font-weight: 700; font-size: 11px;
+  padding: 1px 7px; border-radius: 20px;
+  background: var(--surface-alt); color: var(--text-muted);
+}
+.gwrite-estat.gwrite-ok      { background: #E7F5EC; color: #15803D; }
+.gwrite-estat.gwrite-pendent { background: #FFF6E5; color: #B45309; }
+.gwrite-estat.gwrite-enviant { background: #EAF0FE; color: #1D4ED8; }

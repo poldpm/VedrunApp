@@ -1036,6 +1036,11 @@ Català, Matemàtiques, Anglès, Medi, Català
               <input class="modal-input" id="cal2EvHora" type="text" placeholder="Ex: 08:50h">
             </div>
             <div class="modal-field">
+              <div class="modal-label">Fins a (opcional)</div>
+              <input class="modal-input" id="cal2EvHoraFi" type="text" placeholder="Ex: 10:40h">
+              <div class="modal-hint">Si ho deixes buit, al Google Calendar hi durara 1 hora.</div>
+            </div>
+            <div class="modal-field">
               <div class="modal-label">Categoria</div>
               <select class="modal-input" id="cal2EvGrup"></select>
             </div>
@@ -1593,6 +1598,20 @@ Català, Matemàtiques, Anglès, Medi, Català
           <button class="btn btn-ghost btn-sm" onclick="testNotification()">Provar</button>
         </div>
 
+        <hr class="modal-divider">
+        <div class="modal-field">
+          <div class="modal-label">Escriure al meu Google</div>
+          <label class="gwrite-row">
+            <input type="checkbox" id="cfgGwrite" onchange="gwrite &amp;&amp; gwrite.setActiu(this.checked)">
+            <span>Enviar els meus events i tasques al Google Calendar i al Google Tasks</span>
+          </label>
+          <div class="modal-hint">
+            Els events i les tasques que creïs a l'app apareixeran al teu Google, i si els
+            canvies o els esborres aquí, allà també. Els festius del calendari escolar
+            <strong>no</strong> s'hi envien. Estat: <span id="gwriteEstat" class="gwrite-estat">Desactivat</span>
+          </div>
+        </div>
+
         <details class="cfg-avancat">
           <summary>Opcions avançades</summary>
           <div class="modal-field" style="margin-top:10px">
@@ -1794,6 +1813,7 @@ Català, Matemàtiques, Anglès, Medi, Català
   <script defer src="js/postits.js"></script>
   <script defer src="js/horari.js"></script>
   <script defer src="js/vedrunu.js"></script>
+  <script defer src="js/gwrite.js"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

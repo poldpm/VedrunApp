@@ -2549,6 +2549,9 @@ async function _loadGCalEvents(year, month) {
   try {
     const r = await appsScriptGet({ action: 'getGCalEvents', year, month: month + 1 });
     if (r.ok && r.events) {
+      // Treu els events que hem escrit NOSALTRES al Google: si no, es veurien
+      // dos cops (el de l'app i el mateix tornant de Google).
+      try { if (window.gwrite) r.events = window.gwrite.filtraPropis(r.events); } catch (e) {}
       // SEMPRE desa al cache (encara que l'usuari ja no miri aquest mes)
       _cal2GCalCache[gcalKey]     = r.events;
       _cal2GCalCacheMeta[gcalKey] = Date.now();
@@ -2684,6 +2687,7 @@ function openCal2Event(id, prefillDate) {
       document.getElementById('cal2EvTitol').value = ev.titol||'';
       document.getElementById('cal2EvData').value  = ev.data||'';
       document.getElementById('cal2EvHora').value  = ev.hora||'';
+      { const _hf=document.getElementById('cal2EvHoraFi'); if(_hf) _hf.value = ev.horaFi||''; }
       document.getElementById('cal2EvGrup').value  = ev.catId||'';
       document.getElementById('cal2EvDesc').value  = ev.desc||'';
       document.getElementById('cal2EvLink').value  = ev.link||'';
@@ -2692,6 +2696,7 @@ function openCal2Event(id, prefillDate) {
     document.getElementById('cal2EvTitol').value = '';
     document.getElementById('cal2EvData').value  = prefillDate||(_cal2Year+'-'+String(_cal2Month+1).padStart(2,'0')+'-01');
     document.getElementById('cal2EvHora').value  = '';
+    { const _hf=document.getElementById('cal2EvHoraFi'); if(_hf) _hf.value = ''; }
     document.getElementById('cal2EvDesc').value  = '';
     document.getElementById('cal2EvLink').value  = '';
   }
