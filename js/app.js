@@ -2496,8 +2496,15 @@ function _calSeedEscola() {
     if (localStorage.getItem('cal_escola_seed') === CAL_ESCOLA_SEED_VER) return; // ja fet
     const SCHOOL = ['festiu','vacances','local','lliure','escola']; // catIds (nou + versions antigues)
     // Una sola categoria grisa "Festiu"; treu les de colors de versions anteriors.
-    const cats = cal2LoadCats().filter(c => SCHOOL.indexOf(c.id) === -1);
-    CAL_ESCOLA_CATS.forEach(nc => cats.push(nc));
+    //
+    // IMPORTANT: si el mestre ja té la categoria "festiu", es RESPECTA tal com
+    // la tingui (nom i color). Abans se substituïa per la de fàbrica, o sigui
+    // que en pujar el calendari d'un curs nou tothom perdia la seva.
+    const totes  = cal2LoadCats();
+    const propia = totes.find(c => c.id === 'festiu');
+    const cats   = totes.filter(c => SCHOOL.indexOf(c.id) === -1);
+    if (propia) cats.push(propia);                        // la seva, intacta
+    else CAL_ESCOLA_CATS.forEach(nc => cats.push(nc));    // encara no en tenia
     cal2SaveCats(cats);
     Object.keys(CAL_ESCOLA_EVENTS).forEach(any => {
       const evs = cal2LoadEvents(any);
