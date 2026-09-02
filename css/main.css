@@ -3506,3 +3506,47 @@ body {
 .gwrite-estat.gwrite-ok      { background: #E7F5EC; color: #15803D; }
 .gwrite-estat.gwrite-pendent { background: #FFF6E5; color: #B45309; }
 .gwrite-estat.gwrite-enviant { background: #EAF0FE; color: #1D4ED8; }
+
+/* ── Editor d'objectius (generador de comentaris) i aspectes d'actitud ── */
+.rub-modal { width: min(760px, calc(100vw - 32px)); }
+.rub-buit { padding: 26px 4px; color: var(--text-sub); line-height: 1.6; }
+.rub-buit p { margin-bottom: 8px; }
+.rub-obj {
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 12px; margin-bottom: 12px; background: var(--surface-tint);
+}
+.rub-obj-cap { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.rub-obj-num {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: var(--crimson); color: #fff; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.rub-obj-nom { flex: 1; font-weight: 600; }
+.rub-obj-del {
+  background: none; border: none; cursor: pointer; color: var(--text-muted);
+  padding: 5px; border-radius: 6px; display: flex; flex-shrink: 0;
+  transition: color var(--dur-2, .2s), background var(--dur-2, .2s);
+}
+.rub-obj-del svg { width: 15px; height: 15px; }
+.rub-obj-del:hover { color: #B42318; background: #FDECEA; }
+.rub-niv { display: grid; grid-template-columns: 120px 1fr; gap: 8px; margin-bottom: 6px; align-items: start; }
+.rub-niv-nom { font-size: 11px; font-weight: 700; color: var(--text-sub); padding-top: 8px; }
+.rub-niv-txt { resize: vertical; min-height: 40px; font-size: 12.5px; line-height: 1.45; }
+@media (max-width: 620px) { .rub-niv { grid-template-columns: 1fr; gap: 3px; } .rub-niv-nom { padding-top: 2px; } }
+
+.rub-imp-ajuda { line-height: 1.6; margin-bottom: 12px; }
+.rub-imp-cols { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+.rub-imp-cols span {
+  font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: var(--r-pill, 20px);
+  background: var(--crimson-050, #FBEAEF); color: var(--garnet-text);
+  border: 1px solid var(--crimson-100, #F6D6DF);
+}
+.rub-imp-previ { border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px; background: var(--surface-tint); }
+.rub-imp-previ-cap { font-size: 13px; margin-bottom: 8px; color: var(--text-main); }
+.rub-imp-avis { font-size: 11.5px; color: var(--warn, #B45309); background: var(--warn-bg, #FFF6E5); border-radius: 6px; padding: 5px 8px; margin-bottom: 5px; }
+.rub-imp-item { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 4px 0; border-top: 1px solid var(--hairline, #EFE7EA); }
+.rub-imp-crit { color: var(--text-muted); font-size: 11px; flex-shrink: 0; }
+.rub-imp-mes { font-size: 11.5px; color: var(--text-muted); padding-top: 6px; }
+
+.asp-fila { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.asp-fila input { flex: 1; }

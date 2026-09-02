@@ -1,8 +1,8 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = '"vedruna-v105"';
+const CACHE = 'vedruna-v107';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
-  './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/vedrunu.js', './js/gwrite.js', './img/vedrunu-icon.png',
+  './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/vedrunu.js', './js/gwrite.js', './js/rubriques.js', './img/vedrunu-icon.png',
   './manifest.webmanifest', './img/favicon.svg', './img/icon-192.png', './img/icon-512.png',
   './img/icon-192-maskable.png', './img/icon-512-maskable.png', './img/icon.png',
   './img/favicon.ico', './img/favicon-32.png', './img/favicon-16.png', './img/apple-touch-icon.png',

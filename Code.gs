@@ -245,6 +245,10 @@ function handleRequest(e) {
       case 'getGCalEvents':          result = getGoogleCalendarEvents(parseInt((body&&body.year)||p.year), parseInt((body&&body.month)||p.month)); break;
       case 'getGoogleTasks':         result = getGoogleTasks(); break;
       case 'gwriteSync':             result = gwriteSync(body && body.canvis); break;
+      case 'saveRubrica':           result = saveRubrica(ss, (body&&body.materia)||p.materia, body&&body.data); break;
+      case 'loadRubrica':           result = loadRubrica(ss, (body&&body.materia)||p.materia); break;
+      case 'saveActitudAspectes':   result = saveActitudAspectes(ss, body&&body.data); break;
+      case 'loadActitudAspectes':   result = loadActitudAspectes(ss); break;
       default: result = { ok:false, error:'Accio desconeguda: '+action };
     }
     return jsonResponse(result);
@@ -2744,6 +2748,42 @@ function provaEscripturaGoogle() {
   diu('');
   diu('--- Fi del diagnostic ---');
   return linies.join('\n');
+}
+
+
+/* ============================================================
+   RUBRIQUES DEL GENERADOR DE COMENTARIS  +  ASPECTES D'ACTITUD
+   ------------------------------------------------------------
+   Abans estaven escrits al codi, o sigui que eren els d'un sol mestre.
+   Ara cada mestre es defineix els seus des de l'app i es desen al SEU
+   full, com la resta de dades.
+
+   rubrica_{materia} = { objectius: [ { id, nom, nivells: [4 textos] } ] }
+   actitud_aspectes  = [ { id, nom } ]
+   ============================================================ */
+
+function saveRubrica(ss, materia, data) {
+  if (!materia) return { ok: false, error: 'Falta la materia' };
+  var json = typeof data === 'string' ? data : JSON.stringify(data || {});
+  sheetSetJSON(ss, '_AppData', 'rubrica_' + materia, json);
+  return { ok: true };
+}
+
+function loadRubrica(ss, materia) {
+  if (!materia) return { ok: false, error: 'Falta la materia' };
+  var v = sheetGetJSON(ss, '_AppData', 'rubrica_' + materia);
+  return { ok: true, data: v ? JSON.parse(v) : null };
+}
+
+function saveActitudAspectes(ss, data) {
+  var json = typeof data === 'string' ? data : JSON.stringify(data || []);
+  sheetSetJSON(ss, '_AppData', 'actitud_aspectes', json);
+  return { ok: true };
+}
+
+function loadActitudAspectes(ss) {
+  var v = sheetGetJSON(ss, '_AppData', 'actitud_aspectes');
+  return { ok: true, data: v ? JSON.parse(v) : null };
 }
 
 function jsonResponse(data){

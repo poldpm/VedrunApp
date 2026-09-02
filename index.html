@@ -236,10 +236,10 @@
           <a class="home-link-mini" href="https://escorialvic.clickedu.eu/user.php?action=login" target="_blank" title="Clickedu">
             <img src="img/link_clickedu.png" alt="Clickedu" width="40" height="40">
           </a>
-          <a class="home-link-mini" href="https://poldpm.github.io/coordinaci-_2nPrim/" target="_blank" title="Coordinació">
+          <a class="home-link-mini" data-cfg="coordinacio" href="#" target="_blank" title="Coordinació">
             <img src="img/link_coordinacio.png" alt="Coordinació" width="40" height="40">
           </a>
-          <a class="home-link-mini" href="https://teach.classdojo.com/#/classes/691b3a9606a6d40d96fef322/points" target="_blank" title="ClassDojo">
+          <a class="home-link-mini" data-cfg="classdojo" href="#" target="_blank" title="ClassDojo">
             <img src="img/link_classdojo.png" alt="ClassDojo" width="40" height="40">
           </a>
         </div>
@@ -1612,6 +1612,18 @@ Català, Matemàtiques, Anglès, Medi, Català
           </div>
         </div>
 
+        <div class="modal-field">
+          <div class="modal-label">Objectius i enllaços propis</div>
+          <div class="cfg-actions">
+            <button class="btn btn-ghost btn-sm" onclick="rubriques &amp;&amp; rubriques.obreAspectes()">Aspectes d'actitud</button>
+            <button class="btn btn-ghost btn-sm" onclick="rubriques &amp;&amp; rubriques.obreEnllacos()">Els meus enllaços</button>
+          </div>
+          <div class="modal-hint">
+            Els <strong>objectius per generar comentaris</strong> s'editen des del
+            Generador de comentaris, amb el botó «Editar objectius».
+          </div>
+        </div>
+
         <details class="cfg-avancat">
           <summary>Opcions avançades</summary>
           <div class="modal-field" style="margin-top:10px">
@@ -1814,6 +1826,7 @@ Català, Matemàtiques, Anglès, Medi, Català
   <script defer src="js/horari.js"></script>
   <script defer src="js/vedrunu.js"></script>
   <script defer src="js/gwrite.js"></script>
+  <script defer src="js/rubriques.js"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
