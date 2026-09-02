@@ -62,7 +62,10 @@ function renderHorari() {
   const franges = (typeof PLAN_FRANGES !== 'undefined') ? PLAN_FRANGES : [];
 
   let html = '<thead><tr><th class="horari-hora-head"></th>';
-  dies.forEach(d => { html += `<th>${d.nom.slice(0,2)}</th>`; });
+  // Les dues primeres lletres NO serveixen: en català tots els dies comencen
+  // per "Di" i les cinc columnes sortien igual ("DI DI DI DI DI"). Fem servir
+  // l'abreviatura de sempre (DL, DM, DC, DJ, DV), la mateixa que a la portada.
+  dies.forEach(d => { html += `<th title="${d.nom}">${d.id.toUpperCase()}</th>`; });
   html += '</tr></thead><tbody>';
 
   franges.forEach(franja => {

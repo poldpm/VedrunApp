@@ -22,9 +22,24 @@
 
   function clauLocal(mat) { return 'rubrica_' + mat; }
 
+  /* Abans la clau d'una assignatura era només el nom ("matematiques").
+     Ara hi va també el grup ("matematiques__2nc"), perquè els objectius de
+     Música a 3r no són els de Música a 5è. Qui ja tenia rúbriques desades
+     amb la clau antiga les ha de continuar veient: si amb la clau nova no
+     hi ha res, es mira la vella. En desar, ja es fa amb la clau nova. */
+  function clauAntiga(mat) {
+    var i = String(mat || '').indexOf('__');
+    return i > 0 ? String(mat).slice(0, i) : null;
+  }
+
   function llegeixLocal(mat) {
-    try { return JSON.parse(localStorage.getItem(clauLocal(mat)) || 'null'); }
-    catch (e) { return null; }
+    try {
+      var d = JSON.parse(localStorage.getItem(clauLocal(mat)) || 'null');
+      if (d) return d;
+      var vella = clauAntiga(mat);
+      if (vella) return JSON.parse(localStorage.getItem(clauLocal(vella)) || 'null');
+      return null;
+    } catch (e) { return null; }
   }
   function desaLocal(mat, dades) {
     try { localStorage.setItem(clauLocal(mat), JSON.stringify(dades)); } catch (e) {}
@@ -67,6 +82,11 @@
     carregades[mat] = true;
     try {
       var r = await appsScriptGet({ action: 'loadRubrica', materia: mat });
+      // Si amb la clau nova el full no en té, prova la clau antiga (veure clauAntiga)
+      if ((!r || !r.ok || !r.data || !(r.data.objectius || []).length) && clauAntiga(mat)) {
+        var r2 = await appsScriptGet({ action: 'loadRubrica', materia: clauAntiga(mat) });
+        if (r2 && r2.ok && r2.data && (r2.data.objectius || []).length) r = r2;
+      }
       if (r && r.ok && r.data) {
         desaLocal(mat, r.data);
         aplica(mat, r.data);

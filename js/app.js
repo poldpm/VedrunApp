@@ -905,13 +905,19 @@ function _mostraErrorConnexio(tipus, detall) {
       titol = 'Error';
       missatge = detall || 'Hi ha hagut un problema desconegut.';
   }
-  // Toast persistent + banner de configuració visible
   showToast(titol + ': ' + missatge, 'error');
+  // El toast se'n va als 8 segons i abans el bàner es quedava dient
+  // "Pas 1: Configura la connexió" — que és fals si ja està configurada i el
+  // que passa és que el servidor no respon. El bàner ha de dir QUÈ passa i
+  // quedar-s'hi fins que es resolgui.
   const banner = document.getElementById('setupBanner');
   if (banner) {
     banner.style.display = 'block';
-    const bt = banner.querySelector('.setup-banner-text') || banner;
-    // No sobreescrivim tot el banner si té estructura; només assegurem que es veu
+    const bt = banner.querySelector('.setup-banner-text');
+    if (bt) {
+      bt.innerHTML = '<strong>' + escapeHtml(titol) + ':</strong> ' + escapeHtml(missatge) +
+        ' <a onclick="openConfig()">Obrir configuració →</a>';
+    }
   }
 }
 
@@ -969,11 +975,36 @@ async function _backgroundRefresh() {
 /* ============================================================
    ALUMNES — PÀGINA LLISTA
    ============================================================ */
+/* Per què no hi ha alumnes? No és el mateix no estar connectada que no tenir
+   tutoria. Abans sempre deia "Connecta amb Google Sheets per veure els alumnes",
+   fins i tot estant connectada: una especialista pensava que li fallava la
+   connexió i anava a Configuració a buscar-hi un problema que no hi era. */
+function _motiuSenseAlumnes() {
+  if (!config.scriptUrl) {
+    return { titol: 'Encara no estàs connectada',
+             text: 'Ves a <strong>Configuració</strong> i enganxa la URL que et van donar.' };
+  }
+  const teTutoria = (typeof grupActual === 'function') && grupActual();
+  if (!teTutoria) {
+    return { titol: 'No ets tutor/a de cap grup',
+             text: 'Aquesta pantalla mostra els alumnes de la teva tutoria. Per veure els d\'un curs on fas classe, tria l\'assignatura al menú de l\'esquerra i clica <strong>Veure alumnes</strong>.' };
+  }
+  return { titol: 'Encara no hi ha cap alumne a ' + teTutoria,
+           text: 'Quan els alumnes del teu grup siguin al full compartit, sortiran aquí sols.' };
+}
+
+function _pintaEstatBuitAlumnes(el) {
+  if (!el) return;
+  const m = _motiuSenseAlumnes();
+  const p = el.querySelector('p');
+  if (p) p.innerHTML = '<strong>' + m.titol + '</strong><br>' + m.text;
+}
+
 function renderAlumnesList() {
   const container = document.getElementById('alumnesList');
   container.querySelectorAll('.alumne-card').forEach(el => el.remove());
   const empty = document.getElementById('alumnesEmpty');
-  if (!students.length) { empty.style.display = 'block'; return; }
+  if (!students.length) { _pintaEstatBuitAlumnes(empty); empty.style.display = 'block'; return; }
   empty.style.display = 'none';
 
   const _alFrag = document.createDocumentFragment();
@@ -1041,7 +1072,7 @@ function renderPanelStudents(list) {
       <div class="student-avatar">${getInitials(s.nom)}</div>
       <div class="student-info">
         <div class="student-name">${escapeHtml(s.nom)}</div>
-        <div class="student-meta">2n C · <button class="student-gen-btn" data-gen="${gen}" title="Canviar gènere">${gen === 'f' ? '♀ Femení' : '♂ Masculí'}</button></div>
+        <div class="student-meta">${grupActual() ? escapeHtml(grupActual()) + ' · ' : ''}<button class="student-gen-btn" data-gen="${gen}" title="Canviar gènere">${gen === 'f' ? '♀ Femení' : '♂ Masculí'}</button></div>
       </div>
       <div class="student-actions">
         <button class="btn-personal ${hasData ? 'has-data' : ''}" title="Dades personals">
@@ -1061,7 +1092,7 @@ function renderPanelStudents(list) {
     div.querySelector('.action-btn.danger').addEventListener('click', () => deleteStudent(s.id));
     container.appendChild(div);
   });
-  const pcEl = document.getElementById('panelCount'); if (pcEl) pcEl.textContent = list.length + ' alumne' + (list.length!==1?'s':'') + ' · 2n C';
+  const pcEl = document.getElementById('panelCount'); if (pcEl) pcEl.textContent = list.length + ' alumne' + (list.length!==1?'s':'') + _sufixGrup();
   const acEl = document.getElementById('alumnesCount'); if (acEl) acEl.textContent = '· ' + list.length + ' alumnes';
   document.getElementById('footerInfo').textContent = list.length + ' alumnes al full de càlcul';
 }
@@ -1072,6 +1103,11 @@ function renderPanelStudents(list) {
 async function renderFitxa(studentId) {
   const s  = students.find(x => x.id === studentId);
   if (!s) return;
+
+  // El grup de la fitxa: abans l'HTML deia "2n C · Primària" fix, o sigui que
+  // una tutora de 4t B veia "2n C" a la fitxa de cada alumne seu.
+  const _fm = document.getElementById('fitxaMeta');
+  if (_fm) { const g = grupActual(); _fm.textContent = g ? g + ' · Primària' : 'Primària'; }
 
   // Carrega dades personals si no les tenim (normalment ja carregades per loadAll)
   if (!personal[studentId] && config.scriptUrl) {
@@ -1484,7 +1520,9 @@ function renderObsGrid() {
   const grid  = document.getElementById('obsStudentGrid');
   grid.querySelectorAll('.obs-student-card').forEach(el => el.remove());
   const empty = document.getElementById('obsEmpty');
-  if (!students.length) { empty.style.display='block'; return; }
+  // Mateix motiu que a Alumnes: abans deia "Carrega els alumnes", que no és
+  // cap instrucció (no hi ha res per clicar que els carregui).
+  if (!students.length) { _pintaEstatBuitAlumnes(empty); empty.style.display='block'; return; }
   empty.style.display = 'none';
   students.forEach(s => {
     const obs   = observacions[s.id] || {};
@@ -1723,10 +1761,22 @@ function setEmptyState(msg) {
   em.style.display='block';
   document.getElementById('studentList').querySelectorAll('.student-item').forEach(el=>el.remove());
 }
+/* El grup de qui fa servir l'app ARA. Abans hi havia "2n C" escrit a pèl a
+   quatre llocs: era el grup d'en Pol i el veia tothom, tant si era el seu com
+   si no. Torna null si encara no se sap (mestra nova) o si no té tutoria
+   (especialista): en aquest cas val més no dir cap grup que dir-ne un de fals. */
+function grupActual() {
+  if (typeof _tutoriaGrup !== 'undefined' && _tutoriaGrup) return _tutoriaGrup;
+  if (typeof _perfilTutorGrupKey === 'function') { const g = _perfilTutorGrupKey(); if (g) return g; }
+  return null;
+}
+// " · 2n C" quan se sap el grup, i res quan no.
+function _sufixGrup() { const g = grupActual(); return g ? ' · ' + g : ''; }
+
 function updateHomeCounters() {
   // Comptador a la pàgina d'alumnes
   const panelCount = document.getElementById('panelCount');
-  if (panelCount) panelCount.textContent = students.length + ' alumne' + (students.length !== 1 ? 's' : '') + ' · 2n C';
+  if (panelCount) panelCount.textContent = students.length + ' alumne' + (students.length !== 1 ? 's' : '') + _sufixGrup();
   // Data al sidebar
   const dateEl = document.getElementById('sidebarDate');
   if (dateEl) {
@@ -2407,12 +2457,17 @@ function _hydrateGCalCache() {
 const MESOS_CA = ['Gener','Febrer','Març','Abril','Maig','Juny',
   'Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
 
-/* Categories per defecte */
+/* Categories per defecte (només per a qui encara no en té cap).
+   Abans eren "2nA", "2nB" i "2nC": els grups d'en Pol. Una mestra de 5è
+   obria el calendari i es trobava tres categories de segon. Ara són
+   neutres i les pot reanomenar des de ⚙ Categories.
+   Cap id pot ser una de les que el calendari escolar es reserva
+   ('festiu','vacances','local','lliure','escola'): les esborraria. */
 const CAL2_CATS_DEFAULT = [
-  { id:'2nA',     nom:'2nA',     color:'#22C55E' },
-  { id:'2nB',     nom:'2nB',     color:'#3B82F6' },
-  { id:'2nC',     nom:'2nC',     color:'#F97316' },
-  { id:'conjunt', nom:'Conjunt', color:'#8B5CF6' },
+  { id:'sortides',   nom:'Sortides',   color:'#22C55E' },
+  { id:'reunions',   nom:'Reunions',   color:'#3B82F6' },
+  { id:'activitats', nom:'Activitats', color:'#F97316' },
+  { id:'conjunt',    nom:'Conjunt',    color:'#8B5CF6' },
 ];
 
 function cal2LoadCats() {
@@ -4737,13 +4792,16 @@ let _comentAssig   = 'matematiques';
 let _comentAlumne  = null;
 let _comentSeleccions = {}; // { objIdx: nivellIdx (0-3) }
 
-function selectComentAssig(assig, btn) {
+async function selectComentAssig(assig, btn) {
   _comentAssig = assig;
   document.querySelectorAll('#comentAssigSelector .trim-sel-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   _comentSeleccions = {};
   renderComentRubrica();
   try { _comentPintaApunts(); } catch (e) {}
+  // Cada assignatura pot ser d'un grup diferent: canvia també els alumnes.
+  await _comentCarregaAlumnesDelGrup(assig);
+  renderComentRubrica();
 }
 
 function onComentAlumneChange() {
@@ -4760,8 +4818,18 @@ function renderComentRubrica() {
   const genBtn    = document.getElementById('comentGenBtn');
 
   if (!rubrica || !rubrica.objectius.length) {
+    // Abans deia "s'afegirà quan tinguis els objectius definitius": en passiva,
+    // com si els hagués de posar algú altre. Els objectius se'ls fa cada mestra,
+    // així que ha de quedar clar què ha de fer ella i on ho fa.
     const nomAssig = rubrica?.nom || document.querySelector('#comentAssigSelector .trim-sel-btn.active')?.textContent.trim() || _comentAssig;
-    container.innerHTML = `<p class="fitxa-empty-field" style="margin-top:12px">Rúbrica de ${escapeHtml(nomAssig)} encara no disponible. S'afegirà quan tinguis els objectius definitius.</p>`;
+    container.innerHTML =
+      `<div class="tasques-empty" style="margin-top:12px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" width="36" height="36"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <p>Encara no has escrit els objectius de <strong>${escapeHtml(nomAssig)}</strong>.<br>
+        Clica <strong>Editar objectius</strong> per escriure'ls, o importa'ls d'un document que ja tinguis.</p>
+        <button class="btn btn-primary btn-sm" style="margin-top:10px"
+          onclick="rubriques && rubriques.obreEditor()">Editar objectius</button>
+      </div>`;
     if (genBtn) genBtn.disabled = true;
     return;
   }
@@ -5138,21 +5206,66 @@ function initComentaris() {
   // del traç…). Les que encara no tenen rúbrica ho indiquen en seleccionar-les.
   const selBar = document.getElementById('comentAssigSelector');
   if (selBar) {
-    const grup = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
-    const _kn = s => (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
-    let subs = (typeof _perfil !== 'undefined' && _perfil.classes && grup && _perfil.classes[grup]) ? _perfil.classes[grup] : [];
-    if (!subs.length) subs = ['Matemàtiques','Català','Medi','Anglès']; // reserva
-    const items = subs.map(nom => ({ key: _kn(nom), nom }));
-    if (!items.some(it => it.key === _comentAssig)) _comentAssig = items.length ? items[0].key : 'matematiques';
-    selBar.innerHTML = items.map(it =>
-      `<button class="trim-sel-btn${it.key===_comentAssig?' active':''}" data-assig="${it.key}" onclick="selectComentAssig('${it.key}',this)">${escapeHtml(it.nom)}</button>`
-    ).join('');
+    // Abans això només mirava les assignatures de la TUTORIA. Una especialista
+    // (sense tutoria) es quedava amb la llista de reserva —Matemàtiques, Català,
+    // Medi, Anglès— i no podia triar la seva assignatura de cap manera.
+    // Ara fem servir la mateixa font que Assoliments i el Generador de grups:
+    // totes les seves entrades, tutoria i altres cursos.
+    const entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
+    if (entrades.length) {
+      entrades.forEach(e => {
+        if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
+        if (e.altres) { if (typeof _assigDesdobMap !== 'undefined') _assigDesdobMap[e.key] = { curs: e.curs, assig: e.nom, rotatori: e.rotatori }; }
+        else if (typeof _assigGrupMap !== 'undefined') _assigGrupMap[e.key] = e.grup;
+        if (typeof _assigNomMap !== 'undefined') _assigNomMap[e.key] = e.nom;
+      });
+      if (!entrades.some(e => e.key === _comentAssig)) _comentAssig = entrades[0].key;
+      selBar.innerHTML = entrades.map(e =>
+        `<button class="trim-sel-btn${e.key===_comentAssig?' active':''}" data-assig="${e.key}" onclick="selectComentAssig('${e.key}',this)">${escapeHtml(e.label)}</button>`
+      ).join('');
+    } else {
+      // Encara no ha omplert el perfil: no inventem assignatures que no fa.
+      selBar.innerHTML = '<span class="modal-hint">Omple el teu perfil per triar assignatura.</span>';
+    }
   }
   // Deixa l interruptor dels apunts i el seu avis al dia
   try { _comentPintaApunts(); } catch (e) {}
-  // Omple el selector d'alumnes
+  _comentOmpleAlumnes();
+  // Carrega els alumnes del grup d'aquesta assignatura (una especialista no en
+  // té cap de "seu": els seus alumnes són els del curs on fa classe).
+  _comentCarregaAlumnesDelGrup(_comentAssig);
+}
+
+/* Omple el desplegable amb els alumnes que hi ha ara a `students`. */
+function _comentOmpleAlumnes() {
   const sel = document.getElementById('comentAlumneSelect');
   if (!sel) return;
+  const anterior = sel.value;
   sel.innerHTML = '<option value="">— Selecciona un alumne —</option>' +
     students.map(s => `<option value="${s.id}">${escapeHtml(s.nom)}</option>`).join('');
+  // Manté l'alumne triat si encara hi és
+  if (anterior && students.some(s => String(s.id) === String(anterior))) sel.value = anterior;
+  else if (_comentAlumne && !students.some(s => String(s.id) === String(_comentAlumne))) _comentAlumne = null;
+}
+
+/* Els alumnes que toquen per a l'assignatura triada, igual que fa Assoliments. */
+async function _comentCarregaAlumnesDelGrup(matKey) {
+  if (!matKey) return;
+  const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[matKey] : null;
+  if (dd) {
+    if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(dd.curs, dd.assig);
+    _comentOmpleAlumnes();
+    return;
+  }
+  const grup = (typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null;
+  const nomBase = (typeof _assigNomMap !== 'undefined') ? _assigNomMap[matKey] : null;
+  if (!grup) {
+    if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents();
+    _comentOmpleAlumnes();
+    return;
+  }
+  if (typeof _ensureGrupStudents === 'function') {
+    await _ensureGrupStudents(grup, nomBase || matKey);
+    _comentOmpleAlumnes();
+  }
 }

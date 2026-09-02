@@ -164,6 +164,13 @@ function _perfilAddGrup(key) {
   _perfilRenderGrups();
 }
 function _perfilRemoveGrup(key) {
+  // Treu el curs I totes les assignatures que hi tingués marcades. No es pot
+  // desfer, i la × és petita i fàcil de clicar sense voler.
+  const assigs = (_perfil.classes && _perfil.classes[key]) || [];
+  const detall = assigs.length
+    ? ' Perdràs les ' + assigs.length + ' assignatures que hi tens marcades (' + assigs.join(', ') + ').'
+    : '';
+  if (!confirm('Vols treure ' + key + ' del teu perfil?' + detall)) return;
   delete _perfil.classes[key];
   _perfilRenderGrups();
 }

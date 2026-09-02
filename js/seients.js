@@ -221,6 +221,12 @@ function seientsAddRow() {
   _seientsSyncToSheets();
 }
 function seientsDeleteGroup(gid) {
+  // Esborrar una fila de taules també treu del plànol els alumnes que hi
+  // seien, i es desa a l'instant. Val més preguntar-ho.
+  const g = _seientsLayout.find(x => x.id === gid);
+  const ocupats = g ? (g.seats || []).filter(s => s && s.studentId).length : 0;
+  const detall = ocupats ? ' Els ' + ocupats + ' alumnes que hi seuen tornaran a la llista.' : '';
+  if (!confirm('Vols esborrar aquesta fila de taules?' + detall)) return;
   _seientsLayout = _seientsLayout.filter(x => x.id !== gid);
   renderSeients();
   _seientsSyncToSheets();
