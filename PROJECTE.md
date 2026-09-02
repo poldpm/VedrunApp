@@ -94,6 +94,11 @@ l'app dels especialistes tornaria a ser la dels tutors a la primera
 actualització. La carpeta és `C:\Escorial\VedrunApp-Especialistes` i s'hi
 propaga tot amb `node eines/sync-filla.js "C:/Escorial/VedrunApp-Especialistes"`.
 
+Aquesta carpeta és una **plantilla local**: no té repositori ni GitHub Pages
+(decidit el 3 de setembre de 2026) i no cal que en tingui, perquè
+`nova-filla.js` en copia fitxers, no clona res. Qui es publica a Internet és
+l'app de cada mestra, no aquesta.
+
 **Què canvia quan `APP_ROL === 'especialista'`:**
 
 | On | Què |

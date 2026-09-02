@@ -134,6 +134,11 @@ necessiti la seva app, surt d'aquí amb `nova-filla.js` (veure aquí sobre), i
 tot el que es millori per a les especialistes es fa **a la mare** darrere
 `esEspecialista()`, no en aquesta carpeta.
 
+**NO es publica enlloc, i és a posta.** Aquesta carpeta és una plantilla que
+viu només a l'ordinador d'en Pol: no té repositori ni GitHub Pages, i no cal
+que en tingui. `nova-filla.js` en copia fitxers, no clona cap repositori.
+Qui té una adreça a Internet és **l'app de cada mestra**, no aquesta.
+
 ## Un cop creada: què queda per fer
 
 `nova-filla.js` ja li ha deixat la carpeta, el `FILLA.json`, el rol i el

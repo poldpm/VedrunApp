@@ -4,7 +4,7 @@
     {
       "mestra": "Especialistes",
       "carpeta": "C:/Escorial/VedrunApp-Especialistes",
-      "nota": "No és d'una mestra: és la versió per a totes les especialistes. L'únic propi és js/rol.js (i el nom als manifests)."
+      "nota": "Plantilla, no és d'una mestra: la versió per a totes les especialistes. NO es publica (sense repositori ni Pages), viu només al disc; d'aquí en surten les apps de les especialistes amb eines/nova-filla.js. L'únic propi és js/rol.js (i el nom als manifests)."
     }
   ]
 }
