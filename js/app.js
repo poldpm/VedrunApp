@@ -79,9 +79,14 @@ function showPage(pageId, _fromPop) {
   );
   if (match) match.classList.add('active');
   closeSidebar();
+  // Alumnes, Registres i Observacions són del grup SENCER. Si venim de les
+  // notes d'una assignatura desdoblada, `students` només té mitja classe:
+  // s'ha de tornar a posar la llista de la tutoria abans de pintar-les.
+  // (A l'app dels especialistes això no fa res: no hi ha tutoria, i el grup
+  // el tria ella amb el selector de dalt.)
   if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); renderAlumnesList(); }
-  if (pageId === 'registres')    { _rolRenderGrupPicker('registres'); renderRegistre(); }
-  if (pageId === 'observacions') { _rolRenderGrupPicker('observacions'); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
+  if (pageId === 'registres')    { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('registres'); renderRegistre(); }
+  if (pageId === 'observacions') { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('observacions'); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
   if (pageId === 'home')         renderHome();
   if (pageId === 'planning')     renderPlanning();
   if (pageId === 'assoliments')  { _initAssolimentsPage(); }
@@ -968,8 +973,11 @@ async function _backgroundRefresh() {
     const boot = await appsScriptGet({ action: 'bootstrap', weekIds: JSON.stringify(weekIds) }, false);
     if (boot && boot.ok) {
       _applyBootstrap(boot);
+      // Només es desa al cache si el bootstrap ha arribat de debò. Si falla,
+      // `students` pot ser mitja classe (venim d'una assignatura desdoblada)
+      // i desar-ho congelaria aquella llista per a la propera arrencada.
+      _saveMainToCache();
     }
-    _saveMainToCache();
 
     // Repinta NOMÉS la pàgina visible
     _paintAllViews();

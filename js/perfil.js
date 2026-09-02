@@ -629,8 +629,15 @@ async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
 function _restoreTutoriaStudents() {
   if (!_tutoriaAlumnes || !_tutoriaAlumnes.length) return;
   const grup = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
-  // Si l'últim grup carregat ja és el de tutoria, no cal fer res
-  if (_grupStudentsCarregat && grup && _grupStudentsCarregat.split('|')[0] === grup) return;
+  // Només es pot estalviar la feina si el que hi ha carregat és la llista
+  // SENCERA de la tutoria, que és la clau "2n C|" (sense assignatura).
+  //
+  // Abans es comparava només la part del grup, i "2n C|Matemàtiques" també
+  // passava. Però aquesta clau vol dir "els alumnes de Matemàtiques de 2n C",
+  // que amb desdoblament són NOMÉS LA MEITAT. Resultat: obries les notes
+  // d'una assignatura desdoblada, tornaves a Alumnes i hi veies 15 alumnes
+  // en comptes de tots, sense cap avís.
+  if (grup && _grupStudentsCarregat === grup + '|') return;
   students = _tutoriaAlumnes.map(a => ({ id:a.id, nom:a.nom, genere:a.genere }));
   personal = {};
   _tutoriaAlumnes.forEach(a => {

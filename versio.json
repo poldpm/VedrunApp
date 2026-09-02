@@ -1,12 +1,9 @@
 {
-  "versio": "v117",
+  "versio": "v118",
   "data": "2026-09-02",
-  "titol": "Novetats d'aquesta versió",
+  "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Sota el logo ara hi diu si aquesta app és la dels tutors o la dels especialistes.",
-    "Nova app per a especialistes: al perfil no es tria tutoria, es diu a quins grups fas classe i quines assignatures hi fas (pots tenir 3r A, 3r B i 3r C alhora).",
-    "Els desdoblaments ara es respecten a tot arreu: a «Veure alumnes», a les observacions i al registre d aula hi surten els alumnes del teu grup, no la classe sencera.",
-    "Des de «Veure alumnes» d una assignatura, a la fitxa de l alumne ja hi pots afegir una observació. La veurà tot el claustre, com sempre.",
-    "Registres d aula: a l app dels especialistes cada assignatura de cada grup té el seu registre, i es tria a dalt de tot de la pàgina."
+    "ARREGLAT: si obries les notes d una assignatura desdoblada i després anaves a Alumnes, Observacions o Registres d aula, hi sortia només mitja classe. Ara hi tornen a sortir tots.",
+    "A les notes d una assignatura desdoblada hi continuen sortint només els teus, que és el correcte."
   ]
 }
