@@ -1,14 +1,10 @@
 {
-  "versio": "v115",
+  "versio": "v116",
   "data": "2026-09-02",
   "titol": "Novetats d'aquesta versió",
   "canvis": [
-    "El generador de comentaris ja mostra LES TEVES assignatures. Si en fas una a un curs que no és la teva tutoria, hi surt el curs al costat i els alumnes canvien sols.",
-    "Els objectius d'avaluació van per assignatura i per curs: els de Música de 3r ja no es barregen amb els de 5è.",
-    "A l'horari, les columnes ja diuen DL, DM, DC, DJ, DV (abans totes cinc deien «DI»).",
-    "Les pantalles ja diuen el TEU grup: abans hi sortia «2n C» a la fitxa, a les targetes i al comptador d'alumnes.",
-    "Quan no hi ha alumnes, l'app t'explica per què (no connectada, sense tutoria, o encara sense alumnes) en comptes de dir sempre el mateix.",
-    "Treure un curs del perfil i esborrar una fila de taules ara pregunten abans de fer-ho.",
-    "Si el servidor no respon, l'avís es queda a la vista amb el motiu, en comptes de desaparèixer al cap de 8 segons."
+    "Ja pots copiar els objectius d una assignatura a una altra: Editar objectius → «Copiar d una altra». Va molt bé si fas la mateixa matèria a dos cursos.",
+    "És una còpia: després la retoques per al curs i l assignatura d origen no es toca.",
+    "Si l assignatura on ets ja té objectius, tries si els vols afegir als teus o substituir-los (i t avisa de quants en perds)."
   ]
 }

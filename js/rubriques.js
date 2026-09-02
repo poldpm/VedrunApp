@@ -210,6 +210,7 @@
       '</div>' +
       '<div class="modal-body" id="rubBody"></div>' +
       '<div class="modal-footer">' +
+        '<button class="btn btn-ghost" id="rubCopiar">Copiar d\'una altra</button>' +
         '<button class="btn btn-ghost" id="rubImportar">Importar d\'un document</button>' +
         '<button class="btn btn-secondary" id="rubAfegir">+ Afegir objectiu</button>' +
         '<button class="btn btn-primary" id="rubDesar">Desar</button>' +
@@ -226,7 +227,121 @@
     });
     document.getElementById('rubDesar').addEventListener('click', desarEditor);
     document.getElementById('rubImportar').addEventListener('click', obreImport);
+    document.getElementById('rubCopiar').addEventListener('click', obreCopia);
     document.getElementById('rubTitolMat').textContent = nomMateria(matActual);
+  }
+
+  /* ================= COPIAR D'UNA ALTRA ASSIGNATURA =================
+     Els objectius van per assignatura I curs. Qui fa la mateixa matèria a
+     dos cursos no els ha de reescriure: se'ls copia i els retoca. Però
+     NOMÉS si ho demana: sovint els de 3r no serveixen per a 5è. */
+
+  // Les seves altres assignatures que ja tenen objectius escrits.
+  // Primer les de la MATEIXA matèria en un altre curs, que és el cas típic.
+  async function candidatesCopia() {
+    var entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
+    var base = String(matActual || '').split('__')[0];
+    var fora = [];
+    // Assegura't de tenir-les carregades del full, no només les vistes
+    for (var i = 0; i < entrades.length; i++) {
+      if (entrades[i].key === matActual) continue;
+      try { await carrega(entrades[i].key); } catch (e) {}
+    }
+    entrades.forEach(function (e) {
+      if (e.key === matActual) return;
+      var objs = objectius(e.key);
+      if (!objs.length) return;
+      fora.push({ key: e.key, label: e.label, quants: objs.length,
+                  mateixaMateria: String(e.key).split('__')[0] === base });
+    });
+    fora.sort(function (a, b) {
+      if (a.mateixaMateria !== b.mateixaMateria) return a.mateixaMateria ? -1 : 1;
+      return a.label.localeCompare(b.label);
+    });
+    return fora;
+  }
+
+  async function obreCopia() {
+    var ov = document.getElementById('rubCopiaOverlay');
+    if (!ov) {
+      ov = el('div', 'modal-overlay');
+      ov.id = 'rubCopiaOverlay';
+      ov.addEventListener('mousedown', function (e) { if (e.target === ov) ov.classList.remove('open'); });
+      var m = el('div', 'modal');
+      m.innerHTML =
+        '<div class="modal-header">' +
+          '<div><div class="modal-header-title">Copiar objectius</div>' +
+          '<div class="modal-header-sub" id="rubCopiaSub"></div></div>' +
+          '<button class="modal-close" id="rubCopiaX" aria-label="Tancar">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
+        '</div>' +
+        '<div class="modal-body" id="rubCopiaBody"></div>' +
+        '<div class="modal-footer"><button class="btn btn-secondary" id="rubCopiaTanca">Tancar</button></div>';
+      ov.appendChild(m);
+      document.body.appendChild(ov);
+      document.getElementById('rubCopiaX').addEventListener('click', function () { ov.classList.remove('open'); });
+      document.getElementById('rubCopiaTanca').addEventListener('click', function () { ov.classList.remove('open'); });
+    }
+    document.getElementById('rubCopiaSub').textContent = 'Cap a ' + nomMateria(matActual);
+    var body = document.getElementById('rubCopiaBody');
+    body.innerHTML = '<p class="modal-hint">Carregant…</p>';
+    ov.classList.add('open');
+
+    var llista = await candidatesCopia();
+    if (!llista.length) {
+      body.innerHTML =
+        '<div class="rub-buit"><p><strong>Encara no tens objectius enlloc més.</strong></p>' +
+        '<p>Quan n\'hagis escrit d\'una altra assignatura, els podràs copiar aquí en comptes de tornar-los a escriure.</p></div>';
+      return;
+    }
+    var jaEnTinc = esborrany.length;
+    body.innerHTML =
+      '<p class="modal-hint" style="margin-bottom:10px">' +
+        (jaEnTinc
+          ? 'Ja tens <strong>' + jaEnTinc + '</strong> objectiu' + (jaEnTinc > 1 ? 's' : '') +
+            ' aquí. Tria si els vols afegir als teus o substituir-los.'
+          : 'Tria d\'on els vols copiar. Després els pots retocar: seran una còpia, no s\'enllacen.') +
+      '</p>' +
+      llista.map(function (c, i) {
+        return '<div class="rub-obj" style="padding:10px 12px">' +
+          '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+            '<div style="flex:1;min-width:150px">' +
+              '<strong>' + esc(c.label) + '</strong>' +
+              (c.mateixaMateria ? ' <span class="badge badge-med">mateixa matèria</span>' : '') +
+              '<div class="modal-hint">' + c.quants + ' objectiu' + (c.quants > 1 ? 's' : '') + '</div>' +
+            '</div>' +
+            (jaEnTinc
+              ? '<button class="btn btn-ghost btn-sm" data-i="' + i + '" data-mode="afegir">Afegir als meus</button>' +
+                '<button class="btn btn-secondary btn-sm" data-i="' + i + '" data-mode="substituir">Substituir</button>'
+              : '<button class="btn btn-primary btn-sm" data-i="' + i + '" data-mode="substituir">Copiar</button>') +
+          '</div></div>';
+      }).join('');
+
+    body.querySelectorAll('button[data-i]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        copiaDe(llista[+b.getAttribute('data-i')], b.getAttribute('data-mode'), ov);
+      });
+    });
+  }
+
+  function copiaDe(cand, mode, ov) {
+    var origen = objectius(cand.key);
+    if (!origen.length) return;
+    if (mode === 'substituir' && esborrany.length &&
+        !confirm('Això traurà els ' + esborrany.length + ' objectius que tens a ' +
+                 nomMateria(matActual) + ' i hi posarà els ' + cand.quants + ' de ' +
+                 cand.label + '. Vols continuar?')) return;
+    // Còpia de debò, amb identificadors nous: retocar-los aquí no ha de
+    // tocar els de l'assignatura d'origen.
+    var copia = JSON.parse(JSON.stringify(origen)).map(function (o, i) {
+      return { id: 'o' + Date.now() + '_' + i, nom: o.nom || '', nivells: (o.nivells || ['', '', '', '']).slice(0, 4) };
+    });
+    esborrany = (mode === 'afegir') ? esborrany.concat(copia) : copia;
+    pintaLlista();
+    if (ov) ov.classList.remove('open');
+    if (typeof showToast === 'function') {
+      showToast(copia.length + ' objectius copiats de ' + cand.label + '. Repassa\'ls i clica Desar.', 'success');
+    }
   }
 
   function pintaLlista() {
@@ -237,7 +352,9 @@
         '<div class="rub-buit">' +
           '<p><strong>Encara no has definit cap objectiu per a ' + esc(nomMateria(matActual)) + '.</strong></p>' +
           '<p>Si ja els tens escrits en un document, la manera ràpida és ' +
-          '<strong>Importar d\'un document</strong>. Si no, afegeix-los un a un.</p>' +
+          '<strong>Importar d\'un document</strong>. Si els tens en una altra ' +
+          'assignatura teva (per exemple la mateixa matèria en un altre curs), ' +
+          '<strong>Copiar d\'una altra</strong>. Si no, afegeix-los un a un.</p>' +
         '</div>';
       return;
     }
