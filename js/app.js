@@ -2420,7 +2420,23 @@ function cal2LoadCats() {
   return s ? JSON.parse(s) : JSON.parse(JSON.stringify(CAL2_CATS_DEFAULT));
 }
 function cal2SaveCats(cats)         { localStorage.setItem('cal2_cats', JSON.stringify(cats)); _calSaveCatsToSheets(); }
-function cal2CatById(id) { return cal2LoadCats().find(c => c.id === id) || { color:'#888', nom:id }; }
+function cal2CatById(id) {
+  return cal2LoadCats().find(c => c.id === id) || { color: '#9AA0A6', nom: 'Sense categoria' };
+}
+
+// Quants events fan servir una categoria (de tots els anys desats)
+function _cal2QuantsEvents(catId) {
+  var total = 0;
+  try {
+    Object.keys(localStorage).filter(function (k) { return k.indexOf('cal2_events_') === 0; })
+      .forEach(function (k) {
+        var evs = [];
+        try { evs = JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) {}
+        (evs || []).forEach(function (e) { if (e && e.catId === catId) total++; });
+      });
+  } catch (e) {}
+  return total;
+}
 
 /* Events */
 function cal2LoadEvents(year) { return JSON.parse(localStorage.getItem('cal2_events_' + year) || '[]'); }
@@ -2751,13 +2767,37 @@ function closeCal2Categories() {
 }
 function _renderCal2CatList() {
   const cats = cal2LoadCats();
-  document.getElementById('cal2CatList').innerHTML = cats.map((c,i) =>
-    `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
-      <span style="width:18px;height:18px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>
-      <span style="flex:1;font-size:14px;font-weight:500">${escapeHtml(c.nom)}</span>
-      ${cats.length>1?`<button class="cal2-agendar-del" onclick="deleteCal2Cat(${i})" title="Eliminar">×</button>`:''}
-    </div>`
-  ).join('');
+  document.getElementById('cal2CatList').innerHTML = cats.map((c, i) => {
+    const usats = _cal2QuantsEvents(c.id);
+    return `<div class="cal2-cat-fila">
+      <input type="color" class="cal2-cat-color" value="${c.color}"
+             title="Canviar el color"
+             onchange="updateCal2Cat(${i}, 'color', this.value)">
+      <input type="text" class="modal-input cal2-cat-nom" value="${escapeHtml(c.nom)}"
+             placeholder="Nom de la categoria"
+             onchange="updateCal2Cat(${i}, 'nom', this.value)">
+      <span class="cal2-cat-us" title="Events que la fan servir">${usats || ''}</span>
+      ${cats.length > 1
+        ? `<button class="cal2-agendar-del" onclick="deleteCal2Cat(${i})" title="Eliminar">×</button>`
+        : '<span class="cal2-cat-us"></span>'}
+    </div>`;
+  }).join('');
+}
+
+// Canviar el nom o el color d'una entrada de la llegenda
+function updateCal2Cat(i, camp, valor) {
+  const cats = cal2LoadCats();
+  if (!cats[i]) return;
+  if (camp === 'nom') {
+    const net = (valor || '').trim();
+    if (!net) { _renderCal2CatList(); return; }   // no deixem noms buits
+    cats[i].nom = net;
+  } else {
+    cats[i].color = valor;
+  }
+  cal2SaveCats(cats);
+  _renderCal2CatList();
+  try { renderCalendari(); } catch (e) {}
 }
 function addCal2Category() {
   const nom = document.getElementById('cal2CatNom').value.trim(); if(!nom)return;
@@ -2770,7 +2810,21 @@ function addCal2Category() {
 function deleteCal2Cat(i) {
   const cats = cal2LoadCats();
   if (cats.length <= 1) return;
-  cats.splice(i,1); cal2SaveCats(cats); _renderCal2CatList();
+  const cat = cats[i];
+  if (!cat) return;
+  // Els events no s'esborren, pero es quedarien sense color ni nom: val mes
+  // dir-ho abans que trobar-s'ho despres.
+  const usats = _cal2QuantsEvents(cat.id);
+  if (usats > 0) {
+    const msg = 'Hi ha ' + usats + ' event' + (usats > 1 ? 's' : '') + ' amb la categoria "' + cat.nom + '".\n\n' +
+      'Si l\'esborres, aquests events NO es perden, pero es quedaran sense categoria (en gris).\n\n' +
+      'Vols eliminar-la igualment?';
+    if (!confirm(msg)) return;
+  }
+  cats.splice(i, 1);
+  cal2SaveCats(cats);
+  _renderCal2CatList();
+  try { renderCalendari(); } catch (e) {}
 }
 
 /* ============================================================
