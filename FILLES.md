@@ -102,6 +102,13 @@ Per a una de sola: `node eines/sync-totes.js --mestra Anna`
    A `propis` només hi van els fitxers que aquella mestra tingui diferents.
    `js/config.local.js` ja es respecta sempre, no cal posar-l'hi.
 
+   > **El manual d'ús viatja de la mare a les filles.** Mentre una filla
+   > només tingui la manera d'avaluar canviada, li va bé el manual de la
+   > mare. Però el dia que li facis alguna cosa **que el manual no explica
+   > o que a ella funciona diferent**, afegeix `manual.html` als seus
+   > `propis` i actualitza-l'hi allà: si no, la propera sincronització li
+   > tornarà el manual de la mare i li explicarà una app que no és la seva.
+
 4. **Posar-hi el seu token** a `js/config.local.js` (ha de coincidir amb
    l'`APP_TOKEN` de les propietats del SEU Apps Script). Amb apps separades,
    cada mestra pot tenir el seu token propi: és més segur que compartir-ne un.
