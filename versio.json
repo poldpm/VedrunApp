@@ -1,12 +1,12 @@
 {
-  "versio": "v112",
+  "versio": "v113",
   "data": "2026-09-02",
   "titol": "Novetats d'aquesta versió",
   "canvis": [
-    "A les notes, ara pots deixar un comentari de cada alumne sobre cada activitat: clica la icona de la cantonada de la casella.",
+    "El generador de comentaris pot fer servir els apunts que has escrit activitat per activitat: marca la casella i el comentari sortirà molt més concret.",
+    "A les notes pots deixar un comentari de cada alumne sobre cada activitat, clicant la icona de la casella.",
     "Els comentaris també es veuen obrint el full de càlcul, al costat de la nota.",
     "La llegenda del calendari es pot editar: canvia el nom i el color de cada categoria.",
-    "Els comentaris d'informe ja no surten tots amb la mateixa estructura, i pots ensenyar a l'app la teva manera d'escriure.",
     "Els grups heterogenis es reparteixen amb les notes reals."
   ]
 }

@@ -4743,6 +4743,7 @@ function selectComentAssig(assig, btn) {
   btn.classList.add('active');
   _comentSeleccions = {};
   renderComentRubrica();
+  try { _comentPintaApunts(); } catch (e) {}
 }
 
 function onComentAlumneChange() {
@@ -4750,6 +4751,7 @@ function onComentAlumneChange() {
   _comentAlumne = sel.value || null;
   _comentSeleccions = {};
   renderComentRubrica();
+  try { _comentPintaApunts(); } catch (e) {}
 }
 
 function renderComentRubrica() {
@@ -4777,7 +4779,8 @@ function renderComentRubrica() {
       <div class="coment-nivells-row">`;
     NIVELL_INFO.forEach((niv, j) => {
       const active = sel === j ? ' active' : '';
-      const tooltip = escapeHtml(obj.nivells[j]).replace(/"/g, '&quot;');
+      // Un objectiu sense criteris (o incomplet) no ha de fer petar la pagina
+      const tooltip = escapeHtml((obj.nivells || [])[j] || '').replace(/"/g, '&quot;');
       html += `<button type="button" class="coment-niv-btn ${niv.cls}${active}"
         onclick="_comentSeleccions[${i}]=${j}; renderComentRubrica();"
         title="${tooltip}">${niv.short}</button>`;
@@ -4913,6 +4916,69 @@ function _comentTriaForma() {
 }
 
 // Construeix el prompt: esborrany + estil del mestre + nota + forma variable
+/* ---- Apunts que el mestre ha escrit activitat per activitat ----
+   Es recullen de les notes de cada trimestre d'aquesta assignatura. Son
+   el material mes valuos que hi ha per al comentari: son seus i concrets. */
+function comentApuntsActivitats(nomAlumne, matKey) {
+  if (!nomAlumne || !matKey) return [];
+  var out = [];
+  var _pos = (typeof _fitxaPosPerNom === 'function') ? _fitxaPosPerNom : null;
+  [1, 2, 3].forEach(function (trim) {
+    // Pot estar desat amb grup o sense: mirem les dues formes
+    var claus = Object.keys(localStorage).filter(function (k) {
+      return k.indexOf('notescache_' + matKey + '_' + trim) === 0;
+    });
+    claus.forEach(function (clau) {
+      var c = null;
+      try { c = JSON.parse(localStorage.getItem(clau) || 'null'); } catch (e) {}
+      if (!c || !c.comentaris || !c.rowNoms) return;
+      var idx = _pos ? _pos(nomAlumne, c.rowNoms) : -1;
+      if (idx === -1) return;
+      (c.items || []).forEach(function (it) {
+        var txt = (c.comentaris[it.id] || {})[idx];
+        if (txt && String(txt).trim()) {
+          out.push({ activitat: it.nom || 'Activitat', text: String(txt).trim() });
+        }
+      });
+    });
+  });
+  return out;
+}
+
+// Interruptor: es recorda amb la resta de preferencies de redaccio
+function comentToggleApunts(valor) {
+  var e = {};
+  try { e = JSON.parse(localStorage.getItem('coment_estil') || '{}') || {}; } catch (err) {}
+  e.usarApunts = !!valor;
+  try { localStorage.setItem('coment_estil', JSON.stringify(e)); } catch (err) {}
+  if (typeof config !== 'undefined' && config.scriptUrl) {
+    appsScriptPost({ action: 'saveComentEstil', data: e }).catch(function () {});
+  }
+  _comentPintaApunts();
+}
+
+// Diu quants apunts te aquest alumne, perque el mestre sapiga si serviran
+function _comentPintaApunts() {
+  var info = document.getElementById('comentApuntsInfo');
+  var cb = document.getElementById('comentUsarApunts');
+  if (!info || !cb) return;
+  var e = {};
+  try { e = JSON.parse(localStorage.getItem('coment_estil') || '{}') || {}; } catch (err) {}
+  cb.checked = !!e.usarApunts;
+
+  var al = (typeof students !== 'undefined' && _comentAlumne)
+    ? students.find(function (s) { return String(s.id) === String(_comentAlumne); }) : null;
+  if (!al) { info.textContent = 'Tria un alumne per veure quants n\'hi ha.'; return; }
+  var ap = comentApuntsActivitats(al.nom, _comentAssig);
+  if (!ap.length) {
+    info.textContent = 'Aquest alumne encara no té cap apunt en aquesta assignatura.';
+  } else {
+    info.textContent = ap.length === 1
+      ? 'Es farà servir 1 apunt que has escrit.'
+      : 'Es faran servir ' + ap.length + ' apunts que has escrit.';
+  }
+}
+
 function _comentPrompt(rubrica, alumne, esborrany) {
   var estil   = comentEstilLlegeix();
   var nomCurt = alumne.nom.split(' ')[0];
@@ -4933,6 +4999,19 @@ function _comentPrompt(rubrica, alumne, esborrany) {
   }
 
   parts.push('\nIDEES QUE HA DE CONTENIR (venen de la rubrica que he marcat jo):\n"""\n' + esborrany + '\n"""');
+
+  // Apunts que el mestre ha escrit activitat per activitat
+  if (estil.usarApunts) {
+    var ap = comentApuntsActivitats(alumne.nom, _comentAssig);
+    if (ap.length) {
+      parts.push('\nAPUNTS MEUS D\'AQUEST ALUMNE, activitat per activitat. Son observacions ' +
+        'que he escrit jo mentre corregia. Fes-los servir per concretar el comentari amb coses ' +
+        'que han passat de debo, pero NO els copiïs literalment ni anomenis les activitats ' +
+        'una per una:\n"""\n' +
+        ap.map(function (a) { return '- ' + a.activitat + ': ' + a.text; }).join('\n') +
+        '\n"""');
+    }
+  }
 
   // La nota real, com a context
   var nota = (typeof notaAlumneMateria === 'function') ? notaAlumneMateria(alumne.nom, _comentAssig) : null;
@@ -5069,6 +5148,8 @@ function initComentaris() {
       `<button class="trim-sel-btn${it.key===_comentAssig?' active':''}" data-assig="${it.key}" onclick="selectComentAssig('${it.key}',this)">${escapeHtml(it.nom)}</button>`
     ).join('');
   }
+  // Deixa l interruptor dels apunts i el seu avis al dia
+  try { _comentPintaApunts(); } catch (e) {}
   // Omple el selector d'alumnes
   const sel = document.getElementById('comentAlumneSelect');
   if (!sel) return;

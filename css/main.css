@@ -3630,3 +3630,20 @@ body {
   opacity: 1; border-color: var(--garnet-mid);
   background: var(--crimson-050, #FBEAEF); color: var(--garnet-text);
 }
+
+/* ── Interruptor "fer servir els meus apunts" al generador de comentaris ── */
+.coment-apunts {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 10px 12px; margin-bottom: 12px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface-tint); cursor: pointer;
+  font-size: 13px; line-height: 1.45; color: var(--text-main);
+}
+.coment-apunts:hover { border-color: var(--crimson-100, #F6D6DF); }
+.coment-apunts input {
+  width: 16px; height: 16px; margin-top: 1px; flex-shrink: 0;
+  accent-color: var(--crimson); cursor: pointer;
+}
+.coment-apunts-info {
+  display: block; font-size: 12px; color: var(--text-sub); margin-top: 2px;
+}
