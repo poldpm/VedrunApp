@@ -30,6 +30,62 @@ objectius, l'estil dels comentaris, els aspectes d'actitud i els enllaços).
 
 ---
 
+## La regla que ho fa sostenible
+
+**El codi base no ha de divergir MAI.** Si es toca el codi de la mare dins d'una
+filla, aquell fitxer deixa de rebre arranjaments per sempre. I com que
+`js/app.js` són 5.000 línies (inici, calendari, planning, tasques, alumnes,
+comentaris, grups), amb dos canvis una filla queda congelada.
+
+Per això cada mestra té **un fitxer propi que s'enganxa per sobre**:
+`js/personal-<mestra>.js`. Hi va tot el que és seu, sense tocar res del base.
+
+Aquest patró ja és el que fa servir l'app: `gwrite.js`, `rubriques.js` i
+`versio.js` no toquen ni una línia d'`app.js`, s'hi enganxen així:
+
+```javascript
+// Embolcalla una funció que ja existeix, sense modificar-la
+var orig = window.cal2SaveEvents;
+window.cal2SaveEvents = function () {
+  var r = orig.apply(this, arguments);
+  ferLaMevaCosa();          // el que necessita aquesta mestra
+  return r;
+};
+```
+
+També es pot canviar una pantalla sencera redefinint la funció que la pinta,
+o afegir-hi eines noves. Tot des del seu fitxer.
+
+**Només es forka un fitxer del base quan no hi ha manera** (típicament
+`js/notes.js`, si el model d'avaluació és radicalment diferent). Cada fitxer
+forkat és un que aquella mestra deixarà de rebre: com menys, millor.
+
+## Actualitzar-les TOTES de cop
+
+`filles.json` és el registre de totes les mestres:
+
+```json
+{
+  "filles": [
+    { "mestra": "Anna",  "carpeta": "C:/Escorial/VedrunApp-Anna" },
+    { "mestra": "Marta", "carpeta": "C:/Escorial/VedrunApp-Marta" }
+  ]
+}
+```
+
+Quan s'arregla una cosa de base o s'afegeix una eina nova:
+
+```bash
+node eines/sync-totes.js --prova    # ensenya què faria, sense tocar res
+node eines/sync-totes.js            # ho fa a TOTES
+```
+
+Cada app conserva el seu `personal-*.js` i el seu token. Després: provar-les i
+pujar-les al seu GitHub; les mestres veuran l'avís de versió nova i
+s'actualitzaran soles.
+
+Per a una de sola: `node eines/sync-totes.js --mestra Anna`
+
 ## Crear una filla
 
 1. **Copiar** aquesta carpeta a `C:\Escorial\VedrunApp-<Mestra>`.
