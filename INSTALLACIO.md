@@ -18,6 +18,52 @@ APP_TOKEN  = ...
 
 ---
 
+## El full ha de ser SEU, i ha de desplegar ella
+
+**No preparis el seu backend al teu Drive per estalviar-te temps.** És
+temptador (el pots fer a casa amb calma), però el web app es desplega amb
+`executeAs: USER_DEPLOYING`: **s'executa sempre com qui el desplega**.
+
+Si el desplegues tu:
+
+- Els events i les tasques que ella creï anirien **al TEU Google Calendar
+  i al TEU Google Tasks** (el codi escriu a `'primary'` i `'@default'`,
+  que són els de qui executa).
+- Pitjor encara: la seva app li ensenyaria **el teu calendari i les teves
+  tasques**, perquè els llegeix amb `CalendarApp.getAllCalendars()` i
+  `Tasks.Tasklists.list()`.
+- I les dades dels seus alumnes viurien al teu Drive: el dia que plegues o
+  et tanquen el compte, ella es queda sense res.
+
+**El que sí que pots fer a casa** (i és gairebé tota la feina):
+
+1. Compartir-li el full **Grups** i el de **Desdoblaments** amb el seu
+   compte. Això s'ha de fer sí o sí: el seu script hi entrarà com ella.
+2. Tenir a punt un **full de plantilla** al teu Drive amb el `Code.gs` i
+   l'`appsscript.json` ja enganxats i els 4 valors de `configuraTot()`
+   omplerts.
+3. Crear-li la carpeta de l'app, el repositori i el GitHub Pages
+   (`node eines/nova-filla.js "Anna"`).
+
+**El que ha de fer ella, amb tu al costat** (uns 3 minuts):
+
+1. Des del SEU compte: obrir la teva plantilla i **Fitxer → Fes-ne una
+   còpia**, al seu Drive. La còpia s'endú l'Apps Script.
+   > Les *Script Properties* NO es copien, i és bo: per això l'ha
+   > d'executar ella.
+2. **Executar `configuraTot`** i **acceptar l'autorització** (surt amb el
+   seu compte: és el que fa que el Calendar i el Tasks siguin els seus).
+3. **Implementa → Nova implementació → Aplicació web** i copiar el `/exec`.
+
+A partir d'aquí ja pots continuar tu: enganxar-li el `/exec` a l'app,
+posar-li la clau de Gemini i omplir el perfil i l'horari.
+
+> Comprova el primer cop que copiar el full s'endú l'Apps Script. Si en
+> alguna còpia no hi fos, és enganxar-hi el `Code.gs` i
+> l'`appsscript.json` a mà: 30 segons.
+
+---
+
 ## A · El full de càlcul i el backend  (5 min)
 
 1. **Crea un full de càlcul** nou al seu Drive. Anomena'l `Registres — <Mestra>`.
