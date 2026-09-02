@@ -1,12 +1,11 @@
 {
-  "versio": "v113",
+  "versio": "v114",
   "data": "2026-09-02",
   "titol": "Novetats d'aquesta versió",
   "canvis": [
-    "El generador de comentaris pot fer servir els apunts que has escrit activitat per activitat: marca la casella i el comentari sortirà molt més concret.",
-    "A les notes pots deixar un comentari de cada alumne sobre cada activitat, clicant la icona de la casella.",
-    "Els comentaris també es veuen obrint el full de càlcul, al costat de la nota.",
-    "La llegenda del calendari es pot editar: canvia el nom i el color de cada categoria.",
-    "Els grups heterogenis es reparteixen amb les notes reals."
+    "El manual d'ús està al dia: hi ha els apartats nous (perfil, horari, Vedrunu, escriure al teu Google) i com personalitzar-te l'app.",
+    "El manual té cercador: escriu una paraula a l'índex i et deixa només els apartats que en parlen.",
+    "Hi ha una taula que diu, per a cada cosa que et vulguis canviar, on es fa exactament.",
+    "El manual explica també què veuen les altres mestres i què és només teu."
   ]
 }

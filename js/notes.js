@@ -655,7 +655,11 @@ function renderNotesTable() {
         chip.className = item.isActitud ? 'nota10-chip nota10-actitud' : 'nota10-chip nota10-carpeta';
         chip.textContent = nota !== null ? nota.toFixed(2) : '—';
         chip.style.background = q ? q.bg : '#EEEEEE'; chip.style.color = q ? q.color : 'var(--text-muted)';
-        chip.title = item.isActitud ? 'Actitud (mitjana dels 5 aspectes) · clica per editar' : 'Carpeta Viatgera (automàtic)';
+        // El nombre d'aspectes el tria cada mestre (Configuració > Aspectes d'actitud),
+        // així que no el podem donar per fet: el comptem.
+        chip.title = item.isActitud
+          ? 'Actitud (mitjana dels ' + ACTITUD_ASPECTES.length + ' aspectes) · clica per editar'
+          : 'Carpeta Viatgera (automàtic)';
         if (item.isActitud) chip.style.cursor = 'pointer';
         if (item.isActitud) chip.onclick = () => openActitudPanel();
         inner.appendChild(chip);
