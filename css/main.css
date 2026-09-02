@@ -3550,3 +3550,13 @@ body {
 
 .asp-fila { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .asp-fila input { flex: 1; }
+
+/* ── Avís de com s'han equilibrat els grups ── */
+.grups-avis {
+  font-size: 12.5px; line-height: 1.5; padding: 9px 12px;
+  border-radius: var(--r-sm); margin-bottom: 12px;
+  background: var(--surface-alt); color: var(--text-sub);
+  border: 1px solid var(--border);
+}
+.grups-avis-ok   { background: var(--ok-bg, #E7F5EC);   color: var(--ok, #15803D);   border-color: #BFE3CD; }
+.grups-avis-warn { background: var(--warn-bg, #FFF6E5); color: var(--warn, #B45309); border-color: #F5DFB0; }

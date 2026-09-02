@@ -249,6 +249,8 @@ function handleRequest(e) {
       case 'loadRubrica':           result = loadRubrica(ss, (body&&body.materia)||p.materia); break;
       case 'saveActitudAspectes':   result = saveActitudAspectes(ss, body&&body.data); break;
       case 'loadActitudAspectes':   result = loadActitudAspectes(ss); break;
+      case 'saveComentEstil':       result = saveComentEstil(ss, body&&body.data); break;
+      case 'loadComentEstil':       result = loadComentEstil(ss); break;
       default: result = { ok:false, error:'Accio desconeguda: '+action };
     }
     return jsonResponse(result);
@@ -2772,6 +2774,18 @@ function saveRubrica(ss, materia, data) {
 function loadRubrica(ss, materia) {
   if (!materia) return { ok: false, error: 'Falta la materia' };
   var v = sheetGetJSON(ss, '_AppData', 'rubrica_' + materia);
+  return { ok: true, data: v ? JSON.parse(v) : null };
+}
+
+/* Estil de redaccio del mestre per als comentaris: to, llargada i, sobretot,
+   exemples de comentaris seus perque la IA els imiti. */
+function saveComentEstil(ss, data) {
+  var json = typeof data === 'string' ? data : JSON.stringify(data || {});
+  sheetSetJSON(ss, '_AppData', 'coment_estil', json);
+  return { ok: true };
+}
+function loadComentEstil(ss) {
+  var v = sheetGetJSON(ss, '_AppData', 'coment_estil');
   return { ok: true, data: v ? JSON.parse(v) : null };
 }
 

@@ -473,6 +473,13 @@
     b.textContent = 'Editar objectius';
     b.addEventListener('click', function () { obreEditor(); });
     if (barra.parentNode) barra.parentNode.appendChild(b);
+
+    var b2 = el('button', 'btn btn-ghost btn-sm');
+    b2.id = 'rubBtnEstil';
+    b2.type = 'button';
+    b2.textContent = 'La meva manera d\'escriure';
+    b2.addEventListener('click', function () { obreEstil(); });
+    if (barra.parentNode) barra.parentNode.appendChild(b2);
   }
 
   /* ========== ENLLAÇOS PERSONALS DE LA PORTADA ==========
@@ -506,6 +513,101 @@
     if (typeof showToast === 'function') showToast('Enllaços desats ✓', 'success');
   }
 
+  /* ========== EL MEU ESTIL DE REDACCIO (comentaris) ==========
+     Aixo es el que fa que els comentaris sonin al mestre i no a una IA:
+     ell hi enganxa comentaris seus i la IA n imita la manera d escriure. */
+
+  function estilLlegeix() {
+    try { return JSON.parse(localStorage.getItem('coment_estil') || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function estilDesa(o) {
+    try { localStorage.setItem('coment_estil', JSON.stringify(o)); } catch (e) {}
+    if (typeof config !== 'undefined' && config.scriptUrl) {
+      appsScriptPost({ action: 'saveComentEstil', data: o }).catch(function () {});
+    }
+  }
+  async function estilCarrega() {
+    if (typeof config === 'undefined' || !config.scriptUrl) return;
+    try {
+      var r = await appsScriptGet({ action: 'loadComentEstil' });
+      if (r && r.ok && r.data) {
+        try { localStorage.setItem('coment_estil', JSON.stringify(r.data)); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
+  function obreEstil() {
+    var e = estilLlegeix();
+    var ov = document.getElementById('estilOverlay');
+    if (!ov) {
+      ov = el('div', 'modal-overlay');
+      ov.id = 'estilOverlay';
+      ov.addEventListener('mousedown', function (ev) { if (ev.target === ov) ov.classList.remove('open'); });
+      var m = el('div', 'modal rub-modal');
+      m.innerHTML =
+        '<div class="modal-header">' +
+          '<div><div class="modal-header-title">La meva manera d\'escriure</div>' +
+          '<div class="modal-header-sub">Perque els comentaris sonin a tu i no a una IA</div></div>' +
+          '<button class="modal-close" id="estTancar" aria-label="Tancar">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
+        '</div>' +
+        '<div class="modal-body">' +
+          '<div class="modal-field">' +
+            '<div class="modal-label">Comentaris teus d\'exemple</div>' +
+            '<textarea class="modal-input" id="estExemples" rows="8" placeholder="Enganxa aqui 2 o 3 comentaris que hagis escrit tu altres anys. No es copiaran: nomes serveixen perque la IA vegi com escrius (quines paraules fas servir, com comences, com dius les coses delicades)."></textarea>' +
+            '<div class="modal-hint"><strong>Aixo es el que mes canvia el resultat.</strong> Amb dos o tres exemples ' +
+            'teus, els comentaris deixen de sonar a manual i comencen a sonar a tu.</div>' +
+          '</div>' +
+          '<div class="modal-row">' +
+            '<div class="modal-field">' +
+              '<div class="modal-label">Llargada</div>' +
+              '<select class="modal-input" id="estLlarg">' +
+                '<option value="curt">Curt (3-4 linies)</option>' +
+                '<option value="mitja">Mitja (5-7 linies)</option>' +
+                '<option value="llarg">Llarg (8-10 linies)</option>' +
+              '</select>' +
+            '</div>' +
+            '<div class="modal-field">' +
+              '<div class="modal-label">To</div>' +
+              '<select class="modal-input" id="estTo">' +
+                '<option value="mixt">Professional pero proper</option>' +
+                '<option value="proper">Proper i calid</option>' +
+                '<option value="formal">Formal</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+          '<div class="modal-field">' +
+            '<div class="modal-label">Alguna cosa mes a tenir en compte (opcional)</div>' +
+            '<input class="modal-input" id="estExtra" placeholder="Ex: no facis servir mai la paraula &quot;alumne&quot;, digues sempre el nom">' +
+          '</div>' +
+        '</div>' +
+        '<div class="modal-footer">' +
+          '<button class="btn btn-secondary" id="estCancel">Cancel·lar</button>' +
+          '<button class="btn btn-primary" id="estDesar">Desar</button>' +
+        '</div>';
+      ov.appendChild(m);
+      document.body.appendChild(ov);
+      document.getElementById('estTancar').addEventListener('click', function () { ov.classList.remove('open'); });
+      document.getElementById('estCancel').addEventListener('click', function () { ov.classList.remove('open'); });
+      document.getElementById('estDesar').addEventListener('click', function () {
+        estilDesa({
+          exemples: document.getElementById('estExemples').value,
+          llargada: document.getElementById('estLlarg').value,
+          to: document.getElementById('estTo').value,
+          extra: document.getElementById('estExtra').value
+        });
+        ov.classList.remove('open');
+        if (typeof showToast === 'function') showToast('Estil desat ✓', 'success');
+      });
+    }
+    document.getElementById('estExemples').value = e.exemples || '';
+    document.getElementById('estLlarg').value = e.llargada || 'mitja';
+    document.getElementById('estTo').value = e.to || 'mixt';
+    document.getElementById('estExtra').value = e.extra || '';
+    ov.classList.add('open');
+  }
+
   function init() {
     pintaEnllacos();
     // En triar assignatura al generador, carrega els SEUS objectius
@@ -515,12 +617,14 @@
       if (typeof _comentAssig !== 'undefined') carrega(_comentAssig);
     });
     carregaAspectes();
+    estilCarrega();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
   window.rubriques = {
+    obreEstil: obreEstil,
     obreEnllacos: obreEnllacos,
     pintaEnllacos: pintaEnllacos,
     obreEditor: obreEditor,

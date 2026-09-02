@@ -3032,6 +3032,9 @@ const GRUPS_COLORS = [
 ];
 
 function initGrups() {
+  // Els grups heterogenis es reparteixen per nota real: assegura que el resum
+  // de notes esta carregat abans que el mestre premi "Generar grups".
+  if (typeof _prefetchNotesResum === "function") { try { _prefetchNotesResum(); } catch (e) {} }
   _grupsNum = 3;
   _grupsCondicions = [];
   _grupsPoblarSelector();
@@ -3286,40 +3289,88 @@ function _generarHeterogenis(alumnes, aleatoritzar) {
 
 // Nota mitjana d'un alumne per a l'assignatura seleccionada al generador
 // (usa el cache de notes; retorna null si no en té)
-function _grupsNotaAlumne(alumne) {
+/* ============================================================
+   NOTA REAL D'UN ALUMNE EN UNA ASSIGNATURA
+   ------------------------------------------------------------
+   Font unica per a tot allo que necessita saber com va un alumne:
+   el generador de grups (nivells) i el generador de comentaris.
+
+   Prioritza el RESUM DEL FULL (fiable, hi son totes les assignatures i
+   trimestres) i nomes cau al cache local si el resum encara no hi es.
+   Abans nomes es mirava el cache local: si el mestre no havia obert les
+   notes d'aquella assignatura, no hi havia nivell i no es deia enlloc.
+   ============================================================ */
+function notaAlumneMateria(nomAlumne, matKey) {
+  if (!nomAlumne || !matKey) return null;
+  var _pos = (typeof _fitxaPosPerNom === 'function')
+    ? _fitxaPosPerNom
+    : function (nom, rowNoms) {
+        var nm = function (x) { return (x || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); };
+        for (var i = 0; i < (rowNoms || []).length; i++) if (nm(rowNoms[i]) === nm(nom)) return i;
+        return -1;
+      };
+
+  // 1) Resum del full: mitjana dels trimestres que tinguin nota
   try {
-    const sel = document.getElementById('grupsAssigSelector');
-    const matKey = sel ? sel.value : '';
-    if (!matKey) return null;
-    // Busca a totes les caches de notes d'aquesta assignatura (qualsevol trimestre)
-    let millorNota = null;
-    for (const trim of [1, 2, 3]) {
-      const raw = localStorage.getItem('notescache_' + matKey + '_' + trim);
-      if (!raw) continue;
-      const c = JSON.parse(raw);
-      if (!c || !c.items || !c.rowNoms) continue;
-      const _norm = s => (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
-      let pos = null;
-      c.rowNoms.forEach((n, i) => { if (_norm(n) === _norm(alumne.nom)) pos = i; });
-      if (pos === null) continue;
-      // Mitjana ponderada dels ítems
-      let sumaPond = 0, sumaPes = 0;
-      (c.items || []).forEach(it => {
+    if (typeof _notesResumCache !== 'undefined' && _notesResumCache && _notesResumCache[matKey]) {
+      var per = _notesResumCache[matKey], vals = [];
+      [1, 2, 3].forEach(function (t) {
+        var d = per[t];
+        if (!d || !Array.isArray(d.rowNoms)) return;
+        var idx = _pos(nomAlumne, d.rowNoms);
+        if (idx === -1) return;
+        var v = d.notes ? d.notes[idx] : null;
+        if (v !== null && v !== undefined && !isNaN(parseFloat(v))) vals.push(parseFloat(v));
+      });
+      if (vals.length) return vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+    }
+  } catch (e) {}
+
+  // 2) Cache local de notes (mitjana ponderada dels items, per trimestre)
+  try {
+    var _norm = function (x) { return (x || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); };
+    var mitjanes = [];
+    [1, 2, 3].forEach(function (trim) {
+      var raw = localStorage.getItem('notescache_' + matKey + '_' + trim);
+      if (!raw) return;
+      var c = JSON.parse(raw);
+      if (!c || !c.items || !c.rowNoms) return;
+      var pos = null;
+      c.rowNoms.forEach(function (nm, i) { if (_norm(nm) === _norm(nomAlumne)) pos = i; });
+      if (pos === null) return;
+      var sumaPond = 0, sumaPes = 0;
+      (c.items || []).forEach(function (it) {
         if (it.id === 'actitud_ref') return;
-        const v = c.valors && c.valors[it.id] ? c.valors[it.id][pos] : '';
+        var v = c.valors && c.valors[it.id] ? c.valors[it.id][pos] : '';
         if (v === '' || v === null || v === undefined) return;
-        const maxP = it.maxPunts || 10;
-        const pes = it.pes || 1;
-        const nota10 = parseFloat(v) / maxP * 10;
+        var nota10 = parseFloat(v) / (it.maxPunts || 10) * 10;
+        var pes = it.pes || 1;
         if (!isNaN(nota10)) { sumaPond += nota10 * pes; sumaPes += pes; }
       });
-      if (sumaPes > 0) {
-        const mitjana = sumaPond / sumaPes;
-        if (millorNota === null) millorNota = mitjana;
-      }
-    }
-    return millorNota;
-  } catch(e) { return null; }
+      if (sumaPes > 0) mitjanes.push(sumaPond / sumaPes);
+    });
+    if (mitjanes.length) return mitjanes.reduce(function (a, b) { return a + b; }, 0) / mitjanes.length;
+  } catch (e) {}
+
+  return null;
+}
+
+// Qualificacio en paraules a partir de la nota (mateixos talls que les notes)
+function qualificacioText(nota) {
+  if (nota === null || nota === undefined || isNaN(nota)) return null;
+  if (nota >= 9) return 'Assoliment excel·lent';
+  if (nota >= 7) return 'Assoliment notable';
+  if (nota >= 5) return 'Assoliment satisfactori';
+  return 'No assoliment';
+}
+
+function _grupsNotaAlumne(alumne) {
+  try {
+    var sel = document.getElementById('grupsAssigSelector');
+    var matKey = sel ? sel.value : '';
+    if (!matKey || !alumne) return null;
+    return notaAlumneMateria(alumne.nom, matKey);
+  } catch (e) { return null; }
 }
 
 function _barrejar(arr) {
@@ -3354,10 +3405,24 @@ function _mostrarGrups(grups) {
   const total = students.length;
   const nG    = grups.length;
 
+  // Diu si els grups s han pogut equilibrar per nota de debo. Si no hi ha
+  // notes, val mes dir-ho que deixar creure que estan repartits per nivell.
+  let _avis = "";
+  if (_grupsTipus === "hetero") {
+    const _llista = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes : students;
+    const _ambNota = _llista.filter(a => _grupsNotaAlumne(a) !== null).length;
+    if (_ambNota === 0) {
+      _avis = `<div class="grups-avis grups-avis-warn">Encara no hi ha notes d'aquesta assignatura, o sigui que els grups estan fets a l'atzar (tenint en compte PI i AM). Posa-hi notes i torna a generar-los per equilibrar-los per nivell.</div>`;
+    } else if (_ambNota < _llista.length) {
+      _avis = `<div class="grups-avis">Equilibrats per nota de ${_ambNota} de ${_llista.length} alumnes. Els altres encara no en tenen i s han repartit igualment.</div>`;
+    } else {
+      _avis = `<div class="grups-avis grups-avis-ok">Equilibrats per la nota mitjana dels ${_ambNota} alumnes.</div>`;
+    }
+  }
   let html = `<div class="grups-result-header">
     <span>${nG} grup${nG!==1?'s':''} · ${total} alumne${total!==1?'s':''}</span>
     <button class="btn btn-ghost btn-sm" onclick="generarGrups()">↺ Regenerar</button>
-  </div><div class="grups-cards">`;
+  </div>${_avis}<div class="grups-cards">`;
 
   grups.forEach((grup, gi) => {
     const col = GRUPS_COLORS[gi % GRUPS_COLORS.length];
@@ -4731,6 +4796,109 @@ function closeComentResult() {
   document.getElementById('comentResultOverlay').classList.remove('open');
 }
 
+/* ============================================================
+   COM ES DEMANA EL COMENTARI A LA IA
+   ------------------------------------------------------------
+   El problema d'abans: el prompt era SEMPRE identic ("un unic paragraf
+   de 5-8 linies"), o sigui que els 25 comentaris d'un grup sortien tots
+   amb la mateixa forma. I deia "mestre de 2n de Primaria" escrit a ma,
+   quan cada mestre fa un curs diferent.
+
+   Ara:
+   - El curs surt del perfil del mestre.
+   - L'estructura VARIA a cada comentari (obertura, ordre, paragrafs).
+   - El mestre pot definir el seu estil, i sobretot ENGANXAR comentaris
+     seus perque la IA els imiti. Aixo es el que fa que soni a ell.
+   - La nota real de l'alumne entra al comentari com a context.
+   ============================================================ */
+
+// Estil de redaccio del mestre (es desa al seu full; el gestiona rubriques.js)
+function comentEstilLlegeix() {
+  try { return JSON.parse(localStorage.getItem('coment_estil') || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+// Curs del mestre, del perfil. Sense perfil, res inventat.
+function _comentCursText() {
+  try {
+    if (typeof _perfil !== 'undefined' && _perfil && _perfil.tutorCurs) {
+      return _perfil.tutorCurs + ' de Primaria';
+    }
+  } catch (e) {}
+  return 'Primaria';
+}
+
+// Estructures possibles. Se n'agafa una a l'atzar perque dos comentaris
+// seguits no tinguin la mateixa forma.
+var _COMENT_FORMES = [
+  { id: 'fortalesa', pauta: 'Comenca destacant allo que li surt millor i despres passa al que encara ha de consolidar.' },
+  { id: 'progres',   pauta: 'Comenca per com ha anat el trimestre en conjunt i despres concreta punt per punt.' },
+  { id: 'proces',    pauta: 'Comenca per la manera de treballar i l\'actitud a l\'aula, i despres entra en els continguts.' },
+  { id: 'directe',   pauta: 'Entra directament en els continguts treballats, sense preambul, i tanca amb una mirada endavant.' },
+  { id: 'evolucio',  pauta: 'Explica-ho com una evolucio: d\'on partia, on es ara i cap on ha d\'anar.' },
+];
+var _COMENT_LONG = {
+  curt:   'Entre 3 i 4 linies. Ves al gra.',
+  mitja:  'Entre 5 i 7 linies.',
+  llarg:  'Entre 8 i 10 linies, amb mes detall.',
+};
+var _COMENT_FORMA_ULT = null;
+
+function _comentTriaForma() {
+  var opcions = _COMENT_FORMES.filter(function (f) { return f.id !== _COMENT_FORMA_ULT; });
+  var f = opcions[Math.floor(Math.random() * opcions.length)] || _COMENT_FORMES[0];
+  _COMENT_FORMA_ULT = f.id;
+  return f;
+}
+
+// Construeix el prompt: esborrany + estil del mestre + nota + forma variable
+function _comentPrompt(rubrica, alumne, esborrany) {
+  var estil   = comentEstilLlegeix();
+  var nomCurt = alumne.nom.split(' ')[0];
+  var article = _articleNom(nomCurt, alumne.genere);
+  var forma   = _comentTriaForma();
+  var llarg   = _COMENT_LONG[estil.llargada] || _COMENT_LONG.mitja;
+
+  var parts = [];
+  parts.push('Ets un mestre de ' + _comentCursText() + ' a Catalunya i escrius el comentari de l\'informe trimestral ' +
+             'de ' + article + nomCurt + ' per a l\'area de ' + rubrica.nom + '.');
+
+  // Exemples del mestre: el que de debo fa que soni a ell
+  if (estil.exemples && estil.exemples.trim()) {
+    parts.push('\nAQUESTS son comentaris escrits per MI en altres ocasions. Fixa\'t en com escric ' +
+               '(vocabulari, longitud de les frases, com comenco i com tanco, com dic les coses ' +
+               'delicades) i escriu com escriuria jo. NO en copiis el contingut, nomes la manera:\n"""\n' +
+               estil.exemples.trim() + '\n"""');
+  }
+
+  parts.push('\nIDEES QUE HA DE CONTENIR (venen de la rubrica que he marcat jo):\n"""\n' + esborrany + '\n"""');
+
+  // La nota real, com a context
+  var nota = (typeof notaAlumneMateria === 'function') ? notaAlumneMateria(alumne.nom, _comentAssig) : null;
+  if (nota !== null && !isNaN(nota)) {
+    var qual = (typeof qualificacioText === 'function') ? qualificacioText(nota) : null;
+    parts.push('\nCONTEXT: la seva nota mitjana en aquesta area es ' + (Math.round(nota * 10) / 10) +
+               ' sobre 10' + (qual ? ' (' + qual + ')' : '') + '. El to del comentari ha de ser coherent amb ' +
+               'aquesta nota, pero NO la mencionis ni parlis de xifres.');
+  }
+
+  parts.push('\nCOM HO HAS D\'ESCRIURE:');
+  parts.push('- ' + forma.pauta);
+  parts.push('- ' + llarg);
+  parts.push('- Conserva TOTES les idees que t\'he donat. No n\'afegeixis de noves ni te\'n deixis cap.');
+  parts.push('- Anomena\'l ' + article + nomCurt + ' una sola vegada; despres evita repetir el nom.');
+  if (estil.to === 'proper')      parts.push('- To proper i calid, com qui parla amb la familia de tu a tu.');
+  else if (estil.to === 'formal') parts.push('- To formal i professional.');
+  else                            parts.push('- To professional pero proper, adequat per a families.');
+  parts.push('- Catala correcte i natural. Res de formules fetes ni de llenguatge de manual.');
+  parts.push('- NO comencis amb la mateixa formula que faria servir tothom ("Al llarg d\'aquest trimestre...", ' +
+             '"Cal destacar que..."). Busca una obertura propia.');
+  parts.push('- Nomes el text del comentari: sense titol, sense encapcalament i sense firma.');
+  if (estil.extra && estil.extra.trim()) parts.push('- ' + estil.extra.trim());
+
+  return parts.join('\n');
+}
+
 async function generarComentari() {
   const rubrica = RUBRIQUES[_comentAssig];
   const alumne  = students.find(s => s.id == _comentAlumne);
@@ -4760,21 +4928,7 @@ async function generarComentari() {
   document.getElementById('comentResultConsell').textContent = '';
   document.getElementById('comentResultOverlay').classList.add('open');
 
-  const prompt = `Ets un mestre de 2n de Primària a Catalunya. Has de redactar el comentari de l'informe trimestral per a ${article}${nomCurt} per a l'àrea de ${rubrica.nom}.
-
-Tens aquest esborrany amb totes les idees que cal incloure:
-
-"""
-${esborrany}
-"""
-
-Reescriu-lo com un ÚNIC PARÀGRAF cohesionat, natural i fluid. Segueix estrictament aquestes normes:
-- Conserva TOTES les idees de l'esborrany, sense afegir-ne de noves ni eliminar-ne cap.
-- Usa el nom ${article}${nomCurt} al principi i després pots dir "l'alumne/a" o ometre el subjecte.
-- To professional i constructiu, adequat per a pares.
-- Escriu en català correcte i natural.
-- Longitud: 5-8 línies.
-- Sense títol, encapçalament ni firma. Només el paràgraf.`;
+  const prompt = _comentPrompt(rubrica, alumne, esborrany);
 
   const _callGemini = async () => {
     return await _geminiGenerate(prompt);

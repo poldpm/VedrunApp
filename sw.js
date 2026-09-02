@@ -1,5 +1,5 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v107';
+const CACHE = 'vedruna-v108';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
   './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/vedrunu.js', './js/gwrite.js', './js/rubriques.js', './img/vedrunu-icon.png',
