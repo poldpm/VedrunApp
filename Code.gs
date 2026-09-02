@@ -34,6 +34,148 @@ function _prop(clau) {
 // FUNCIÓ D'AJUDA: executa-la UN COP per desar totes les credencials de cop.
 // Posa els teus valors aquí, executa-la des de l'editor d'Apps Script, i
 // després pots ESBORRAR els valors d'aquí (queden desats a les propietats).
+/* ============================================================
+   CONFIGURAR UNA APP NOVA — TOT EN UNA SOLA EXECUCIO
+   ------------------------------------------------------------
+   Per donar d'alta una mestra: omple els 4 valors d'aqui sota,
+   tria "configuraTot" al desplegable de dalt i prem Executar.
+
+   Fa tot això sol:
+     · Desa les credencials a les propietats del script
+     · Crea les pestanyes que calen (Alumnes, Registres d'aula, _AppData…)
+     · Protegeix els fulls i ajusta les columnes
+     · Comprova que pot escriure al Calendar i a Tasks
+     · Et diu què queda per fer
+
+   Els 3 primers valors son ELS MATEIXOS per a totes les mestres:
+   copia'ls una vegada i reaprofita'ls. Nomes canvia si vols un token
+   diferent per a cadascuna (no cal: pot ser el mateix).
+
+   NOTA: si deixes un valor buit, NO s'esborra el que ja hi hagi.
+   Aixi pots tornar-la a executar sense por.
+   ============================================================ */
+function configuraTot() {
+  // ▼▼▼ OMPLE AIXO ▼▼▼
+  var CONFIG = {
+    GRUPS_ID:   '',   // ID del full "Grups" compartit
+    DESDOB_ID:  '',   // ID del full "Desdoblaments" compartit
+    GEMINI_KEY: '',   // clau de Gemini (pot ser la mateixa per a totes)
+    APP_TOKEN:  '',   // ha de coincidir amb el de js/config.local.js de la seva app
+  };
+  // ▲▲▲ OMPLE AIXO ▲▲▲
+
+  var linies = [];
+  var diu = function (t) { linies.push(t); Logger.log(t); };
+  var pendents = [];
+
+  diu('CONFIGURACIO DE L APP');
+  diu('=====================');
+
+  /* 1) Credencials */
+  diu('');
+  diu('1) Credencials');
+  var props = PropertiesService.getScriptProperties();
+  var posades = 0, mantingudes = 0;
+  Object.keys(CONFIG).forEach(function (k) {
+    var v = (CONFIG[k] || '').toString().trim();
+    if (v) { props.setProperty(k, v); posades++; }
+    else {
+      var actual = props.getProperty(k);
+      if (actual) { mantingudes++; }
+      else { pendents.push('Falta ' + k + ': omple-la aqui dalt i torna a executar.'); }
+    }
+  });
+  diu('   Desades: ' + posades + ' · ja hi eren: ' + mantingudes);
+  if (pendents.length) pendents.forEach(function (p) { diu('   FALTA: ' + p); });
+
+  /* 2) Pestanyes del full */
+  diu('');
+  diu('2) Pestanyes del full de calcul');
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  try {
+    getOrCreateAlumnesSheet(ss);
+    diu('   Alumnes ................ OK');
+  } catch (e) { diu('   Alumnes ................ HA FALLAT: ' + e.message); }
+  try {
+    getOrCreateRegistreSheet(ss, []);
+    diu('   Registres d aula ....... OK');
+  } catch (e) { diu('   Registres d aula ....... HA FALLAT: ' + e.message); }
+  // Els fulls de dades ocults es creen sols en escriure-hi la primera clau
+  ['_AppData', '_AppData_Planning', '_AppData_Assim', '_AppData_Actitud'].forEach(function (nom) {
+    try {
+      var sh = ss.getSheetByName(nom);
+      if (!sh) { sh = ss.insertSheet(nom); sh.hideSheet(); }
+      diu('   ' + nom + (nom.length < 16 ? ' ' : '') + ' ....... OK');
+    } catch (e) { diu('   ' + nom + ' HA FALLAT: ' + e.message); }
+  });
+
+  /* 3) Proteccio i format */
+  diu('');
+  diu('3) Proteccio i amplada de columnes');
+  try { protegirTotsElsFullsDeCalcul(ss); diu('   Fulls protegits ........ OK'); }
+  catch (e) { diu('   Proteccio .............. HA FALLAT: ' + e.message); }
+  try { autoAjustaTotsElsFulls(ss); diu('   Columnes ajustades ..... OK'); }
+  catch (e) { diu('   Columnes ............... HA FALLAT: ' + e.message); }
+
+  /* 4) Acces al full compartit de Grups */
+  diu('');
+  diu('4) Full "Grups" compartit');
+  try {
+    var gss = getGrupsSpreadsheet(ss);
+    if (gss) diu('   Accedeix a: "' + gss.getName() + '" OK');
+    else { diu('   NO s hi pot accedir.'); pendents.push('Comprova el GRUPS_ID i que aquest compte hi tingui perms.'); }
+  } catch (e) {
+    diu('   NO s hi pot accedir: ' + e.message);
+    pendents.push('Comprova el GRUPS_ID i els permisos del full Grups.');
+  }
+
+  /* 5) Escriptura al Calendar i a Tasks (i autoritzacio) */
+  diu('');
+  diu('5) Google Calendar i Google Tasks');
+  var idProva = 'provavedruna' + String(Date.now()).slice(-8);
+  try {
+    var dema = new Date(); dema.setDate(dema.getDate() + 1);
+    var pad = function (x) { return (x < 10 ? '0' : '') + x; };
+    var d = dema.getFullYear() + '-' + pad(dema.getMonth() + 1) + '-' + pad(dema.getDate());
+    Calendar.Events.insert({
+      id: idProva, summary: 'PROVA app (s esborra sola)',
+      start: { dateTime: d + 'T09:00:00', timeZone: 'Europe/Madrid' },
+      end:   { dateTime: d + 'T10:00:00', timeZone: 'Europe/Madrid' }
+    }, 'primary');
+    Calendar.Events.remove('primary', idProva);
+    diu('   Calendar ............... OK (pot escriure-hi)');
+  } catch (e) {
+    diu('   Calendar ............... HA FALLAT: ' + e.message);
+    pendents.push('Calendar: revisa el servei avancat i els permisos.');
+    try { Calendar.Events.remove('primary', idProva); } catch (e2) {}
+  }
+  try {
+    var t = Tasks.Tasks.insert({ title: 'PROVA app (s esborra sola)' }, '@default');
+    Tasks.Tasks.remove('@default', t.id);
+    diu('   Tasks .................. OK (pot escriure-hi)');
+  } catch (e) {
+    diu('   Tasks .................. HA FALLAT: ' + e.message);
+    pendents.push('Tasks: revisa el servei avancat i els permisos.');
+  }
+
+  /* Resum */
+  diu('');
+  diu('=====================');
+  if (!pendents.length) {
+    diu('TOT LLEST.');
+    diu('');
+    diu('Nomes queda:');
+    diu('  1. Implementa > Nova implementacio > Aplicacio web');
+    diu('     (Executar com: JO · Acces: qualsevol)');
+    diu('  2. Copia la URL que acaba en /exec');
+    diu('  3. Posa-la a l app de la mestra: Configuracio > Connectar');
+  } else {
+    diu('QUEDA PER FER:');
+    pendents.forEach(function (p) { diu('  - ' + p); });
+  }
+  return linies.join('\n');
+}
+
 function configuraCredencials() {
   var props = PropertiesService.getScriptProperties();
   props.setProperties({

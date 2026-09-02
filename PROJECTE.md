@@ -176,13 +176,33 @@ se'n falta cap, l'app peta. Després cal tornar a autoritzar (executant
 
 ## 7. FLUX PER DONAR D'ALTA UN MESTRE NOU
 
-1. Afegir el seu **/exec** (URL del seu Apps Script) a la configuració.
-2. **Connectar** (l'app fa sola: crear pestanyes, protegir fulls, ajustar columnes).
-3. Configurar el seu **perfil** (nom, grup que tutoritza, assignatures).
-4. Introduir el seu **horari** (editor visual o importació ràpida).
+Guió complet pas a pas: **`INSTALLACIO.md`** (uns 10 minuts per mestra).
 
-Els IDs dels fulls compartits, la clau Gemini i el token ja van a les Script
-Properties del seu Apps Script, així que no s'han d'entrar a la interfície.
+En resum:
+
+1. Full de càlcul nou al seu Drive → **Extensions → Apps Script**.
+2. Enganxar-hi **`Code.gs`** i també **`appsscript.json`**
+   (roda dentada → "Mostra el fitxer de manifest"). El manifest ja porta els
+   serveis avançats Calendar/Tasks i els 4 permisos: **no cal afegir serveis
+   ni editar scopes a mà** (era la font del problema dels permisos de Tasks).
+3. Omplir els 4 valors de dalt de **`configuraTot()`** i executar-la. Ho fa
+   tot sol: credencials a les Script Properties, pestanyes (`Alumnes`,
+   `Registres d'aula`, `_AppData*`), protecció dels fulls, amplada de
+   columnes, comprovació de l'accés al full Grups compartit i **prova real
+   d'escriptura al Calendar i a Tasks**. Al final diu què queda per fer.
+   Es pot re-executar sense por: un valor deixat en blanc no esborra el que
+   ja hi hagi.
+4. **Implementa → Nova implementació → Aplicació web**
+   (Executar com: **Jo** · Accés: **Qualsevol**) i copiar la URL `/exec`.
+5. A la seva app: **Configuració → Connectar** amb aquell `/exec`.
+6. Amb ella al costat: **perfil** (nom, grup que tutoritza, assignatures) i **horari**.
+
+Els IDs dels fulls compartits, la clau Gemini i el token van a les Script
+Properties, no a la interfície. Els 3 primers són **els mateixos per a totes**;
+si el token també ho és, no cal tocar `js/config.local.js` de cap filla.
+
+La resta (objectius d'avaluació, aspectes d'actitud, estil de comentaris,
+enllaços personals) ja s'ho configura cada mestra des de l'app quan vulgui.
 
 ---
 
