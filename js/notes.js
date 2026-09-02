@@ -6,6 +6,8 @@
 let notesItems   = [];
 let notesValors  = {};
 let noEntregats  = {};
+// Comentari de cada alumne sobre CADA activitat: { itemId: { posicio: text } }
+let notesComentaris = {};
 let notesContext = { materia: null, trimestre: null };
 
 /* --- Cua de guardament serial (evita pèrdues) --- */
@@ -56,7 +58,7 @@ async function prefetchAllNotes() {
       }
       const r = await appsScriptGet({ action: 'getNotes', materia: mat, trimestre: trim });
       if (r.ok) {
-        const entry = { items: r.items || [], valors: r.valors || {}, noEntregats: r.noEntregats || {}, rowNoms: r.rowNoms || [], ts: Date.now() };
+        const entry = { items: r.items || [], valors: r.valors || {}, noEntregats: r.noEntregats || {}, comentaris: r.comentaris || {}, rowNoms: r.rowNoms || [], ts: Date.now() };
         _cache[mat + '_' + trim] = entry;
         localStorage.setItem(persistKey, JSON.stringify(entry));
       }
@@ -95,6 +97,89 @@ function sortCarpetaLast(items) {
   const actitud  = items.filter(i => i.isActitud);
   const carpeta  = items.filter(i => i.readonly && !i.isActitud);
   return [...normal, ...actitud, ...carpeta];
+}
+
+/* ============================================================
+   COMENTARI D'UN ALUMNE SOBRE UNA ACTIVITAT
+   ------------------------------------------------------------
+   A part de la nota, el mestre pot deixar escrit com li ha anat aquella
+   activitat a aquell nen. Es desa com a nota de la mateixa cel·la del full
+   de càlcul, així també es veu obrint el Sheets.
+   ============================================================ */
+let _comNotaItem = null, _comNotaAlumne = null;
+
+function obreComentariNota(item, alumne) {
+  _comNotaItem = item; _comNotaAlumne = alumne;
+  let ov = document.getElementById('comNotaOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.id = 'comNotaOverlay';
+    ov.addEventListener('mousedown', e => { if (e.target === ov) ov.classList.remove('open'); });
+    ov.innerHTML =
+      '<div class="modal">' +
+        '<div class="modal-header">' +
+          '<div><div class="modal-header-title" id="comNotaTitol"></div>' +
+          '<div class="modal-header-sub" id="comNotaSub"></div></div>' +
+          '<button class="modal-close" id="comNotaX" aria-label="Tancar">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
+        '</div>' +
+        '<div class="modal-body">' +
+          '<div class="modal-field">' +
+            '<div class="modal-label">Com li ha anat aquesta activitat</div>' +
+            '<textarea class="modal-input" id="comNotaText" rows="5" ' +
+              'placeholder="Ex: Ha entès el procediment però s\'ha encallat amb els problemes llargs."></textarea>' +
+            '<div class="modal-hint">Ho veuràs també obrint el full de càlcul, al costat de la nota.</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="modal-footer">' +
+          '<button class="btn btn-ghost" id="comNotaEsb">Esborrar</button>' +
+          '<button class="btn btn-secondary" id="comNotaCancel">Cancel·lar</button>' +
+          '<button class="btn btn-primary" id="comNotaDesa">Desar</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    document.getElementById('comNotaX').addEventListener('click', () => ov.classList.remove('open'));
+    document.getElementById('comNotaCancel').addEventListener('click', () => ov.classList.remove('open'));
+    document.getElementById('comNotaDesa').addEventListener('click', () => desaComentariNota(document.getElementById('comNotaText').value));
+    document.getElementById('comNotaEsb').addEventListener('click', () => desaComentariNota(''));
+    document.getElementById('comNotaText').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.ctrlKey) desaComentariNota(document.getElementById('comNotaText').value);
+    });
+  }
+  document.getElementById('comNotaTitol').textContent = alumne.nom;
+  document.getElementById('comNotaSub').textContent   = item.nom;
+  document.getElementById('comNotaText').value = (notesComentaris[item.id] || {})[alumne.id] || '';
+  ov.classList.add('open');
+  setTimeout(() => document.getElementById('comNotaText').focus(), 80);
+}
+
+async function desaComentariNota(text) {
+  const item = _comNotaItem, alumne = _comNotaAlumne;
+  if (!item || !alumne) return;
+  const net = (text || '').trim();
+
+  // Pinta-ho de seguida (sense esperar el servidor)
+  if (!notesComentaris[item.id]) notesComentaris[item.id] = {};
+  if (net) notesComentaris[item.id][alumne.id] = net;
+  else delete notesComentaris[item.id][alumne.id];
+  document.getElementById('comNotaOverlay').classList.remove('open');
+  renderNotesTable();
+  _cacheDel();   // el cache ja no val: es tornarà a portar del full
+
+  if (!config.scriptUrl) return;
+  try {
+    const r = await appsScriptPost({
+      action: 'saveNotaComentari',
+      materia: notesContext.materia, trimestre: notesContext.trimestre,
+      grup: notesContext.grup || '', itemId: item.id,
+      nom: alumne.nom, text: net
+    });
+    if (!r.ok) throw new Error(r.error);
+    showToast(net ? 'Comentari desat ✓' : 'Comentari esborrat', 'success');
+  } catch (e) {
+    showToast('No s\'ha pogut desar el comentari: ' + e.message, 'error');
+  }
 }
 
 /* ============================================================
@@ -207,8 +292,9 @@ async function openNotes(materia, trimestre, grup) {
     // Remapa pel nom si el cache porta rowNoms (evita desalineació)
     notesValors = cached.rowNoms ? _remapValorsPerNom(cached.valors || {}, cached.rowNoms) : (cached.valors || {});
     noEntregats = cached.rowNoms ? _remapValorsPerNom(cached.noEntregats || {}, cached.rowNoms) : (cached.noEntregats || {});
+    notesComentaris = cached.rowNoms ? _remapValorsPerNom(cached.comentaris || {}, cached.rowNoms) : (cached.comentaris || {});
   } else {
-    notesItems = []; notesValors = {}; noEntregats = {};
+    notesItems = []; notesValors = {}; noEntregats = {}; notesComentaris = {};
   }
   // Injecta l'ítem d'actitud (sempre present, entre Carpeta i Mitjana)
   _injectActitudItem(materia, parseInt(trimestre));
@@ -287,10 +373,11 @@ async function _loadNotesBackground() {
     const newItems  = sortCarpetaLast(r.items || []);
     // Guarda al cache els valors ORIGINALS (per posició) + rowNoms.
     // El remapatge per nom es fa en aplicar (aquí sota i en obrir des de cache).
-    _cacheSet({ items: r.items || [], valors: r.valors || {}, noEntregats: r.noEntregats || {}, rowNoms: r.rowNoms || [] });
+    _cacheSet({ items: r.items || [], valors: r.valors || {}, noEntregats: r.noEntregats || {}, comentaris: r.comentaris || {}, rowNoms: r.rowNoms || [] });
     // Per a l'ús immediat, remapa pel nom
     const newValors = _remapValorsPerNom(r.valors || {}, r.rowNoms);
     const newNE     = _remapValorsPerNom(r.noEntregats || {}, r.rowNoms);
+    const newComs   = _remapValorsPerNom(r.comentaris || {}, r.rowNoms);
 
     // Detecta canvis abans de sobreescriure (evita re-render innecessari).
     // Compara només les dades del servidor (l'actitud ve del localStorage).
@@ -303,6 +390,7 @@ async function _loadNotesBackground() {
     notesItems  = newItems;
     notesValors = newValors;
     noEntregats = newNE;
+    notesComentaris = newComs;
     // Actitud ve del localStorage (no del servidor): re-injecta sempre
     _injectActitudItem(notesContext.materia, parseInt(notesContext.trimestre));
     if (changed) renderNotesTable();
@@ -612,7 +700,20 @@ function renderNotesTable() {
           if (!isNaN(v) && v > item.maxPunts) { inp.value = item.maxPunts; inp.style.borderColor=''; updateNota(item.id, s.id, item.maxPunts); }
         });
 
+        // Comentari d'aquest alumne sobre AQUESTA activitat
+        const txtCom = (notesComentaris[item.id] || {})[s.id] || '';
+        const btnCom = document.createElement('button');
+        btnCom.className = 'nota-com-btn' + (txtCom ? ' te-coment' : '');
+        btnCom.title = txtCom || 'Escriure un comentari sobre aquesta activitat';
+        btnCom.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">' +
+          '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+        btnCom.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          obreComentariNota(item, s);
+        });
+
         td.appendChild(btnNE);
+        td.appendChild(btnCom);
         inner.appendChild(inp); inner.appendChild(chip);
       }
       td.appendChild(inner); tr.appendChild(td);

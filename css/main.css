@@ -3608,3 +3608,25 @@ body {
   padding: 2px 6px; border-radius: 5px; background: var(--surface);
   border: 1px solid var(--border-strong); color: var(--text-main);
 }
+
+/* ── Comentari d'un alumne sobre una activitat (a la taula de notes) ── */
+.nota-com-btn {
+  position: absolute; top: 5px; left: 5px;
+  width: 20px; height: 20px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--border); border-radius: 5px;
+  background: var(--surface); color: var(--text-muted);
+  cursor: pointer; opacity: 0.3;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s, background 0.15s;
+}
+.nota-com-btn svg { width: 11px; height: 11px; }
+.notes-table tbody tr:hover .nota-com-btn { opacity: 0.75; }
+.nota-com-btn:hover {
+  opacity: 1 !important; border-color: var(--crimson);
+  color: var(--crimson); background: var(--crimson-050, #FBEAEF);
+}
+/* Amb comentari: sempre visible i marcat */
+.nota-com-btn.te-coment {
+  opacity: 1; border-color: var(--garnet-mid);
+  background: var(--crimson-050, #FBEAEF); color: var(--garnet-text);
+}

@@ -245,6 +245,7 @@ function handleRequest(e) {
       case 'getGCalEvents':          result = getGoogleCalendarEvents(parseInt((body&&body.year)||p.year), parseInt((body&&body.month)||p.month)); break;
       case 'getGoogleTasks':         result = getGoogleTasks(); break;
       case 'gwriteSync':             result = gwriteSync(body && body.canvis); break;
+      case 'saveNotaComentari':      result = saveNotaComentari(ss, (body&&body.materia)||p.materia, (body&&body.trimestre)||p.trimestre, body&&body.itemId, body&&body.nom, body&&body.text, (body&&body.grup)||p.grup); break;
       case 'saveRubrica':           result = saveRubrica(ss, (body&&body.materia)||p.materia, body&&body.data); break;
       case 'loadRubrica':           result = loadRubrica(ss, (body&&body.materia)||p.materia); break;
       case 'saveActitudAspectes':   result = saveActitudAspectes(ss, body&&body.data); break;
@@ -1143,7 +1144,30 @@ function getNotes(ss, materia, trimestre, grup) {
     rowNoms.push(allData[rP] ? (allData[rP][0]||'').toString().trim() : '');
   }
 
-  return { ok:true, items:items, valors:valors, noEntregats:neMap, rowNoms:rowNoms };
+  // Comentaris per alumne i activitat. Es desen com a NOTA de la mateixa
+  // cel·la de la puntuacio, aixi el mestre tambe els veu obrint el full.
+  var comentaris = {};
+  try {
+    var totesNotes = sh.getRange(1, 1, Math.max(lr, DATA_ROW), lc).getNotes();
+    items.forEach(function (it) {
+      var c = -1;
+      allNotes.forEach(function (m, i) {
+        var p = (m || '').split('|');
+        if (p.length === 3 && parseInt(p[2]) === it.id) c = i;
+      });
+      if (c === -1) return;
+      for (var sc = 0; sc < numAlumnes; sc++) {
+        var rc = DATA_ROW - 1 + sc * 2;
+        var txt = (totesNotes[rc] && totesNotes[rc][c]) ? String(totesNotes[rc][c]).trim() : '';
+        if (txt) {
+          if (!comentaris[it.id]) comentaris[it.id] = {};
+          comentaris[it.id][sc] = txt;
+        }
+      }
+    });
+  } catch (e) { /* si falla, simplement no n hi ha */ }
+
+  return { ok:true, items:items, valors:valors, noEntregats:neMap, rowNoms:rowNoms, comentaris:comentaris };
 }
 
 /* Retorna la nota final arrodonida i el comptador de NE de CADA alumne
@@ -2763,6 +2787,32 @@ function provaEscripturaGoogle() {
    rubrica_{materia} = { objectius: [ { id, nom, nivells: [4 textos] } ] }
    actitud_aspectes  = [ { id, nom } ]
    ============================================================ */
+
+/* Comentari d'un alumne sobre UNA activitat concreta.
+   Es desa com a nota de la cel·la de la puntuacio: queda al costat de la nota
+   i tambe es veu obrint el full de calcul. */
+function saveNotaComentari(ss, materia, trimestre, itemId, nom, text, grup) {
+  var nomBase = _materiaNomBase(materia);
+  if (!nomBase) return { ok:false, error:'Materia desconeguda' };
+  var sh = ss.getSheetByName(_notesTabName(trimestre, nomBase, grup));
+  if (!sh) return { ok:false, error:'Pestanya no trobada' };
+
+  var lc = sh.getLastColumn();
+  var metas = sh.getRange(1, 1, 1, lc).getNotes()[0];
+  var col = -1;
+  metas.forEach(function (m, i) {
+    var p = (m || '').split('|');
+    if (p.length === 3 && parseInt(p[2]) === parseInt(itemId)) col = i + 1;
+  });
+  if (col === -1) return { ok:false, error:'Activitat no trobada' };
+
+  var rowP = _trobaFilaAlumne(sh, nom);
+  if (rowP === -1) return { ok:false, error:'Alumne no trobat: ' + nom };
+
+  var net = (text || '').toString().trim();
+  sh.getRange(rowP, col).setNote(net || null);
+  return { ok:true };
+}
 
 function saveRubrica(ss, materia, data) {
   if (!materia) return { ok: false, error: 'Falta la materia' };
