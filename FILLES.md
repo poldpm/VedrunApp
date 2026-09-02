@@ -134,34 +134,30 @@ necessiti la seva app, surt d'aquí amb `nova-filla.js` (veure aquí sobre), i
 tot el que es millori per a les especialistes es fa **a la mare** darrere
 `esEspecialista()`, no en aquesta carpeta.
 
-## Crear una filla
+## Un cop creada: què queda per fer
 
-1. **Copiar** aquesta carpeta a `C:\Escorial\VedrunApp-<Mestra>`.
-2. **Esborrar-hi** la carpeta `.git` (perquè no apunti al repositori de la mare).
-3. **Crear-hi `FILLA.json`**:
+`nova-filla.js` ja li ha deixat la carpeta, el `FILLA.json`, el rol i el
+seu `js/personal.js`. Queda:
 
-   ```json
-   {
-     "mestra": "Anna",
-     "mareVersio": "v111",
-     "propis": ["js/notes.js"]
-   }
-   ```
-   A `propis` només hi van els fitxers que aquella mestra tingui diferents.
-   `js/config.local.js` ja es respecta sempre, no cal posar-l'hi.
-
-   > **El manual d'ús viatja de la mare a les filles.** Mentre una filla
-   > només tingui la manera d'avaluar canviada, li va bé el manual de la
-   > mare. Però el dia que li facis alguna cosa **que el manual no explica
-   > o que a ella funciona diferent**, afegeix `manual.html` als seus
-   > `propis` i actualitza-l'hi allà: si no, la propera sincronització li
-   > tornarà el manual de la mare i li explicarà una app que no és la seva.
-
-4. **Posar-hi el seu token** a `js/config.local.js` (ha de coincidir amb
+1. **Posar-hi el seu token** a `js/config.local.js` (ha de coincidir amb
    l'`APP_TOKEN` de les propietats del SEU Apps Script). Amb apps separades,
    cada mestra pot tenir el seu token propi: és més segur que compartir-ne un.
-5. **Repositori i GitHub Pages propis** per tenir la seva URL.
-6. Al seu navegador, **Configuració → la URL del seu `/exec`**.
+2. **Repositori i GitHub Pages propis** per tenir la seva URL.
+3. Al seu navegador, **Configuració → la URL del seu `/exec`**
+   (el guió complet del backend és a `INSTALLACIO.md`).
+4. Amb ella al costat: **perfil** i **horari**.
+
+A `propis` del `FILLA.json` només hi van els fitxers que aquella mestra
+tingui **diferents**. `js/config.local.js` i `js/rol.js` ja es respecten
+sempre, i `js/personal.js` només es copia si encara no hi és: no cal
+posar-los-hi.
+
+> **El manual d'ús viatja de la mare a les filles.** Mentre una filla
+> només tingui la manera d'avaluar canviada, li va bé el manual de la
+> mare. Però el dia que li facis alguna cosa **que el manual no explica
+> o que a ella funciona diferent**, afegeix `manual.html` als seus
+> `propis` i actualitza-l'hi allà: si no, la propera sincronització li
+> tornarà el manual de la mare i li explicarà una app que no és la seva.
 
 ---
 
