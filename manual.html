@@ -175,6 +175,7 @@
     <a href="#instalar" class="sub">Instal·lar-la</a>
     <a href="#navegacio" class="sub">Com moure's</a>
     <a href="#perfil">3. El meu perfil</a>
+    <a href="#perfil-especialista" class="sub">Si ets especialista</a>
     <a href="#horari">4. Horari</a>
     <a href="#inici">5. Inici</a>
     <a href="#planning">6. Planning setmanal</a>
@@ -225,6 +226,9 @@
       <p>Totes les dades es desen automàticament al teu <strong>Google Sheets</strong>, de manera que pots treballar des de qualsevol dispositiu (ordinador de casa, portàtil de l'escola, mòbil) i sempre veuràs la mateixa informació actualitzada.</p>
       <div class="callout tip">
         <strong>És una PWA:</strong> pots instal·lar l'app a la pantalla d'inici del mòbil o de l'ordinador i s'obrirà com una aplicació nativa, amb la seva pròpia icona.
+      </div>
+      <div class="callout">
+        <strong>Hi ha dues versions de l'app</strong>, i sota el logo hi diu quina tens: <strong>Gestió de curs · Tutors</strong> o <strong>Gestió de curs · Especialistes</strong>. Funcionen igual; el que canvia és que la dels especialistes no demana de quin grup ets tutor/a, sinó a quins grups fas classe, i no hi surten les eines que només tenen sentit amb un grup propi. Si tens la que no et toca, digues-ho a en Pol i te'n passarà l'enllaç bo.
       </div>
       <div class="callout">
         <strong>L'app s'adapta a tu, no al revés.</strong> Els objectius d'avaluació, els aspectes d'actitud, la teva manera d'escriure els comentaris, les categories del calendari i els enllaços de la portada <strong>els configures tu</strong> des de dins de l'app. Res d'això ve imposat. Ho tens tot recollit a l'apartat <a href="#personalitzar">Personalitzar l'app</a>.
@@ -290,11 +294,24 @@
         <li><strong>Altres cursos on fas classe.</strong> Afegeix el curs i marca-hi les assignatures. Per cada una tries el teu grup (o la classe sencera).</li>
       </ul>
       <p>Clica <strong>Desar perfil</strong> quan acabis. El menú d'Assignatures es refà tot sol.</p>
-      <div class="callout">
-        <strong>Si no ets tutor/a de cap grup</strong> ets un <strong>especialista</strong>: no cal que triïs tutoria, només els cursos on fas classe. Podràs obrir la fitxa dels alumnes d'aquells grups, però les notes i els assoliments només de les assignatures que hi fas tu.
-      </div>
       <div class="callout tip">
         <strong>Desdoblaments:</strong> si una assignatura es fa desdoblada, tria quin grup et toca a tu i l'app ja et carregarà només aquells alumnes a les notes i al generador de grups. El <strong>Tallers</strong> és rotatori (el grup et va canviant); la resta són grup fix tot el curs.
+      </div>
+
+      <h3 id="perfil-especialista">Si ets especialista</h3>
+      <p>A l'app dels especialistes (mira sota el logo: hi ha de dir <strong>Especialistes</strong>) el perfil no et demana cap tutoria. Et demana <strong>a quins grups fas classe</strong>:</p>
+      <ul>
+        <li>Al desplegable <strong>+ Afegir grup…</strong> tria un grup: 3r A, 3r B, 5è C… un per un.</li>
+        <li>Dins de cada grup, marca les assignatures que hi fas.</li>
+        <li>Si fas la mateixa assignatura a tres línies, afegeix els <strong>tres grups</strong> i marca-la a cada un. Al menú et sortirà «Música 3r A», «Música 3r B» i «Música 3r C» per separat, cadascuna amb les seves notes i els seus alumnes.</li>
+        <li>La × de la capçalera treu el grup del perfil (t'avisa de què hi perds).</li>
+      </ul>
+      <p>La targeta de baix, <strong>Assignatures amb grup rotatori</strong>, és només per a les assignatures on els grups van rotant i no són una classe sencera, com el <strong>Tallers</strong>: allà s'hi afegeix el curs i es tria el grup que tens ara.</p>
+      <div class="callout tip">
+        <strong>Els desdoblaments els respecta a tot arreu.</strong> Si una de les teves assignatures és desdoblada, a les notes, als assoliments, al generador de grups, a «Veure alumnes», a les observacions i al registre d'aula hi surten <strong>els alumnes del teu grup</strong>, no la classe sencera. No has de fer res: ho agafa del full de desdoblaments.
+      </div>
+      <div class="callout">
+        <strong>Què no hi trobaràs</strong>, perquè són coses de tutor: la pàgina <strong>Alumnes</strong> i la <strong>Distribució de l'aula</strong>. Als alumnes hi arribes des de cada assignatura, amb el botó <strong>Veure alumnes</strong> (mira <a href="#alumnes">Alumnes</a>).
       </div>
     </section>
 
@@ -444,6 +461,9 @@
     <section id="alumnes">
       <h2>10. Alumnes</h2>
       <p>La llista de tots els alumnes de la classe, en format de targetes. Des d'aquí gestiones tota la informació de cadascun.</p>
+      <div class="callout">
+        <strong>Si ets especialista</strong> aquesta pàgina no et surt al menú, perquè no tens un grup propi: tens els alumnes de molts grups. Hi arribes des de cada assignatura. Obre l'assignatura al menú de l'esquerra i clica <strong>Veure alumnes</strong>: et sortiran els d'aquell grup, i clicant <strong>Fitxa</strong> en veus tota la informació. La fitxa és <strong>de consulta</strong>: les dades de la família, el PI, l'AM o l'informe EAP els manté qui n'és tutor/a. El que sí que hi pots fer és <strong>afegir una observació</strong>, amb el botó de sota de la fitxa.
+      </div>
 
       <h3>Afegir un alumne</h3>
       <p>Obre el panell de gestió i clica <strong>Afegir</strong>. Has d'indicar el nom i el <strong>gènere</strong>, que serveix perquè el generador de comentaris faci servir l'article correcte («en Pol», «la Laura», «l'Aitana»).</p>
@@ -503,6 +523,9 @@
       <h2>11. Observacions</h2>
       <p>Una graella per apuntar observacions de cada alumne, organitzades per assignatura i trimestre. Serveix per anar recollint apunts durant el curs que després t'ajudaran a fer els informes.</p>
       <p>Les observacions surten també a la fitxa de cada alumne, agrupades per trimestre.</p>
+      <div class="callout">
+        <strong>Si ets especialista</strong>, a dalt de tot de la pàgina hi tens un desplegable d'<strong>assignatura i grup</strong> («Música · 3r A»): tria'l i la graella et deixa <strong>els alumnes que tens tu en aquella classe</strong>. Si l'assignatura és desdoblada, hi surten els del teu mig grup, no la classe sencera. També pots escriure una observació sense passar per aquí: obre l'assignatura, clica <strong>Veure alumnes</strong> → <strong>Fitxa</strong> → <strong>Afegir observació</strong>.
+      </div>
       <div class="callout">
         <strong>Són compartides, i és volgut.</strong> Si tu apuntes que un nen gira el 6, la mestra que li fa Anglès també ho veurà i ho podrà tenir en compte. Això és justament la gràcia: que la informació de l'alumne no es quedi tancada a la llibreta d'una sola persona.
       </div>
@@ -574,6 +597,12 @@
       <h2>14. Registres d'aula</h2>
       <p>Una graella flexible per registrar qualsevol cosa del dia a dia: qui ha portat el material, qui ha fet els deures, control de lectures, els diners de la sortida… Cada columna pot ser una <strong>casella de verificació</strong> o un <strong>camp de text</strong>, i s'aplica a tots els alumnes.</p>
       <p>És l'apartat més lliure de l'app: el fas servir per al que et convingui.</p>
+      <div class="callout">
+        <strong>Si ets especialista</strong>, a dalt de tot hi ha un desplegable d'<strong>assignatura i grup</strong>: <strong>cada assignatura teva a cada grup té el seu registre</strong>, amb les seves columnes i les seves creus. Així el control de la flauta de Música 3r A no es barreja amb el de 3r B ni amb el dossier d'Anglès. Recorda triar-ho abans de posar-hi res.
+      </div>
+      <div class="callout tip">
+        <strong>Va per assignatura i no només per grup a posta:</strong> si l'Anglès de 3r A és desdoblat i tu en fas mig grup, al registre hi has de tenir els teus alumnes i no els vint-i-cinc de la classe. Per això el registre segueix el desdoblament, com les notes.
+      </div>
     </section>
 
     <!-- 15. GRUPS -->
@@ -597,6 +626,9 @@
     <!-- 16. SEIENTS -->
     <section id="seients">
       <h2>16. Distribució de l'aula</h2>
+      <div class="callout">
+        <strong>Si ets especialista</strong> aquesta eina no et surt al menú: està feta per a una sola aula i un sol grup, el de la teva tutoria. Si et fes servei tenir un plànol per a cada grup, digues-ho a en Pol.
+      </div>
       <p>Eina per decidir on seu cada alumne. Munta el plànol de la teva aula i deixa que l'app reparteixi els alumnes tenint molt en compte les <a href="#seient-cond">condicions de seient</a> de cadascun.</p>
 
       <h3>Muntar el plànol</h3>
@@ -748,6 +780,8 @@
       <table>
         <tr><th>Què vull canviar</th><th>On es fa</th></tr>
         <tr><td>Les meves assignatures i grups</td><td>Menú lateral → <strong>el meu nom</strong> (perfil)</td></tr>
+        <tr><td>A quins grups faig classe (especialistes)</td><td>Menú lateral → <strong>el meu nom</strong> → <strong>A quins grups fas classe?</strong></td></tr>
+        <tr><td>De quina classe vull veure el registre d’aula (especialistes)</td><td>Registres d’aula → desplegable <strong>Assignatura i grup</strong>, a dalt de tot</td></tr>
         <tr><td>El meu horari setmanal</td><td>Menú → <strong>Horari</strong></td></tr>
         <tr><td>Els objectius d'avaluació i els seus criteris</td><td>Generador de comentaris → <strong>Editar objectius</strong></td></tr>
         <tr><td>Importar els objectius d'un document</td><td>Editar objectius → <strong>Importar d'un document</strong></td></tr>

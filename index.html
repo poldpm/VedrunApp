@@ -35,7 +35,7 @@
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <img src="img/logo-horitzontal.png" alt="Vedruna Escorial Vic">
-      <p class="sidebar-brand-title">Gestió de curs</p>
+      <p class="sidebar-brand-title" id="sidebarBrandTitle">Gestió de curs · Tutors</p>
     </div>
     <div class="sidebar-nav">
       <a class="nav-item nav-item-profile nav-item-profile-top" href="#" onclick="showPage('perfil'); return false;">
@@ -65,7 +65,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><polyline points="4 6 5 7 7 5"/><polyline points="4 12 5 13 7 11"/><polyline points="4 18 5 19 7 17"/></svg>
         Tasques
       </a>
-      <a class="nav-item" href="#" onclick="showPage('alumnes'); return false;">
+      <a class="nav-item" id="navAlumnes" href="#" onclick="showPage('alumnes'); return false;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Alumnes
       </a>
@@ -100,7 +100,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           Generador de comentaris
         </a>
-        <a class="nav-item" href="#" onclick="showPage('seients'); return false;">
+        <a class="nav-item" id="navSeients" href="#" onclick="showPage('seients'); return false;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>
           Distribució de l'aula
         </a>
@@ -160,7 +160,7 @@
       <!-- ACCÉS RÀPID -->
       <div style="margin-top:12px">
         <div class="home-accions-grid">
-          <div class="home-accio" onclick="showPage('alumnes')">
+          <div class="home-accio" id="homeAccioAlumnes" onclick="showPage('alumnes')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Alumnes
           </div>
@@ -491,24 +491,31 @@ Català, Matemàtiques, Anglès, Medi, Català
           <input class="modal-input" id="perfilCognom" placeholder="El teu cognom">
         </div>
 
+        <!-- Grups on fa classe (NOMÉS a l'app dels especialistes) -->
+        <div class="perfil-card" id="perfilCardGrups" style="display:none">
+          <div class="perfil-card-title">A quins grups fas classe?</div>
+          <p class="modal-hint" style="margin:0 0 12px">Afegeix cada grup on entres (per exemple 3r A) i marca-hi les assignatures que hi fas. Si la mateixa assignatura la fas a tres línies, afegeix els tres grups.</p>
+          <div id="perfilGrupsEspecialista"></div>
+        </div>
+
         <!-- Tutoria -->
-        <div class="perfil-card">
+        <div class="perfil-card" id="perfilCardTutoria">
           <div class="perfil-card-title">De quin grup ets tutor/a?</div>
           <div id="perfilTutorSel"></div>
           <div class="modal-hint" style="margin-top:6px">Tria el curs i després la línia. Serà el teu grup principal.</div>
         </div>
 
         <!-- Assignatures de la teva tutoria -->
-        <div class="perfil-card">
+        <div class="perfil-card" id="perfilCardTutoriaAssigs">
           <div class="perfil-card-title">Assignatures de la teva tutoria</div>
           <p class="modal-hint" style="margin:0 0 12px">Marca les assignatures que fas als teus tutoritzats.</p>
           <div id="perfilGrupsAssigs"></div>
         </div>
 
         <!-- Altres cursos on fas classe -->
-        <div class="perfil-card">
-          <div class="perfil-card-title">Altres cursos on fas classe</div>
-          <p class="modal-hint" style="margin:0 0 12px">Afegeix un curs i marca les assignatures que hi fas. Per cada una, tria el teu grup (o la classe). El Tallers és rotatori; la resta, grup fix tot el curs.</p>
+        <div class="perfil-card" id="perfilCardAltres">
+          <div class="perfil-card-title" id="perfilCardAltresTitol">Altres cursos on fas classe</div>
+          <p class="modal-hint" style="margin:0 0 12px" id="perfilCardAltresHint">Afegeix un curs i marca les assignatures que hi fas. Per cada una, tria el teu grup (o la classe). El Tallers és rotatori; la resta, grup fix tot el curs.</p>
           <div id="perfilAltresCursos"></div>
         </div>
 
@@ -1226,6 +1233,11 @@ Català, Matemàtiques, Anglès, Medi, Català
         <h1 class="hero-title">Observacions</h1>
         <p class="hero-desc">Registra observacions per alumne, trimestre i assignatura. Clica un alumne per veure el seu historial.</p>
       </section>
+      <div class="grup-picker" id="obsGrupPicker" style="display:none">
+        <label class="modal-label" for="obsGrupSel">Assignatura i grup</label>
+        <select class="modal-input" id="obsGrupSel" onchange="canviaGrupObservacions(this.value)" style="max-width:260px"></select>
+        <span class="grup-picker-hint" id="obsGrupHint"></span>
+      </div>
       <div class="obs-toolbar">
         <button class="btn btn-primary" onclick="openAddObsModal(null)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
@@ -1247,6 +1259,11 @@ Català, Matemàtiques, Anglès, Medi, Català
         <h1 class="hero-title">Registres d'aula</h1>
         <p class="hero-desc">Gestiona qualsevol cosa que necessiti seguiment per alumne: autoritzacions, materials, entregues…</p>
       </section>
+      <div class="grup-picker" id="regGrupPicker" style="display:none">
+        <label class="modal-label" for="regGrupSel">Assignatura i grup</label>
+        <select class="modal-input" id="regGrupSel" onchange="canviaGrupRegistre(this.value)" style="max-width:260px"></select>
+        <span class="grup-picker-hint" id="regGrupHint"></span>
+      </div>
       <div class="registre-toolbar">
         <button class="btn btn-primary" onclick="openNewItemModal()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
@@ -1825,6 +1842,7 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
+  <script defer src="js/rol.js"></script>
   <script defer src="js/config.local.js"></script>
   <script defer src="js/app.js"></script>
   <script defer src="js/notes.js"></script>
@@ -1939,6 +1957,12 @@ Català, Matemàtiques, Anglès, Medi, Català
         <button class="modal-close" onclick="closeGrupviewFitxa()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body" id="grupviewFitxaBody"></div>
+      <div class="modal-footer" id="grupviewFitxaFooter" style="display:none">
+        <button class="btn btn-primary btn-sm" id="grupviewAddObsBtn" onclick="_grupviewObreAfegirObs()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
+          Afegir observació
+        </button>
+      </div>
     </div>
   </div>
 

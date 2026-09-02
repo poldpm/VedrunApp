@@ -34,8 +34,12 @@ async function openGrupAlumnesModal() {
   document.getElementById('grupviewList').innerHTML = '<div class="grupview-loading">Carregant alumnes…</div>';
   document.getElementById('grupAlumnesOverlay').classList.add('open');
 
-  // Assignatura actual (si venim de notes)
-  const assignatura = (typeof notesContext !== 'undefined' && notesContext) ? notesContext.materia : null;
+  // Assignatura actual (si venim de notes). Ha de ser el NOM ("Anglès"), no
+  // la clau del menú ("angles"): si no, el desdoblament no es troba i sortiria
+  // la classe sencera quan la mestra només en té mig grup.
+  const assignatura = (typeof notesContext !== 'undefined' && notesContext && notesContext.materia)
+    ? ((typeof _assigNomNet === 'function') ? _assigNomNet(notesContext.materia) : notesContext.materia)
+    : null;
 
   try {
     // 1) Carrega tots els alumnes del grup
@@ -119,9 +123,12 @@ function _grupviewRenderCards() {
 }
 
 // Mostra la fitxa d'un alumne del grup (només consulta, enfocada a l'especialista)
+let _grupviewFitxaIdx = null;
+
 async function _grupviewShowFitxa(idx) {
   const a = _grupviewAlumnes[idx];
   if (!a) return;
+  _grupviewFitxaIdx = idx;
   document.getElementById('grupviewFitxaName').textContent = a.nom;
   document.getElementById('grupviewFitxaInit').textContent = _grupviewInitials(a.nom);
   document.getElementById('grupviewFitxaBody').innerHTML = '<div class="grupview-loading">Carregant…</div>';
@@ -231,6 +238,98 @@ function _grupviewRenderFitxa(a) {
     html = '<p class="modal-hint">Aquest alumne no té informació registrada.</p>';
   }
   document.getElementById('grupviewFitxaBody').innerHTML = html;
+  const peu = document.getElementById('grupviewFitxaFooter');
+  if (peu) peu.style.display = _grupviewMevesAssigsDelGrup().length ? '' : 'none';
+}
+
+/* ============================================================
+   AFEGIR UNA OBSERVACIÓ DES DE LA FITXA
+   La fitxa és de consulta: les dades de la família, el PI o l'EAP
+   les manté el tutor. L'observació, en canvi, la pot escriure
+   qualsevol mestre que hi faci classe, i la veu tot el claustre.
+   ============================================================ */
+function _grupviewObreAfegirObs() {
+  const a = _grupviewAlumnes[_grupviewFitxaIdx];
+  if (!a) return;
+  const assigs = _grupviewMevesAssigsDelGrup();
+  if (!assigs.length) { showToast('Al perfil no hi consta cap assignatura teva en aquest grup', 'error'); return; }
+  const trimActual = (typeof getTrimestreActual === 'function' && getTrimestreActual()) || 1;
+  const body = document.getElementById('grupviewFitxaBody');
+  if (!body || document.getElementById('gvfObsText')) { const t = document.getElementById('gvfObsText'); if (t) t.focus(); return; }
+
+  const opcionsAssig = assigs.map(nom =>
+    `<option value="${escapeHtml(nom)}">${escapeHtml(nom)}</option>`
+  ).join('');
+  const form = document.createElement('div');
+  form.className = 'gvf-block';
+  form.id = 'gvfObsForm';
+  form.innerHTML = `
+    <div class="gvf-block-title">Nova observació</div>
+    <div class="gvf-obsform">
+      <div class="gvf-obsform-row">
+        <select class="modal-input" id="gvfObsAssig" aria-label="Assignatura">${opcionsAssig}</select>
+        <select class="modal-input" id="gvfObsTrim" aria-label="Trimestre">
+          <option value="1"${trimActual === 1 ? ' selected' : ''}>1r Trimestre</option>
+          <option value="2"${trimActual === 2 ? ' selected' : ''}>2n Trimestre</option>
+          <option value="3"${trimActual === 3 ? ' selected' : ''}>3r Trimestre</option>
+        </select>
+      </div>
+      <textarea class="modal-input" id="gvfObsText" placeholder="Què has vist? Escriu-ho tal com ho explicaries."></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost btn-sm" onclick="_grupviewTancaAfegirObs()">Cancel·lar</button>
+        <button class="btn btn-primary btn-sm" id="gvfObsSave" onclick="_grupviewDesaObs()">Guardar</button>
+      </div>
+    </div>`;
+  body.insertBefore(form, body.firstChild);
+  const ta = document.getElementById('gvfObsText');
+  if (ta) { ta.focus(); ta.addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) _grupviewDesaObs(); }); }
+}
+
+function _grupviewTancaAfegirObs() {
+  const f = document.getElementById('gvfObsForm');
+  if (f) f.remove();
+}
+
+// Clau de l'observació: la mateixa que fan servir la resta de pantalles
+// (assignatura + grup), perquè després es vegi a tot arreu igual.
+function _grupviewObsKey(nomAssig) {
+  const _norm = s2 => (s2 || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  return _norm(nomAssig).replace(/[^a-z0-9]/g, '') + '__' + _norm(_grupviewGrup).replace(/[^a-z0-9]/g, '');
+}
+
+async function _grupviewDesaObs() {
+  const a = _grupviewAlumnes[_grupviewFitxaIdx];
+  if (!a) return;
+  const nomAssig = document.getElementById('gvfObsAssig').value;
+  const trim     = document.getElementById('gvfObsTrim').value;
+  const text     = (document.getElementById('gvfObsText').value || '').trim();
+  if (!text) { document.getElementById('gvfObsText').focus(); return; }
+  const btn = document.getElementById('gvfObsSave');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardant…'; }
+
+  const key = trim + '_' + _grupviewObsKey(nomAssig);
+  const rowId = a.rowId;
+  // Les observacions s'acumulen (no se substitueixen): és un fil, no un camp.
+  const previ = ((_grupviewObs[String(rowId)] || {})[key] || '').toString();
+  const nou = previ ? (previ + ' · ' + text) : text;
+
+  try {
+    const r = await appsScriptPost({ action: 'saveGrupObs', grup: _grupviewGrup, rowId: rowId, materia: key, text: nou });
+    if (!r.ok) throw new Error(r.error || 'no s\'ha pogut desar');
+    if (!_grupviewObs[String(rowId)]) _grupviewObs[String(rowId)] = {};
+    _grupviewObs[String(rowId)][key] = nou;
+    // Que es vegi també a la pàgina d'Observacions si hi tenim el mateix grup
+    if (typeof observacions !== 'undefined' && observacions && observacions[a.id]) observacions[a.id][key] = nou;
+    if (typeof MATERIES !== 'undefined' && !MATERIES[_grupviewObsKey(nomAssig)]) {
+      MATERIES[_grupviewObsKey(nomAssig)] = nomAssig + ' · ' + _grupviewGrup;
+    }
+    _grupviewTancaAfegirObs();
+    _grupviewRenderFitxa(a);
+    showToast('Observació guardada', 'success');
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+    showToast('Error: ' + e.message, 'error');
+  }
 }
 
 // Retorna les assignatures que l'usuari fa al grup actual (del perfil)
@@ -369,6 +468,7 @@ function _grupviewMatLabel(key) {
 }
 
 function closeGrupviewFitxa() {
+  _grupviewTancaAfegirObs();
   document.getElementById('grupviewFitxaOverlay').classList.remove('open');
 }
 

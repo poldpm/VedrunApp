@@ -5,7 +5,7 @@
 > qualsevol persona (o Claude Code) pugui continuar el desenvolupament sense
 > perdre context.
 
-**Versió actual:** v113 (cache `vedruna-v113` al `sw.js`)
+**Versió actual:** v117 (cache `vedruna-v117` al `sw.js`)
 **Idioma de tota la interfície i la documentació:** Català
 **Autor/mantenidor:** Pol (tutor de 2n de Primària)
 
@@ -62,6 +62,7 @@ vedruna-app/
 ├── css/
 │   └── main.css            # TOTS els estils
 ├── js/
+│   ├── rol.js              # 'tutor' o 'especialista'. NO SE SINCRONITZA mai!
 │   ├── config.local.js     # NOMÉS el token. NO SE SUBSTITUEIX en actualitzar!
 │   ├── app.js              # Nucli: navegació, home, alumnes, notes, planning,
 │   │                       #   calendari, tasques, config, bootstrap, sync
@@ -76,6 +77,48 @@ vedruna-app/
 ```
 
 ---
+
+## 3bis. LES DUES APPS: TUTORS I ESPECIALISTES
+
+Hi ha **dues adreces** amb **exactament el mateix codi**. L'única diferència és
+`js/rol.js`:
+
+```javascript
+window.APP_ROL = 'tutor';        // app dels tutors (aquest repositori)
+window.APP_ROL = 'especialista'; // app dels especialistes
+```
+
+`sync-filla.js` té `js/rol.js` a `SEMPRE_PROPI`: mai no se sincronitza, o
+l'app dels especialistes tornaria a ser la dels tutors a la primera
+actualització. La carpeta és `C:\Escorial\VedrunApp-Especialistes` i s'hi
+propaga tot amb `node eines/sync-filla.js "C:/Escorial/VedrunApp-Especialistes"`.
+
+**Què canvia quan `APP_ROL === 'especialista'`:**
+
+| On | Què |
+|---|---|
+| Sota el logo | «Gestió de curs · Especialistes» (l'altra diu «· Tutors») |
+| Perfil | No es tria tutoria. Es trien **grups** (`classes` queda `{"3r A":[…], "3r B":[…]}`) |
+| Perfil | `_perfilMigrar` NO mou `classes` cap a `altres` si no hi ha tutoria |
+| Menú | No hi ha «Alumnes» ni «Distribució de l'aula» (`PAGINES_NOMES_TUTOR`) |
+| Observacions | Selector d'assignatura+grup a dalt; no hi ha l'opció «General» |
+| Registres d'aula | Selector d'assignatura+grup; **una pestanya per assignatura i grup** |
+| Fitxa | Només la de consulta (`grupview.js`), amb «Afegir observació» |
+
+**Registres d'aula per assignatura+grup:** `_nomFullRegistre(clau)` al
+`Code.gs`. Sense clau → `"Registres d'aula"` (els tutors, com sempre, cap
+migració de dades); amb clau → `"Registres 3r A · Anglès"`. Les files es
+desen per número, per això `getOrCreateRegistreSheet` reescriu la columna A
+amb els alumnes que toquen. **Va per assignatura i no només per grup perquè
+la llista d'alumnes depèn del desdoblament:** l'Anglès de 3r A pot ser mig
+grup i la Música la classe sencera.
+
+**El nom de l'assignatura i els desdoblaments:** el full de desdoblaments
+busca `"Anglès"`, no `"angles"` (clau del menú) ni `"Anglès · 3r A"`
+(etiqueta dels selectors). Cada pantalla hi arribava amb una clau diferent i
+el desdoblament no s'aplicava. Ara hi ha `_assigNomNet(clau)` a
+`js/perfil.js` i **tothom hi passa**: `_refreshGrupStudents`,
+`_carregaAlumnesGrupNet` i el «Veure alumnes» de `grupview.js`.
 
 ## 4. REGLES ABSOLUTES (no s'han de trencar mai)
 

@@ -1,4 +1,10 @@
 {
   "_comentari": "Registre de les apps de cada mestra. Afegeix-hi una entrada cada cop que en creïs una de nova. 'carpeta' és on viu al teu ordinador.",
-  "filles": []
+  "filles": [
+    {
+      "mestra": "Especialistes",
+      "carpeta": "C:/Escorial/VedrunApp-Especialistes",
+      "nota": "No és d'una mestra: és la versió per a totes les especialistes. L'únic propi és js/rol.js (i el nom als manifests)."
+    }
+  ]
 }

@@ -47,8 +47,10 @@ const MAI = [
 ];
 
 // Sempre és propi de cada app, encara que no ho digui el FILLA.json:
-// el token de la mestra i la seva connexió.
-const SEMPRE_PROPI = ['js/config.local.js'];
+// el token de la mestra i la seva connexió, i el rol de l'app (tutors o
+// especialistes). Si el rol se sincronitzés, l'app dels especialistes
+// tornaria a ser la dels tutors a la primera actualització.
+const SEMPRE_PROPI = ['js/config.local.js', 'js/rol.js'];
 
 const fitxaPath = path.join(filla, 'FILLA.json');
 let fitxa = { mestra: path.basename(filla), mareVersio: '?', propis: [] };

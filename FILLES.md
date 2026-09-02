@@ -86,6 +86,52 @@ s'actualitzaran soles.
 
 Per a una de sola: `node eines/sync-totes.js --mestra Anna`
 
+## Crear l'app d'una mestra
+
+```bash
+node eines/nova-filla.js "Marta" --especialista    # especialista
+node eines/nova-filla.js "Anna"                    # tutora
+node eines/nova-filla.js "Marta" --especialista --prova
+```
+
+L'eina munta `C:\Escorial\VedrunApp-<Mestra>` **a partir de l'app que li
+toca**: la mare si és tutora, i **l'app dels especialistes si és
+especialista**. D'allà se'n queda només el que no ha de canviar mai
+(`js/rol.js`, el token i els manifests); tota la resta del codi la porta de
+la mare amb `sync-filla.js`. Després l'apunta a `filles.json` i comprova
+que el rol hagi quedat bé.
+
+**Per això no s'ha de copiar mai una carpeta a mà:** si una especialista
+naixés de la mare, tindria `APP_ROL = 'tutor'` i li demanaria de quin grup
+és tutora.
+
+Un cop creada: provar-la, personalitzar-la des del seu
+`js/personal-<mestra>.js`, crear-li el repositori i el GitHub Pages, i
+connectar-la amb ella al costat.
+
+## L'app dels especialistes (no és d'una mestra)
+
+`C:\Escorial\VedrunApp-Especialistes` no és l'app d'una mestra concreta: és
+**la versió per a totes les especialistes**, amb el mateix codi que la mare.
+L'únic propi és `js/rol.js` (`window.APP_ROL = 'especialista'`) i el nom que
+surt als manifests en instal·lar-la. Com que `js/rol.js` és a `SEMPRE_PROPI`,
+el `sync` no l'hi toca mai.
+
+Es manté com qualsevol altra filla:
+
+```bash
+node eines/sync-filla.js "C:/Escorial/VedrunApp-Especialistes" --prova
+node eines/sync-filla.js "C:/Escorial/VedrunApp-Especialistes"
+```
+
+Tot el que canvia entre els dos rols viu a la mare, darrere `esEspecialista()`.
+**No s'hi ha de tocar codi mai**: si s'hi toca, deixa de rebre arranjaments.
+
+**És l'arrel de les apps de les especialistes.** Quan una especialista
+necessiti la seva app, surt d'aquí amb `nova-filla.js` (veure aquí sobre), i
+tot el que es millori per a les especialistes es fa **a la mare** darrere
+`esEspecialista()`, no en aquesta carpeta.
+
 ## Crear una filla
 
 1. **Copiar** aquesta carpeta a `C:\Escorial\VedrunApp-<Mestra>`.

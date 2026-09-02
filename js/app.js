@@ -47,7 +47,15 @@ let currentFitxaStudentId    = null;
    ============================================================ */
 let _currentPage = 'home';
 
+// Pàgines que només tenen sentit si ets tutor/a d'un grup: la pàgina d'Alumnes
+// (que treballa amb "els teus" alumnes) i la distribució de l'aula (un sol
+// plànol de la teva classe). A l'app dels especialistes no hi surten.
+const PAGINES_NOMES_TUTOR = ['alumnes', 'seients'];
+
 function showPage(pageId, _fromPop) {
+  if (typeof esEspecialista === 'function' && esEspecialista() && PAGINES_NOMES_TUTOR.indexOf(pageId) !== -1) {
+    pageId = 'home';
+  }
   document.querySelectorAll('.page-content').forEach(p => p.classList.add('page-hidden'));
   document.getElementById('page-' + pageId).classList.remove('page-hidden');
   _currentPage = pageId;
@@ -72,8 +80,8 @@ function showPage(pageId, _fromPop) {
   if (match) match.classList.add('active');
   closeSidebar();
   if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); renderAlumnesList(); }
-  if (pageId === 'registres')    renderRegistre();
-  if (pageId === 'observacions') { if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
+  if (pageId === 'registres')    { _rolRenderGrupPicker('registres'); renderRegistre(); }
+  if (pageId === 'observacions') { _rolRenderGrupPicker('observacions'); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
   if (pageId === 'home')         renderHome();
   if (pageId === 'planning')     renderPlanning();
   if (pageId === 'assoliments')  { _initAssolimentsPage(); }
@@ -984,6 +992,10 @@ function _motiuSenseAlumnes() {
     return { titol: 'Encara no estàs connectada',
              text: 'Ves a <strong>Configuració</strong> i enganxa la URL que et van donar.' };
   }
+  if (typeof esEspecialista === 'function' && esEspecialista()) {
+    return { titol: 'Tria un grup',
+             text: 'Al selector de dalt tria de quin dels teus grups vols veure els alumnes. Si no n\'hi surt cap, digues a <strong>El meu perfil</strong> a quins grups fas classe.' };
+  }
   const teTutoria = (typeof grupActual === 'function') && grupActual();
   if (!teTutoria) {
     return { titol: 'No ets tutor/a de cap grup',
@@ -1704,7 +1716,7 @@ async function addRegistreItem() {
   renderRegistre();
   if (config.scriptUrl) {
     updateSync('syncing','Creant columna…');
-    try { const r=await appsScriptPost({action:'addRegistreItem',item,alumnes:students}); if(!r.ok) throw new Error(r.error); updateSync('ok','Sincronitzat'); showToast('Ítem «'+nom+'» creat','success'); }
+    try { const r=await appsScriptPost({action:'addRegistreItem',item,alumnes:students,grup:_registreGrup()}); if(!r.ok) throw new Error(r.error); updateSync('ok','Sincronitzat'); showToast('Ítem «'+nom+'» creat','success'); }
     catch(e){ updateSync('error','Error'); showToast('Error: '+e.message,'error'); }
   }
 }
@@ -1713,14 +1725,23 @@ async function deleteRegistreItem(itemId) {
   if (!item||!confirm('Eliminar «'+item.nom+'»?')) return;
   registreItems=registreItems.filter(i=>i.id!==itemId); delete registreData[itemId];
   renderRegistre();
-  if (config.scriptUrl){ try{ await appsScriptPost({action:'deleteRegistreItem',itemId}); showToast('Ítem eliminat','success'); } catch(e){ showToast('Error: '+e.message,'error'); } }
+  if (config.scriptUrl){ try{ await appsScriptPost({action:'deleteRegistreItem',itemId,grup:_registreGrup()}); showToast('Ítem eliminat','success'); } catch(e){ showToast('Error: '+e.message,'error'); } }
 }
 async function updateRegistreCell(itemId,studentId,value) {
   if (!registreData[itemId]) registreData[itemId]={};
   registreData[itemId][studentId]=value;
-  if (config.scriptUrl){ try{ await appsScriptPost({action:'updateRegistreCell',itemId,studentId,value}); } catch(e){ showToast('Error: '+e.message,'error'); } }
+  if (config.scriptUrl){ try{ await appsScriptPost({action:'updateRegistreCell',itemId,studentId,value,grup:_registreGrup()}); } catch(e){ showToast('Error: '+e.message,'error'); } }
 }
-async function syncRegistre(){ await loadAll(); renderRegistre(); }
+async function syncRegistre(){
+  // A l'app dels especialistes el registre és el del grup triat, no el del
+  // full personal: recarregar-ho tot el trepitjaria.
+  if (typeof esEspecialista === 'function' && esEspecialista()) {
+    if (typeof _grupStudentsCarregat !== 'undefined') _grupStudentsCarregat = null; // força rellegir
+    await _rolCarregaGrupTreball(_entradaTreball, 'registres');
+    return;
+  }
+  await loadAll(); renderRegistre();
+}
 
 function renderRegistre() {
   const empty=document.getElementById('registreEmpty'), table=document.getElementById('registreTable');
@@ -1810,6 +1831,7 @@ function showToast(msg,type='info') {
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
+  _rolAplicaInterficie(); // subtítol del logo i apartats segons el rol de l'app
   updateHomeCounters(); // inicialitza data sidebar
   // Mostra el nom del perfil al menú des del cache local (immediat)
   try {
@@ -1825,6 +1847,164 @@ document.addEventListener('DOMContentLoaded', () => {
   if (config.scriptUrl) loadAll();
   else updateSync('','No configurat');
 });
+
+/* ============================================================
+   ROL DE L'APP (tutor / especialista)
+   ------------------------------------------------------------
+   El rol el fixa js/rol.js i no canvia mai dins d'una còpia de
+   l'app. Aquí només s'hi adapta la interfície: el subtítol de sota
+   el logo, els apartats que no hi són i el selector de grup que
+   necessiten les especialistes (elles entren a molts grups i cada
+   pantalla ha de saber de quin parlem).
+   ============================================================ */
+
+// Assignatura+grup amb què treballen ARA Observacions i Registres d'aula
+// (especialistes). _entradaTreball és la clau de l'entrada del perfil
+// ("musica__3ra") i _clauRegistre el nom llegible que va al full ("3r A · Música").
+let _entradaTreball = null;
+let _clauRegistre = null;
+
+function _rolAplicaInterficie() {
+  const esp = (typeof esEspecialista === 'function') && esEspecialista();
+  const titol = document.getElementById('sidebarBrandTitle');
+  if (titol && typeof rolSubtitol === 'function') titol.textContent = rolSubtitol();
+  if (!esp) return;
+  ['navAlumnes', 'navSeients', 'homeAccioAlumnes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // Recupera l'última assignatura amb què treballava
+  try { _entradaTreball = localStorage.getItem('grup_treball') || null; } catch(e) {}
+}
+
+// Pinta el selector de grup d'Observacions o de Registres d'aula.
+function _rolRenderGrupPicker(pagina) {
+  if (!(typeof esEspecialista === 'function' && esEspecialista())) return;
+  const esObs  = pagina === 'observacions';
+  const picker = document.getElementById(esObs ? 'obsGrupPicker' : 'regGrupPicker');
+  const sel    = document.getElementById(esObs ? 'obsGrupSel'    : 'regGrupSel');
+  const hint   = document.getElementById(esObs ? 'obsGrupHint'   : 'regGrupHint');
+  if (!picker || !sel) return;
+  picker.style.display = '';
+  const entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
+  if (!entrades.length) {
+    sel.innerHTML = '<option value="">—</option>';
+    if (hint) hint.innerHTML = 'Encara no has dit a quins grups fas classe. Ves a <strong>El meu perfil</strong>.';
+    return;
+  }
+  if (!_entradaTreball || !entrades.some(e => e.key === _entradaTreball)) _entradaTreball = entrades[0].key;
+  sel.innerHTML = entrades.map(e =>
+    `<option value="${e.key}"${e.key === _entradaTreball ? ' selected' : ''}>${escapeHtml(e.label)}</option>`
+  ).join('');
+  if (hint) hint.textContent = '';
+  _rolCarregaGrupTreball(_entradaTreball, pagina);
+}
+
+// La clau del registre d'aula d'una entrada. Cada assignatura a cada grup té
+// el seu registre, perquè la llista d'alumnes pot ser diferent: si l'Anglès
+// de 3r A és desdoblat, la mestra només hi té mig grup.
+function _clauEntrada(e) {
+  if (!e) return '';
+  if (e.altres) {
+    const g = (typeof _desdobGrupActual === 'function') ? _desdobGrupActual(e.curs, e.nom) : null;
+    return (e.curs + (g ? ' ' + g : '') + ' · ' + e.nom).trim();
+  }
+  return (e.grup + ' · ' + e.nom).trim();
+}
+
+/* Carrega els alumnes de l'assignatura+grup triats, i les observacions
+   compartides si som a Observacions.
+
+   Els alumnes els porta el MATEIX camí que la pàgina de notes
+   (_ensureGrupStudents / _loadDesdobStudents), i per això **el desdoblament
+   s'hi aplica**: si la mestra només té mig grup d'Anglès a 3r A, aquí veu
+   aquell mig grup, no la classe sencera. */
+async function _rolCarregaGrupTreball(clau, pagina) {
+  if (!clau || !config.scriptUrl) return;
+  const esObs = pagina === 'observacions';
+  const hint  = document.getElementById(esObs ? 'obsGrupHint' : 'regGrupHint');
+  const entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
+  const e = entrades.find(x => x.key === clau);
+  if (!e) return;
+  if (hint) hint.textContent = 'Carregant alumnes…';
+
+  try {
+    if (e.altres) {
+      // Assignatura d'un altre curs (o de grup rotatori, com el Tallers)
+      if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(e.curs, e.nom);
+    } else if (typeof _ensureGrupStudents === 'function') {
+      await _ensureGrupStudents(e.grup, e.key);
+    }
+  } catch(err) {
+    if (hint) hint.textContent = 'No s\'han pogut carregar els alumnes: ' + err.message;
+    return;
+  }
+
+  if (!students.length) {
+    if (hint) hint.textContent = 'Aquest grup encara no té alumnes al full compartit.';
+    return;
+  }
+  // Deixa constància de quin grup són, perquè les observacions vagin a la
+  // pestanya que toca del full compartit.
+  const grupReal = e.altres ? ((typeof _desdobGrupActual === 'function') ? _desdobGrupActual(e.curs, e.nom) : null) : e.grup;
+  students.forEach(st => {
+    if (personal[st.id] && !personal[st.id].grupOrigen && grupReal) personal[st.id].grupOrigen = grupReal;
+  });
+  _clauRegistre = _clauEntrada(e);
+  if (hint) hint.textContent = students.length + ' alumnes';
+
+  if (esObs) {
+    // Observacions compartides del grup (les veu tot el claustre)
+    observacions = {};
+    if (grupReal && /^(1r|2n|3r|4t|5è|6è) [ABC]$/.test(grupReal)) {
+      try {
+        const ro = await appsScriptGet({ action: 'getGrupObs', grup: grupReal });
+        if (ro.ok && ro.obs) {
+          const rowIdToId = {};
+          students.forEach(st => {
+            const rid = personal[st.id] && personal[st.id].rowId;
+            if (rid !== undefined) rowIdToId[String(rid)] = st.id;
+          });
+          Object.keys(ro.obs).forEach(rowId => {
+            const id = rowIdToId[String(rowId)];
+            if (id !== undefined) observacions[id] = ro.obs[rowId];
+          });
+        }
+      } catch(err) {}
+    }
+    if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector();
+    // Deixa triada l'assignatura del selector: és de la que acaba de triar
+    const selMat = document.getElementById('obsMateria');
+    if (selMat && selMat.querySelector('option[value="' + e.key + '"]')) selMat.value = e.key;
+    renderObsGrid();
+  } else {
+    // Registres d'aula: cada assignatura de cada grup té la seva pestanya
+    try {
+      const rr = await appsScriptGet({ action: 'getRegistre', grup: _clauRegistre });
+      registreItems = (rr.ok && rr.items) ? rr.items : [];
+      registreData  = (rr.ok && rr.data)  ? rr.data  : {};
+    } catch(err) { registreItems = []; registreData = {}; }
+    renderRegistre();
+  }
+}
+
+function canviaGrupObservacions(clau) {
+  _entradaTreball = clau;
+  try { localStorage.setItem('grup_treball', clau); } catch(e) {}
+  _rolCarregaGrupTreball(clau, 'observacions');
+}
+
+function canviaGrupRegistre(clau) {
+  _entradaTreball = clau;
+  try { localStorage.setItem('grup_treball', clau); } catch(e) {}
+  _rolCarregaGrupTreball(clau, 'registres');
+}
+
+// Què s'envia al backend als registres d'aula. A l'app dels tutors, res: es
+// manté la pestanya "Registres d'aula" de sempre.
+function _registreGrup() {
+  return (typeof esEspecialista === 'function' && esEspecialista()) ? (_clauRegistre || '') : '';
+}
 
 /* ============================================================
    PLANNING SETMANAL
@@ -4955,6 +5135,14 @@ function _comentCursText() {
   try {
     if (typeof _perfil !== 'undefined' && _perfil && _perfil.tutorCurs) {
       return _perfil.tutorCurs + ' de Primaria';
+    }
+    // Sense tutoria (especialista): el curs surt del grup de l'assignatura
+    // que té triada ara mateix. Abans deia nomes "Primaria".
+    var k = (typeof _comentAssig !== 'undefined') ? _comentAssig : null;
+    if (k) {
+      var g = (typeof _assigGrupMap !== 'undefined' && _assigGrupMap[k]) ? _assigGrupMap[k] : null;
+      if (!g && typeof _assigDesdobMap !== 'undefined' && _assigDesdobMap[k]) g = _assigDesdobMap[k].curs;
+      if (g) return g.toString().split(' ')[0] + ' de Primaria';
     }
   } catch (e) {}
   return 'Primaria';

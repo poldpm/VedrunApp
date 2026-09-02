@@ -197,6 +197,19 @@ function _geminiKey() { return _prop('GEMINI_KEY'); }
 
 const TABS = { alumnes: 'Alumnes', registre: "Registres d'aula" };
 
+/* Quina pestanya de registres toca.
+   · Tutor (sense grup): "Registres d'aula", la de sempre.
+   · Especialista: una per grup, "Registres 3r A", perquè les files són els
+     alumnes d'aquell grup i barrejar-los posaria les creus a qui no toca. */
+function _nomFullRegistre(grup) {
+  var g = (grup || '').toString().trim();
+  if (!g) return TABS.registre;
+  // El Sheets no accepta aquests caràcters al nom d'una pestanya
+  g = g.replace(/[:\\\/\?\*\[\]]/g, '-');
+  var nom = 'Registres ' + g;
+  return nom.length > 99 ? nom.slice(0, 99) : nom;
+}
+
 // Tots els grups de primària (3 línies). Cada grup és una pestanya al full centralitzat.
 const GRUPS_PRIMARIA = [
   '1r A','1r B','1r C','2n A','2n B','2n C','3r A','3r B','3r C',
@@ -313,11 +326,11 @@ function handleRequest(e) {
       case 'getPersonal':          result = getPersonal(ss, (body&&body.studentId)||p.studentId); break;
       case 'getAllPersonal':       result = getAllPersonal(ss); break;
       case 'savePersonal':         result = savePersonal(ss, body.studentId, body.dades); break;
-      case 'syncAlumnesARegistre': result = syncAlumnesARegistre(ss, body.alumnes); break;
-      case 'getRegistre':          result = getRegistre(ss); break;
-      case 'addRegistreItem':      result = addRegistreItem(ss, body.item, body.alumnes); break;
-      case 'deleteRegistreItem':   result = deleteRegistreItem(ss, body.itemId); break;
-      case 'updateRegistreCell':   result = updateRegistreCell(ss, body.itemId, body.studentId, body.value); break;
+      case 'syncAlumnesARegistre': result = syncAlumnesARegistre(ss, body.alumnes, body.grup); break;
+      case 'getRegistre':          result = getRegistre(ss, (body&&body.grup)||p.grup); break;
+      case 'addRegistreItem':      result = addRegistreItem(ss, body.item, body.alumnes, body.grup); break;
+      case 'deleteRegistreItem':   result = deleteRegistreItem(ss, body.itemId, body.grup); break;
+      case 'updateRegistreCell':   result = updateRegistreCell(ss, body.itemId, body.studentId, body.value, body.grup); break;
       case 'getObservacions':      result = getObservacions(ss); break;
       case 'saveObservacio':       result = saveObservacio(ss, body.studentId, body.materia, body.trimestre, body.text, body.replace||false); break;
       case 'deleteObservacio':     result = deleteObservacio(ss, body.studentId, body.materia, body.trimestre); break;
@@ -1109,8 +1122,8 @@ function savePersonal(ss, rowId, d) {
 /* ============================================================
    REGISTRES
    ============================================================ */
-function syncAlumnesARegistre(ss, alumnes) {
-  var sh = ss.getSheetByName(TABS.registre); if (!sh) return { ok:true };
+function syncAlumnesARegistre(ss, alumnes, grup) {
+  var sh = ss.getSheetByName(_nomFullRegistre(grup)); if (!sh) return { ok:true };
   var lr = sh.getLastRow();
   if (alumnes.length > 0) sh.getRange(2,1,alumnes.length,1).setValues(alumnes.map(function(a){return [a.nom];}));
   var old = lr >= 2 ? lr-1 : 0;
@@ -1118,8 +1131,8 @@ function syncAlumnesARegistre(ss, alumnes) {
   _autoAjustaColumnes(sh);
   return { ok:true };
 }
-function getRegistre(ss) {
-  var sh = ss.getSheetByName(TABS.registre);
+function getRegistre(ss, grup) {
+  var sh = ss.getSheetByName(_nomFullRegistre(grup));
   if (!sh) return { ok:true, items:[], data:{} };
   var lc = sh.getLastColumn(), lr = sh.getLastRow();
   if (lc < 2) return { ok:true, items:[], data:{} };
@@ -1140,8 +1153,8 @@ function getRegistre(ss) {
   });
   return { ok:true, items:items, data:data };
 }
-function addRegistreItem(ss, item, alumnes) {
-  var sh = getOrCreateRegistreSheet(ss, alumnes), nc = sh.getLastColumn()+1;
+function addRegistreItem(ss, item, alumnes, grup) {
+  var sh = getOrCreateRegistreSheet(ss, alumnes, grup), nc = sh.getLastColumn()+1;
   var cell = sh.getRange(1,nc); cell.setValue(item.nom).setFontWeight('bold'); cell.setNote(item.tipus+'|'+item.id);
   if (alumnes && alumnes.length > 0) {
     var r = sh.getRange(2,nc,alumnes.length,1);
@@ -1150,15 +1163,15 @@ function addRegistreItem(ss, item, alumnes) {
   _autoAjustaColumnes(sh);
   return { ok:true };
 }
-function deleteRegistreItem(ss, itemId) {
-  var sh = ss.getSheetByName(TABS.registre); if (!sh) return { ok:true };
+function deleteRegistreItem(ss, itemId, grup) {
+  var sh = ss.getSheetByName(_nomFullRegistre(grup)); if (!sh) return { ok:true };
   var lc = sh.getLastColumn(); if (lc < 2) return { ok:true };
   var notes = sh.getRange(1,2,1,lc-1).getNotes()[0];
   for (var i = notes.length-1; i >= 0; i--) if (parseInt((notes[i]||'').split('|')[1])===itemId) sh.deleteColumn(i+2);
   return { ok:true };
 }
-function updateRegistreCell(ss, itemId, studentId, value) {
-  var sh = ss.getSheetByName(TABS.registre); if (!sh) return { ok:false, error:'no sheet' };
+function updateRegistreCell(ss, itemId, studentId, value, grup) {
+  var sh = ss.getSheetByName(_nomFullRegistre(grup)); if (!sh) return { ok:false, error:'no sheet' };
   var lc = sh.getLastColumn(); if (lc < 2) return { ok:true };
   var notes = sh.getRange(1,2,1,lc-1).getNotes()[0];
   var col = -1;
@@ -1839,11 +1852,19 @@ function getOrCreateMateriaSheet(ss, tabName){
   } else { ensureObsIsLastColumn(s); }
   return s;
 }
-function getOrCreateRegistreSheet(ss, alumnes){
-  var s=ss.getSheetByName(TABS.registre);
+function getOrCreateRegistreSheet(ss, alumnes, grup){
+  var nom=_nomFullRegistre(grup);
+  var s=ss.getSheetByName(nom);
   if(!s){
-    s=ss.insertSheet(TABS.registre);_protegirFull(s);s.getRange(1,1).setValue('Alumne').setFontWeight('bold');
+    s=ss.insertSheet(nom);_protegirFull(s);s.getRange(1,1).setValue('Alumne').setFontWeight('bold');
     if(alumnes&&alumnes.length)s.getRange(2,1,alumnes.length,1).setValues(alumnes.map(function(a){return [a.nom];}));
+  } else if (alumnes && alumnes.length) {
+    // Els noms de la columna A han de ser els d'aquest grup: les creus es
+    // desen per numero de fila, i si la llista no hi es (o ha canviat)
+    // acabarien a l'alumne equivocat.
+    s.getRange(2,1,alumnes.length,1).setValues(alumnes.map(function(a){return [a.nom];}));
+    var lr=s.getLastRow(), sobren=lr-1-alumnes.length;
+    if(sobren>0) s.getRange(alumnes.length+2,1,sobren,1).clearContent();
   }
   return s;
 }
