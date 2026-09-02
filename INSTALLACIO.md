@@ -53,10 +53,20 @@ APP_TOKEN  = ...
 
 ## B · L'app  (3 min)
 
-8. **Crea la seva app** (veure `FILLES.md`): còpia de la carpeta, `FILLA.json`,
-   repositori i GitHub Pages propis.
+8. **Crea la seva app** amb una ordre, des de la carpeta de la mare:
+
+   ```bash
+   node eines/nova-filla.js "<Mestra>" --especialista --prova
+   node eines/nova-filla.js "<Mestra>" --especialista
+   ```
+
+   Sense `--especialista` si és **tutora**. L'eina la munta a partir de
+   l'app que li toca (la dels especialistes o la mare), l'apunta a
+   `filles.json` i comprova que el rol hagi quedat bé.
    Si fas servir el mateix `APP_TOKEN` per a totes, **no has de tocar
    `js/config.local.js`**.
+
+   Després: **repositori i GitHub Pages propis** per a la seva carpeta.
 
 9. **Obre la seva URL** al seu navegador → **Configuració** → enganxa el `/exec`
    → **Connectar**.
@@ -68,12 +78,18 @@ APP_TOKEN  = ...
 
 ## C · Amb ella al costat  (2 min)
 
-11. **Perfil:** nom, de quin grup és tutora, i quines assignatures fa.
+11. **Perfil:** el nom, i després:
+    - **tutora** → de quin grup ho és i quines assignatures hi fa;
+    - **especialista** → «A quins grups fas classe?»: hi afegeix cada grup
+      (3r A, 3r B…) i hi marca les assignatures.
 12. **Horari:** l'editor visual, o "Importar ràpid" enganxant-lo d'un full.
 
 La resta (objectius d'avaluació, la seva manera d'escriure comentaris,
 aspectes d'actitud, enllaços) **ja s'ho pot fer ella** quan vulgui, des de
 l'app. No cal deixar-ho llest ara.
+
+Si més endavant demana alguna cosa que només és per a ella, va al
+`js/personal.js` de la seva carpeta (veure `FILLES.md`).
 
 ---
 

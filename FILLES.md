@@ -16,10 +16,10 @@ La divergència real està concentrada a **les notes**. La resta és idèntic:
 
 | Comú a totes (ve de la mare) | Propi de cada filla |
 |---|---|
-| Calendari, planning, horari | `js/notes.js` (si avalua diferent) |
+| Calendari, planning, horari | `js/personal.js` (el que és seu i només seu) |
 | Alumnes, fitxes, observacions | `js/config.local.js` (el seu token) |
-| Seients, grups, post-its, tasques | El que ella hagi personalitzat |
-| Comentaris, assoliments | |
+| Seients, grups, post-its, tasques | `js/rol.js` (tutora o especialista) |
+| Comentaris, assoliments | `js/notes.js` (només si avalua molt diferent) |
 | Sincronització amb Google | |
 | Avís de versió nova | |
 
@@ -38,7 +38,9 @@ filla, aquell fitxer deixa de rebre arranjaments per sempre. I com que
 comentaris, grups), amb dos canvis una filla queda congelada.
 
 Per això cada mestra té **un fitxer propi que s'enganxa per sobre**:
-`js/personal-<mestra>.js`. Hi va tot el que és seu, sense tocar res del base.
+`js/personal.js`. Hi va tot el que és seu, sense tocar res del base. Es
+carrega **l'últim de tots** (quan la resta de l'app ja hi és) i la
+sincronització no el toca mai: a la mare és buit, i a cada filla hi ha el seu.
 
 Aquest patró ja és el que fa servir l'app: `gwrite.js`, `rubriques.js` i
 `versio.js` no toquen ni una línia d'`app.js`, s'hi enganxen així:
@@ -80,7 +82,7 @@ node eines/sync-totes.js --prova    # ensenya què faria, sense tocar res
 node eines/sync-totes.js            # ho fa a TOTES
 ```
 
-Cada app conserva el seu `personal-*.js` i el seu token. Després: provar-les i
+Cada app conserva el seu `personal.js`, el seu rol i el seu token. Després: provar-les i
 pujar-les al seu GitHub; les mestres veuran l'avís de versió nova i
 s'actualitzaran soles.
 
@@ -105,9 +107,9 @@ que el rol hagi quedat bé.
 naixés de la mare, tindria `APP_ROL = 'tutor'` i li demanaria de quin grup
 és tutora.
 
-Un cop creada: provar-la, personalitzar-la des del seu
-`js/personal-<mestra>.js`, crear-li el repositori i el GitHub Pages, i
-connectar-la amb ella al costat.
+Un cop creada: provar-la, personalitzar-la des del seu `js/personal.js`
+(l'eina l'hi deixa fet, amb el seu nom a dalt), crear-li el repositori i el
+GitHub Pages, i connectar-la amb ella al costat.
 
 ## L'app dels especialistes (no és d'una mestra)
 

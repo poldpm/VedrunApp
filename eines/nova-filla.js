@@ -20,7 +20,7 @@
 
    Després: obrir la seva carpeta, provar-la, crear-li el
    repositori i el GitHub Pages, i personalitzar-la des del seu
-   `js/personal-<mestra>.js` (veure FILLES.md).
+   `js/personal.js` (veure FILLES.md).
    ============================================================ */
 
 const fs = require('fs');
@@ -93,6 +93,14 @@ for (const rel of PROPIS_DEL_BASE) {
   fs.copyFileSync(origen, f);
 }
 
+/* Les seves personalitzacions: un fitxer seu, amb el seu nom a dalt, que
+   se li carrega l'últim i que la sincronització no tocarà mai. */
+const stub = fs.readFileSync(path.join(MARE, 'js', 'personal.js'), 'utf8')
+  .replace("PERSONALITZACIONS D'AQUESTA MESTRA — personal.js",
+           'PERSONALITZACIONS DE ' + mestra.toUpperCase() + ' — personal.js');
+fs.mkdirSync(path.join(desti, 'js'), { recursive: true });
+fs.writeFileSync(path.join(desti, 'js', 'personal.js'), stub);
+
 /* Els manifests són propis (perquè la mestra pugui distingir la seva app
    quan se la instal·li), però el rol ja el porta el fitxer copiat del base. */
 fs.writeFileSync(path.join(desti, 'FILLA.json'), JSON.stringify({
@@ -128,6 +136,6 @@ console.log(rolOk
   : '\n⚠ ATENCIÓ: el js/rol.js no ha quedat bé. Mira-l\'ho abans de donar-li res.');
 
 console.log('\nSegüent pas:');
-console.log('  1. Prova-la i personalitza-la (FILLES.md: js/personal-' + nomCarpeta(mestra).toLowerCase() + '.js).');
+console.log('  1. Prova-la i personalitza-la des del seu js/personal.js (veure FILLES.md).');
 console.log('  2. Crea-li el repositori i el GitHub Pages.');
 console.log('  3. Amb ella al costat: Configuració → Connectar, i el seu perfil.');

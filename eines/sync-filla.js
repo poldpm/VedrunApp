@@ -52,6 +52,11 @@ const MAI = [
 // tornaria a ser la dels tutors a la primera actualització.
 const SEMPRE_PROPI = ['js/config.local.js', 'js/rol.js'];
 
+// Es copia NOMÉS si a la filla encara no hi és. Així cada app en té un
+// (i el service worker i l'index no es queden sense), però quan la mestra
+// ja hi té les seves coses no se li trepitja mai.
+const NOMES_SI_FALTA = ['js/personal.js'];
+
 const fitxaPath = path.join(filla, 'FILLA.json');
 let fitxa = { mestra: path.basename(filla), mareVersio: '?', propis: [] };
 if (fs.existsSync(fitxaPath)) {
@@ -92,6 +97,7 @@ for (const rel of fitxers) {
   const origen = path.join(MARE, rel);
   const desti  = path.join(filla, rel);
   const existeix = fs.existsSync(desti);
+  if (NOMES_SI_FALTA.includes(rel) && existeix) { respectats.push(rel); continue; }
   if (existeix && fs.readFileSync(origen).equals(fs.readFileSync(desti))) { iguals.push(rel); continue; }
   if (!nomesProva) {
     fs.mkdirSync(path.dirname(desti), { recursive: true });

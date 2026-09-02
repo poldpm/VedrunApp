@@ -64,6 +64,7 @@ vedruna-app/
 ├── js/
 │   ├── rol.js              # 'tutor' o 'especialista'. NO SE SINCRONITZA mai!
 │   ├── config.local.js     # NOMÉS el token. NO SE SUBSTITUEIX en actualitzar!
+│   ├── personal.js         # El que és propi d'una mestra. Buit a la mare.
 │   ├── app.js              # Nucli: navegació, home, alumnes, notes, planning,
 │   │                       #   calendari, tasques, config, bootstrap, sync
 │   ├── perfil.js           # Perfil del mestre (nom, tutoria, assignatures)
@@ -221,7 +222,17 @@ se'n falta cap, l'app peta. Després cal tornar a autoritzar (executant
 
 Guió complet pas a pas: **`INSTALLACIO.md`** (uns 10 minuts per mestra).
 
-En resum:
+**Primer de tot, la seva app** (una ordre; veure `FILLES.md`):
+
+```bash
+node eines/nova-filla.js "<Mestra>" --especialista   # si és especialista
+node eines/nova-filla.js "<Mestra>"                  # si és tutora
+```
+
+Una **especialista** surt SEMPRE de `VedrunApp-Especialistes`, no de la mare
+(veure secció 3bis). Mai copiar una carpeta a mà: tindria el rol equivocat.
+
+En resum, la resta:
 
 1. Full de càlcul nou al seu Drive → **Extensions → Apps Script**.
 2. Enganxar-hi **`Code.gs`** i també **`appsscript.json`**
@@ -238,7 +249,12 @@ En resum:
 4. **Implementa → Nova implementació → Aplicació web**
    (Executar com: **Jo** · Accés: **Qualsevol**) i copiar la URL `/exec`.
 5. A la seva app: **Configuració → Connectar** amb aquell `/exec`.
-6. Amb ella al costat: **perfil** (nom, grup que tutoritza, assignatures) i **horari**.
+6. Amb ella al costat: **perfil** i **horari**. Al perfil, una tutora hi
+   posa el grup que tutoritza i les assignatures; una **especialista**, els
+   grups on fa classe i què hi fa a cada un.
+7. El que sigui **només seu** va a `js/personal.js` de la seva carpeta (es
+   carrega l'últim i la sincronització no el toca mai). Mai tocar `app.js`,
+   `perfil.js` ni `notes.js` dins de la seva app.
 
 Els IDs dels fulls compartits, la clau Gemini i el token van a les Script
 Properties, no a la interfície. Els 3 primers són **els mateixos per a totes**;

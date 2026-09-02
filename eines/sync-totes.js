@@ -10,7 +10,7 @@
      node eines/sync-totes.js              (ho fa)
      node eines/sync-totes.js --mestra Anna   (només una)
 
-   Cada app conserva el que és seu (el seu personal-*.js i el seu token).
+   Cada app conserva el que és seu (el seu personal.js, el seu rol i el seu token).
    ============================================================ */
 
 const fs = require('fs');
