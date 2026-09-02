@@ -1,8 +1,8 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v110';
+const CACHE = 'vedruna-v111';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
-  './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/vedrunu.js', './js/gwrite.js', './js/rubriques.js', './img/vedrunu-icon.png',
+  './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/vedrunu.js', './js/gwrite.js', './js/rubriques.js', './js/versio.js', './img/vedrunu-icon.png',
   './manifest.webmanifest', './img/favicon.svg', './img/icon-192.png', './img/icon-512.png',
   './img/icon-192-maskable.png', './img/icon-512-maskable.png', './img/icon.png',
   './img/favicon.ico', './img/favicon-32.png', './img/favicon-16.png', './img/apple-touch-icon.png',
@@ -17,6 +17,9 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = e.request.url;
   if (url.includes('script.google.com') || url.includes('googleapis.com') || url.includes('generativelanguage')) return;
+  // versio.json ha de venir SEMPRE del servidor: es el que detecta si el
+  // navegador serveix codi antic. Si es guardes, no ho detectaria mai.
+  if (url.includes('versio.json')) return;
   e.respondWith(
     caches.match(e.request).then(cached => {
       // Si el tenim en cache, el servim DIRECTAMENT (sense tornar a demanar-lo a

@@ -1,0 +1,12 @@
+{
+  "versio": "v111",
+  "data": "2026-09-02",
+  "titol": "Novetats d'aquesta versió",
+  "canvis": [
+    "Ara l'app t'avisa sola quan hi ha una versió nova, i s'actualitza amb un botó.",
+    "La llegenda del calendari es pot editar: canvia el nom i el color de cada categoria.",
+    "Els comentaris d'informe ja no surten tots amb la mateixa estructura, i pots ensenyar a l'app la teva manera d'escriure.",
+    "Els grups heterogenis es reparteixen amb les notes reals, i et diuen amb quants alumnes han comptat.",
+    "Cada mestre es defineix els seus objectius d'avaluació i els pot importar d'un document."
+  ]
+}

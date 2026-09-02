@@ -5,7 +5,7 @@
 > qualsevol persona (o Claude Code) pugui continuar el desenvolupament sense
 > perdre context.
 
-**Versió actual:** v110 (cache `vedruna-v110` al `sw.js`)
+**Versió actual:** v111 (cache `vedruna-v111` al `sw.js`)
 **Idioma de tota la interfície i la documentació:** Català
 **Autor/mantenidor:** Pol (tutor de 2n de Primària)
 
@@ -196,6 +196,24 @@ Properties del seu Apps Script, així que no s'han d'entrar a la interfície.
   versió** (Implementa → Gestiona implementacions → editar → Versió: Nova
   versió, mantenint la mateixa URL `/exec`).
 - **`js/config.local.js`:** NO substituir mai (manté el token).
+
+### Pujar una versió nova (IMPORTANT)
+
+Tres fitxers han d'anar **sempre junts**, o l'avís de versió nova mentirà:
+
+| Fitxer | Què s'hi canvia |
+|---|---|
+| `sw.js` | `const CACHE = 'vedruna-vNN'` |
+| `js/versio.js` | `var VERSIO_APP = 'vNN'` |
+| `versio.json` | `"versio": "vNN"` + la llista de `canvis` en llenguatge de mestre |
+
+Com funciona: `versio.js` porta a dins la versió amb què s'ha servit i demana
+`versio.json` a la xarxa (el `sw.js` el deixa passar SENSE guardar-lo). Si no
+coincideixen, el navegador serveix codi antic i surt l'avís amb els canvis i un
+botó que esborra la còpia guardada i recarrega. **Les dades del mestre no es
+toquen**: només s'esborra la còpia del codi.
+
+Els `canvis` els llegeixen mestres: escriu què noten ells, no què s'ha tocat.
 
 ### Validació abans de donar per bo un canvi
 - `node --check` de cada fitxer JS.
