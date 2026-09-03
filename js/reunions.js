@@ -106,16 +106,15 @@ function _renderReunions() {
       </div>
       <p class="modal-hint">Envia aquest enllaç a les famílies. Qui hi entri veurà només les hores que et queden lliures.</p>`}
 
-      ${(c.acabat || !(c.horesLliures || []).length) ? '' : `
+      ${((c.horesLliures || []).length || reserves.length) ? `
       <div class="reu-reserves">
-        <div class="reu-reserves-tit">Hores encara lliures — clica-hi per treure-la</div>
-        ${_reuLliuresPerDia(c)}
-        <p class="modal-hint">Si et surt un imprevist, treu l'hora i deixarà de sortir a les famílies a l'instant.</p>
-      </div>`}
+        <div class="reu-reserves-tit">Les hores d'aquest calendari</div>
+        ${_reuCalendari(c)}
+      </div>` : ''}
 
       ${reserves.length ? `
       <div class="reu-reserves">
-        <div class="reu-reserves-tit">Hores reservades</div>
+        <div class="reu-reserves-tit">Qui ha reservat</div>
         ${reserves.map(r => `
           <div class="reu-reserva${r.error ? ' reu-reserva-avis' : ''}">
             <div class="reu-reserva-quan">
@@ -142,24 +141,135 @@ function _renderReunions() {
   }).join('');
 }
 
-/* Les hores lliures, agrupades per dia, cadascuna clicable per treure-la.
-   Cas típic: ja s'ha enviat l'enllaç i un dia concret surt un imprevist. */
-function _reuLliuresPerDia(c) {
-  const perDia = {}, ordre = [];
-  (c.horesLliures || []).forEach(h => {
-    if (!perDia[h.data]) { perDia[h.data] = []; ordre.push(h.data); }
-    perDia[h.data].push(h);
-  });
-  return ordre.map(d => `
-    <div class="reu-prev-dia">
-      <div class="reu-prev-data">${escapeHtml(_reuDataText(d))}</div>
-      <div class="reu-prev-hores">
-        ${perDia[d].map(h => `<button class="reu-prev-h reu-prev-treure"
-            title="Treure les ${escapeHtml(h.inici)} del ${escapeHtml(_reuDataText(d))}"
-            onclick="reuTreuHora('${c.id}','${h.slotId}','${escapeHtml(_reuDataText(d))}','${escapeHtml(h.inici)}')"
-          >${escapeHtml(h.inici)}<span class="reu-prev-x">×</span></button>`).join('')}
-      </div>
-    </div>`).join('');
+/* ── LES HORES, EN CALENDARI ──────────────────────────────────────────────
+   Abans era una llista plana: amb tres setmanes d'hores sortien centenars
+   de botons un darrere l'altre i no s'hi entenia res. Ara es veu el mes
+   com al calendari de l'app —mateixa graella i mateixos colors— amb el
+   compte de cada dia, i les hores concretes surten només en clicar el dia.
+   Així la pantalla diu d'un cop d'ull "quins dies tinc gent" en lloc de
+   fer-te llegir dues-centes hores seguides.                              */
+
+let _reuDiaObert = {};   // { calId: 'YYYY-MM-DD' }
+
+const _REU_COLS = ['DL', 'DM', 'DC', 'DJ', 'DV', 'DS', 'DG'];
+
+/* Totes les hores del calendari (lliures i reservades) indexades per dia. */
+function _reuHoresPerDia(c) {
+  const perDia = {};
+  const posa = (h, estat) => {
+    if (!h || !h.data) return;
+    (perDia[h.data] = perDia[h.data] || []).push(Object.assign({ estat }, h));
+  };
+  (c.horesLliures || []).forEach(h => posa(h, 'lliure'));
+  (c.reserves || []).forEach(h => posa(h, 'ocupat'));
+  Object.keys(perDia).forEach(d => perDia[d].sort((a, b) => a.inici.localeCompare(b.inici)));
+  return perDia;
+}
+
+function _reuCalendari(c) {
+  const perDia = _reuHoresPerDia(c);
+  const dies = Object.keys(perDia).sort();
+  if (!dies.length) return '';
+
+  // Només els mesos que tenen hores: així no cal navegar enlloc.
+  const mesos = [];
+  dies.forEach(d => { const m = d.slice(0, 7); if (mesos.indexOf(m) === -1) mesos.push(m); });
+
+  const obert = _reuDiaObert[c.id];
+  const avui = new Date(); avui.setHours(0, 0, 0, 0);
+
+  const graelles = mesos.map(m => {
+    const any = +m.slice(0, 4), mes = +m.slice(5, 7) - 1;
+    const primer = new Date(any, mes, 1);
+    const buits = (primer.getDay() + 6) % 7;               // dilluns primer
+    const nDies = new Date(any, mes + 1, 0).getDate();
+
+    // Es munten totes les caselles i després es llencen les SETMANES
+    // senceres que no tenen cap hora: si no, un calendari de dues setmanes
+    // arrossegava mig mes de caselles buides per res.
+    const caselles = [];
+    for (let i = 0; i < buits; i++) caselles.push({ te: false, html: '<div class="reucal-cel reucal-buit" aria-hidden="true"></div>' });
+    for (let d = 1; d <= nDies; d++) {
+      const clau = any + '-' + ('0' + (mes + 1)).slice(-2) + '-' + ('0' + d).slice(-2);
+      const hs = perDia[clau] || [];
+      const lliures = hs.filter(h => h.estat === 'lliure').length;
+      const plenes  = hs.length - lliures;
+      const esAvui  = new Date(any, mes, d).getTime() === avui.getTime();
+
+      if (!hs.length) {
+        caselles.push({ te: false, html:
+          `<div class="reucal-cel reucal-sense${esAvui ? ' reucal-avui' : ''}">
+             <span class="reucal-dia">${d}</span></div>` });
+        continue;
+      }
+      const etiqueta = _reuDataText(clau) + ': ' +
+        (lliures ? lliures + ' ' + (lliures === 1 ? 'hora lliure' : 'hores lliures') : 'cap hora lliure') +
+        (plenes ? ', ' + plenes + ' ' + (plenes === 1 ? 'reservada' : 'reservades') : '');
+      caselles.push({ te: true, html:
+        `<button type="button"
+           class="reucal-cel reucal-te${esAvui ? ' reucal-avui' : ''}${obert === clau ? ' reucal-obert' : ''}"
+           aria-pressed="${obert === clau ? 'true' : 'false'}"
+           aria-label="${escapeHtml(etiqueta)}"
+           onclick="reuObreDia('${c.id}','${clau}')">
+           <span class="reucal-dia">${d}</span>
+           <span class="reucal-comptes">
+             ${lliures ? `<span class="reucal-n reucal-n-lliure">${lliures}</span>` : ''}
+             ${plenes ? `<span class="reucal-n reucal-n-ple">${plenes}</span>` : ''}
+           </span>
+         </button>` });
+    }
+    while (caselles.length % 7) caselles.push({ te: false, html: '<div class="reucal-cel reucal-buit" aria-hidden="true"></div>' });
+
+    let cel = '';
+    for (let i = 0; i < caselles.length; i += 7) {
+      const setmana = caselles.slice(i, i + 7);
+      if (setmana.some(x => x.te)) cel += setmana.map(x => x.html).join('');
+    }
+
+    return `<div class="reucal-mes">
+      <div class="reucal-mes-nom">${_REU_MESOS[mes]} ${any}</div>
+      <div class="reucal-caps">${_REU_COLS.map(x => `<span>${x}</span>`).join('')}</div>
+      <div class="reucal-graella">${cel}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="reucal">
+    ${graelles}
+    <p class="reucal-llegenda">
+      <span class="reucal-mostra reucal-n-lliure"></span> hores lliures
+      <span class="reucal-mostra reucal-n-ple"></span> ja reservades
+      <span class="reucal-ajuda">Clica un dia per veure'n les hores.</span>
+    </p>
+    ${_reuDetallDia(c, perDia)}
+  </div>`;
+}
+
+/* Les hores del dia triat. Fins que no en tries cap, no ocupa pantalla. */
+function _reuDetallDia(c, perDia) {
+  const d = _reuDiaObert[c.id];
+  if (!d || !perDia[d]) return '';
+  return `<div class="reucal-detall" role="group" aria-label="Hores del ${escapeHtml(_reuDataText(d))}">
+    <div class="reucal-detall-cap">
+      <strong>${escapeHtml(_reuDataText(d))}</strong>
+      <button type="button" class="reucal-tanca" aria-label="Tancar el dia"
+              onclick="reuObreDia('${c.id}','${d}')">×</button>
+    </div>
+    <div class="reucal-hores">
+      ${perDia[d].map(h => h.estat === 'ocupat'
+        ? `<span class="reucal-h reucal-h-ple" title="Reservada per ${escapeHtml(h.nom || '')}">
+             ${escapeHtml(h.inici)}<em>${escapeHtml(h.nom || 'reservada')}</em></span>`
+        : `<button type="button" class="reucal-h reucal-h-lliure"
+             title="Treure les ${escapeHtml(h.inici)}"
+             onclick="reuTreuHora('${c.id}','${h.slotId}','${escapeHtml(_reuDataText(d))}','${escapeHtml(h.inici)}')">
+             ${escapeHtml(h.inici)}<span class="reucal-x" aria-hidden="true">×</span></button>`).join('')}
+    </div>
+    <p class="modal-hint">Clica una hora lliure per treure-la: deixarà de sortir a les famílies a l'instant.</p>
+  </div>`;
+}
+
+function reuObreDia(calId, dia) {
+  _reuDiaObert[calId] = (_reuDiaObert[calId] === dia) ? null : dia;
+  _renderReunions();
 }
 
 async function reuTreuHora(calId, slotId, dataText, hora) {
@@ -653,7 +763,12 @@ async function creaReuCalendari() {
   const btn = document.getElementById('reuCrearBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Creant…'; }
   try {
-    const r = await appsScriptPost({ action: 'reunionsCrea', dades: _reuDades() });
+    // Clau d'aquest intent. Si la crida triga massa i el navegador la torna
+    // a enviar, hi va la MATEIXA clau i el servidor sap que ja ho ha fet:
+    // sense això sortien dos calendaris iguals.
+    const dades = _reuDades();
+    dades.opId = 'c' + Date.now() + Math.random().toString(36).slice(2, 8);
+    const r = await appsScriptPost({ action: 'reunionsCrea', dades });
     if (r && r.ok) {
       tancaReuNou();
       let msg = r.franges + ' hores creades';

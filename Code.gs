@@ -743,12 +743,38 @@ var REU_MAX_FRANGES = 500;   // barrera de seguretat
 var REU_CAP_CALS  = ['id','titol','descripcio','durada','buffer','lloc','actiu','creat','avisar','maxPersona','desDe','finsA','missatge'];
 var REU_CAP_HORES = ['calId','slotId','data','inici','fi','estat','nom','email','gEventId','reservat','error'];
 
+/* ── Dates i hores: text, sempre ─────────────────────────────────────────
+   El Google Sheets NO desa "17:00" com a text: ho converteix en un valor
+   d'hora, i en tornar-lo a llegir dona una data amb la data zero del full
+   (30/12/1899) i el desfasament horari d'aquell any. Pintada tal qual, a la
+   mestra li sortia "Sat Dec 30 1899 07:20:00 GMT+0014 (Hora estàndard
+   d'Europa central)" en lloc de "17:00", i les hores no li quadraven.
+   Aquests dos ajudants tornen sempre el text que toca, vingui com vingui. */
+function _reuTxtHora_(v) {
+  // Es mira si sap dir l hora en lloc d instanceof Date: aixi funciona
+  // vingui d on vingui l objecte.
+  if (v && typeof v.getTime === 'function') return Utilities.formatDate(v, _gTz_(), 'HH:mm');
+  var s = String(v == null ? '' : v).trim();
+  var m = s.match(/^(\d{1,2}):(\d{2})/);
+  return m ? ('0' + m[1]).slice(-2) + ':' + m[2] : s;
+}
+function _reuTxtData_(v) {
+  if (v && typeof v.getTime === 'function') return Utilities.formatDate(v, _gTz_(), 'yyyy-MM-dd');
+  var s = String(v == null ? '' : v).trim();
+  var m = s.match(/^\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : s;
+}
+
 function _reuFull_(ss, nom, capcalera) {
   var sh = ss.getSheetByName(nom);
   if (!sh) {
     sh = ss.insertSheet(nom);
     sh.getRange(1, 1, 1, capcalera.length).setValues([capcalera]);
     sh.setFrozenRows(1);
+    // Les columnes es formaten com a TEXT perquè el full no converteixi
+    // "17:00" en un valor d'hora ni "2026-12-15" en una data (veure els
+    // ajudants aquí sobre). Així el que s'hi escriu és el que se'n llegeix.
+    try { sh.getRange(1, 1, sh.getMaxRows(), capcalera.length).setNumberFormat('@'); } catch (e) {}
     try {
       sh.getRange(1, 1, 1, capcalera.length)
         .setBackground('#7A1E2E').setFontColor('#FFFFFF').setFontWeight('bold');
@@ -903,7 +929,36 @@ function reunionsPreview(ss, d) {
   return { ok: true, franges: g.franges, ambXoc: g.ambXoc, total: g.franges.length };
 }
 
+/* Crear un calendari NO es pot fer dues vegades.
+   El navegador reintenta un cop quan una crida falla o triga massa (45 s),
+   i crear un calendari escriu moltes files: si la resposta es perdia pel
+   camí, el servidor ja ho havia fet i el reintent en creava un SEGON.
+   En Pol se'n va trobar dos de cop el setembre del 2026.
+
+   Solució: el navegador envia una clau d'operació (opId) que NO canvia
+   entre l'intent i el reintent. Aquí es mira si aquella clau ja s'ha
+   servit i, si sí, es torna el mateix resultat sense refer res. El pany
+   és perquè el reintent sol arribar amb el primer encara treballant:
+   s'espera el torn i llavors ja hi troba el resultat.                    */
 function reunionsCrea(ss, d) {
+  var opId = (d && d.opId) ? String(d.opId).slice(0, 60) : '';
+  if (!opId) return _reuCreaFer_(ss, d);
+
+  var clau = 'reuCrea_' + opId;
+  var cache = CacheService.getScriptCache();
+  var lock = LockService.getScriptLock();
+  var tinc = false;
+  try { lock.waitLock(120000); tinc = true; } catch (e) {}
+  try {
+    var fet = cache.get(clau);
+    if (fet) { try { return JSON.parse(fet); } catch (e) {} }
+    var res = _reuCreaFer_(ss, d);
+    if (res && res.ok) { try { cache.put(clau, JSON.stringify(res), 21600); } catch (e) {} }
+    return res;
+  } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
+}
+
+function _reuCreaFer_(ss, d) {
   d = d || {};
   var titol = String(d.titol || '').trim();
   if (!titol) return { ok: false, error: 'Falta el títol' };
@@ -1054,7 +1109,7 @@ function _reuCalObj_(f) {
            durada: +f[3] || 15, buffer: +f[4] || 0, lloc: String(f[5]),
            actiu: String(f[6]) !== 'no', creat: String(f[7]),
            avisar: String(f[8]) !== 'no', maxPersona: +f[9] || 0,
-           desDe: String(f[10]), finsA: String(f[11]),
+           desDe: _reuTxtData_(f[10]), finsA: _reuTxtData_(f[11]),
            missatge: String(f[12] || '') };
 }
 
@@ -1069,12 +1124,12 @@ function reunionsLlista(ss) {
   hores.forEach(function (h) {
     var id = String(h[0]);
     if (!perCal[id]) perCal[id] = { lliures: 0, ocupades: 0, reserves: [], passades: 0, horesLliures: [] };
-    var passada = String(h[2]) < avui;
+    var passada = _reuTxtData_(h[2]) < avui;
     if (passada) { perCal[id].passades++; }
     if (String(h[5]) === 'ocupat') {
       perCal[id].ocupades++;
       if (!passada) {
-        perCal[id].reserves.push({ slotId: String(h[1]), data: String(h[2]), inici: String(h[3]), fi: String(h[4]),
+        perCal[id].reserves.push({ slotId: String(h[1]), data: _reuTxtData_(h[2]), inici: _reuTxtHora_(h[3]), fi: _reuTxtHora_(h[4]),
                                    nom: String(h[6]), email: String(h[7]), gEventId: String(h[8]),
                                    quan: String(h[9]), error: String(h[10]) });
       }
@@ -1082,8 +1137,8 @@ function reunionsLlista(ss) {
       perCal[id].lliures++;
       // La llista de les que encara son lliures: fa falta per poder treure
       // una hora si a la mestra li surt un imprevist un dia concret.
-      perCal[id].horesLliures.push({ slotId: String(h[1]), data: String(h[2]),
-                                     inici: String(h[3]), fi: String(h[4]) });
+      perCal[id].horesLliures.push({ slotId: String(h[1]), data: _reuTxtData_(h[2]),
+                                     inici: _reuTxtHora_(h[3]), fi: _reuTxtHora_(h[4]) });
     }
   });
 
@@ -1324,8 +1379,8 @@ function reuPublicInfo(calId) {
       v.forEach(function (h) {
         if (String(h[0]) !== String(calId)) return;
         if (String(h[5]) !== 'lliure') return;                 // ocupada: no es mostra
-        if (_reuData_(String(h[2]), String(h[3])).getTime() < ara) return;  // ja passada
-        lliures.push({ slotId: String(h[1]), data: String(h[2]), inici: String(h[3]), fi: String(h[4]) });
+        if (_reuData_(_reuTxtData_(h[2]), _reuTxtHora_(h[3])).getTime() < ara) return;  // ja passada
+        lliures.push({ slotId: String(h[1]), data: _reuTxtData_(h[2]), inici: _reuTxtHora_(h[3]), fi: _reuTxtHora_(h[4]) });
       });
     }
     lliures.sort(function (a, b) { return (a.data + a.inici).localeCompare(b.data + b.inici); });
@@ -2749,9 +2804,15 @@ function updateRegistreCell(ss, itemId, studentId, value, grup) {
    ============================================================ */
 function getObservacions(ss) {
   var obs = {};
+  // Les pestanyes possibles són 21 (3 trimestres × 7 assignatures) i la
+  // majoria no existeixen. Demanar-les d'una en una amb getSheetByName eren
+  // 21 preguntes a Google; amb getSheets() n'hi ha prou amb una i la resta
+  // es mira en memòria.
+  var perNom = {};
+  ss.getSheets().forEach(function(s){ perNom[s.getName()] = s; });
   for (var t=1; t<=NUM_TRIMS; t++) {
     Object.keys(MATERIA_NOM).forEach(function(key) {
-      var sh = ss.getSheetByName(t+'T_'+MATERIA_NOM[key]); if (!sh) return;
+      var sh = perNom[t+'T_'+MATERIA_NOM[key]]; if (!sh) return;
       var oc = findObsColumn(sh); if (oc===-1) return;
       var lr = sh.getLastRow(); if (lr < DATA_ROW) return;
       sh.getRange(DATA_ROW,oc,lr-DATA_ROW+1,1).getValues().forEach(function(row,idx){
@@ -3239,11 +3300,20 @@ function propagaCarpeta(ss, trimestre, si, carpetaSh, rowP) {
 /* ============================================================
    RECALC MITJANA — lectura batch de les dues files
    ============================================================ */
-function recalcMitjana(sh, rowP) {
-  var lc=sh.getLastColumn(); if(lc<2)return;
-  // Lectura batch: capçaleres, notes i les 2 files de dades en una sola crida
-  var hdrData  = sh.getRange(1,1,1,lc).getValues()[0];
-  var metaData = sh.getRange(1,1,1,lc).getNotes()[0];
+/* `cap` (opcional) és la capçalera ja llegida: {lc, hdr, meta}. Serveix per
+   a qui recalcula molts alumnes seguits del MATEIX full: la capçalera és la
+   mateixa per a tots i rellegir-la a cada alumne eren 3 viatges a Google per
+   cap. Si no se li passa, es comporta exactament com abans. */
+function recalcMitjana(sh, rowP, cap) {
+  var lc, hdrData, metaData;
+  if (cap && cap.lc) {
+    lc = cap.lc; hdrData = cap.hdr; metaData = cap.meta;
+  } else {
+    lc = sh.getLastColumn();
+    hdrData  = lc>=2 ? sh.getRange(1,1,1,lc).getValues()[0] : [];
+    metaData = lc>=2 ? sh.getRange(1,1,1,lc).getNotes()[0]  : [];
+  }
+  if(lc<2)return;
   var rowPData = sh.getRange(rowP,1,1,lc).getValues()[0];
   var rowNData = sh.getRange(rowP+1,1,1,lc).getValues()[0];
 
@@ -3582,6 +3652,14 @@ function updateActitudBatch(ss, materia, trimestre, mitjanes) {
     if (sh.getColumnWidth(col) < 80) sh.setColumnWidth(col, 80);
   }
 
+  // La capçalera d'aquest full és la mateixa per a tots els alumnes: es
+  // llegeix UN cop i es passa a recalcMitjana. Abans la rellegia sencera a
+  // cada alumne: amb 25 alumnes eren 75 lectures per a res.
+  var lcAra = sh.getLastColumn();
+  var cap = { lc: lcAra,
+              hdr:  lcAra>=2 ? sh.getRange(1,1,1,lcAra).getValues()[0] : [],
+              meta: lcAra>=2 ? sh.getRange(1,1,1,lcAra).getNotes()[0]  : [] };
+
   // Escriu totes les mitjanes
   Object.keys(mitjanes).forEach(function(sid) {
     var si   = parseInt(sid);
@@ -3593,7 +3671,7 @@ function updateActitudBatch(ss, materia, trimestre, mitjanes) {
     cellN.setValue(mitjaVal).setNumberFormat('0.00')
       .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center').setFontFamily('Nunito');
     colorNota(cellN, mitjaVal);
-    recalcMitjana(sh, rowP);
+    recalcMitjana(sh, rowP, cap);
   });
 
   return { ok:true };
@@ -3636,37 +3714,53 @@ function syncAssoliments(ss, trimestre, data) {
       .setHorizontalAlignment('center').setBackground(GARNET_H).setFontColor('#7A1E2E');
     row++;
 
-    // Capçalera objectius
-    sh.getRange(row, 1).setValue('Alumne').setFontWeight('bold').setBackground(GARNET_M).setFontColor('#7A1E2E').setFontFamily('Nunito');
-    objs.forEach(function(obj, i) {
-      sh.getRange(row, i+2).setValue(obj.nom || ('Obj.'+(i+1))).setFontWeight('bold')
-        .setHorizontalAlignment('center').setWrap(true)
-        .setBackground(GARNET_M).setFontColor('#7A1E2E').setFontFamily('Nunito');
-    });
-    sh.getRange(row, nCols).setValue('%').setFontWeight('bold').setHorizontalAlignment('center')
-      .setBackground(GARNET_M).setFontColor('#7A1E2E').setFontFamily('Nunito');
+    // Capçalera objectius. Es munta la fila sencera i s'escriu d'un cop:
+    // abans es pintava casella per casella i cada una era un viatge a Google.
+    var capVals = ['Alumne'];
+    objs.forEach(function(obj, i) { capVals.push(obj.nom || ('Obj.'+(i+1))); });
+    capVals.push('%');
+    sh.getRange(row, 1, 1, nCols).setValues([capVals])
+      .setFontWeight('bold').setBackground(GARNET_M).setFontColor('#7A1E2E').setFontFamily('Nunito');
+    // Centrat i ajust de text només dels objectius i el %; la casella
+    // "Alumne" es queda com estava (no se li tocava l'alineació).
+    sh.getRange(row, 2, 1, nCols - 1).setHorizontalAlignment('center');
+    sh.getRange(row, 2, 1, objs.length).setWrap(true);
     row++;
 
-    // Files d'alumnes
-    alumnes.forEach(function(al) {
-      sh.getRange(row, 1).setValue(al.nom).setFontFamily('Nunito').setBackground('#FFFFFF');
-      var punts = 0;
-      objs.forEach(function(obj, i) {
-        var val = al.vals ? al.vals[obj.id] : null;
-        var cel = sh.getRange(row, i+2);
-        cel.setHorizontalAlignment('center').setFontFamily('Nunito');
-        if (val === true)         { cel.setValue('✓').setBackground(GREEN_BG).setFontColor(GREEN_FC).setFontWeight('bold'); punts += 1; }
-        else if (val === 'partial'){ cel.setValue('~').setBackground(YELLOW_BG).setFontColor(YELLOW_FC).setFontWeight('bold'); punts += 0.5; }
-        else if (val === false)   { cel.setValue('✗').setBackground(RED_BG).setFontColor(RED_FC).setFontWeight('bold'); }
-        else                      { cel.setValue('—').setBackground(GREY_BG).setFontColor(GREY_FC); }
+    // Files d'alumnes: es munta tota la graella en memòria (valors, fons,
+    // color de lletra, negreta i alineació) i s'escriu amb una crida per
+    // cosa, en lloc d'una per casella. Amb 25 alumnes i 8 objectius això
+    // passava de ~250 viatges a Google a 6 per assignatura.
+    if (alumnes.length) {
+      // Valors i fons van a tot el bloc (la columna del nom també en tenia).
+      // El color, la negreta i l'alineació NOMÉS a partir de la columna 2:
+      // a la del nom no s'hi tocaven, i deixar-la igual evita canviar-ne
+      // l'aspecte encara que hi poséssim el valor per defecte.
+      var vals = [], fons = [], colors = [], pesos = [], alin = [];
+      alumnes.forEach(function(al) {
+        var fV = [al.nom], fF = ['#FFFFFF'], fC = [], fP = [], fA = [];
+        var punts = 0;
+        objs.forEach(function(obj) {
+          var val = al.vals ? al.vals[obj.id] : null;
+          if (val === true)          { fV.push('✓'); fF.push(GREEN_BG);  fC.push(GREEN_FC);  fP.push('bold');   punts += 1;   }
+          else if (val === 'partial'){ fV.push('~'); fF.push(YELLOW_BG); fC.push(YELLOW_FC); fP.push('bold');   punts += 0.5; }
+          else if (val === false)    { fV.push('✗'); fF.push(RED_BG);    fC.push(RED_FC);    fP.push('bold');   }
+          else                       { fV.push('—'); fF.push(GREY_BG);   fC.push(GREY_FC);   fP.push('normal'); }
+          fA.push('center');
+        });
+        var pct = objs.length > 0 ? Math.round(punts / objs.length * 100) : 0;
+        fV.push(pct + '%');
+        fF.push(pct >= 80 ? GREEN_BG : pct >= 50 ? YELLOW_BG : RED_BG);
+        fC.push(pct >= 80 ? GREEN_FC : pct >= 50 ? YELLOW_FC : RED_FC);
+        fP.push('bold'); fA.push('center');
+        vals.push(fV); fons.push(fF); colors.push(fC); pesos.push(fP); alin.push(fA);
       });
-      var pct = objs.length > 0 ? Math.round(punts / objs.length * 100) : 0;
-      var pctBg = pct >= 80 ? GREEN_BG : pct >= 50 ? YELLOW_BG : RED_BG;
-      var pctFc = pct >= 80 ? GREEN_FC  : pct >= 50 ? YELLOW_FC  : RED_FC;
-      sh.getRange(row, nCols).setValue(pct + '%').setFontWeight('bold')
-        .setHorizontalAlignment('center').setBackground(pctBg).setFontColor(pctFc).setFontFamily('Nunito');
-      row++;
-    });
+      sh.getRange(row, 1, alumnes.length, nCols)
+        .setValues(vals).setBackgrounds(fons).setFontFamily('Nunito');
+      sh.getRange(row, 2, alumnes.length, nCols - 1)
+        .setFontColors(colors).setFontWeights(pesos).setHorizontalAlignments(alin);
+      row += alumnes.length;
+    }
 
     // Fila buida separadora
     row++;
@@ -4016,12 +4110,20 @@ function _testLoadAppData() {
 function loadAppData(ss, weekIds, appDataPre) {
   var result = { ok: true };
 
-  // Planning de les setmanes demanades
+  // Planning de les setmanes demanades. El navegador en demana SEMPRE tres
+  // (la d'abans, l'actual i la següent). Abans es cridava `sheetGetJSON` per
+  // cada una, i cada crida rellegia el full _AppData_Planning SENCER: tres
+  // lectures completes per a tres claus. Ara es llegeix un cop i les claus
+  // es busquen en memòria, com ja es feia amb _AppData.
   result.planning = {};
-  (weekIds || []).forEach(function(wid) {
-    var v = sheetGetJSON(ss, '_AppData_Planning', wid);
-    if (v) result.planning[wid] = JSON.parse(v);
-  });
+  var ids = weekIds || [];
+  if (ids.length) {
+    var planTot = sheetGetAll(ss, '_AppData_Planning');
+    ids.forEach(function(wid) {
+      var v = planTot[wid];
+      if (v) { try { result.planning[wid] = JSON.parse(v); } catch(e) {} }
+    });
+  }
 
   // Tasques + calendari (de _AppData). Si ja s'ha llegit abans (bootstrap),
   // el reutilitzem per no tornar a llegir tot el full.
@@ -4083,7 +4185,12 @@ function bootstrap(ss, weekIds) {
   // 4) Alumnes: si hi ha grup de tutoria i full "Grups", agafa'ls d'allà;
   //    si no, del full personal (compatibilitat)
   if (tutorGrup) {
-    var gss = getGrupsSpreadsheet(ss);
+    // L'ID ja el tenim del _AppData llegit a dalt: obrir-lo directament
+    // estalvia que getGrupsSpreadsheet() torni a llegir el full sencer.
+    var gss = null;
+    if (result.grupsSheetId) {
+      try { gss = SpreadsheetApp.openById(result.grupsSheetId); } catch(e) { gss = null; }
+    }
     if (gss) {
       var ga = getGrupAlumnes(gss, tutorGrup);
       result.grupAlumnes = ga.alumnes || [];
@@ -4101,8 +4208,16 @@ function bootstrap(ss, weekIds) {
   // Sempre inclou els del full personal com a reserva (registre, observacions...)
   result.alumnes      = getAlumnes(ss).alumnes;
   result.registre     = getRegistre(ss);
-  result.observacions = getObservacions(ss).observacions;
   result.personal     = getAllPersonal(ss).personal;
+
+  // Observacions llegades (les 21 pestanyes del full personal: 3 trimestres ×
+  // 7 assignatures). NOMÉS es calculen si no hi ha les compartides del full
+  // "Grups", perquè el navegador, quan les té, aquestes les llença: veure
+  // `_processBootstrap` a js/app.js ("else if (boot.observacions)"). Per a un
+  // tutor, això eren ~80 anades i tornades a Google a cada arrencada per a
+  // res.
+  var teCompartides = !!(result.grupObs && result.grupAlumnes && result.grupAlumnes.length);
+  result.observacions = teCompartides ? {} : getObservacions(ss).observacions;
 
   // 5) Planning / tasques / calendari / assoliments / actitud (com loadAppData)
   var appDataBundle = loadAppData(ss, weekIds, appData);

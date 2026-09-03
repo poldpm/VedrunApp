@@ -586,3 +586,59 @@ Observació important, Gènere (F/M), PI, AM, Aspectes específics, Informe EAP
 - L'entorn de Google Workspace de l'escola bloqueja webhooks externs (ntfy.sh)
   però permet crides a l'API de Telegram.
 - Els noms de label de Gmail amb espais usen guions a les cerces.
+
+---
+
+## 13. MESURAR EL BACKEND
+
+`Code.gs` no es pot provar sense un full de càlcul… o sí:
+
+```bash
+node eines/banc-backend.js
+```
+
+El carrega dins d'un `SpreadsheetApp` de mentida i **compta cada crida que de
+debò viatjaria a Google**. Cada una són desenes de mil·lisegons reals: si un
+canvi puja el total, l'app anirà més lenta per a la mestra.
+
+Per comparar abans i després d'un canvi:
+
+```bash
+git show HEAD:Code.gs > /tmp/abans.gs
+node eines/banc-backend.js /tmp/abans.gs    # com estava
+node eines/banc-backend.js                  # com ha quedat
+```
+
+**Setembre del 2026**, l'arrencada d'un tutor va passar de **151 crides a 38**:
+
+| Què passava | Arranjament |
+|---|---|
+| Es calculaven les observacions de les 21 pestanyes i el navegador **les llençava** si el tutor tenia les compartides del full "Grups" | només es calculen si de debò calen |
+| El full `_AppData_Planning` es llegia **sencer 3 vegades**, una per setmana | es llegeix un cop i les setmanes es busquen en memòria |
+| `getGrupsSpreadsheet()` **rellegia tot el `_AppData`** que el bootstrap acabava de llegir | s'obre amb l'ID que ja teníem |
+| `getObservacions()` demanava les 21 pestanyes d'una en una | un sol `getSheets()` i la resta en memòria |
+
+**Segona tanda**, les accions on la mestra s'espera mirant la pantalla:
+
+| Què passava | Abans | Ara |
+|---|---|---|
+| `syncAssoliments()` pintava la graella casella per casella | 7.250 escriptures | **105** |
+| `updateActitudBatch()` rellegia la capçalera sencera a cada alumne | 128 lectures | **56** |
+
+Comprovat amb un full de mentida que registra cada cel·la: als assoliments,
+1.100 de 1.350 cel·les idèntiques i 250 que només passen de «no s'hi deia
+res» a dir-hi `normal` (que ja era el valor per defecte, i el full es refà de
+zero a cada sincronització). A l'actitud, **les 181 cel·les idèntiques**,
+mitjanes i notes incloses.
+
+`recalcMitjana()` accepta ara un tercer paràmetre opcional amb la capçalera
+ja llegida, per a qui en recalcula molts seguits del mateix full. Sense
+passar-l'hi, es comporta exactament com abans.
+
+Queda per mirar: les 750 escriptures de `updateActitudBatch()`. Es podrien
+agrupar, però obliga a reescriure `recalcMitjana()`, que és el càlcul de les
+notes i el criden de tres llocs: val més fer-ho a part i amb calma.
+
+**No toquis els `flush()` de les reunions**: hi són a posta, per
+l'anti-solapament. I `propagaCarpeta()` sembla cara però el seu bucle només
+fa 3 voltes (les assignatures amb carpeta): no val la pena.

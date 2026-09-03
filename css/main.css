@@ -4477,3 +4477,139 @@ body {
 @media (max-width: 700px) {
   .entr-dos { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   REUNIONS — LES HORES EN CALENDARI
+   ------------------------------------------------------------
+   Mateixa graella i mateixos colors que el calendari de l'app.
+   Abans era una llista plana de centenars de botons: es veia
+   tot alhora i no s'hi entenia res. Ara el mes diu d'un cop
+   d'ull quins dies tenen gent, i les hores d'un dia surten
+   només en clicar-hi.
+   ============================================================ */
+.reucal { margin-top: 4px; }
+.reucal-mes + .reucal-mes { margin-top: 18px; }
+.reucal-mes-nom {
+  font-size: 13px; font-weight: 700; color: var(--text-sub);
+  text-transform: capitalize; margin-bottom: 8px;
+}
+.reucal-caps {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 4px; margin-bottom: 4px;
+}
+.reucal-caps span {
+  text-align: center; font-size: 10.5px; font-weight: 700;
+  color: var(--text-muted); letter-spacing: 0.06em; padding: 4px 0;
+}
+.reucal-graella {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+}
+
+.reucal-cel {
+  min-height: 62px; display: flex; flex-direction: column; gap: 4px;
+  align-items: stretch; text-align: left;
+  padding: 6px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: var(--surface);
+  font: inherit; color: inherit;
+}
+.reucal-buit { border-color: transparent; background: transparent; }
+.reucal-sense { color: var(--text-muted); background: transparent; }
+.reucal-dia { font-size: 12px; font-weight: 600; color: var(--text-sub); }
+.reucal-sense .reucal-dia { color: var(--text-muted); font-weight: 400; }
+.reucal-avui { border-color: var(--crimson); }
+.reucal-avui .reucal-dia { color: var(--crimson); }
+
+/* Els dies que tenen hores són botons de debò */
+button.reucal-cel {
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background 150ms ease-out,
+              transform 150ms ease-out;
+}
+button.reucal-cel:hover { border-color: var(--crimson-soft); background: #fdf2f5; }
+button.reucal-cel:active { transform: scale(0.97); }
+button.reucal-cel:focus-visible {
+  outline: 2px solid var(--crimson); outline-offset: 2px;
+}
+.reucal-obert {
+  border-color: var(--crimson); background: #fdf2f5;
+  box-shadow: inset 0 0 0 1px var(--crimson);
+}
+
+.reucal-comptes { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; }
+.reucal-n {
+  min-width: 20px; padding: 1px 5px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.reucal-n-lliure { background: #e6f4ea; color: #1e6b39; }
+.reucal-n-ple    { background: #f5d0d6; color: var(--garnet); }
+
+.reucal-llegenda {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin: 10px 0 0; font-size: 11.5px; color: var(--text-muted);
+}
+.reucal-ajuda { margin-left: auto; }
+
+/* El dia obert */
+.reucal-detall {
+  margin-top: 12px; padding: 12px;
+  border: 1px solid var(--crimson-soft); border-radius: var(--r-sm);
+  background: #fdf2f5;
+  animation: reucal-entra 180ms ease-out;
+}
+@keyframes reucal-entra {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reucal-detall-cap {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 10px;
+  font-size: 13px; color: var(--text-main);
+}
+.reucal-tanca {
+  border: 0; background: transparent; cursor: pointer;
+  font-size: 20px; line-height: 1; color: var(--text-muted);
+  min-width: 44px; min-height: 44px; border-radius: var(--r-sm);
+  transition: color 150ms ease-out, background 150ms ease-out;
+}
+.reucal-tanca:hover { color: var(--garnet); background: #f5d0d6; }
+.reucal-tanca:focus-visible { outline: 2px solid var(--crimson); outline-offset: 2px; }
+
+.reucal-mostra {
+  width: 14px; height: 14px; border-radius: 999px; display: inline-block;
+}
+.reucal-hores { display: flex; flex-wrap: wrap; gap: 6px; }
+.reucal-h {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 0 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+  border: 1px solid transparent;
+}
+.reucal-h-lliure {
+  background: #fff; border-color: var(--crimson-soft); color: var(--garnet);
+  cursor: pointer;
+  transition: background 150ms ease-out, border-color 150ms ease-out,
+              transform 150ms ease-out;
+}
+.reucal-h-lliure:hover { background: #f5d0d6; border-color: var(--crimson); }
+.reucal-h-lliure:active { transform: scale(0.97); }
+.reucal-h-lliure:focus-visible { outline: 2px solid var(--crimson); outline-offset: 2px; }
+.reucal-x { font-size: 15px; opacity: 0.55; }
+.reucal-h-lliure:hover .reucal-x { opacity: 1; }
+.reucal-h-ple {
+  background: #f1e3e6; color: var(--text-sub); cursor: default;
+}
+.reucal-h-ple em { font-style: normal; font-weight: 400; font-size: 12px; opacity: 0.8; }
+
+@media (max-width: 640px) {
+  .reucal-cel { min-height: 52px; padding: 4px; }
+  .reucal-dia { font-size: 11px; }
+  .reucal-n { min-width: 18px; font-size: 10px; padding: 1px 4px; }
+  .reucal-ajuda { margin-left: 0; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reucal-detall { animation: none; }
+  button.reucal-cel, .reucal-h-lliure, .reucal-tanca { transition: none; }
+  button.reucal-cel:active, .reucal-h-lliure:active { transform: none; }
+}
