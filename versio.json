@@ -1,11 +1,10 @@
 {
-  "versio": "v119",
+  "versio": "v120",
   "data": "2026-09-02",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "NOVA EINA: Convocar reunions. Marca quan tens lliure, envia l enllaç a les famílies i cadascuna tria la seva hora. La reserva et va sola al teu Google Calendar.",
-    "Dues famílies no poden agafar la mateixa hora: quan algú reserva, aquella hora desapareix a l instant per a tothom.",
-    "Pots dir-li que no ofereixi hores que ja tens ocupades al calendari, i posar-hi un descans entre reunions.",
-    "A la pantalla de l eina hi tens tots els calendaris, qui ha reservat què, i pots tancar les reserves o alliberar una hora."
+    "ARREGLAT: les tasques que venen del Google Tasks ja es poden marcar com a fetes. Abans clicaves la caseta i no passava absolutament res.",
+    "En marcar-la, es marca al teu Google Tasks de debò, i per això desapareix de la llista (allà ja està feta).",
+    "Si no s ha pogut marcar, l app ho desfà i t ho diu, en comptes de deixar-te creure que ho ha fet."
   ]
 }

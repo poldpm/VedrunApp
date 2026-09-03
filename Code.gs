@@ -980,6 +980,7 @@ function handleRequest(e) {
       case 'loadActitud':            result = loadActitudData(ss, (body&&body.materia)||p.materia, (body&&body.trimestre)||p.trimestre); break;
       case 'loadAppData':            result = loadAppData(ss, parseWeekIds((body&&body.weekIds)||p.weekIds)); break;
       case 'getGCalEvents':          result = getGoogleCalendarEvents(parseInt((body&&body.year)||p.year), parseInt((body&&body.month)||p.month)); break;
+      case 'completaGoogleTask': result = completaGoogleTask((body&&body.taskId)||p.taskId, (body&&body.llistaId)||p.llistaId, (body&&body.fet)); break;
       case 'getGoogleTasks':         result = getGoogleTasks(); break;
       case 'gwriteSync':             result = gwriteSync(body && body.canvis); break;
       case 'saveNotaComentari':      result = saveNotaComentari(ss, (body&&body.materia)||p.materia, (body&&body.trimestre)||p.trimestre, body&&body.itemId, body&&body.nom, body&&body.text, (body&&body.grup)||p.grup); break;
@@ -3211,6 +3212,9 @@ function getGoogleTasks() {
           notes: t.notes || '',
           data:  t.due ? t.due.split('T')[0] : '',
           llista: list.title || '',
+          // Fa falta per poder-la marcar com a feta: sense l'id de la
+          // llista, l'API de Tasks no sap on buscar-la.
+          llistaId: list.id,
         });
       });
     });
@@ -3221,6 +3225,41 @@ function getGoogleTasks() {
   }
 }
 
+
+/* Marca (o desmarca) una tasca del Google Tasks.
+   Abans no es podia: el botó de la caseta, a les tasques que venien de
+   Google, no feia RES, i el rètol deia "Marcar com a feta". La mestra
+   clicava i no passava res.
+
+   Si no ens arriba l'id de la llista (una app que encara no ha
+   redesplegat el Code.gs), es busca la tasca per totes les llistes. */
+function completaGoogleTask(taskId, llistaId, fet) {
+  try {
+    if (!taskId) return { ok: false, error: 'Falta la tasca' };
+    var estat = (fet === false) ? 'needsAction' : 'completed';
+    var llistes = llistaId
+      ? [{ id: llistaId }]
+      : ((Tasks.Tasklists.list({ maxResults: 20 }).items) || []);
+    if (!llistes.length) return { ok: false, error: 'No tens cap llista al Google Tasks' };
+
+    for (var i = 0; i < llistes.length; i++) {
+      var idLlista = llistes[i].id;
+      try {
+        var r = _gRetry_(function () {
+          return Tasks.Tasks.patch({ status: estat }, idLlista, taskId);
+        });
+        return { ok: true, id: r.id, llistaId: idLlista, estat: estat };
+      } catch (e) {
+        // Si no és a AQUESTA llista, prova la següent. Qualsevol altre
+        // error (permisos, quota) sí que s'ha de dir.
+        if (!_gEsNoHiEs_((e && e.message) || e)) throw e;
+      }
+    }
+    return { ok: false, error: 'No s\'ha trobat aquesta tasca al Google Tasks. Potser ja l\'has esborrada des del Google.' };
+  } catch (err) {
+    return { ok: false, error: (err && err.message) || String(err) };
+  }
+}
 
 /* ============================================================
    ESCRIPTURA A GOOGLE CALENDAR I GOOGLE TASKS
