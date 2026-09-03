@@ -1,10 +1,11 @@
 {
-  "versio": "v139",
+  "versio": "v140",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Reunions: el calendari ja no es queda buit. Encara que el servidor et doni les dates en un format estrany, l app les entén i te les pinta; i si alguna no la sap situar, te la ensenya a part en comptes de fer-la desaparèixer.",
-    "Reunions: esborrar un calendari ara és immediat. Abans esborrava les hores d una en una i podia trigar molt.",
-    "Arreglat: a la fitxa hi sortia del NaN/NaN al NaN/NaN i Undefined NaN al calendari."
+    "La pàgina que reben les famílies: ara trien primer el dia i després l hora, en comptes de veure totes les hores de totes les setmanes de cop. Al mòbil cap en una pantalla.",
+    "Arreglat: a les famílies els podia sortir Undefined NaN com a nom del dia, i les hores desplaçades mitja hora.",
+    "Reunions: el calendari ja no es queda buit encara que el servidor doni les dates en un format estrany.",
+    "Reunions: esborrar un calendari ara és immediat."
   ]
 }

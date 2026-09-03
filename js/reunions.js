@@ -178,14 +178,16 @@ function _reuNormData(v) {
   }
   return null;                       // no s'entén: NO es llença, es mostra a part
 }
+/* L'hora es LLEGEIX del text, no s'interpreta. Si es fa
+   `new Date("Sat Dec 30 1899 15:00:00 GMT+0014")` i se'n treu l'hora, el
+   desfasament horari de 1899 la mou mitja hora: les 15:00 sortien com a
+   14:31. Buscant els dígits no hi ha cap càlcul que pugui fallar. */
 function _reuNormHora(v) {
   const s = String(v == null ? '' : v).trim();
-  const m = s.match(/^(\d{1,2}):(\d{2})/);
-  if (m) return ('0' + m[1]).slice(-2) + ':' + m[2];
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) {
-    const p = n => (n < 10 ? '0' : '') + n;
-    return p(d.getHours()) + ':' + p(d.getMinutes());
+  const m = s.match(/(\d{1,2}):(\d{2})/);          // en qualsevol lloc del text
+  if (m) {
+    const h = Math.min(23, parseInt(m[1], 10));
+    return ('0' + h).slice(-2) + ':' + m[2];
   }
   return s;
 }
