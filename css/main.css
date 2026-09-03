@@ -3747,3 +3747,59 @@ body {
   .reu-afegir { flex-wrap: wrap; }
   .reu-enllac { flex-direction: column; align-items: stretch; }
 }
+
+/* --- Reunions: hores per dia de la setmana --- */
+.reu-dies { display: flex; flex-direction: column; gap: 6px; }
+.reu-dia {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--card);
+}
+.reu-dia-actiu { border-color: var(--garnet-soft2); background: var(--garnet-soft); }
+.reu-dia-nom {
+  display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px;
+  min-width: 118px; cursor: pointer; margin: 0;
+}
+.reu-dia-hores { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1; }
+.reu-dia-buit { font-size: 12.5px; color: var(--text-muted); }
+.reu-tram { display: inline-flex; align-items: center; gap: 4px; }
+.reu-tram input[type=time] {
+  font: inherit; font-size: 13px; padding: 5px 7px;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff; min-height: 34px;
+}
+.reu-tram-x, .reu-mini {
+  border: 1px solid var(--border); background: #fff; color: var(--garnet-text);
+  border-radius: 6px; cursor: pointer; font: inherit; font-size: 12px;
+  padding: 4px 8px; min-height: 30px;
+}
+.reu-tram-x { padding: 2px 7px; font-size: 15px; line-height: 1; }
+.reu-tram-x:hover, .reu-mini:hover { background: var(--garnet-soft2); }
+
+/* --- Reunions: repassar les hores --- */
+.reu-prev-dia { margin-bottom: 10px; }
+.reu-prev-data {
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--garnet-text); margin-bottom: 5px;
+}
+.reu-prev-hores { display: flex; flex-wrap: wrap; gap: 6px; }
+.reu-prev-h {
+  font: inherit; font-size: 13px; font-weight: 700; min-height: 36px;
+  background: #fff; color: var(--garnet-text);
+  border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 11px; cursor: pointer;
+}
+.reu-prev-h:hover { border-color: var(--crimson); background: var(--garnet-soft); }
+.reu-prev-treta {
+  text-decoration: line-through; color: var(--text-muted);
+  background: var(--bg-alt, #FAF7F8); border-style: dashed; font-weight: 400;
+}
+.reu-prev-xoc {
+  text-decoration: line-through; background: #FEF3C7; border-color: #D97706;
+  color: #92400E; cursor: not-allowed; font-weight: 400;
+}
+.reu-prev-x { margin-left: 5px; opacity: .55; font-weight: 400; }
+.reu-prev-treure:hover .reu-prev-x { opacity: 1; color: var(--crimson); }
+
+@media (max-width: 700px) {
+  .reu-dia { flex-direction: column; align-items: flex-start; }
+  .reu-dia-nom { min-width: 0; }
+}

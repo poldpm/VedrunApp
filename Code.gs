@@ -146,62 +146,183 @@ function _reuXoca_(data, inici, fi) {
   }
 }
 
-/* ---------- crear un calendari de reunions ---------- */
+/* ============================================================
+   GENERADOR DE FRANGES — un sol lloc
+   ------------------------------------------------------------
+   Els horaris de debò no són iguals cada dia: dilluns pot ser a
+   les 11, dimarts a les 15 i dimecres només al migdia. Per això
+   les hores es diuen PER DIA DE LA SETMANA:
+
+     perDia = { "1": [{inici:"11:00", fi:"12:00"}],   // dilluns
+                "2": [{inici:"15:00", fi:"16:00"}],   // dimarts
+                "3": [{inici:"13:00", fi:"15:00"}] }  // dimecres
+
+   (1 = dilluns … 7 = diumenge, com tothom ho diria.)
+
+   I `exclou` són les hores concretes que aquell dia no van bé:
+     exclou = ["2026-09-12 17:00", ...]
+
+   Aquesta funció la fan servir TANT el previsualitzat com la
+   creació, així que el que la mestra repassa és exactament el que
+   es crearà. Per construcció les franges d'un dia van una darrere
+   l'altra: no se solapen mai.
+   ============================================================ */
+function _reuGenera_(d) {
+  var durada = parseInt(d.durada, 10) || 15;
+  var buffer = parseInt(d.buffer, 10) || 0;
+  if (buffer < 0 || buffer > 120) buffer = 0;
+  var perDia = d.perDia || {};
+  var exclou = {};
+  (d.exclou || []).forEach(function (x) { exclou[String(x)] = true; });
+  var mirarCalendari = d.evitarOcupats !== false;
+
+  var out = [], avisos = 0;
+  var des = String(d.desDe || ''), fins = String(d.finsA || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(des) || !/^\d{4}-\d{2}-\d{2}$/.test(fins)) return { franges: [], error: 'Dates mal posades' };
+  if (fins < des) { var tmp = des; des = fins; fins = tmp; }
+
+  var p = des.split('-');
+  var dia = new Date(+p[0], +p[1] - 1, +p[2]);
+  var q = fins.split('-');
+  var ultim = new Date(+q[0], +q[1] - 1, +q[2]);
+  var voltes = 0;
+
+  while (dia.getTime() <= ultim.getTime() && voltes++ < 400) {
+    var dow = dia.getDay() === 0 ? 7 : dia.getDay();     // 1..7, dilluns=1
+    var trams = perDia[String(dow)] || [];
+    if (trams.length) {
+      var data = dia.getFullYear() + '-' + _reuPad_(dia.getMonth() + 1) + '-' + _reuPad_(dia.getDate());
+      var tr = trams.slice().sort(function (a, b) { return _reuMinuts_(a.inici) - _reuMinuts_(b.inici); });
+      var finsAra = -1;
+      for (var t = 0; t < tr.length; t++) {
+        var m0 = _reuMinuts_(tr[t].inici), m1 = _reuMinuts_(tr[t].fi);
+        if (isNaN(m0) || isNaN(m1) || m1 <= m0) continue;
+        if (m0 < finsAra) m0 = finsAra;                  // trams encavalcats: no repetim hores
+        for (var m = m0; m + durada <= m1; m += durada + buffer) {
+          if (out.length >= REU_MAX_FRANGES) break;
+          var hi = _reuHora_(m), hf = _reuHora_(m + durada);
+          if (exclou[data + ' ' + hi]) continue;         // treta a mà per la mestra
+          var xoc = mirarCalendari ? _reuXoca_(data, hi, hf) : null;
+          if (xoc) avisos++;
+          out.push({ data: data, inici: hi, fi: hf, xoc: xoc || '' });
+        }
+        finsAra = m1;
+      }
+    }
+    dia.setDate(dia.getDate() + 1);
+  }
+  return { franges: out, ambXoc: avisos };
+}
+
+/* Previsualitzat: el mateix que es crearà, per poder-hi treure hores. */
+function reunionsPreview(ss, d) {
+  d = d || {};
+  var g = _reuGenera_(d);
+  if (g.error) return { ok: false, error: g.error };
+  return { ok: true, franges: g.franges, ambXoc: g.ambXoc, total: g.franges.length };
+}
+
 function reunionsCrea(ss, d) {
   d = d || {};
   var titol = String(d.titol || '').trim();
   if (!titol) return { ok: false, error: 'Falta el títol' };
   var durada = parseInt(d.durada, 10) || 15;
   if (durada < 5 || durada > 240) return { ok: false, error: 'La durada ha de ser entre 5 i 240 minuts' };
-  var buffer = parseInt(d.buffer, 10) || 0;
-  if (buffer < 0 || buffer > 120) buffer = 0;
-  var dies = d.dies || [];               // ['2026-09-15', ...] dates concretes
-  var trams = d.trams || [];             // [{inici:'17:00', fi:'19:00'}]
-  if (!dies.length)  return { ok: false, error: 'Tria com a mínim un dia' };
-  if (!trams.length) return { ok: false, error: 'Posa com a mínim una franja horària' };
+  var perDia = d.perDia || {};
+  var teCap = false;
+  Object.keys(perDia).forEach(function (k) { if ((perDia[k] || []).length) teCap = true; });
+  if (!teCap) return { ok: false, error: 'Digues a quines hores tens lliure com a mínim un dia' };
 
-  var evitarOcupats = d.evitarOcupats !== false;   // per defecte, sí
+  var g = _reuGenera_(d);
+  if (g.error) return { ok: false, error: g.error };
+
+  // Les que xoquen amb el seu calendari no s'ofereixen (si ho ha demanat)
+  var bones = g.franges.filter(function (f) { return !f.xoc; });
+  if (!bones.length) {
+    return { ok: false, error: g.franges.length
+      ? 'Totes les hores que has posat xoquen amb coses que ja tens al calendari.'
+      : 'No ha quedat cap hora: comprova les dates, les hores i la durada.' };
+  }
+
   var calId = _reuId_();
-  var tz = _gTz_();
-  var ara = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
-
-  /* --- Generació de les franges: per construcció NO se solapen --- */
-  var files = [], n = 0, saltades = 0;
-  dies.sort();
-  for (var i = 0; i < dies.length; i++) {
-    var dia = String(dies[i]);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) continue;
-    // Ordena els trams i comprova que no se solapin entre ells
-    var tr = trams.slice().sort(function (a, b) { return _reuMinuts_(a.inici) - _reuMinuts_(b.inici); });
-    var finsAra = -1;
-    for (var t = 0; t < tr.length; t++) {
-      var m0 = _reuMinuts_(tr[t].inici), m1 = _reuMinuts_(tr[t].fi);
-      if (isNaN(m0) || isNaN(m1) || m1 <= m0) continue;
-      if (m0 < finsAra) m0 = finsAra;          // trams encavalcats: no repetim hores
-      for (var m = m0; m + durada <= m1; m += durada + buffer) {
-        if (n >= REU_MAX_FRANGES) break;
-        var hi = _reuHora_(m), hf = _reuHora_(m + durada);
-        if (evitarOcupats && _reuXoca_(dia, hi, hf)) { saltades++; continue; }
-        files.push([calId, calId + '-' + n, dia, hi, hf, 'lliure', '', '', '', '', '']);
-        n++;
-      }
-      finsAra = m1;
-    }
-  }
-  if (!files.length) {
-    return { ok: false, error: evitarOcupats
-      ? 'No ha quedat cap hora lliure: o els dies que has triat ja els tens plens al calendari, o la durada no hi cap.'
-      : 'No ha quedat cap hora: comprova la durada i les franges.' };
-  }
+  var ara = Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm');
+  var files = bones.map(function (f, i) {
+    return [calId, calId + '-' + i, f.data, f.inici, f.fi, 'lliure', '', '', '', '', ''];
+  });
 
   var shC = _reuCals_(ss), shH = _reuHores_(ss);
-  shC.appendRow([calId, titol, String(d.descripcio || ''), durada, buffer, String(d.lloc || ''),
+  shC.appendRow([calId, titol, String(d.descripcio || ''), durada,
+                 parseInt(d.buffer, 10) || 0, String(d.lloc || ''),
                  'si', ara, (d.avisar === false ? 'no' : 'si'),
-                 parseInt(d.maxPersona, 10) || 0, dies[0], dies[dies.length - 1]]);
+                 parseInt(d.maxPersona, 10) || 0,
+                 bones[0].data, bones[bones.length - 1].data]);
   shH.getRange(shH.getLastRow() + 1, 1, files.length, REU_CAP_HORES.length).setValues(files);
   SpreadsheetApp.flush();
 
-  return { ok: true, calId: calId, franges: files.length, saltades: saltades, enllac: _reuEnllac_(calId) };
+  return { ok: true, calId: calId, franges: files.length,
+           saltades: g.franges.length - bones.length, enllac: _reuEnllac_(calId) };
+}
+
+/* Treure una hora que encara NO té ningú.
+   Cas d'en Pol: ja ha enviat l'enllaç i li surt un imprevist el dia 12.
+   Amb el pany posat, com tot el que toca les hores: si just en aquell
+   moment algú l'està reservant, s'espera el torn i llavors veurà que
+   ja té algú i no la traurà. Per treure una hora RESERVADA hi ha
+   reunionsAllibera, que a més esborra l'event del calendari. */
+function reunionsTreuHora(ss, calId, slotId) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); } catch (e) { return { ok: false, error: 'Torna-ho a provar en un moment' }; }
+  try {
+    var sh = _reuHores_(ss), n = sh.getLastRow();
+    if (n < 2) return { ok: false, error: 'No hi ha hores' };
+    var v = sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
+    for (var i = 0; i < v.length; i++) {
+      if (String(v[i][0]) !== String(calId) || String(v[i][1]) !== String(slotId)) continue;
+      if (String(v[i][5]) === 'ocupat') {
+        return { ok: false, error: 'Aquesta hora ja te algú: fes servir "Alliberar" si la vols treure.', ocupada: true };
+      }
+      sh.deleteRow(i + 2);
+      SpreadsheetApp.flush();
+      return { ok: true };
+    }
+    return { ok: false, error: 'Aquesta hora ja no hi és' };
+  } finally { lock.releaseLock(); }
+}
+
+/* Afegir hores a un calendari que ja existeix, sense refer-lo.
+   Respecta les que ja hi ha i no crea res que es trepitgi. */
+function reunionsAfegeixHores(ss, calId, dies) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); } catch (e) { return { ok: false, error: 'Torna-ho a provar en un moment' }; }
+  try {
+    var f = _reuCalFila_(ss, calId);
+    if (!f) return { ok: false, error: 'Aquest calendari no hi és' };
+    var cal = _reuCalObj_(f.v);
+    var sh = _reuHores_(ss), n = sh.getLastRow();
+    var hi = [];
+    if (n >= 2) {
+      sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues().forEach(function (r) {
+        if (String(r[0]) === String(calId)) hi.push({ data: String(r[2]), i: _reuMinuts_(String(r[3])), f: _reuMinuts_(String(r[4])) });
+      });
+    }
+    var noves = [], seg = hi.length;
+    (dies || []).forEach(function (x) {
+      var data = String(x.data || ''), ini = String(x.inici || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || !/^\d{2}:\d{2}$/.test(ini)) return;
+      var m0 = _reuMinuts_(ini), m1 = m0 + cal.durada;
+      // no es pot trepitjar res del que ja hi ha
+      for (var k = 0; k < hi.length; k++) {
+        if (hi[k].data === data && m0 < hi[k].f && hi[k].i < m1) return;
+      }
+      if (_reuXoca_(data, ini, _reuHora_(m1))) return;
+      hi.push({ data: data, i: m0, f: m1 });
+      noves.push([calId, calId + '-x' + (seg++), data, ini, _reuHora_(m1), 'lliure', '', '', '', '', '']);
+    });
+    if (!noves.length) return { ok: false, error: 'No s\'ha pogut afegir cap hora (o ja hi eren, o xoquen amb el teu calendari)' };
+    sh.getRange(sh.getLastRow() + 1, 1, noves.length, REU_CAP_HORES.length).setValues(noves);
+    SpreadsheetApp.flush();
+    return { ok: true, afegides: noves.length };
+  } finally { lock.releaseLock(); }
 }
 
 function _reuEnllac_(calId) {
@@ -239,7 +360,7 @@ function reunionsLlista(ss) {
   var perCal = {};
   hores.forEach(function (h) {
     var id = String(h[0]);
-    if (!perCal[id]) perCal[id] = { lliures: 0, ocupades: 0, reserves: [], passades: 0 };
+    if (!perCal[id]) perCal[id] = { lliures: 0, ocupades: 0, reserves: [], passades: 0, horesLliures: [] };
     var passada = String(h[2]) < avui;
     if (passada) { perCal[id].passades++; }
     if (String(h[5]) === 'ocupat') {
@@ -249,13 +370,22 @@ function reunionsLlista(ss) {
                                    nom: String(h[6]), email: String(h[7]), gEventId: String(h[8]),
                                    quan: String(h[9]), error: String(h[10]) });
       }
-    } else if (!passada) { perCal[id].lliures++; }
+    } else if (!passada) {
+      perCal[id].lliures++;
+      // La llista de les que encara son lliures: fa falta per poder treure
+      // una hora si a la mestra li surt un imprevist un dia concret.
+      perCal[id].horesLliures.push({ slotId: String(h[1]), data: String(h[2]),
+                                     inici: String(h[3]), fi: String(h[4]) });
+    }
   });
 
   var out = cals.map(function (f) {
     var c = _reuCalObj_(f);
-    var e = perCal[c.id] || { lliures: 0, ocupades: 0, reserves: [], passades: 0 };
+    var e = perCal[c.id] || { lliures: 0, ocupades: 0, reserves: [], passades: 0, horesLliures: [] };
     c.lliures = e.lliures; c.ocupades = e.ocupades; c.passades = e.passades;
+    c.horesLliures = (e.horesLliures || []).sort(function (a, b) {
+      return (a.data + a.inici).localeCompare(b.data + b.inici);
+    });
     c.reserves = e.reserves.sort(function (a, b) {
       return (a.data + a.inici).localeCompare(b.data + b.inici);
     });
@@ -898,6 +1028,9 @@ function handleRequest(e) {
       case 'getAlumnes':           result = getAlumnes(ss); break;
       case 'getMainData':          result = getMainData(ss); break;
       case 'reunionsLlista':      result = reunionsLlista(ss); break;
+      case 'reunionsPreview':     result = reunionsPreview(ss, (body&&body.dades)||{}); break;
+      case 'reunionsTreuHora':    result = reunionsTreuHora(ss, (body&&body.calId)||p.calId, (body&&body.slotId)||p.slotId); break;
+      case 'reunionsAfegeixHores':result = reunionsAfegeixHores(ss, (body&&body.calId)||p.calId, (body&&body.hores)||[]); break;
       case 'reunionsCrea':        result = reunionsCrea(ss, (body&&body.dades)||{}); break;
       case 'reunionsAllibera':    result = reunionsAllibera(ss, (body&&body.calId)||p.calId, (body&&body.slotId)||p.slotId); break;
       case 'reunionsReintenta':   result = reunionsReintenta(ss, (body&&body.calId)||p.calId, (body&&body.slotId)||p.slotId); break;

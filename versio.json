@@ -1,10 +1,11 @@
 {
-  "versio": "v120",
+  "versio": "v121",
   "data": "2026-09-02",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "ARREGLAT: les tasques que venen del Google Tasks ja es poden marcar com a fetes. Abans clicaves la caseta i no passava absolutament res.",
-    "En marcar-la, es marca al teu Google Tasks de debò, i per això desapareix de la llista (allà ja està feta).",
-    "Si no s ha pogut marcar, l app ho desfà i t ho diu, en comptes de deixar-te creure que ho ha fet."
+    "Convocar reunions: ara les hores es diuen PER DIA DE LA SETMANA. Dilluns a les 11, dimarts a les 15, dimecres al migdia... cada dia pot ser diferent.",
+    "Digues de quin dia a quin dia, marca els dies i posa-hi la seva hora. Si diversos dies són iguals, un botó les copia als altres.",
+    "Abans de crear-lo veus TOTES les hores que sortiran, dia per dia, i pots treure les que aquell dia concret no et vagin bé.",
+    "I un cop enviat l enllaç, a la fitxa hi tens les hores encara lliures: clica-hi la que et surti un imprevist i deixa de sortir a les famílies."
   ]
 }
