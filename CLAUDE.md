@@ -66,6 +66,8 @@ li fas alguna cosa que el manual no explica, posa `manual.html` als seus
 
 ## Validació abans de donar per bo un canvi
 - `node --check` de cada fitxer JS modificat.
+- **`node eines/comprova-controls.js`** — cap botó ni casella pot no fer res.
+  Torna codi 1 si en troba. Veure "Botons que no fan res" aquí sota.
 - Comprova que l'HTML queda ben tancat.
 - Si toques el backend, valida `Code.gs` amb mocks (SpreadsheetApp, PropertiesService…).
 - Prova amb dades buides (cas mestre nou): cap render ha de petar.
@@ -73,6 +75,34 @@ li fas alguna cosa que el manual no explica, posa `manual.html` als seus
   acabat fins que és al `manual.html`.
 - Si has tocat el manual: enllaços interns sense destí trencat, etiquetes
   equilibrades i les entrades noves a l'índex.
+
+## Botons que no fan res
+
+**Va passar el 2 de setembre de 2026 i en Pol el va trobar a la primera:** el
+botó de marcar com a feta una tasca del Google Tasks era
+`onclick="event.stopPropagation();"` — buit. Es pintava clicable, el rètol
+deia "Marcar com a feta", i no passava res.
+
+**Per què l'auditoria no el va trobar:** comprovava que cada handler cridés
+una funció que EXISTÍS. Un handler buit passava la comprovació precisament
+perquè no cridava res. El forat era del mètode, no una badada puntual.
+
+**Per tant, a cada canvi que toqui la interfície:**
+
+```bash
+node eines/comprova-controls.js
+```
+
+Busca handlers sense efecte: atributs `on*` buits o que només fan
+`stopPropagation`, i el patró que va causar el bug — una variable que val
+`''` i que després s'enganxa dins d'un `onclick`
+(`const x = cond ? '' : \`fes()\`` … `onclick="${x}"`).
+
+**No n'hi ha prou amb l'eina.** Si el canvi afegeix o toca controls, també
+**clicar-los de debò** al banc de proves i comprovar que passa alguna cosa
+(una crida al servidor, un avís, un canvi a la pantalla). Un control que es
+pinta com a clicable i no fa res és pitjor que no tenir-lo: la mestra clica,
+no passa res, i deixa de fiar-se de l'app.
 
 ## Estil de treball preferit
 - Canvis incrementals i provats. Explica el que fas i per què.
