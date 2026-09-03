@@ -133,6 +133,8 @@ function _renderReunions() {
       </div>` : (c.acabat ? '' : '<p class="modal-hint">Encara no hi ha cap hora reservada.</p>')}
 
       <div class="reu-card-acc">
+        ${c.acabat ? '' : `<button class="btn btn-secondary btn-sm" onclick="obreReuAfegir('${c.id}')">+ Afegir hores</button>`}
+        ${c.acabat ? '' : `<button class="btn btn-ghost btn-sm" onclick="obreReuMissatge('${c.id}')">Missatge de confirmació${c.missatge ? ' ✓' : ''}</button>`}
         ${c.acabat ? '' : `<button class="btn btn-ghost btn-sm" onclick="reuActiva('${c.id}', ${tancat ? 'true' : 'false'})">${tancat ? 'Tornar a obrir' : 'Tancar reserves'}</button>`}
         <button class="btn btn-ghost btn-sm reu-del" onclick="reuEsborra('${c.id}')">Esborrar</button>
       </div>
@@ -209,6 +211,229 @@ async function reuEsborra(calId) {
 }
 
 /* ============================================================
+   AFEGIR HORES A UN CALENDARI JA ENVIAT
+   ------------------------------------------------------------
+   Cas de sempre: ja has enviat l'enllaç i et queda lliure una
+   estona que no havies ofert. S'afegeixen estones (un dia i de
+   quina hora a quina hora) i el servidor les parteix amb la
+   durada i el descans que ja té aquell calendari.
+   ============================================================ */
+let _reuAfegirCal = null;
+let _reuAfegirEstones = [];
+
+function obreReuAfegir(calId) {
+  const c = _reuCals.find(x => x.id === calId);
+  if (!c) return;
+  _reuAfegirCal = c;
+  _reuAfegirEstones = [];
+  let ov = document.getElementById('reuAfegirOverlay');
+  if (!ov) ov = _reuMuntaAfegir();
+  document.getElementById('reuAfSub').textContent = c.titol + ' · reunions de ' + c.durada + ' min';
+  const p = n => (n < 10 ? '0' : '') + n;
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  document.getElementById('reuAfData').value = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  document.getElementById('reuAfIni').value = '17:00';
+  document.getElementById('reuAfFi').value = '18:00';
+  _reuPintaAfegir();
+  ov.classList.add('open');
+  setTimeout(() => document.getElementById('reuAfData').focus(), 80);
+}
+function tancaReuAfegir() {
+  const ov = document.getElementById('reuAfegirOverlay');
+  if (ov) ov.classList.remove('open');
+}
+
+function _reuAfegeixEstona() {
+  const data = document.getElementById('reuAfData').value;
+  const ini = document.getElementById('reuAfIni').value;
+  const fi = document.getElementById('reuAfFi').value;
+  if (!data || !ini || !fi) { showToast('Omple el dia i les hores', 'error'); return; }
+  if (data < _reuAvui()) { showToast('Aquest dia ja ha passat', 'error'); return; }
+  if (fi <= ini) { showToast('L\'hora de final ha de ser més tard', 'error'); return; }
+  // no repetim la mateixa estona ni deixem que es trepitgin entre elles
+  for (const e of _reuAfegirEstones) {
+    if (e.data === data && ini < e.fi && e.inici < fi) {
+      showToast('Aquesta estona es trepitja amb la de ' + e.inici + '–' + e.fi, 'error'); return;
+    }
+  }
+  _reuAfegirEstones.push({ data, inici: ini, fi });
+  _reuAfegirEstones.sort((a, b) => (a.data + a.inici).localeCompare(b.data + b.inici));
+  _reuPintaAfegir();
+}
+function _reuTreuEstona(i) { _reuAfegirEstones.splice(i, 1); _reuPintaAfegir(); }
+
+function _reuPintaAfegir() {
+  const c = document.getElementById('reuAfLlista');
+  if (!c) return;
+  if (!_reuAfegirEstones.length) {
+    c.innerHTML = '<span class="modal-hint">Encara no has afegit cap estona.</span>';
+  } else {
+    const dur = _reuAfegirCal ? _reuAfegirCal.durada : 15;
+    const buf = 0;
+    c.innerHTML = _reuAfegirEstones.map((e, i) => {
+      const m = h => (+h.split(':')[0]) * 60 + (+h.split(':')[1]);
+      let n = 0;
+      for (let x = m(e.inici); x + dur <= m(e.fi); x += dur + buf) n++;
+      return `<span class="reu-chip">${_reuDataText(e.data)} · ${e.inici}–${e.fi}
+        <em class="reu-chip-n">${n} hore${n === 1 ? '' : 's'}</em>
+        <button onclick="_reuTreuEstona(${i})" aria-label="Treure">×</button></span>`;
+    }).join('');
+  }
+  const b = document.getElementById('reuAfDesa');
+  if (b) b.disabled = !_reuAfegirEstones.length;
+}
+
+async function desaReuAfegir() {
+  if (!_reuAfegirCal || !_reuAfegirEstones.length) return;
+  const b = document.getElementById('reuAfDesa');
+  if (b) { b.disabled = true; b.textContent = 'Afegint…'; }
+  try {
+    const r = await appsScriptPost({ action: 'reunionsAfegeixHores', calId: _reuAfegirCal.id, hores: _reuAfegirEstones });
+    if (r && r.ok) {
+      tancaReuAfegir();
+      let msg = r.afegides + ' hore' + (r.afegides === 1 ? '' : 's') + ' afegide' + (r.afegides === 1 ? 's' : 's');
+      if (r.jaHiEren) msg += ' · ' + r.jaHiEren + ' ja hi eren';
+      if (r.xoquen) msg += ' · ' + r.xoquen + ' xoquen amb el teu calendari';
+      showToast(msg + ' ✓', 'success');
+      await initReunions();
+    } else {
+      showToast((r && r.error) || 'No s\'ha pogut afegir', 'error');
+    }
+  } finally {
+    if (b) { b.disabled = false; b.textContent = 'Afegir-les'; }
+  }
+}
+
+function _reuMuntaAfegir() {
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay';
+  ov.id = 'reuAfegirOverlay';
+  ov.addEventListener('mousedown', e => { if (e.target === ov) tancaReuAfegir(); });
+  ov.innerHTML = `
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-header-title">Afegir hores</div>
+          <div class="modal-header-sub" id="reuAfSub"></div>
+        </div>
+        <button class="modal-close" onclick="tancaReuAfegir()" aria-label="Tancar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <div class="modal-label">Quin dia i de quina hora a quina hora</div>
+          <div class="reu-afegir">
+            <input class="modal-input" id="reuAfData" type="date" aria-label="Dia">
+            <input class="modal-input" id="reuAfIni" type="time" aria-label="Des de">
+            <span class="reu-fins">a</span>
+            <input class="modal-input" id="reuAfFi" type="time" aria-label="Fins a">
+            <button class="btn btn-secondary btn-sm" onclick="_reuAfegeixEstona()">Afegir</button>
+          </div>
+          <div class="reu-chips" id="reuAfLlista"></div>
+          <div class="modal-hint">Pots afegir-hi diverses estones de dies diferents abans de desar.</div>
+        </div>
+        <div class="callout-mini">
+          Es partiran amb la durada i el descans que ja té aquest calendari.
+          Les que xoquin amb el teu Google Calendar o amb hores que ja hi ha, no s'afegiran.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="tancaReuAfegir()">Cancel·lar</button>
+        <button class="btn btn-primary" id="reuAfDesa" onclick="desaReuAfegir()" disabled>Afegir-les</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  return ov;
+}
+
+/* ============================================================
+   EL MISSATGE QUE VEU QUI RESERVA
+   ------------------------------------------------------------
+   Si es deixa buit, la pàgina pública hi posa el de sempre.
+   Serveix per donar indicacions: on entrar, què portar…
+   ============================================================ */
+const REU_MSG_DEFECTE = 'Ho hem apuntat. Si no hi pots venir, respon el correu amb què t\'han enviat l\'enllaç.';
+let _reuMsgCal = null;
+
+function obreReuMissatge(calId) {
+  const c = _reuCals.find(x => x.id === calId);
+  if (!c) return;
+  _reuMsgCal = c;
+  let ov = document.getElementById('reuMsgOverlay');
+  if (!ov) ov = _reuMuntaMissatge();
+  document.getElementById('reuMsgSub').textContent = c.titol;
+  document.getElementById('reuMsgText').value = c.missatge || '';
+  _reuMsgCompta();
+  ov.classList.add('open');
+  setTimeout(() => document.getElementById('reuMsgText').focus(), 80);
+}
+function tancaReuMissatge() {
+  const ov = document.getElementById('reuMsgOverlay');
+  if (ov) ov.classList.remove('open');
+}
+function _reuMsgCompta() {
+  const t = document.getElementById('reuMsgText'), c = document.getElementById('reuMsgCompta');
+  if (!t || !c) return;
+  const n = t.value.length;
+  c.textContent = n ? n + ' de 600 caràcters' : 'Buit: sortirà el missatge de sempre.';
+}
+async function desaReuMissatge() {
+  if (!_reuMsgCal) return;
+  const txt = document.getElementById('reuMsgText').value.trim();
+  const b = document.getElementById('reuMsgDesa');
+  if (b) { b.disabled = true; b.textContent = 'Desant…'; }
+  try {
+    const r = await appsScriptPost({ action: 'reunionsMissatge', calId: _reuMsgCal.id, missatge: txt });
+    if (r && r.ok) {
+      tancaReuMissatge();
+      showToast(txt ? 'Missatge desat ✓' : 'Tornarà a sortir el missatge de sempre', 'success');
+      await initReunions();
+    } else showToast((r && r.error) || 'No s\'ha pogut desar', 'error');
+  } finally {
+    if (b) { b.disabled = false; b.textContent = 'Desar'; }
+  }
+}
+
+function _reuMuntaMissatge() {
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay';
+  ov.id = 'reuMsgOverlay';
+  ov.addEventListener('mousedown', e => { if (e.target === ov) tancaReuMissatge(); });
+  ov.innerHTML = `
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-header-title">Missatge de confirmació</div>
+          <div class="modal-header-sub" id="reuMsgSub"></div>
+        </div>
+        <button class="modal-close" onclick="tancaReuMissatge()" aria-label="Tancar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-hint" style="margin-bottom:10px">És el que llegeix la persona just després de triar la seva hora. Aprofita-ho per donar indicacions.</p>
+        <div class="modal-field">
+          <label class="modal-label" for="reuMsgText">El teu missatge <span class="reu-opc">(opcional)</span></label>
+          <textarea class="modal-input" id="reuMsgText" rows="4" maxlength="600" oninput="_reuMsgCompta()"
+            placeholder="Ex: Entra per la porta del carrer Nou i espera a recepció. Si no hi pots venir, escriu-me."></textarea>
+          <div class="modal-hint" id="reuMsgCompta"></div>
+        </div>
+        <div class="callout-mini">
+          <strong>Si el deixes buit</strong> sortirà el de sempre:<br>
+          <em>«${REU_MSG_DEFECTE}»</em>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="tancaReuMissatge()">Cancel·lar</button>
+        <button class="btn btn-primary" id="reuMsgDesa" onclick="desaReuMissatge()">Desar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  return ov;
+}
+
+/* ============================================================
    CREAR UN CALENDARI NOU
    ------------------------------------------------------------
    Els horaris reals no són iguals cada dia: dilluns a les 11,
@@ -236,6 +461,7 @@ function obreReuNou() {
   document.getElementById('reuTitol').value = '';
   document.getElementById('reuDesc').value = '';
   document.getElementById('reuLloc').value = '';
+  const _m = document.getElementById('reuMissatgeNou'); if (_m) _m.value = '';
   document.getElementById('reuDurada').value = '15';
   document.getElementById('reuBuffer').value = '0';
   document.getElementById('reuMaxPersona').checked = true;
@@ -410,6 +636,7 @@ function _reuDades() {
     titol: document.getElementById('reuTitol').value.trim(),
     descripcio: document.getElementById('reuDesc').value.trim(),
     lloc: document.getElementById('reuLloc').value.trim(),
+    missatge: (document.getElementById('reuMissatgeNou') || { value: '' }).value.trim(),
     durada: parseInt(document.getElementById('reuDurada').value, 10),
     buffer: parseInt(document.getElementById('reuBuffer').value, 10),
     desDe: document.getElementById('reuDesDe').value,
@@ -508,6 +735,12 @@ function _reuMuntaModal() {
           <div class="modal-field">
             <label class="modal-label" for="reuLloc">On <span class="reu-opc">(opcional)</span></label>
             <input class="modal-input" id="reuLloc" placeholder="Ex: Aula de 2n C, o enllaç de videotrucada">
+          </div>
+          <div class="modal-field">
+            <label class="modal-label" for="reuMissatgeNou">Missatge en confirmar l'hora <span class="reu-opc">(opcional)</span></label>
+            <textarea class="modal-input" id="reuMissatgeNou" rows="2" maxlength="600"
+              placeholder="Ex: Entra per la porta del carrer Nou i espera a recepció."></textarea>
+            <div class="modal-hint">És el que llegirà la persona just després de triar l'hora. Si ho deixes buit, hi surt el missatge de sempre. Ho pots canviar més endavant.</div>
           </div>
           <div class="modal-field">
             <label class="modal-label" for="reuDesc">Descripció <span class="reu-opc">(opcional)</span></label>

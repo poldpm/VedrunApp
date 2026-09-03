@@ -3803,3 +3803,12 @@ body {
   .reu-dia { flex-direction: column; align-items: flex-start; }
   .reu-dia-nom { min-width: 0; }
 }
+
+/* --- Reunions: afegir hores i missatge --- */
+.reu-chip-n { font-style: normal; font-size: 11px; opacity: .7; margin-left: 4px; }
+.callout-mini {
+  background: var(--garnet-soft); border-left: 4px solid var(--crimson);
+  padding: 10px 13px; border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  font-size: 12.5px; color: var(--garnet-deep); margin-top: 12px;
+}
+.callout-mini em { color: var(--text-muted); }
