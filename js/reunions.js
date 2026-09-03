@@ -143,7 +143,7 @@ function _renderReunions() {
 }
 
 /* Les hores lliures, agrupades per dia, cadascuna clicable per treure-la.
-   És el cas d'en Pol: ja ha enviat l'enllaç i el dia 12 li surt una cosa. */
+   Cas típic: ja s'ha enviat l'enllaç i un dia concret surt un imprevist. */
 function _reuLliuresPerDia(c) {
   const perDia = {}, ordre = [];
   (c.horesLliures || []).forEach(h => {
@@ -734,7 +734,7 @@ function _reuMuntaModal() {
 
           <div class="modal-field">
             <label class="modal-label" for="reuLloc">On <span class="reu-opc">(opcional)</span></label>
-            <input class="modal-input" id="reuLloc" placeholder="Ex: Aula de 2n C, o enllaç de videotrucada">
+            <input class="modal-input" id="reuLloc" placeholder="Ex: la meva aula, o un enllaç de videotrucada">
           </div>
           <div class="modal-field">
             <label class="modal-label" for="reuMissatgeNou">Missatge en confirmar l'hora <span class="reu-opc">(opcional)</span></label>

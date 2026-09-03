@@ -172,9 +172,17 @@ body {
 /* ============================================================
    MAIN AREA
    ============================================================ */
+/* min-width:0 — sense això, al mòbil l'app s'estirava.
+   .main és un ítem flex, i un ítem flex per defecte no es pot fer més estret
+   que el seu contingut (min-width:auto). N'hi havia prou amb la graella
+   d'alumnes o la del planning perquè TOTA la pàgina fes 900px en una pantalla
+   de 375: la mestra havia d'anar de costat per llegir qualsevol cosa.
+   Amb min-width:0 la pàgina s'ajusta, i el planning i l'horari, que sí que
+   necessiten amplada, ja tenen el seu scroll horitzontal a dins. */
 .main {
   margin-left: var(--sidebar-w);
   flex: 1;
+  min-width: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -620,8 +628,10 @@ body {
 /* ============================================================
    REGISTRE DE L'AULA
    ============================================================ */
+/* Amb salt de línia: al mòbil els botons (i l avís de "Desat") no hi
+   cabien en una fila i estiraven la pàgina 20px de més. */
 .registre-toolbar {
-  display: flex; gap: 10px; align-items: center;
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
   margin-bottom: 28px;
 }
 
@@ -934,7 +944,12 @@ body {
 /* ============================================================
    PÀGINA ALUMNES — llista de cards
    ============================================================ */
+/* Els tres botons han de poder passar a la línia de sota. Sense això, al
+   mòbil la barra feia 830px de min-content i, com que .main és un ítem flex
+   amb min-width:auto, ESTIRAVA tota la pàgina: la fitxa de l'alumne quedava
+   mig fora de la pantalla i s'hi havia d'anar de costat. */
 .alumnes-toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px;
   margin-bottom: 24px;
 }
 
@@ -1161,7 +1176,9 @@ body {
   padding: 3px 10px; border-radius: 20px; letter-spacing: 0.04em;
   background: var(--crimson-soft); color: var(--garnet-deep); margin-bottom: 4px;
 }
-.notes-header-actions { display: flex; gap: 8px; align-items: flex-start; padding-top: 4px; }
+/* Els botons han de fer salt de línia: al mòbil, en una sola fila la
+   pàgina de notes s'estirava fins a 524px i s'havia d'anar de costat. */
+.notes-header-actions { display: flex; gap: 8px; align-items: flex-start; padding-top: 4px; flex-wrap: wrap; }
 
 /* Llegenda */
 .qual-legend {
@@ -1749,6 +1766,11 @@ body {
   align-items: start;
 }
 @media (max-width: 1000px) { .cal2-layout { grid-template-columns: 1fr; } }
+/* La columna del calendari també és un ítem de graella: sense això no pot
+   encongir (min-width:auto) i el calendari sortia 13px de la pantalla. */
+.cal2-left { min-width: 0; }
+
+
 
 /* Capçalera */
 .cal2-header {
@@ -1762,7 +1784,9 @@ body {
 
 /* Graella */
 .cal2-dow-row {
-  display: grid; grid-template-columns: repeat(7, 1fr);
+  /* minmax(0,1fr) i no 1fr: amb 1fr les columnes no baixen del que amida el
+     seu contingut, i el nom més llarg ("Dimecres") estirava la graella. */
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
   margin-bottom: 4px;
 }
 .cal2-dow-row > div {
@@ -1770,8 +1794,26 @@ body {
   color: var(--text-muted); padding: 4px 0;
   letter-spacing: 0.04em;
 }
+
+/* Al mòbil, a cada columna hi caben 48px i "Dimecres" en demana 58: els
+   noms quedaven tallats. S'hi posen les mateixes abreviatures que a
+   l'horari (DL, DM, DC…), que és el que una mestra ja té al cap. */
+@media (max-width: 700px) {
+  .cal2-dow-row > div { font-size: 0; }
+  .cal2-dow-row > div::before {
+    font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  }
+  .cal2-dow-row > div:nth-child(1)::before { content: 'DL'; }
+  .cal2-dow-row > div:nth-child(2)::before { content: 'DM'; }
+  .cal2-dow-row > div:nth-child(3)::before { content: 'DC'; }
+  .cal2-dow-row > div:nth-child(4)::before { content: 'DJ'; }
+  .cal2-dow-row > div:nth-child(5)::before { content: 'DV'; }
+  .cal2-dow-row > div:nth-child(6)::before { content: 'DS'; }
+  .cal2-dow-row > div:nth-child(7)::before { content: 'DG'; }
+}
+
 .cal2-grid {
-  display: grid; grid-template-columns: repeat(7, 1fr);
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 3px;
 }
 .cal2-cell {
@@ -1780,6 +1822,10 @@ body {
   background: var(--surface); cursor: pointer;
   transition: border-color var(--ease);
   overflow: hidden;
+  /* Un ítem de graella tampoc no es pot encongir per defecte (min-width:auto):
+     un dia amb un event de títol llarg estirava la columna i el calendari
+     sortia 12px de la pantalla al mòbil. Mateixa causa que la del .main. */
+  min-width: 0;
 }
 .cal2-cell:hover        { border-color: var(--crimson-soft); background: #fdf2f5; }
 .cal2-cell-empty        { background: transparent; border-color: transparent; cursor: default; }
@@ -3666,6 +3712,539 @@ body {
   .grup-picker .modal-input { max-width: none; }
 }
 
+/* Avís de quin grup és el que hi ha a la pantalla (només a l'app de direcció) */
+.dir-avis-grup {
+  font-size: 13px; color: var(--text-sub);
+  background: var(--surface-tint); border: 1px solid var(--border);
+  border-left: 3px solid var(--crimson);
+  border-radius: var(--r-sm); padding: 8px 12px; margin: 0 0 12px;
+}
+.dir-avis-grup.is-buit { color: var(--garnet); font-weight: 600; }
+
+/* ============================================================
+   Etiqueta només per a lectors de pantalla (queda fora de la vista, però
+   s'ha de poder llegir: display:none la faria desaparèixer també per a ells)
+   ============================================================ */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ============================================================
+   DOCENTS — el claustre de primària (només a l'app de direcció)
+   Els colors dels tres cicles són els que ells ja fan servir al
+   seu document (verd, blau, taronja), però suaus: només marquen
+   el bloc, no es mengen el granat de l'app.
+   ============================================================ */
+.doc-barra {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.doc-cerca { max-width: 280px; margin: 0; }
+.doc-filtres { display: flex; gap: 6px; flex-wrap: wrap; }
+.doc-filtre {
+  padding: 8px 14px; min-height: 38px;
+  border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-sub);
+  font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.doc-filtre:hover { border-color: var(--crimson); color: var(--garnet-deep); }
+.doc-filtre.active {
+  background: var(--crimson); border-color: var(--crimson); color: #fff;
+}
+.doc-filtre:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: 2px; }
+
+.doc-cicle { margin-bottom: 26px; }
+.doc-cicle-head {
+  display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap;
+  padding: 8px 0 8px 12px; margin-bottom: 12px;
+  border-left: 4px solid var(--doc-color, var(--crimson));
+}
+.doc-cicle-nom { font-size: 16px; font-weight: 700; color: var(--garnet-deep); }
+.doc-cicle-meta { font-size: 12.5px; color: var(--text-muted); }
+/* Els colors dels cicles, prou foscos per poder-hi escriure a sobre del
+   seu propi to clar (tots passen de 5:1 de contrast). */
+.doc-cicle-c1   { --doc-color: #2F6B41; --doc-soft: #E8F3EA; }
+.doc-cicle-c2   { --doc-color: #35619E; --doc-soft: #E7EEF8; }
+.doc-cicle-c3   { --doc-color: #8F5518; --doc-soft: #FBF0E3; }
+.doc-cicle-siei { --doc-color: #6B5CA0; --doc-soft: #EFEBF8; }
+
+.doc-subtitol {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin: 14px 0 8px;
+}
+.doc-graella {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.doc-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.doc-card-top { display: flex; align-items: center; gap: 10px; }
+.doc-avatar {
+  width: 34px; height: 34px; flex-shrink: 0;
+  /* Tint suau amb el color del cicle a la lletra: 40 cercles plens de
+     color es menjarien el granat de l'app. */
+  border-radius: 50%;
+  background: var(--doc-soft, var(--surface-alt));
+  color: var(--doc-color, var(--garnet));
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.doc-card-txt { min-width: 0; }
+.doc-nom  { font-size: 14px; font-weight: 600; color: var(--text-main); overflow-wrap: break-word; }
+.doc-rol  { font-size: 12.5px; color: var(--text-sub); }
+.doc-rol strong { color: var(--garnet-text, var(--garnet)); }
+
+.doc-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.doc-badge {
+  font-size: 11px; font-weight: 700; padding: 3px 8px;
+  border-radius: 999px; border: 1px solid var(--border-strong);
+  color: var(--text-sub); background: var(--surface-tint);
+}
+.doc-badge-coordina { border-color: #E0B4BE; color: var(--garnet); background: #FBEAED; }
+.doc-badge-direccio { border-color: #C8B9E4; color: #4B3A78; background: #F1EDFA; }
+.doc-badge-siei     { border-color: #C8B9E4; color: #4B3A78; background: #F1EDFA; }
+
+.doc-veure {
+  /* Enganxat a baix perque els botons de tota una fila quedin alineats,
+     encara que una targeta tingui un distintiu i l'altra no. */
+  align-self: flex-start; margin-top: auto;
+  padding: 6px 12px; min-height: 34px;
+  border-radius: var(--r-sm); border: 1px solid var(--border-strong);
+  background: var(--surface-alt); color: var(--garnet-deep);
+  font-size: 12.5px; font-weight: 600; font-family: inherit; cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.doc-veure:hover { border-color: var(--crimson); color: var(--crimson); }
+.doc-veure:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .doc-cerca { max-width: none; flex: 1 1 100%; }
+  .doc-graella { grid-template-columns: 1fr; }
+  .doc-filtre, .doc-veure { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc-filtre, .doc-veure { transition: none; }
+}
+
+/* Un avís explicatiu dins d'una pàgina (el manual té els seus `callout`,
+   però són d'un altre full d'estils). */
+.callout-app {
+  background: var(--surface-tint); border: 1px solid var(--border);
+  border-left: 3px solid var(--crimson);
+  border-radius: var(--r-sm); padding: 12px 14px; margin-top: 18px;
+  font-size: 13px; line-height: 1.55; color: var(--text-sub);
+}
+.callout-app strong { color: var(--garnet-deep); }
+
+/* ============================================================
+   SEGUIMENT D'ENTREVISTES (direcció)
+   ============================================================ */
+.segentr-taula th, .segentr-taula td { vertical-align: middle; }
+.segentr-obre {
+  display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
+  width: 100%; padding: 4px 0;
+  background: none; border: none; font-family: inherit; text-align: left;
+  cursor: pointer; touch-action: manipulation;
+}
+.segentr-obre:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: 2px; }
+.segentr-grup  { font-size: 13.5px; font-weight: 700; color: var(--garnet-deep); }
+.segentr-tutor { font-size: 11.5px; color: var(--text-sub); font-weight: 400; }
+.segentr-obre:hover .segentr-grup { color: var(--crimson); }
+.segentr-fila.es-obert { background: var(--surface-tint); }
+.segentr-pendents {
+  display: inline-block; min-width: 22px; padding: 2px 7px;
+  border-radius: 999px; background: #FBEAED; border: 1px solid #E0B4BE;
+  color: #B3251A; font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.segentr-detall > td { background: var(--surface-tint); padding: 4px 10px 14px; }
+.segentr-detall-cap {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-sub); margin: 6px 0 8px;
+}
+.segentr-alumnes { list-style: none; display: grid; gap: 4px; }
+.segentr-alumne {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 5px 8px; border-radius: var(--r-sm); background: var(--surface);
+  border: 1px solid var(--border); font-size: 12.5px;
+}
+.segentr-alumne.es-sense { border-color: #E0B4BE; background: #FDF5F6; }
+.segentr-alumne-nom { font-weight: 600; color: var(--text-main); min-width: 140px; }
+.segentr-alumne-num {
+  min-width: 20px; text-align: center; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--garnet);
+}
+.segentr-alumne-dates { display: flex; gap: 5px; flex-wrap: wrap; align-items: baseline; }
+.segentr-data {
+  padding: 1px 7px; border-radius: 999px;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  color: var(--text-sub); font-size: 11.5px;
+}
+.segentr-cap { color: #B3251A; font-weight: 600; }
+.segentr-nodates { color: var(--text-sub); font-size: 11px; font-style: italic; }
+
+/* Al registre de docents, sota el nom hi va el grup (o què fa), com a la
+   llista d'alumnes hi va l'avatar: ajuda a trobar la fila amb 40 mestres. */
+.regdoc-nom { display: block; font-weight: 600; }
+.regdoc-sub { display: block; font-size: 11.5px; color: var(--text-sub); font-weight: 400; }
+.reg-table td.reg-td-name .regdoc-nom,
+.reg-table td.reg-td-name .regdoc-sub { white-space: nowrap; }
+.reg-table td.reg-td-name:has(.regdoc-nom) { display: table-cell; }
+
+/* --- La portada de Docents: els botons de les eines --- */
+.doc-eines {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+.doc-eina {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  text-align: left; padding: 18px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--crimson);
+  border-radius: var(--r-md);
+  font-family: inherit; cursor: pointer; touch-action: manipulation;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+.doc-eina:hover {
+  border-color: var(--crimson);
+  box-shadow: 0 2px 10px rgba(74, 21, 32, 0.08);
+  transform: translateY(-1px);
+}
+.doc-eina:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: 2px; }
+.doc-eina-icona { width: 24px; height: 24px; color: var(--crimson); }
+.doc-eina-titol { font-size: 15px; font-weight: 700; color: var(--garnet-deep); }
+.doc-eina-desc  { font-size: 12.5px; color: var(--text-sub); line-height: 1.45; }
+.doc-tornar { margin-bottom: 10px; }
+
+/* ============================================================
+   COORDINACIÓ — els esmorzars de la reunió
+   ============================================================ */
+/* minmax(0, 1fr) i no 1fr: una columna 1fr no es pot fer mes estreta que
+   el seu contingut, i la taula del panell estirava tota la pagina. */
+.esm-graella {
+  display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: 14px; align-items: start;
+}
+.esm-card { min-width: 0; }
+/* Si la taula no hi cap, que llisqui ella i no la pagina sencera. */
+.esm-taula-caixa { overflow-x: auto; }
+.esm-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 18px 20px;
+}
+.esm-taula { min-width: 340px; }
+.esm-card-titol {
+  font-size: 14px; font-weight: 700; color: var(--garnet-deep);
+  margin-bottom: 14px;
+}
+/* --- El torn de la propera reunió --- */
+.esm-card-torn { border-left: 3px solid var(--crimson); margin-bottom: 14px; }
+.esm-torn-buit { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.esm-torn-buit p { font-size: 13.5px; color: var(--text-sub); }
+.esm-torn-proposta, .esm-torn-fet {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  justify-content: space-between; align-items: flex-start;
+}
+.esm-torn-etiqueta {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-sub); margin-bottom: 2px;
+}
+.esm-torn-nom { font-size: 24px; font-weight: 700; color: var(--garnet-deep); line-height: 1.2; }
+.esm-torn-data { font-size: 13.5px; color: var(--text-sub); margin-top: 2px; }
+.esm-torn-perque { font-size: 12.5px; color: var(--text-sub); margin-top: 4px; }
+.esm-torn-quan { min-width: 210px; }
+.esm-torn-quan .modal-label { display: block; margin-bottom: 6px; }
+.esm-torn-quan .modal-input { margin: 0; }
+.esm-torn-avis { display: block; font-size: 12.5px; color: var(--text-sub); margin-top: 8px; }
+.esm-torn-avis.is-fet   { color: var(--garnet); font-weight: 600; }
+.esm-torn-avis.is-falta { color: #B3251A; font-weight: 600; }
+.esm-torn-botons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.esm-torn-btn {
+  padding: 9px 14px; min-height: 40px;
+  border-radius: var(--r-sm); border: 1px solid var(--border-strong);
+  background: var(--surface-alt); color: var(--garnet-deep);
+  font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.esm-torn-btn:hover { border-color: var(--crimson); color: var(--crimson); }
+.esm-torn-btn:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: 2px; }
+
+/* --- El palmarès --- */
+.esm-palmares-nota { font-size: 12.5px; color: var(--text-sub); margin: -8px 0 14px; }
+.esm-premis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.esm-premi {
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--surface-tint); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 14px;
+}
+.esm-premi-icona { font-size: 26px; line-height: 1; margin-bottom: 4px; }
+.esm-premi-titol {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-sub);
+}
+.esm-premi-qui { font-size: 16px; font-weight: 700; color: var(--garnet-deep); }
+.esm-premi-detall { font-size: 12.5px; color: var(--text-sub); }
+
+.esm-camp { margin-bottom: 14px; }
+.esm-camp .modal-label { display: block; margin-bottom: 6px; }
+.esm-camp .modal-input { margin: 0; }
+.esm-nota-ajuda { font-weight: 400; color: var(--text-sub); }
+
+.esm-siono { display: flex; gap: 8px; flex-wrap: wrap; }
+.esm-si, .esm-no {
+  flex: 1 1 130px; padding: 10px 12px; min-height: 44px;
+  border-radius: var(--r-sm); border: 2px solid var(--border);
+  background: var(--surface-alt); color: var(--text-main);
+  font-size: 13.5px; font-weight: 600; font-family: inherit; cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.esm-si:hover, .esm-no:hover { border-color: var(--crimson); }
+.esm-si.active { background: #1F6B43; border-color: #1F6B43; color: #fff; }
+.esm-no.active { background: #B3251A; border-color: #B3251A; color: #fff; }
+.esm-si:focus-visible, .esm-no:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: 2px; }
+
+.esm-notes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.esm-nota {
+  min-height: 40px; padding: 8px 0;
+  border-radius: var(--r-sm); border: 2px solid var(--border);
+  background: var(--surface-alt); color: var(--text-main);
+  font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
+  font-variant-numeric: tabular-nums; touch-action: manipulation;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.esm-nota:hover { border-color: var(--crimson); }
+.esm-nota.active { background: var(--crimson); border-color: var(--crimson); color: #fff; }
+.esm-nota:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: 2px; }
+
+.esm-accions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.esm-estat { font-size: 12.5px; color: var(--text-sub); }
+.esm-estat.is-ok    { color: var(--garnet); font-weight: 600; }
+.esm-estat.is-error { color: var(--crimson); font-weight: 600; }
+
+.esm-buit {
+  padding: 24px 0; font-size: 13.5px; color: var(--text-sub); line-height: 1.6;
+}
+
+/* Les xifres de dalt del panell */
+.esm-xifres {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px; margin-bottom: 18px;
+}
+.esm-xifra {
+  background: var(--surface-tint); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.esm-xifra-num {
+  font-size: 22px; font-weight: 700; color: var(--garnet-deep);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.esm-xifra-txt { font-size: 11.5px; color: var(--text-sub); line-height: 1.35; }
+.esm-xifra-avis .esm-xifra-num { color: #B3251A; }
+
+/* La taula ÉS el gràfic: la barra viu dins de la cel·la de la mitjana. Així
+   qui la mira de lluny veu qui guanya i qui la llegeix amb un lector de
+   pantalla té els números igual. Una sola mesura, un sol color: el color no
+   hi vol dir res, la llargada sí. */
+.esm-taula { width: 100%; border-collapse: collapse; }
+.esm-taula-cap {
+  caption-side: top; text-align: left;
+  font-size: 11.5px; color: var(--text-sub); padding-bottom: 8px;
+}
+.esm-taula th, .esm-taula td {
+  padding: 8px 6px; border-bottom: 1px solid var(--border);
+  font-size: 13px; text-align: left; vertical-align: middle;
+}
+.esm-taula thead th {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-sub);
+  border-bottom: 1px solid var(--border-strong);
+}
+.esm-taula thead th:nth-child(3), .esm-taula thead th:nth-child(4),
+.esm-t-num, .esm-t-gomets { text-align: center; }
+.esm-t-nom { font-weight: 600; color: var(--text-main); white-space: nowrap; }
+.esm-t-num { font-variant-numeric: tabular-nums; color: var(--text-sub); }
+.esm-t-mitjana { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+.esm-barra {
+  flex: 1; height: 10px; min-width: 60px;
+  background: #EFE7EA; border-radius: 5px; overflow: hidden;
+}
+.esm-barra-fill {
+  display: block; height: 100%;
+  background: var(--garnet); border-radius: 5px;
+}
+.esm-barra-val {
+  font-size: 13px; font-weight: 700; color: var(--text-main);
+  font-variant-numeric: tabular-nums; min-width: 30px; text-align: right;
+}
+
+/* Els gomets: sempre amb el número al costat, mai només el color */
+.esm-gomets { display: inline-flex; align-items: center; gap: 3px; }
+.esm-gomet {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #D33A2C; display: inline-block;
+}
+.esm-gomets-num {
+  font-size: 12px; font-weight: 700; color: #B3251A;
+  font-variant-numeric: tabular-nums; margin-left: 3px;
+}
+.esm-cap { font-size: 12px; color: var(--text-sub); }
+
+/* L'historial */
+.esm-subtitol {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-sub);
+  margin: 20px 0 8px;
+}
+.esm-hist { list-style: none; }
+.esm-hist-item {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.esm-hist-data { font-size: 12px; color: var(--text-sub); min-width: 54px; }
+.esm-hist-qui  { font-weight: 600; color: var(--text-main); }
+.esm-hist-que  { color: var(--text-sub); flex: 1; min-width: 0; overflow-wrap: break-word; }
+.esm-hist-nota { font-weight: 700; font-variant-numeric: tabular-nums; }
+.esm-hist-item.es-oblit .esm-hist-que { color: #B3251A; font-weight: 600; }
+.esm-hist-treu {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: var(--r-sm); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-sub);
+  font-size: 15px; line-height: 1; cursor: pointer; font-family: inherit;
+  touch-action: manipulation;
+}
+.esm-hist-treu:hover { border-color: var(--crimson); color: var(--crimson); }
+.esm-hist-treu:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: 2px; }
+
+/* ============================================================
+   LA PENYORA — el popup dels 3 gomets. Estrident a posta.
+   ============================================================ */
+.esm-penyora .esm-penyora-box {
+  background: #B3251A; color: #fff;
+  border: 6px solid #FFD23F; border-radius: var(--r-lg);
+  padding: 34px 30px; margin: auto;
+  max-width: 460px; text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+.esm-penyora-emoji { font-size: 44px; line-height: 1; margin-bottom: 10px; }
+.esm-penyora-titol {
+  font-size: 38px; font-weight: 800; letter-spacing: 0.06em;
+  color: #FFD23F; margin-bottom: 12px;
+}
+.esm-penyora-text { font-size: 16px; line-height: 1.5; margin-bottom: 10px; }
+.esm-penyora-text strong { color: #FFD23F; }
+.esm-penyora-sentencia { font-size: 15px; line-height: 1.5; margin-bottom: 22px; }
+.esm-penyora-sentencia strong { color: #FFD23F; text-transform: uppercase; }
+.esm-penyora-btn {
+  padding: 12px 26px; min-height: 46px;
+  border-radius: var(--r-sm); border: none;
+  background: #FFD23F; color: #4A1520;
+  font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer;
+  touch-action: manipulation;
+}
+.esm-penyora-btn:hover { background: #FFDF73; }
+.esm-penyora-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.esm-penyora.open .esm-penyora-box { animation: esmSacseja 0.6s ease-in-out; }
+@keyframes esmSacseja {
+  0%, 100% { transform: translateX(0) scale(1); }
+  15% { transform: translateX(-9px) scale(1.03); }
+  30% { transform: translateX(9px) scale(1.03); }
+  45% { transform: translateX(-6px) scale(1.02); }
+  60% { transform: translateX(6px) scale(1.02); }
+  80% { transform: translateX(-3px) scale(1); }
+}
+
+@media (max-width: 900px) {
+  .esm-graella { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .esm-notes { grid-template-columns: repeat(5, 1fr); }
+  .esm-nota { min-height: 44px; }
+  .esm-taula th, .esm-taula td { padding: 8px 3px; font-size: 12.5px; }
+  .esm-t-mitjana { min-width: 110px; }
+  .esm-penyora-titol { font-size: 30px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc-eina, .esm-si, .esm-no, .esm-nota, .esm-torn-btn { transition: none; }
+  .doc-eina:hover { transform: none; }
+  .esm-penyora.open .esm-penyora-box { animation: none; }
+}
+
+/* ============================================================
+   DIRECCIÓ — selector del grup de treball (pàgina Alumnes)
+   Direcció no té tutoria: tria el grup aquí i el grup el segueix
+   per tota l'app. Es fa amb botons i no amb un desplegable perquè
+   hi entren i en surten molt sovint, i així sempre veuen on són.
+   ============================================================ */
+.dir-grup-picker {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--crimson);
+  border-radius: var(--r-md); padding: 14px 16px; margin-bottom: 14px;
+}
+.dir-grup-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 6px 14px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.dir-grup-titol {
+  font-size: 14px; font-weight: 700; color: var(--garnet-deep);
+  letter-spacing: -0.01em;
+}
+.dir-grup-estat { font-size: 12.5px; color: var(--text-sub); }
+.dir-grup-estat.is-ok    { color: var(--garnet); font-weight: 600; }
+.dir-grup-estat.is-avis  { color: var(--text-sub); }
+.dir-grup-estat.is-error { color: var(--crimson); font-weight: 600; }
+
+.dir-grup-cursos { display: flex; gap: 6px; flex-wrap: wrap; }
+.dir-grup-linies {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border);
+}
+.dir-grup-lin-label {
+  font-size: 13px; font-weight: 600; color: var(--text-muted); margin-right: 4px;
+}
+.dir-grup-btn, .dir-linia-btn {
+  border-radius: 8px; border: 2px solid var(--border);
+  background: var(--surface-alt); color: var(--text-main);
+  font-weight: 700; font-family: inherit; cursor: pointer;
+  touch-action: manipulation;   /* fora el retard de 300ms del doble toc */
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.dir-grup-btn  { padding: 9px 16px; font-size: 15px; min-height: 40px; }
+.dir-linia-btn { padding: 8px 14px; font-size: 13.5px; min-height: 38px; }
+.dir-grup-btn:hover, .dir-linia-btn:hover { border-color: var(--crimson); }
+.dir-grup-btn.active, .dir-linia-btn.active {
+  background: var(--crimson); border-color: var(--crimson); color: #fff;
+}
+.dir-grup-btn:focus-visible, .dir-linia-btn:focus-visible {
+  outline: 3px solid var(--garnet-deep); outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  /* Al mòbil, tres per fila i 44px d'alçada: es toca amb el dit sense apuntar. */
+  .dir-grup-cursos { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .dir-grup-linies { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .dir-grup-btn, .dir-linia-btn { padding: 10px 8px; min-height: 44px; }
+  .dir-grup-lin-label { grid-column: 1 / -1; margin: 0 0 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dir-grup-btn, .dir-linia-btn { transition: none; }
+}
+
 /* --- Afegir una observació des de la fitxa de consulta --- */
 .gvf-obsform { display: grid; gap: 10px; }
 .gvf-obsform-row { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -3812,3 +4391,89 @@ body {
   font-size: 12.5px; color: var(--garnet-deep); margin-top: 12px;
 }
 .callout-mini em { color: var(--text-muted); }
+
+/* ============================================================
+   NOTES COMPARTIDES AMB EL TUTOR
+   ============================================================ */
+.notes-compartir {
+  display: flex; align-items: flex-start; gap: 9px; margin-top: 12px;
+  padding: 10px 13px; background: var(--garnet-soft); border-radius: var(--r-sm);
+  cursor: pointer; font-size: 13.5px; max-width: 620px;
+}
+.notes-compartir input { margin-top: 2px; flex-shrink: 0; width: 17px; height: 17px; }
+.notes-compartir strong { display: block; color: var(--garnet-deep); }
+.notes-compartir-info { display: block; font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+.notesalt { margin-top: 18px; }
+.notesalt-tit {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-muted); margin-bottom: 7px;
+}
+.notesalt-taula { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.notesalt-taula th {
+  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-muted); font-weight: 700; padding: 5px 8px; border-bottom: 1px solid var(--border);
+}
+.notesalt-taula td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+.notesalt-taula tr:last-child td { border-bottom: none; }
+.notesalt-nota { font-weight: 700; text-align: center; }
+.notesalt-nota.nota-ae { color: #15803D; }
+.notesalt-nota.nota-an { color: #0369A1; }
+.notesalt-nota.nota-as { color: #A16207; }
+.notesalt-nota.nota-na { color: var(--crimson); }
+.notesalt-buit { text-align: center; color: var(--text-muted); }
+.notesalt-nc { opacity: .75; }
+.notesalt-nc-txt { text-align: center; font-style: italic; color: var(--text-muted); font-size: 12.5px; }
+.notesalt-quan { display: block; font-size: 11px; color: var(--text-muted); }
+.notesalt-peu { font-size: 12px; color: var(--text-muted); margin-top: 7px; }
+
+@media (max-width: 700px) {
+  .notesalt-taula { font-size: 12.5px; }
+  .notesalt-taula th:last-child, .notesalt-taula td:last-child { display: none; }
+}
+
+/* ============================================================
+   ENTREVISTES AMB LES FAMÍLIES
+   ============================================================ */
+.entr-llista { list-style: none; margin: 0 0 12px; padding: 0; }
+.entr-item {
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+}
+.entr-item:last-child { border-bottom: none; }
+.entr-item-cap { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.entr-data { font-weight: 600; font-size: 13.5px; color: var(--text); }
+.entr-accions { display: flex; gap: 4px; flex-shrink: 0; }
+.entr-mini {
+  border: 1px solid var(--border); background: transparent; cursor: pointer;
+  font: inherit; font-size: 11.5px; color: var(--text-muted);
+  padding: 2px 8px; border-radius: var(--r-sm);
+}
+.entr-mini:hover { border-color: var(--crimson); color: var(--crimson); }
+.entr-mini-x { font-size: 14px; line-height: 1; padding: 2px 7px; }
+.entr-nota {
+  margin-top: 4px; font-size: 13px; color: var(--text-muted);
+  line-height: 1.5; white-space: pre-wrap;
+}
+.entr-afegir { margin-top: 2px; }
+.entr-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* El cop d'ull a la pàgina d'Alumnes */
+.entr-resum {
+  margin-top: 10px; padding: 9px 13px; border-radius: var(--r-sm);
+  background: var(--garnet-soft); font-size: 13.5px;
+  display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+}
+.entr-resum-falten { font-weight: 700; color: var(--garnet-deep); }
+.entr-resum-qui { color: var(--text-muted); font-size: 12.5px; }
+.entr-resum-ok { color: #15803D; font-weight: 600; }
+
+/* La marca a la targeta de l'alumne */
+.alumne-badge-entr {
+  font-size: 10px; font-weight: 700; letter-spacing: .01em;
+  background: #FEF3C7; color: #92400E;
+  padding: 2px 7px; border-radius: 5px; white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .entr-dos { grid-template-columns: 1fr; }
+}

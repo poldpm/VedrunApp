@@ -69,6 +69,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Alumnes
       </a>
+      <!-- NOMÉS a l'app de direcció: _rolAplicaInterficie() l'ensenya -->
+      <a class="nav-item" id="navDocents" style="display:none" href="#" onclick="showPage('docents'); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        Docents
+      </a>
       <a class="nav-item" href="#" onclick="showPage('observacions'); return false;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Observacions
@@ -419,6 +424,9 @@ Català, Matemàtiques, Anglès, Medi, Català
         </div>
       </div>
 
+      <!-- Quin grup s'està col·locant (NOMÉS a l'app de direcció) -->
+      <p class="dir-avis-grup" id="seientsGrupAvis" style="display:none" role="status" aria-live="polite"></p>
+
       <!-- Barra d'eines: crear taules a mida -->
       <div class="seients-toolbar">
         <span class="seients-toolbar-label">Nova fila:</span>
@@ -679,7 +687,7 @@ Català, Matemàtiques, Anglès, Medi, Català
               <div class="modal-label">Condicions (opcional)</div>
               <div id="grupsCondicions" class="grups-condicions-list"></div>
               <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="afegirCondicio()">+ Afegir condició</button>
-              <div class="modal-hint">Ex: «En Pol i en Messi no poden anar junts»</div>
+              <div class="modal-hint">Ex: «L'Aina i en Bruno no poden anar junts»</div>
             </div>
 
             <div style="margin-top:20px;display:flex;gap:10px">
@@ -988,7 +996,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="modal-body">
           <div class="modal-field">
             <div class="modal-label">Notes (una per línia)</div>
-            <textarea class="modal-textarea" id="planNoteText" rows="6" placeholder="Ex: Aniversari Pol&#10;Claustre dijous 18h&#10;Enviar circular nadal"></textarea>
+            <textarea class="modal-textarea" id="planNoteText" rows="6" placeholder="Ex: Claustre dijous a les 18h&#10;Enviar la circular de Nadal&#10;Portar el material de plàstica"></textarea>
           </div>
         </div>
         <div class="modal-footer">
@@ -1129,7 +1137,18 @@ Català, Matemàtiques, Anglès, Medi, Català
       <section class="hero">
         <p class="hero-eyebrow">General</p>
         <h1 class="hero-title">Alumnes <span class="hero-count" id="alumnesCount"></span></h1>
-        <p class="hero-desc">Clica un alumne per veure la seva fitxa completa. Usa «Gestionar alumnes» per afegir o eliminar.</p>
+        <p class="hero-desc" id="alumnesHeroDesc">Clica un alumne per veure la seva fitxa completa. Usa «Gestionar alumnes» per afegir o eliminar.</p>
+        <!-- Cop d'ull: a quines famílies encara no s'ha fet l'entrevista -->
+        <div class="entr-resum" id="entrResum" style="display:none"></div>
+      </section>
+      <!-- Selector de grup (NOMÉS a l'app de direcció: no tenen tutoria i
+           poden entrar a qualsevol grup de primària) -->
+      <section class="dir-grup-picker" id="dirGrupPicker" style="display:none" aria-labelledby="dirGrupTitol">
+        <div class="dir-grup-head">
+          <h2 class="dir-grup-titol" id="dirGrupTitol">Quin grup vols mirar?</h2>
+          <p class="dir-grup-estat" id="dirGrupEstat" role="status" aria-live="polite"></p>
+        </div>
+        <div id="dirGrupFiles"></div>
       </section>
       <div class="alumnes-toolbar">
         <button class="btn btn-primary" onclick="openPanel()">
@@ -1149,6 +1168,133 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="empty-page" id="alumnesEmpty">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
           <p>Connecta amb Google Sheets per veure els alumnes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: DOCENTS (només a l'app de direcció) -->
+    <div class="page-content page-hidden" id="page-docents">
+
+      <!-- Portada: els botons de les eines -->
+      <div id="docentsHub">
+        <section class="hero">
+          <p class="hero-eyebrow">Claustre de primària</p>
+          <h1 class="hero-title">Docents</h1>
+          <p class="hero-desc">Tot el que té a veure amb els mestres de l'escola. Tria una eina.</p>
+        </section>
+        <div class="doc-eines" id="docentsHubEines"></div>
+      </div>
+
+      <!-- Eina: llistat de docents -->
+      <div id="docentsLlistat" style="display:none">
+        <button class="btn btn-ghost doc-tornar" type="button" onclick="docentsVista('hub')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Docents
+        </button>
+        <section class="hero">
+          <p class="hero-eyebrow">Claustre de primària</p>
+          <h1 class="hero-title">Llistat de docents <span class="hero-count" id="docentsCount"></span></h1>
+          <p class="hero-desc">Qui és tutor de cada grup, qui són les especialistes i qui coordina cada cicle. Als tutors, clica <strong>Veure els alumnes</strong> per obrir el seu grup.</p>
+        </section>
+        <div class="doc-barra">
+          <label class="visually-hidden" for="docentsCercaInput">Cercar un docent</label>
+          <input class="modal-input doc-cerca" id="docentsCercaInput" type="search" autocomplete="off"
+                 placeholder="Cercar un nom o un grup…" oninput="docentsCerca(this.value)">
+          <div class="doc-filtres" id="docentsFiltres" role="group" aria-label="Filtrar els docents"></div>
+        </div>
+        <div id="docentsLlista"></div>
+      </div>
+
+      <!-- Eina: coordinació (els esmorzars de la reunió) -->
+      <div id="docentsCoordinacio" style="display:none">
+        <button class="btn btn-ghost doc-tornar" type="button" onclick="docentsVista('hub')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Docents
+        </button>
+        <section class="hero">
+          <p class="hero-eyebrow">Coordinació</p>
+          <h1 class="hero-title">Qui havia de portar l'esmorzar?</h1>
+          <p class="hero-desc">Cada setmana en toca a un. Apunta si l'ha portat i quina nota mereix, i aquí al costat veuràs qui és el millor esmorzaire de l'equip… i qui se n'oblida.</p>
+        </section>
+        <section class="esm-card esm-card-torn" aria-labelledby="esmTornTitol">
+          <h2 class="esm-card-titol" id="esmTornTitol">El torn de la propera reunió</h2>
+          <div id="esmTorn"></div>
+        </section>
+        <div class="esm-graella">
+          <section class="esm-card" aria-labelledby="esmFormTitol">
+            <h2 class="esm-card-titol" id="esmFormTitol">Apuntar un esmorzar</h2>
+            <div id="esmForm"></div>
+          </section>
+          <section class="esm-card" aria-labelledby="esmPanellTitol">
+            <h2 class="esm-card-titol" id="esmPanellTitol">Com va la temporada</h2>
+            <div id="esmPanell"></div>
+            <div id="esmHistorial"></div>
+          </section>
+        </div>
+        <div id="esmPalmares"></div>
+      </div>
+
+      <!-- Eina: registres de docents -->
+      <div id="docentsRegistres" style="display:none">
+        <button class="btn btn-ghost doc-tornar" type="button" onclick="docentsVista('hub')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Docents
+        </button>
+        <section class="hero">
+          <p class="hero-eyebrow">Claustre de primària</p>
+          <h1 class="hero-title">Registres</h1>
+          <p class="hero-desc">El mateix que els registres d'aula, però amb tot el claustre a les files: qui ha entregat una cosa, qui ha fet una formació, el que calgui.</p>
+        </section>
+        <div class="registre-toolbar">
+          <button class="btn btn-primary" type="button" onclick="openNewItemModal('docents')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Nou ítem de seguiment
+          </button>
+          <button class="btn btn-ghost" type="button" onclick="regdocSincronitza()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Sincronitzar
+          </button>
+          <span class="esm-estat" id="regdocEstat" role="status" aria-live="polite"></span>
+        </div>
+        <div class="registre-wrapper">
+          <div class="registre-empty" id="regdocEmpty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <p>Cap ítem de seguiment. Clica <strong>Nou ítem de seguiment</strong> per començar.</p>
+          </div>
+          <div class="registre-scroll" id="regdocTaula" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Eina: seguiment de les entrevistes amb les famílies -->
+      <div id="docentsEntrevistes" style="display:none">
+        <button class="btn btn-ghost doc-tornar" type="button" onclick="docentsVista('hub')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Docents
+        </button>
+        <section class="hero">
+          <p class="hero-eyebrow">Claustre de primària</p>
+          <h1 class="hero-title">Seguiment d'entrevistes</h1>
+          <p class="hero-desc">Quantes entrevistes amb les famílies ha fet cada tutor i quan, i quins alumnes encara no en tenen cap. Clica un grup per veure'l alumne per alumne.</p>
+        </section>
+        <div class="registre-toolbar">
+          <button class="btn btn-primary" type="button" onclick="segEntrActualitza()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Actualitzar
+          </button>
+          <button class="btn btn-ghost" type="button" onclick="segEntrCopia()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copiar el resum
+          </button>
+          <div class="doc-filtres" id="segEntrFiltres" role="group" aria-label="Filtrar els grups">
+            <button type="button" class="doc-filtre active" data-filtre="tots" aria-pressed="true" onclick="segEntrFiltra('tots')">Tots</button>
+            <button type="button" class="doc-filtre" data-filtre="pendents" aria-pressed="false" onclick="segEntrFiltra('pendents')">Només amb pendents</button>
+          </div>
+          <span class="esm-estat" id="segEntrEstat" role="status" aria-live="polite"></span>
+        </div>
+        <div id="segEntrPanell"></div>
+        <div id="segEntrTaula"></div>
+        <div class="callout-app">
+          <strong>Què hi veus i què no.</strong> Aquí hi arriba <strong>quantes</strong> entrevistes ha fet cada tutor i <strong>quan</strong>. El que el tutor hagi apuntat de com va anar l'entrevista es queda al seu full i no surt d'allà.
         </div>
       </div>
     </div>
@@ -1244,6 +1390,17 @@ Català, Matemàtiques, Anglès, Medi, Català
         </div>
       </div>
 
+      <!-- Entrevistes amb la família -->
+      <div class="fitxa-card" style="margin-top:12px">
+        <div class="fitxa-card-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+          Entrevistes amb la família
+        </div>
+        <div class="fitxa-card-body" id="fitxaEntrevistes">
+          <p class="fitxa-empty-field">Carregant…</p>
+        </div>
+      </div>
+
     </div>
 
     <!-- PÀGINA: OBSERVACIONS -->
@@ -1253,6 +1410,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <h1 class="hero-title">Observacions</h1>
         <p class="hero-desc">Registra observacions per alumne, trimestre i assignatura. Clica un alumne per veure el seu historial.</p>
       </section>
+      <p class="dir-avis-grup" id="obsGrupAvis" style="display:none" role="status" aria-live="polite"></p>
       <div class="grup-picker" id="obsGrupPicker" style="display:none">
         <label class="modal-label" for="obsGrupSel">Assignatura i grup</label>
         <select class="modal-input" id="obsGrupSel" onchange="canviaGrupObservacions(this.value)" style="max-width:260px"></select>
@@ -1279,6 +1437,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <h1 class="hero-title">Registres d'aula</h1>
         <p class="hero-desc">Gestiona qualsevol cosa que necessiti seguiment per alumne: autoritzacions, materials, entregues…</p>
       </section>
+      <p class="dir-avis-grup" id="regGrupAvis" style="display:none" role="status" aria-live="polite"></p>
       <div class="grup-picker" id="regGrupPicker" style="display:none">
         <label class="modal-label" for="regGrupSel">Assignatura i grup</label>
         <select class="modal-input" id="regGrupSel" onchange="canviaGrupRegistre(this.value)" style="max-width:260px"></select>
@@ -1327,6 +1486,14 @@ Català, Matemàtiques, Anglès, Medi, Català
             <button class="trim-sel-btn" data-trim="3" onclick="openNotes(notesContext.materia, 3)">3r Trim.</button>
           </div>
           <div id="notesDesdobBar" class="desdob-bar-wrap" style="margin-top:10px;"></div>
+          <!-- Compartir aquestes notes amb el tutor del grup -->
+          <label class="notes-compartir" id="notesCompartirRow" style="display:none">
+            <input type="checkbox" id="notesCompartir" onchange="toggleCompartirNotes(this.checked)">
+            <span>
+              <strong>Compartir aquestes notes amb el tutor/a del grup</strong>
+              <span class="notes-compartir-info" id="notesCompartirInfo"></span>
+            </span>
+          </label>
         </div>
         <div class="notes-header-actions">
           <button class="btn btn-ghost" onclick="openGrupAlumnesModal()" title="Veure les fitxes dels alumnes d'aquest grup">
@@ -1411,7 +1578,7 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="add-form" id="addForm">
         <div class="form-field">
           <label class="form-label">Nom i cognoms</label>
-          <input class="form-input" id="newStudentName" type="text" placeholder="Ex: Pol del Pozo">
+          <input class="form-input" id="newStudentName" type="text" placeholder="Ex: Aina Serra Puig">
         </div>
         <div class="form-field">
           <label class="form-label">Gènere</label>
@@ -1423,7 +1590,7 @@ Català, Matemàtiques, Anglès, Medi, Català
               <input type="radio" name="newStudentGenere" value="f"> Femení
             </label>
           </div>
-          <div class="modal-hint" style="margin-top:4px">S'usa per generar comentaris d'informe («en Pol», «la Laura»…)</div>
+          <div class="modal-hint" style="margin-top:4px">S'usa per generar comentaris d'informe («en Bruno», «l'Aina»…)</div>
         </div>
         <div class="form-actions">
           <button class="btn btn-primary" onclick="addStudent()">Afegir</button>
@@ -1597,7 +1764,7 @@ Català, Matemàtiques, Anglès, Medi, Català
   <div class="modal-overlay" id="newItemOverlay" onclick="if(event.target===this) closeNewItemModal()">
     <div class="modal">
       <div class="modal-header">
-        <div><div class="modal-header-title">Nou ítem de seguiment</div><div class="modal-header-sub">Es crearà una nova columna al full «Registres d'aula»</div></div>
+        <div><div class="modal-header-title">Nou ítem de seguiment</div><div class="modal-header-sub" id="newItemSub">Es crearà una nova columna al full «Registres d'aula»</div></div>
         <button class="modal-close" onclick="closeNewItemModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body">
@@ -1607,7 +1774,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="type-selector">
             <div class="type-option selected" data-type="checkbox" onclick="selectType(this)">
               <div class="type-option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg></div>
-              <div class="type-option-text"><strong>Casella</strong><span>Sí / No per cada alumne</span></div>
+              <div class="type-option-text"><strong>Casella</strong><span id="newItemSubCasella">Sí / No per cada alumne</span></div>
             </div>
             <div class="type-option" data-type="text" onclick="selectType(this)">
               <div class="type-option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg></div>
@@ -1618,7 +1785,7 @@ Català, Matemàtiques, Anglès, Medi, Català
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeNewItemModal()">Cancel·lar</button>
-        <button class="btn btn-primary" onclick="addRegistreItem()">Crear ítem</button>
+        <button class="btn btn-primary" onclick="newItemCrear()">Crear ítem</button>
       </div>
     </div>
   </div>
@@ -1874,6 +2041,12 @@ Català, Matemàtiques, Anglès, Medi, Català
   <script defer src="js/vedrunu.js"></script>
   <script defer src="js/gwrite.js"></script>
   <script defer src="js/rubriques.js"></script>
+  <script defer src="js/docents.js"></script>
+  <script defer src="js/coordinacio.js"></script>
+  <script defer src="js/regdocents.js"></script>
+  <script defer src="js/segentrevistes.js"></script>
+  <script defer src="js/entrevistes.js"></script>
+  <script defer src="js/notescomp.js"></script>
   <script defer src="js/reunions.js"></script>
   <script defer src="js/versio.js"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
@@ -2001,6 +2174,19 @@ Català, Matemàtiques, Anglès, Medi, Català
         <button class="modal-close" onclick="closeGrupviewAssim()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body" id="grupviewAssimBody"></div>
+    </div>
+  </div>
+
+  <!-- LA PENYORA: 3 gomets vermells (només a l'app de direcció, a Coordinació).
+       Fa servir .modal-overlay perquè el gest d'enrere del mòbil el tanqui sol. -->
+  <div class="modal-overlay esm-penyora" id="esmPenyora" role="alertdialog" aria-modal="true"
+       aria-labelledby="esmPenyoraTitol" onclick="if(event.target===this) esmPenyoraTanca()">
+    <div class="esm-penyora-box">
+      <div class="esm-penyora-emoji" aria-hidden="true">🚨🥐🚨</div>
+      <h2 class="esm-penyora-titol" id="esmPenyoraTitol">PENYORA!</h2>
+      <p class="esm-penyora-text" id="esmPenyoraText"></p>
+      <p class="esm-penyora-sentencia">Es mereix una <strong>penyora</strong>. L'equip decideix quina.</p>
+      <button class="esm-penyora-btn" type="button" id="esmPenyoraBtn" onclick="esmPenyoraTanca()">Que la pagui</button>
     </div>
   </div>
 

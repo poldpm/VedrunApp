@@ -243,6 +243,9 @@ async function openNotes(materia, trimestre, grup) {
   const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[materia] : null;
   notesContext = { materia, trimestre, grup: dd ? null : (grup || notesContext.grup || null), desdob: dd || null };
 
+  // La casella de compartir amb el tutor: és per assignatura+grup
+  if (typeof initCompartirNotes === 'function') { try { initCompartirNotes(); } catch (e) {} }
+
   // Tallers (rotatori) no s'avalua per trimestres: amaga els chips de trimestre.
   const _trimSel = document.getElementById('notesTrimSelector');
   if (_trimSel) _trimSel.style.display = (dd && dd.rotatori) ? 'none' : 'flex';
@@ -505,6 +508,9 @@ async function updateNota(itemId, studentId, punts) {
     try {
       const r = await appsScriptPost({ action:'updateNota', materia:notesContext.materia, trimestre:notesContext.trimestre, grup:notesContext.grup, itemId:p.itemId, studentId:p.studentId, nom:p.nom, punts:p.punts });
       if (r && !r.ok) showToast('Error guardant: '+r.error,'error');
+      // Si aquesta assignatura està compartida amb el tutor, republica el resum
+      // (amb espera: entrant notes es dispararia a cada tecla).
+      else if (typeof publicaNotesSiCal === 'function') publicaNotesSiCal();
     } catch (e) { showToast('Error guardant nota: '+e.message,'error'); }
   });
 }

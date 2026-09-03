@@ -35,6 +35,673 @@ function _prop(clau) {
 // Posa els teus valors aquí, executa-la des de l'editor d'Apps Script, i
 // després pots ESBORRAR els valors d'aquí (queden desats a les propietats).
 
+
+/* ============================================================
+   NOTES COMPARTIDES AMB EL TUTOR
+   ------------------------------------------------------------
+   Cada mestra té el seu full, i les notes que hi entra són
+   seves. Però un tutor ha de poder veure com va el seu alumne
+   a TOTES les assignatures, també a les que li fa un altre.
+
+   COM ES FA (sense canviar l'arquitectura):
+   cada mestra PUBLICA un resum de les seves notes al full
+   "Grups" COMPARTIT, pel mateix camí que ja fan servir les
+   observacions i la fitxa. El tutor el llegeix d'allà.
+
+   ⚠ NOMÉS SI ELLA HO VOL. Hi ha una casella a les notes de cada
+   assignatura ("Compartir amb el tutor"). Ve DESMARCADA:
+     · desmarcada → NO es publica cap nota. El tutor només veu
+       que aquella assignatura existeix i que no estan compartides.
+     · marcada    → es publica la nota final de cada trimestre.
+   Si la desmarca, les notes ja publicades s'esborren del full
+   compartit: no es queden allà "per si de cas".
+
+   Es publica NOMÉS la nota final de cada trimestre, mai el
+   detall dels exàmens: el tutor ha de poder veure com va
+   l'alumne, no revisar la feina d'una companya.
+
+   Els alumnes es lliguen PEL NOM entre el full de la mestra i el
+   full compartit, i es desen amb el rowId del compartit, que és
+   l'identificador que tothom comparteix.
+   ============================================================ */
+
+
+/* Normalitza un nom per casar-lo entre fulls diferents. Ha de fer EL MATEIX
+   que _normNomSimple del frontend: si no, els alumnes no es lligarien.
+   Els rangs es construeixen amb codis perquè cap editor no els espatlli. */
+var _RE_ACCENTS = new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g');
+function _normNomComp_(s) {
+  return (s || '').toString()
+    .normalize('NFD').replace(_RE_ACCENTS, '')
+    .toLowerCase()
+    .split(/[ \t\r\n]+/).join(' ')
+    .trim();
+}
+
+var NOTESCOMP_PREFIX = 'notescomp_';
+
+function _notesCompClau_(grup, matKey) {
+  return NOTESCOMP_PREFIX + grup + '|' + matKey;
+}
+
+/* La preferència d'ella, al SEU full (no al compartit) */
+function _compartirClau_(grup, matKey) { return 'compartir_' + grup + '|' + matKey; }
+
+function loadCompartirNotes(ss, grup, matKey) {
+  if (!grup || !matKey) return { ok: true, compartir: false };
+  var v = sheetGetJSON(ss, '_AppData', _compartirClau_(grup, matKey));
+  return { ok: true, compartir: v === 'si' };
+}
+
+/* Marca o desmarca, i publica o esborra en conseqüència. */
+function saveCompartirNotes(ss, grup, matKey, nomAssig, nomMestra, compartir) {
+  if (!grup || !matKey) return { ok: false, error: 'Falta el grup o l\'assignatura' };
+  sheetSetJSON(ss, '_AppData', _compartirClau_(grup, matKey), compartir ? 'si' : 'no');
+  return publicaNotesResum(ss, grup, matKey, nomAssig, nomMestra);
+}
+
+/* Les notes finals d'UNA assignatura, per trimestre, del full d'ella.
+   Torna { rowNoms: [...], notes: {1:{pos:nota}, 2:…, 3:…} } */
+function _notesUnaAssig_(ss, grup, nomBase) {
+  var out = { rowNoms: null, trims: {} };
+  [1, 2, 3].forEach(function (t) {
+    var nom = _notesTabName(t, nomBase, grup);
+    var sh = ss.getSheetByName(nom);
+    if (!sh) { sh = ss.getSheetByName(_notesTabName(t, nomBase, '')); }  // llegat sense grup
+    if (!sh) return;
+    var r = _resumOneSheet(sh);
+    if (!r) return;
+    out.trims[t] = r;
+    if (!out.rowNoms && r.rowNoms) out.rowNoms = r.rowNoms;
+  });
+  return out;
+}
+
+/* PUBLICAR (o esborrar) el resum al full compartit. */
+function publicaNotesResum(ss, grup, matKey, nomAssig, nomMestra) {
+  if (!grup || !matKey) return { ok: false, error: 'Falta el grup o l\'assignatura' };
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+
+  var pref = loadCompartirNotes(ss, grup, matKey);
+  var clau = _notesCompClau_(grup, matKey);
+  var ara = Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm');
+
+  /* Si NO comparteix: es publica només que existeix, SENSE cap nota.
+     Així el tutor sap que hi ha Música i qui la fa, però no veu res més. */
+  if (!pref.compartir) {
+    sheetSetJSON(gss, '_AppData', clau, JSON.stringify({
+      nom: String(nomAssig || matKey), mestra: String(nomMestra || ''),
+      compartit: false, actualitzat: ara
+    }));
+    return { ok: true, compartit: false };
+  }
+
+  /* Sí que comparteix: es calculen les notes finals i es lliguen pel nom
+     amb els alumnes del full compartit, per desar-les amb el seu rowId. */
+  var nomBase = String(nomAssig || matKey);
+  var dades = _notesUnaAssig_(ss, grup, nomBase);
+
+  // El llistat del grup és al full COMPARTIT (gss), no al d'ella: és d'allà
+  // que surten els rowId que tothom comparteix.
+  var roster = getGrupAlumnes(gss, grup);
+  var perNom = {}, repetits = {};
+  if (roster && roster.ok && roster.alumnes) {
+    roster.alumnes.forEach(function (a) {
+      var k = _normNomComp_(a.nom);
+      // Dos alumnes del mateix grup amb el MATEIX nom: no es pot saber de
+      // qui és la nota. Es marca com a ambigu i no se n'assigna cap.
+      // Posar-la a un dels dos seria una nota a l'expedient del nen
+      // equivocat, i això no es pot fer mai.
+      if (perNom[k] !== undefined) { repetits[k] = true; }
+      else { perNom[k] = a.rowId; }
+    });
+  }
+
+  var alumnes = {}, sensePar = 0, ambigus = 0;
+  if (dades.rowNoms) {
+    dades.rowNoms.forEach(function (nomAl, pos) {
+      if (!nomAl) return;
+      var k = _normNomComp_(nomAl);
+      if (repetits[k]) { ambigus++; return; }            // dos alumnes igual: no s'endevina
+      var rowId = perNom[k];
+      if (rowId === undefined) { sensePar++; return; }   // no és al full compartit
+      var fila = {};
+      [1, 2, 3].forEach(function (t) {
+        var d = dades.trims[t];
+        fila[t] = (d && d.notes && d.notes[pos] !== undefined) ? d.notes[pos] : null;
+      });
+      alumnes[String(rowId)] = fila;
+    });
+  }
+
+  sheetSetJSON(gss, '_AppData', clau, JSON.stringify({
+    nom: nomBase, mestra: String(nomMestra || ''),
+    compartit: true, actualitzat: ara, alumnes: alumnes
+  }));
+  return { ok: true, compartit: true, alumnes: Object.keys(alumnes).length,
+           sensePar: sensePar, ambigus: ambigus };
+}
+
+/* Qui fa servir aquesta app, és el tutor/a d'aquest grup?
+   Ho decideix el seu perfil, que és al SEU full. */
+function _esTutorDe_(ss, grup) {
+  try {
+    var v = sheetGetJSON(ss, '_AppData', 'profile');
+    if (!v) return false;
+    var p = JSON.parse(v);
+    if (!p || !p.tutorCurs || !p.tutorLinia) return false;   // especialista
+    return (p.tutorCurs + ' ' + p.tutorLinia) === String(grup);
+  } catch (e) { return false; }
+}
+
+/* LLEGIR-LES (NOMÉS EL TUTOR). Torna una entrada per assignatura
+   publicada d'aquell grup, amb les notes si estan compartides.
+
+   ⚠ Veure les notes de les altres mestres és un privilegi DEL TUTOR.
+   Una especialista no ha de poder veure les notes de les assignatures
+   que no fa ella, ni demanant-ho directament. Al frontend ja no té per
+   on demanar-ho (obre les fitxes per un camí a part que només carrega
+   les seves assignatures), però la decisió es pren AQUÍ, que és l'únic
+   lloc on no depèn de com estigui feta la pantalla. */
+function getNotesCompartides(ss, grup) {
+  if (!grup) return { ok: true, assignatures: [] };
+  if (!_esTutorDe_(ss, grup)) {
+    return { ok: true, assignatures: [], noEsTutor: true };
+  }
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var tot = sheetGetAll(gss, '_AppData') || {};
+  var pref = NOTESCOMP_PREFIX + grup + '|';
+  var out = [];
+  Object.keys(tot).forEach(function (k) {
+    if (k.indexOf(pref) !== 0) return;
+    var matKey = k.slice(pref.length);
+    var v = null;
+    try { v = JSON.parse(tot[k]); } catch (e) { return; }
+    if (!v) return;
+    out.push({
+      key: matKey, nom: v.nom || matKey, mestra: v.mestra || '',
+      compartit: !!v.compartit, actualitzat: v.actualitzat || '',
+      alumnes: v.compartit ? (v.alumnes || {}) : null
+    });
+  });
+  out.sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
+  return { ok: true, assignatures: out };
+}
+
+
+/* ============================================================
+   ENTREVISTES AMB LES FAMÍLIES
+   ------------------------------------------------------------
+   Els tutors han de quedar com a mínim un cop amb cada família,
+   i amb alguns casos van fent entrevistes de seguiment. Això no
+   és el registre oficial (aquest va en una altra app): és per
+   poder marcar-ho i veure d'un cop d'ull a qui li'n falta.
+
+   ⚠ QUÈ ES COMPARTEIX I QUÈ NO — és la decisió important:
+
+     · Al SEU full (privat):  cada entrevista amb la data, l'hora
+       i el que hagi apuntat de com ha anat.
+     · Al full COMPARTIT:     NOMÉS quantes n'ha fet i quan va ser
+       l'última. Cap nota, mai.
+
+   Així direcció pot portar el control de qui n'ha fet i qui no,
+   sense llegir el que un tutor ha escrit d'una família. El que
+   s'apunta d'una entrevista amb uns pares no ha de sortir del
+   full de qui la va fer.
+   ============================================================ */
+
+function _entrClauDet_(grup) { return 'entrevistes_' + grup; }
+function _entrClauPub_(grup) { return 'entrevistes_pub_' + grup; }
+
+/* Totes les entrevistes del grup, del SEU full.
+   { rowId: [ {id, data, hora, nota}, … ] } */
+function _entrLlegeix_(ss, grup) {
+  var v = sheetGetJSON(ss, '_AppData', _entrClauDet_(grup));
+  if (!v) return {};
+  try { return JSON.parse(v) || {}; } catch (e) { return {}; }
+}
+
+function loadEntrevistes(ss, grup) {
+  if (!grup) return { ok: true, entrevistes: {} };
+  return { ok: true, entrevistes: _entrLlegeix_(ss, grup) };
+}
+
+/* El resum que SÍ que va al compartit: quantes i quan l'última.
+   Es torna a calcular sencer cada vegada, així no pot quedar
+   descompassat del detall. */
+function _entrPublica_(ss, grup, detall) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return false;   // sense full compartit: el detall ja s'ha desat igual
+  var pub = {};
+  Object.keys(detall).forEach(function (rowId) {
+    var l = detall[rowId] || [];
+    if (!l.length) return;
+    var ultima = '', dates = [];
+    l.forEach(function (e) {
+      var quan = String(e.data || '') + (e.hora ? ' ' + e.hora : '');
+      if (quan > ultima) ultima = quan;
+      if (e.data) dates.push(String(e.data));
+    });
+    dates.sort();
+    /* Les DATES sí que hi van (direcció les necessita per portar el control);
+       la NOTA de com ha anat, mai. Una data no diu res d'una família; el que
+       el tutor hi hagi escrit, sí. */
+    pub[rowId] = { quantes: l.length, ultima: ultima, dates: dates };
+  });
+  sheetSetJSON(gss, '_AppData', _entrClauPub_(grup), JSON.stringify({
+    grup: grup,
+    actualitzat: Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'),
+    alumnes: pub
+  }));
+  return true;
+}
+
+/* Desa una entrevista (nova o editada). */
+function saveEntrevista(ss, grup, rowId, e) {
+  if (!grup || rowId === undefined || rowId === null || rowId === '') {
+    return { ok: false, error: 'Falta el grup o l\'alumne' };
+  }
+  e = e || {};
+  var data = String(e.data || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return { ok: false, error: 'Posa-hi el dia de l\'entrevista' };
+  var hora = String(e.hora || '').trim();
+  if (hora && !/^\d{2}:\d{2}$/.test(hora)) hora = '';
+
+  var det = _entrLlegeix_(ss, grup);
+  var k = String(rowId);
+  if (!det[k]) det[k] = [];
+
+  var id = String(e.id || '').trim();
+  var nova = { id: id || ('e' + Date.now()), data: data, hora: hora, nota: String(e.nota || '').trim() };
+
+  var i = id ? _entrIndex_(det[k], id) : -1;
+  if (i >= 0) det[k][i] = nova; else det[k].push(nova);
+
+  // Ordenades de la més nova a la més vella: és com es volen mirar
+  det[k].sort(function (a, b) {
+    return String(b.data + (b.hora || '')).localeCompare(String(a.data + (a.hora || '')));
+  });
+
+  sheetSetJSON(ss, '_AppData', _entrClauDet_(grup), JSON.stringify(det));
+  var compartit = _entrPublica_(ss, grup, det);
+  SpreadsheetApp.flush();
+  return { ok: true, id: nova.id, quantes: det[k].length, compartit: compartit };
+}
+
+function _entrIndex_(llista, id) {
+  for (var i = 0; i < llista.length; i++) if (String(llista[i].id) === String(id)) return i;
+  return -1;
+}
+
+function deleteEntrevista(ss, grup, rowId, id) {
+  if (!grup || rowId === undefined || !id) return { ok: false, error: 'Falta alguna dada' };
+  var det = _entrLlegeix_(ss, grup);
+  var k = String(rowId);
+  if (!det[k]) return { ok: false, error: 'Aquest alumne no en té cap' };
+  var i = _entrIndex_(det[k], id);
+  if (i < 0) return { ok: false, error: 'Aquesta entrevista ja no hi és' };
+  det[k].splice(i, 1);
+  if (!det[k].length) delete det[k];
+  sheetSetJSON(ss, '_AppData', _entrClauDet_(grup), JSON.stringify(det));
+  var compartit = _entrPublica_(ss, grup, det);
+  SpreadsheetApp.flush();
+  return { ok: true, quantes: (det[k] || []).length, compartit: compartit };
+}
+
+/* El resum del COMPARTIT. Aquí no hi ha cap nota: només qui n'ha fet
+   i quan. És el que llegirà direcció per portar el control. */
+function getEntrevistesPub(ss, grup) {
+  if (!grup) return { ok: true, alumnes: {} };
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var v = sheetGetJSON(gss, '_AppData', _entrClauPub_(grup));
+  if (!v) return { ok: true, alumnes: {}, actualitzat: '' };
+  try {
+    var o = JSON.parse(v) || {};
+    return { ok: true, alumnes: o.alumnes || {}, actualitzat: o.actualitzat || '' };
+  } catch (e) { return { ok: true, alumnes: {}, actualitzat: '' }; }
+}
+
+/* ============================================================
+   COORDINACIÓ — ELS ESMORZARS
+   ------------------------------------------------------------
+   Cada setmana un membre de l'equip de coordinació porta
+   l'esmorzar a la reunió. Aquí es desa qui li tocava, si l'ha
+   portat i quina nota li han posat.
+
+   Va al full "Grups" COMPARTIT, no al full personal de qui ho
+   apunta. Si anés al personal, els dos directors tindrien cada
+   un la seva llista i no coincidirien mai: és una dada de
+   l'equip, no de ningú.
+
+   Només l'app de direcció ho ensenya, però el que ho protegeix
+   de debò és el token, com la resta d'accions.
+   ============================================================ */
+
+var ESMORZARS_CLAU = 'coord_esmorzars';
+
+/* Tot el que se sap dels esmorzars viu en una sola clau del full compartit:
+
+     registres → el que ja ha passat (qui, si el va portar, la nota)
+     torns     → a qui li toca i quin dia és la reunió
+     equip     → els 5 noms i els seus correus
+
+   L'equip s'hi desa a posta encara que la llista de debò sigui a
+   `js/docents.js`: el recordatori del dilluns el fa un disparador de
+   l'Apps Script, que s'executa sol, sense navegador, i no té manera de
+   llegir el fitxer del frontend. Cada cop que l'app hi desa res, l'hi torna
+   a deixar actualitzat. */
+function _esmLlegeix_(gss) {
+  var v = sheetGetJSON(gss, '_AppData', ESMORZARS_CLAU);
+  if (!v) return { registres: [], torns: [], equip: [] };
+  try {
+    var o = JSON.parse(v) || {};
+    return { registres: o.registres || [], torns: o.torns || [], equip: o.equip || [], actualitzat: o.actualitzat || '' };
+  } catch (e) { return { registres: [], torns: [], equip: [] }; }
+}
+
+function _esmEscriu_(gss, dades) {
+  sheetSetJSON(gss, '_AppData', ESMORZARS_CLAU, JSON.stringify({
+    registres: dades.registres || [],
+    torns: dades.torns || [],
+    equip: dades.equip || [],
+    actualitzat: Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm')
+  }));
+}
+
+function loadEsmorzars(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var d = _esmLlegeix_(gss);
+  return { ok: true, registres: d.registres, torns: d.torns, actualitzat: d.actualitzat || '' };
+}
+
+function saveEsmorzars(ss, registres, torns, equip) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var _llista = function (x) {
+    if (typeof x === 'string') { try { x = JSON.parse(x); } catch (e) { return null; } }
+    return Object.prototype.toString.call(x) === '[object Array]' ? x : null;
+  };
+  var regs = _llista(registres);
+  if (!regs) return { ok: false, error: 'La llista d\'esmorzars no és vàlida' };
+  var t = _llista(torns);
+  var eq = _llista(equip);
+  var abans = _esmLlegeix_(gss);
+  _esmEscriu_(gss, {
+    registres: regs,
+    torns: t || abans.torns,
+    equip: eq && eq.length ? eq : abans.equip,
+  });
+  return { ok: true, registres: regs.length, torns: (t || abans.torns).length };
+}
+
+/* ============================================================
+   SEGUIMENT D'ENTREVISTES (direcció)
+   ------------------------------------------------------------
+   El resum de TOTA la primària en UNA sola crida: per cada grup,
+   quants alumnes hi ha i, de cada un, quantes entrevistes té i
+   quan. D'aquí surten les dades quan els en demanen.
+
+   Es fa al servidor a posta: fer-ho des del navegador serien 36
+   crides (18 grups × llista d'alumnes + resum) i trigaria una
+   eternitat. Aquí els resums es llegeixen TOTS d'una lectura del
+   full `_AppData`, i només les llistes d'alumnes van pestanya a
+   pestanya.
+
+   ⚠ NOMÉS quantes i quan. La nota de com ha anat l'entrevista no
+   surt mai del full del tutor que la va fer.
+   ============================================================ */
+
+function resumEntrevistes(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+
+  // Tots els resums publicats, d'una sola lectura.
+  var tot = {};
+  try { tot = sheetGetAll(gss, '_AppData') || {}; } catch (e) { tot = {}; }
+
+  var grups = [];
+  GRUPS_PRIMARIA.forEach(function (grup) {
+    var pub = { alumnes: {}, actualitzat: '' };
+    var v = tot[_entrClauPub_(grup)];
+    if (v) { try { pub = JSON.parse(v) || pub; } catch (e) {} }
+
+    var alumnes = [];
+    try {
+      var ga = getGrupAlumnes(gss, grup);
+      (ga.alumnes || []).forEach(function (a) {
+        var p = (pub.alumnes || {})[a.rowId] || (pub.alumnes || {})[String(a.rowId)] || null;
+        alumnes.push({
+          nom: a.nom,
+          quantes: p ? (p.quantes || 0) : 0,
+          ultima:  p ? (p.ultima || '') : '',
+          // `dates` no hi és als resums publicats abans de la v135: llavors
+          // només se'n sap el nombre i l'última, i l'app ho diu.
+          dates:   (p && p.dates) ? p.dates : null,
+        });
+      });
+    } catch (e) { /* un grup que no es pot llegir no ha de tombar la resta */ }
+
+    grups.push({ grup: grup, actualitzat: pub.actualitzat || '', alumnes: alumnes });
+  });
+
+  return { ok: true, grups: grups };
+}
+
+/* ============================================================
+   REGISTRE DE DOCENTS
+   ------------------------------------------------------------
+   El mateix que el registre d'aula, però les files són els
+   mestres en comptes dels alumnes: qui ha entregat una cosa, qui
+   ha fet una formació, el que calgui.
+
+   Va al full "Grups" COMPARTIT perquè els dos directors hi vegin
+   el mateix (cada un té la seva app i el seu full personal).
+
+   ⚠ Això vol dir que qualsevol mestre que obri aquell full de
+   càlcul també ho pot llegir. Està al full ocult `_AppData`, no
+   en una pestanya a la vista, però no és cap secret. Si algun dia
+   hi ha d'anar res delicat, s'ha de moure a un full de direcció a
+   part (veure PROJECTE.md).
+
+   Les cel·les es desen per NOM del docent, no per número de fila:
+   si un any la llista canvia, el que hi ha apuntat no es desplaça
+   a la persona equivocada.
+   ============================================================ */
+
+var REGDOC_CLAU = 'coord_registre_docents';
+
+function loadRegistreDocents(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var v = sheetGetJSON(gss, '_AppData', REGDOC_CLAU);
+  if (!v) return { ok: true, items: [], data: {} };
+  try {
+    var o = JSON.parse(v) || {};
+    return { ok: true, items: o.items || [], data: o.data || {}, actualitzat: o.actualitzat || '' };
+  } catch (e) { return { ok: true, items: [], data: {} }; }
+}
+
+function saveRegistreDocents(ss, items, data) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  if (typeof items === 'string') { try { items = JSON.parse(items); } catch (e) { items = null; } }
+  if (typeof data === 'string')  { try { data  = JSON.parse(data);  } catch (e) { data  = null; } }
+  if (Object.prototype.toString.call(items) !== '[object Array]') {
+    return { ok: false, error: 'La llista d\'ítems no és vàlida' };
+  }
+  sheetSetJSON(gss, '_AppData', REGDOC_CLAU, JSON.stringify({
+    items: items,
+    data: data || {},
+    actualitzat: Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm')
+  }));
+  return { ok: true, items: items.length };
+}
+
+/* ------------------------------------------------------------
+   EL RECORDATORI DEL DILLUNS
+   ------------------------------------------------------------
+   Un disparador diari mira si aquesta setmana hi ha reunió i, si a qui li
+   toca encara no se l'ha avisat, li envia el correu. Es marca `avisat` de
+   seguida: si el disparador s'executés dos cops, no en rebria dos.
+
+   Va des del dilluns fins al dia de la reunió a posta. Si un dilluns el
+   disparador falla (Google també té mals dies), l'endemà encara hi arriba,
+   que val més tard que mai.
+   ------------------------------------------------------------ */
+
+function _esmDataDe_(iso) {
+  var p = String(iso || '').split('-');
+  if (p.length < 3) return null;
+  var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// El dilluns de la setmana d'aquesta data.
+function _esmDillunsDe_(d) {
+  var x = new Date(d.getTime());
+  var dia = x.getDay();               // 0 diumenge … 6 dissabte
+  var enrere = (dia === 0) ? 6 : dia - 1;
+  x.setDate(x.getDate() - enrere);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function _esmAvuiZero_() { var h = new Date(); h.setHours(0, 0, 0, 0); return h; }
+
+var _ESM_DIES = ['diumenge','dilluns','dimarts','dimecres','dijous','divendres','dissabte'];
+var _ESM_MESOS = ['gener','febrer','març','abril','maig','juny','juliol','agost','setembre','octubre','novembre','desembre'];
+
+function _esmDataLlarga_(d) {
+  return _ESM_DIES[d.getDay()] + ' ' + d.getDate() + ' de ' + _ESM_MESOS[d.getMonth()];
+}
+
+/* El text del correu. És una broma de l'equip: que ho sembli. */
+function _esmCosCorreu_(nom, dataReunio, resum) {
+  var pila = '';
+  if (resum && resum.gomets > 0) {
+    pila = '<p style="margin:0 0 14px">Per cert, que ja portes <strong style="color:#B3251A">' +
+      resum.gomets + ' gomet' + (resum.gomets === 1 ? '' : 's') + ' vermell' + (resum.gomets === 1 ? '' : 's') +
+      '</strong>. Als 3 hi ha penyora. Tu mateix.</p>';
+  } else if (resum && resum.mitjana !== null && resum.mitjana !== undefined) {
+    pila = '<p style="margin:0 0 14px">De moment vas per una mitjana de <strong>' +
+      String(Math.round(resum.mitjana * 10) / 10).replace('.', ',') + ' de 10</strong>. Hi ha una reputació en joc.</p>';
+  }
+  return '' +
+  '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#1A1014;max-width:520px">' +
+    '<div style="background:#4A1520;color:#fff;padding:18px 22px;border-radius:12px 12px 0 0">' +
+      '<div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.75">Equip de coordinació</div>' +
+      '<div style="font-size:22px;font-weight:bold;margin-top:4px">Aquesta setmana l\'esmorzar el portes tu</div>' +
+    '</div>' +
+    '<div style="border:1px solid #E8DFE3;border-top:none;border-radius:0 0 12px 12px;padding:22px">' +
+      '<p style="margin:0 0 14px">Bon dilluns, <strong>' + nom + '</strong>!</p>' +
+      '<p style="margin:0 0 14px">Aquest <strong>' + _esmDataLlarga_(dataReunio) + '</strong> tenim reunió de coordinació, ' +
+        'i et toca a tu portar l\'esmorzar. Ja ho saps: hi haurà nota.</p>' +
+      pila +
+      '<p style="margin:0 0 6px">Tens tota la setmana per pensar-t\'ho. Consells de la casa:</p>' +
+      '<ul style="margin:0 0 16px;padding-left:20px">' +
+        '<li>Res que s\'hagi de tallar amb ganivet i plat.</li>' +
+        '<li>Que n\'hi hagi per a tothom, que després hi ha retrets.</li>' +
+        '<li>Les galetes de paquet compten, però la nota ho notarà.</li>' +
+      '</ul>' +
+      '<p style="margin:0;color:#6B5560;font-size:13px">T\'ho recorda l\'app de Gestió de Curs, que no s\'oblida mai de res.</p>' +
+    '</div>' +
+  '</div>';
+}
+
+// El resum d'una persona (mitjana i gomets), calculat al servidor.
+function _esmResumDe_(registres, nom) {
+  var seus = (registres || []).filter(function (r) { return r.qui === nom; });
+  var notes = seus.filter(function (r) { return r.portat && typeof r.nota === 'number'; })
+                  .map(function (r) { return r.nota; });
+  var suma = 0; notes.forEach(function (n) { suma += n; });
+  return {
+    gomets: seus.filter(function (r) { return !r.portat; }).length,
+    mitjana: notes.length ? (suma / notes.length) : null,
+  };
+}
+
+function _esmCorreuDe_(equip, nom) {
+  var m = (equip || []).filter(function (e) { return e && e.nom === nom; })[0];
+  return (m && m.email) ? String(m.email).trim() : '';
+}
+
+/* Envia l'avís d'un torn. `forcat` = l'han demanat des de l'app amb un botó;
+   si no, és el disparador i només envia quan toca. */
+function _esmEnvia_(gss, tornId, forcat) {
+  var d = _esmLlegeix_(gss);
+  var torn = d.torns.filter(function (t) { return t.id === tornId; })[0];
+  if (!torn) return { ok: false, error: 'Aquest torn ja no hi és' };
+  if (torn.avisat && !forcat) return { ok: true, enviats: 0, motiu: 'ja avisat' };
+
+  var correu = _esmCorreuDe_(d.equip, torn.qui);
+  if (!correu) return { ok: false, error: 'No sé el correu de ' + torn.qui + '. Posa-l\'hi al llistat de docents.' };
+  var dataReunio = _esmDataDe_(torn.data);
+  if (!dataReunio) return { ok: false, error: 'La data de la reunió no és vàlida' };
+
+  MailApp.sendEmail({
+    to: correu,
+    subject: 'Aquesta setmana l\'esmorzar el portes tu (' + _esmDataLlarga_(dataReunio) + ')',
+    htmlBody: _esmCosCorreu_(torn.qui, dataReunio, _esmResumDe_(d.registres, torn.qui)),
+    name: 'Coordinació · Vedruna Escorial Vic',
+  });
+
+  torn.avisat = Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm');
+  _esmEscriu_(gss, d);
+  return { ok: true, enviats: 1, a: correu, torn: torn };
+}
+
+// Acció des de l'app: "envia-li l'avís ara".
+function enviaAvisEsmorzar(ss, tornId) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  return _esmEnvia_(gss, tornId, true);
+}
+
+/* LA FUNCIÓ DEL DISPARADOR. S'executa sola cada dia al matí. */
+function recordatoriEsmorzars() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return 'Sense full compartit: res a fer.';
+  var d = _esmLlegeix_(gss);
+  var avui = _esmAvuiZero_();
+  var fets = [];
+
+  d.torns.forEach(function (t) {
+    if (t.avisat) return;
+    var reunio = _esmDataDe_(t.data);
+    if (!reunio) return;
+    var dilluns = _esmDillunsDe_(reunio);
+    // Des del dilluns de la seva setmana i fins al dia de la reunió.
+    if (avui < dilluns || avui > reunio) return;
+    try {
+      var r = _esmEnvia_(gss, t.id, false);
+      fets.push(r.ok ? (t.qui + ': enviat') : (t.qui + ': ' + r.error));
+    } catch (e) { fets.push(t.qui + ': ha fallat (' + e.message + ')'); }
+  });
+
+  var resum = fets.length ? fets.join(' · ') : 'Avui no tocava avisar ningú.';
+  Logger.log(resum);
+  return resum;
+}
+
+/* Instal·la el disparador diari. S'executa UN COP des de l'editor.
+   Es pot repetir sense por: primer treu el que ja hi hagués. */
+function configuraRecordatoriEsmorzars() {
+  var fora = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'recordatoriEsmorzars') { ScriptApp.deleteTrigger(t); fora++; }
+  });
+  ScriptApp.newTrigger('recordatoriEsmorzars').timeBased().everyDays(1).atHour(7).create();
+  var txt = 'Recordatori dels esmorzars: disparador diari posat (cap a les 7 del mati).' +
+            (fora ? ' N he tret ' + fora + ' de vell.' : '');
+  Logger.log(txt);
+  return txt;
+}
+
 /* ============================================================
    CONVOCAR REUNIONS
    ------------------------------------------------------------
@@ -279,7 +946,7 @@ function reunionsCrea(ss, d) {
 }
 
 /* Treure una hora que encara NO té ningú.
-   Cas d'en Pol: ja ha enviat l'enllaç i li surt un imprevist el dia 12.
+   Cas típic: ja s'ha enviat l'enllaç i surt un imprevist un dia concret.
    Amb el pany posat, com tot el que toca les hores: si just en aquell
    moment algú l'està reservant, s'espera el torn i llavors veurà que
    ja té algú i no la traurà. Per treure una hora RESERVADA hi ha
@@ -770,6 +1437,115 @@ function _reuPaginaHtml_(calId) {
   return h;
 }
 
+
+/* ============================================================
+   DEIXAR EL FULL EN BLANC (per fer-ne la plantilla)
+   ------------------------------------------------------------
+   Serveix per tenir UN full net del qual cada mestra en faci una
+   còpia al seu Drive. Treu totes les dades de proves i deixa
+   l'estructura a punt.
+
+   COM ES FA:
+     1. Tria "buidaLesDades" al desplegable de dalt.
+     2. Prem Executar.
+     3. Llegeix el registre: diu exactament què ha buidat.
+
+   ⚠ QUÈ *NO* TOCA MAI, i és a posta:
+     · El full "Grups" COMPARTIT (alumnes de tota l'escola).
+     · El full "Desdoblaments" COMPARTIT.
+       Aquests dos són d'un altre document: aquesta funció només
+       toca el full on viu aquest script.
+     · Les credencials (Script Properties). Es queden, que és el
+       que vols per a la plantilla.
+     · El Google Calendar i el Google Tasks. Res d'això s'esborra.
+
+   ⚠ NO ES POT DESFER. Fes-ho només al full que vols de plantilla.
+      Si vols conservar les teves dades, fes-ne una còpia abans
+      (Fitxer > Fes-ne una còpia).
+   ============================================================ */
+function buidaLesDades() {
+  var CONFIRMA = 'SI, BUIDA-HO';   // ← per buidar de debò, ha de dir exactament això
+
+  var linies = [];
+  var diu = function (t) { linies.push(t); Logger.log(t); };
+
+  diu('DEIXAR EL FULL EN BLANC');
+  diu('=======================');
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  diu('Full: "' + ss.getName() + '"');
+  diu('');
+
+  if (CONFIRMA !== 'SI, BUIDA-HO') {
+    diu('ATURAT: no s\'ha tocat res.');
+    diu('Per buidar-lo de debo, posa CONFIRMA = \'SI, BUIDA-HO\' aqui dalt.');
+    return linies.join('\n');
+  }
+
+  /* Aquests fulls es buiden PER COMPLET (dades de proves) */
+  var BUIDA_TOT = ['_AppData', '_AppData_Planning', '_AppData_Assim', '_AppData_Actitud',
+                   'Reunions', 'Reunions_Hores'];
+
+  /* D'aquests es deixa la primera fila (la capçalera) i prou */
+  /* D'aquests es deixa la capçalera i prou. Els registres d'una mestra amb
+     tutoria no es diuen "Registres d'aula" sinó "Registres 2n C" (un per
+     grup), o sigui que s'han de mirar pel començament del nom i no per la
+     llista: si no, es quedarien amb totes les dades a dins. */
+  var DEIXA_CAPCALERA = ['Alumnes'];
+  var esDeRegistres = function (n) { return /^Registres( |$)/.test(n); };
+
+  var esborrats = 0, buidats = 0, pestanyes = 0;
+
+  ss.getSheets().forEach(function (sh) {
+    var nom = sh.getName();
+    pestanyes++;
+
+    /* 1) Les pestanyes de notes i assoliments d'un grup: fora senceres.
+          Es tornen a crear soles quan la mestra hi entri. */
+    var esDeGrup = /^(1T|2T|3T)[_ ]/.test(nom) || /_(1r|2n|3r|4t|5è|6è) [ABC]$/.test(nom) ||
+                   /^Assoliments/i.test(nom) || /^Actitud/i.test(nom);
+    if (esDeGrup) {
+      try { ss.deleteSheet(sh); esborrats++; diu('   esborrada  ' + nom); }
+      catch (e) { diu('   NO s\'ha pogut esborrar ' + nom + ': ' + e.message); }
+      return;
+    }
+
+    /* 2) Els magatzems de dades: buits del tot */
+    if (BUIDA_TOT.indexOf(nom) !== -1) {
+      try { sh.clearContents(); buidats++; diu('   buidada    ' + nom); }
+      catch (e) { diu('   NO s\'ha pogut buidar ' + nom + ': ' + e.message); }
+      return;
+    }
+
+    /* 3) Alumnes i Registres: es queda la capçalera */
+    if (DEIXA_CAPCALERA.indexOf(nom) !== -1 || esDeRegistres(nom)) {
+      try {
+        var n = sh.getLastRow();
+        if (n > 1) sh.getRange(2, 1, n - 1, Math.max(sh.getLastColumn(), 1)).clearContent();
+        buidats++;
+        diu('   buidada    ' + nom + ' (capçalera conservada)');
+      } catch (e) { diu('   NO s\'ha pogut buidar ' + nom + ': ' + e.message); }
+      return;
+    }
+
+    diu('   intacta    ' + nom);
+  });
+
+  SpreadsheetApp.flush();
+
+  diu('');
+  diu('=======================');
+  diu('Pestanyes mirades: ' + pestanyes + ' · buidades: ' + buidats + ' · esborrades: ' + esborrats);
+  diu('');
+  diu('NO s\'ha tocat: el full "Grups" ni el de "Desdoblaments" (son documents');
+  diu('a part), ni les credencials, ni el Calendar, ni el Tasks.');
+  diu('');
+  diu('El full ja et serveix de plantilla. Per a cada mestra nova:');
+  diu('  1. Fitxer > Fes-ne una còpia, al Drive D\'ELLA.');
+  diu('  2. Que ELLA executi configuraTot() i desplegui (veure INSTALLACIO.md).');
+  return linies.join('\n');
+}
+
 /* ============================================================
    CONFIGURAR UNA APP NOVA — TOT EN UNA SOLA EXECUCIO
    ------------------------------------------------------------
@@ -894,6 +1670,20 @@ function configuraTot() {
   } catch (e) {
     diu('   Tasks .................. HA FALLAT: ' + e.message);
     pendents.push('Tasks: revisa el servei avancat i els permisos.');
+  }
+
+  /* 6) Recordatori dels esmorzars (només a l'app de direcció) */
+  diu('');
+  diu('6) Recordatori dels esmorzars de coordinacio');
+  diu('   NOMES cal a l app de DIRECCIO. A la resta, salta-t ho.');
+  try {
+    var jaHiEs = ScriptApp.getProjectTriggers().filter(function (t) {
+      return t.getHandlerFunction() === 'recordatoriEsmorzars';
+    }).length;
+    diu(jaHiEs ? '   Disparador diari ....... ja hi es' : '   Disparador diari ....... NO hi es');
+    if (!jaHiEs) pendents.push('Si es l app de direccio: executa configuraRecordatoriEsmorzars() un cop.');
+  } catch (e) {
+    diu('   No s han pogut mirar els disparadors: ' + e.message);
   }
 
   /* Resum */
@@ -1093,6 +1883,20 @@ function handleRequest(e) {
       case 'saveObservacio':       result = saveObservacio(ss, body.studentId, body.materia, body.trimestre, body.text, body.replace||false); break;
       case 'deleteObservacio':     result = deleteObservacio(ss, body.studentId, body.materia, body.trimestre); break;
       case 'getNotes':             result = getNotes(ss, body&&body.materia||p.materia, body&&body.trimestre||p.trimestre, body&&body.grup||p.grup); break;
+      case 'loadEntrevistes':    result = loadEntrevistes(ss, (body&&body.grup)||p.grup); break;
+      case 'saveEntrevista':     result = saveEntrevista(ss, body.grup, body.rowId, body.entrevista); break;
+      case 'deleteEntrevista':   result = deleteEntrevista(ss, body.grup, body.rowId, body.id); break;
+      case 'getEntrevistesPub':  result = getEntrevistesPub(ss, (body&&body.grup)||p.grup); break;
+      case 'loadEsmorzars':      result = loadEsmorzars(ss); break;
+      case 'saveEsmorzars':      result = saveEsmorzars(ss, body && body.registres, body && body.torns, body && body.equip); break;
+      case 'enviaAvisEsmorzar':  result = enviaAvisEsmorzar(ss, body && body.tornId); break;
+      case 'resumEntrevistes':   result = resumEntrevistes(ss); break;
+      case 'loadRegistreDocents': result = loadRegistreDocents(ss); break;
+      case 'saveRegistreDocents': result = saveRegistreDocents(ss, body && body.items, body && body.data); break;
+      case 'getNotesCompartides':  result = getNotesCompartides(ss, (body&&body.grup)||p.grup); break;
+      case 'loadCompartirNotes':   result = loadCompartirNotes(ss, (body&&body.grup)||p.grup, (body&&body.matKey)||p.matKey); break;
+      case 'saveCompartirNotes':   result = saveCompartirNotes(ss, body.grup, body.matKey, body.nomAssig, body.nomMestra, !!body.compartir); break;
+      case 'publicaNotesResum':    result = publicaNotesResum(ss, body.grup, body.matKey, body.nomAssig, body.nomMestra); break;
       case 'getNotesResum':        result = getNotesResum(ss, (body&&body.grup)||p.grup); break;
       case 'addNotaItem':          result = addNotaItem(ss, body.materia, body.trimestre, body.item, body.alumnes, body.grup); break;
       case 'deleteNotaItem':       result = deleteNotaItem(ss, body.materia, body.trimestre, body.itemId, body.grup); break;
@@ -1105,8 +1909,8 @@ function handleRequest(e) {
       // Planning
       case 'savePlanning':           result = savePlanning(ss, body.weekId, body.data); break;
       case 'loadPlanning':           result = loadPlanning(ss, (body&&body.weekId)||p.weekId); break;
-      case 'saveSeients':            result = saveSeients(ss, body.layout, body.history, body.markers); break;
-      case 'loadSeients':            result = loadSeients(ss); break;
+      case 'saveSeients':            result = saveSeients(ss, body.layout, body.history, body.markers, (body&&body.grup)||p.grup); break;
+      case 'loadSeients':            result = loadSeients(ss, (body&&body.grup) || p.grup); break;
       case 'savePostits':            result = savePostits(ss, body.postits); break;
       case 'loadPostits':            result = loadPostits(ss); break;
       case 'saveHorari':             result = saveHorari(ss, body.horari); break;
@@ -1532,7 +2336,7 @@ function _getDesdoblamentRaw(ss, curs, linia, assignatura) {
   }
   if (blocStartCol === -1) return { ok:true, existeix:true, alumnes:[], motiu:'Cap bloc per a ' + assignatura, sensDesdob:true };
 
-  // 3) Dins del bloc, troba la columna de la línia demanada (p. ex. "2n C")
+  // 3) Dins del bloc, troba la columna de la línia demanada (p. ex. "4t B")
   var grupBuscat = _normNom(curs + ' ' + linia);
   var headers = rng[headerRow];
   var colLinia = -1, colEnd = headers.length;
@@ -2088,7 +2892,7 @@ function getNotes(ss, materia, trimestre, grup) {
    per TOTES les assignatures i trimestres, en una sola crida.
    Usat per la fitxa de l'alumne (evita 18 crides per alumne). */
 // Resum de notes per a la fitxa de l'alumne. ENUMERA les pestanyes de notes
-// REALS del grup (p. ex. "1T_Matemàtiques_2n C") en comptes d'assumir una
+// REALS del grup (p. ex. "1T_Matemàtiques_4t B") en comptes d'assumir una
 // llista fixa de matèries amb noms sense grup. Així funciona per a qualsevol
 // assignatura del perfil (Castellà, L'art del traç, Tallers…) i per a les
 // pestanyes per-grup. Si no es passa grup, inclou també les pestanyes llegades
@@ -2960,13 +3764,23 @@ function loadTasques(ss) {
    DISTRIBUCIÓ DE L'AULA (seients) — layout + historial parelles
    ============================================================ */
 
-function saveSeients(ss, layout, history, markers) {
+/* La clau del plànol al full _AppData.
+   · Tutor (sense grup): 'seients_layout', la de sempre. Cap migració.
+   · Direcció: una per grup, 'seients_layout__4t B'. No en tenen una classe
+     sola: si la compartissin, en canviar de grup hi trobarien les taules
+     amb els alumnes de l'altra classe assegudes. */
+function _clauSeients(base, grup) {
+  var g = (grup || '').toString().trim();
+  return g ? (base + '__' + g) : base;
+}
+
+function saveSeients(ss, layout, history, markers, grup) {
   if (layout !== undefined && layout !== null)
-    sheetSetJSON(ss, '_AppData', 'seients_layout', typeof layout === 'string' ? layout : JSON.stringify(layout));
+    sheetSetJSON(ss, '_AppData', _clauSeients('seients_layout', grup), typeof layout === 'string' ? layout : JSON.stringify(layout));
   if (history !== undefined && history !== null)
-    sheetSetJSON(ss, '_AppData', 'seients_history', typeof history === 'string' ? history : JSON.stringify(history));
+    sheetSetJSON(ss, '_AppData', _clauSeients('seients_history', grup), typeof history === 'string' ? history : JSON.stringify(history));
   if (markers !== undefined && markers !== null)
-    sheetSetJSON(ss, '_AppData', 'seients_markers', typeof markers === 'string' ? markers : JSON.stringify(markers));
+    sheetSetJSON(ss, '_AppData', _clauSeients('seients_markers', grup), typeof markers === 'string' ? markers : JSON.stringify(markers));
   return { ok: true };
 }
 
@@ -3017,10 +3831,10 @@ function geminiGenerate(prompt, contents) {
   return { ok:false, error: lastErr || 'Error desconegut', isBusy: saturat };
 }
 
-function loadSeients(ss) {
-  var l = sheetGetJSON(ss, '_AppData', 'seients_layout');
-  var h = sheetGetJSON(ss, '_AppData', 'seients_history');
-  var m = sheetGetJSON(ss, '_AppData', 'seients_markers');
+function loadSeients(ss, grup) {
+  var l = sheetGetJSON(ss, '_AppData', _clauSeients('seients_layout', grup));
+  var h = sheetGetJSON(ss, '_AppData', _clauSeients('seients_history', grup));
+  var m = sheetGetJSON(ss, '_AppData', _clauSeients('seients_markers', grup));
   return {
     ok: true,
     layout:  l ? JSON.parse(l) : [],

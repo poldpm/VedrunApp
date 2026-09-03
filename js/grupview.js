@@ -5,7 +5,7 @@
    fitxes i observacions. No interfereix amb la pàgina Alumnes.
    ============================================================ */
 
-let _grupviewGrup = null;      // "2n C"
+let _grupviewGrup = null;      // "4t B"
 let _grupviewAlumnes = [];     // dades completes carregades del full "grups"
 let _grupviewObs = {};         // observacions compartides del grup
 let _grupviewObsLoaded = false;
@@ -50,7 +50,7 @@ async function openGrupAlumnesModal() {
 
     // 2) Si hi ha assignatura, comprova si és desdoblada i filtra
     if (assignatura && alumnes.length) {
-      const parts = grup.split(' '); // "2n C" → ["2n","C"]
+      const parts = grup.split(' '); // "4t B" → ["4t","B"]
       try {
         const d = await appsScriptGet({ action:'getDesdoblament', curs:parts[0], linia:parts[1], assignatura:assignatura });
         if (d.ok && d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
@@ -457,14 +457,62 @@ function _grupviewAssimPct(matKey, trim, a) {
 }
 
 // Neteja el nom de la matèria (treu prefix de trimestre si n'hi ha)
+/* L'etiqueta d'una observació. La clau va sense accents i amb el grup
+   enganxat ("angles__3ra"), perquè és el que es desa al full compartit. Si
+   es pinta tal qual, a la fitxa hi surt «Angles__3ra (T1)», que no vol dir
+   res per a una mestra. Aquí es torna a muntar: «Anglès · 3r A (T1)».
+
+   Les assignatures de les ALTRES mestres no són al mapa MATERIES (només hi
+   ha les teves), per això el nom es busca també a la llista d'assignatures
+   del curs, que és on hi ha els accents. */
 function _grupviewMatLabel(key) {
-  // key pot ser "1_matematiques" o "matematiques"
   let k = key;
   const m = key.match(/^(\d)_(.+)$/);
   let trim = '';
   if (m) { trim = ' (T' + m[1] + ')'; k = m[2]; }
   if (typeof MATERIES !== 'undefined' && MATERIES[k]) return MATERIES[k] + trim;
-  return k.charAt(0).toUpperCase() + k.slice(1) + trim;
+
+  // Clau amb grup: "angles__3ra"
+  const parts = k.split('__');
+  if (parts.length === 2) {
+    const grup = _grupviewGrupDesDeClau(parts[1]);
+    const nom  = _grupviewNomAssig(parts[0], grup);
+    return nom + (grup ? ' · ' + grup : '') + trim;
+  }
+  return _grupviewNomAssig(k, null) + trim;
+}
+
+// "3ra" → "3r A". Torna '' si no ho sap desxifrar.
+function _grupviewGrupDesDeClau(g) {
+  const m = (g || '').match(/^(\d)(r|n|t|e)([abc])$/);
+  if (!m) return '';
+  const cursos = { '1r': '1r', '2n': '2n', '3r': '3r', '4t': '4t', '5e': '5è', '6e': '6è' };
+  const curs = cursos[m[1] + m[2]];
+  if (!curs) return '';
+  return curs + ' ' + m[3].toUpperCase();
+}
+
+// El nom amb accents d'una assignatura, a partir de la clau sense accents.
+function _grupviewNomAssig(clau, grup) {
+  const _k = s2 => (s2 || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Les meves: ja les sé
+  if (typeof _assigNomNet === 'function') {
+    const n = _assigNomNet(clau);
+    if (n && _k(n) === clau && n !== clau) return n;
+  }
+  // Les de les altres: busca-la a les assignatures del curs
+  try {
+    const curs = (grup || '').split(' ')[0];
+    const llista = (typeof PERFIL_ASSIGS_PER_CURS !== 'undefined' && curs && PERFIL_ASSIGS_PER_CURS[curs])
+      ? PERFIL_ASSIGS_PER_CURS[curs]
+      : (typeof PERFIL_ASSIGS_PER_CURS !== 'undefined'
+          ? Object.keys(PERFIL_ASSIGS_PER_CURS).reduce((a, c) => a.concat(PERFIL_ASSIGS_PER_CURS[c]), [])
+          : []);
+    const trobada = llista.find(a => _k(a) === clau);
+    if (trobada) return trobada;
+  } catch (e) {}
+  return clau.charAt(0).toUpperCase() + clau.slice(1);
 }
 
 function closeGrupviewFitxa() {

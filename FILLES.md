@@ -10,6 +10,28 @@ diferents. Per això es fan apps filles.
 
 ---
 
+## On viuen les carpetes
+
+Totes les apps viuen **dins d'una sola carpeta**, `C:\Escorial\VedrunApp`, per
+no barrejar-se amb la resta de coses del dia a dia:
+
+```
+C:\Escorial\VedrunApp\
+├── VedrunApp-Tutors\          ← l'APP MARE (la plantilla, aquesta carpeta)
+├── VedrunApp-Especialistes\   ← plantilla del rol especialista
+├── VedrunApp-Direccio\        ← plantilla del rol direcció
+└── VedrunApp-<Mestra>\        ← l'app de cada mestra
+```
+
+`nova-filla.js` crea cada app nova **al costat de la mare**, o sigui que les
+mestres noves cauen aquí dins soles: no s'ha de dir on van.
+
+Els camins només són escrits a mà a `filles.json`. Les eines es localitzen
+soles, així que si un dia es torna a moure tot, només s'ha de tocar aquell
+fitxer (i els exemples de la documentació).
+
+---
+
 ## Què divergeix i què no
 
 La divergència real està concentrada a **les notes**. La resta és idèntic:
@@ -18,7 +40,7 @@ La divergència real està concentrada a **les notes**. La resta és idèntic:
 |---|---|
 | Calendari, planning, horari | `js/personal.js` (el que és seu i només seu) |
 | Alumnes, fitxes, observacions | `js/config.local.js` (el seu token) |
-| Seients, grups, post-its, tasques | `js/rol.js` (tutora o especialista) |
+| Seients, grups, post-its, tasques | `js/rol.js` (tutora, especialista o direcció) |
 | Comentaris, assoliments | `js/notes.js` (només si avalua molt diferent) |
 | Sincronització amb Google | |
 | Avís de versió nova | |
@@ -69,8 +91,8 @@ forkat és un que aquella mestra deixarà de rebre: com menys, millor.
 ```json
 {
   "filles": [
-    { "mestra": "Anna",  "carpeta": "C:/Escorial/VedrunApp-Anna" },
-    { "mestra": "Marta", "carpeta": "C:/Escorial/VedrunApp-Marta" }
+    { "mestra": "Anna",  "carpeta": "C:/Escorial/VedrunApp/VedrunApp-Anna" },
+    { "mestra": "Marta", "carpeta": "C:/Escorial/VedrunApp/VedrunApp-Marta" }
   ]
 }
 ```
@@ -92,16 +114,17 @@ Per a una de sola: `node eines/sync-totes.js --mestra Anna`
 
 ```bash
 node eines/nova-filla.js "Marta" --especialista    # especialista
+node eines/nova-filla.js "Nuria" --direccio        # equip directiu
 node eines/nova-filla.js "Anna"                    # tutora
 node eines/nova-filla.js "Marta" --especialista --prova
 ```
 
-L'eina munta `C:\Escorial\VedrunApp-<Mestra>` **a partir de l'app que li
-toca**: la mare si és tutora, i **l'app dels especialistes si és
-especialista**. D'allà se'n queda només el que no ha de canviar mai
-(`js/rol.js`, el token i els manifests); tota la resta del codi la porta de
-la mare amb `sync-filla.js`. Després l'apunta a `filles.json` i comprova
-que el rol hagi quedat bé.
+L'eina munta `C:\Escorial\VedrunApp\VedrunApp-<Mestra>` **a partir de l'app que li
+toca**: la mare si és tutora, **l'app dels especialistes** si és
+especialista i **la de direcció** si és de l'equip directiu. D'allà se'n
+queda només el que no ha de canviar mai (`js/rol.js`, el token i els
+manifests); tota la resta del codi la porta de la mare amb `sync-filla.js`.
+Després l'apunta a `filles.json` i comprova que el rol hagi quedat bé.
 
 **Per això no s'ha de copiar mai una carpeta a mà:** si una especialista
 naixés de la mare, tindria `APP_ROL = 'tutor'` i li demanaria de quin grup
@@ -113,7 +136,7 @@ GitHub Pages, i connectar-la amb ella al costat.
 
 ## L'app dels especialistes (no és d'una mestra)
 
-`C:\Escorial\VedrunApp-Especialistes` no és l'app d'una mestra concreta: és
+`C:\Escorial\VedrunApp\VedrunApp-Especialistes` no és l'app d'una mestra concreta: és
 **la versió per a totes les especialistes**, amb el mateix codi que la mare.
 L'únic propi és `js/rol.js` (`window.APP_ROL = 'especialista'`) i el nom que
 surt als manifests en instal·lar-la. Com que `js/rol.js` és a `SEMPRE_PROPI`,
@@ -122,11 +145,11 @@ el `sync` no l'hi toca mai.
 Es manté com qualsevol altra filla:
 
 ```bash
-node eines/sync-filla.js "C:/Escorial/VedrunApp-Especialistes" --prova
-node eines/sync-filla.js "C:/Escorial/VedrunApp-Especialistes"
+node eines/sync-filla.js "C:/Escorial/VedrunApp/VedrunApp-Especialistes" --prova
+node eines/sync-filla.js "C:/Escorial/VedrunApp/VedrunApp-Especialistes"
 ```
 
-Tot el que canvia entre els dos rols viu a la mare, darrere `esEspecialista()`.
+Tot el que canvia entre els rols viu a la mare, darrere `esEspecialista()`.
 **No s'hi ha de tocar codi mai**: si s'hi toca, deixa de rebre arranjaments.
 
 **És l'arrel de les apps de les especialistes.** Quan una especialista
@@ -138,6 +161,39 @@ tot el que es millori per a les especialistes es fa **a la mare** darrere
 viu només a l'ordinador d'en Pol: no té repositori ni GitHub Pages, i no cal
 que en tingui. `nova-filla.js` en copia fitxers, no clona cap repositori.
 Qui té una adreça a Internet és **l'app de cada mestra**, no aquesta.
+
+## L'app de direcció (tampoc no és d'una persona)
+
+`C:\Escorial\VedrunApp\VedrunApp-Direccio` funciona exactament igual: és **la versió
+per a l'equip directiu**, amb el mateix codi que la mare. L'únic propi és
+`js/rol.js` (`window.APP_ROL = 'direccio'`) i el nom als manifests.
+
+```bash
+node eines/sync-filla.js "C:/Escorial/VedrunApp/VedrunApp-Direccio" --prova
+node eines/sync-filla.js "C:/Escorial/VedrunApp/VedrunApp-Direccio"
+```
+
+Direcció ho fa tot com un tutor, però **no en tutoritzen cap grup**: a
+Alumnes trien de quin dels 18 grups de primària volen veure (i modificar) les
+fitxes, i el grup triat els segueix per Observacions, Registres d'aula i
+Distribució de l'aula. Ho fan servir per omplir les dades dels grups on el
+tutor no fa servir l'app i per veure què hi escriu la resta. El detall tècnic
+és a `PROJECTE.md` (secció 3bis).
+
+Com l'altra: **no es publica** i **no s'hi toca codi mai**. Les apps de cada
+director en surten amb `node eines/nova-filla.js "<Nom>" --direccio`.
+
+## Comprovar que cada rol fa el que ha de fer
+
+```bash
+node eines/comprova-rols.js                                             # els tres rols
+node eines/comprova-rols.js --carpeta "C:/Escorial/VedrunApp/VedrunApp-Direccio"  # una carpeta tal com està
+```
+
+Carrega l'app dins d'un navegador de mentida i li prem els botons. La segona
+manera és la bona per a una app ja feta: fa servir el **seu** `js/rol.js`, o
+sigui que et diu si el rol d'aquella carpeta és el que toca de debò i no
+només el que diu el `FILLA.json`.
 
 ## Un cop creada: què queda per fer
 
@@ -171,8 +227,8 @@ posar-los-hi.
 Quan s'arregla una cosa a la mare que afecta tothom:
 
 ```bash
-node eines/sync-filla.js "C:/Escorial/VedrunApp-Anna" --prova
-node eines/sync-filla.js "C:/Escorial/VedrunApp-Anna"
+node eines/sync-filla.js "C:/Escorial/VedrunApp/VedrunApp-Anna" --prova
+node eines/sync-filla.js "C:/Escorial/VedrunApp/VedrunApp-Anna"
 ```
 
 - `--prova` ensenya què faria **sense tocar res**. Val la pena mirar-ho sempre.

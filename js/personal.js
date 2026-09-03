@@ -1,5 +1,5 @@
 /* ============================================================
-   PERSONALITZACIONS D'AQUESTA MESTRA — personal.js
+   PERSONALITZACIONS DE POL — personal.js
    ------------------------------------------------------------
    A l'app MARE aquest fitxer és BUIT a posta. A l'app de cada
    mestra hi va tot el que és seu i només seu.

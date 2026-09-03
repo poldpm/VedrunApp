@@ -1,10 +1,10 @@
 {
-  "versio": "v122",
-  "data": "2026-09-02",
+  "versio": "v136",
+  "data": "2026-09-03",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Convocar reunions: botó «+ Afegir hores» per afegir estones a un calendari que ja has enviat, sense refer-lo.",
-    "I pots personalitzar el missatge que llegeix la persona just després de triar l hora (per on entrar, què portar...).",
-    "Si deixes el missatge buit, hi surt el de sempre. El pots canviar quan vulguis, també després d enviar l enllaç."
+    "NOU (direcció · Docents): Seguiment d entrevistes. De cada tutor, quantes entrevistes ha fet amb les famílies i quan, i quins alumnes encara no en tenen cap.",
+    "Amb el total de tota la primària, els alumnes sense cap entrevista i els grups que encara no n han fet cap. Hi ha un botó per copiar-ho tot i enganxar-ho on calgui.",
+    "TUTORS I ESPECIALISTES: a partir d ara, quan deseu una entrevista, a direcció també li arriben les DATES de totes (abans només el nombre i l última). El que escriviu de com ha anat continua sent NOMÉS vostre: això no surt mai del vostre full."
   ]
 }

@@ -54,6 +54,62 @@ res malament.
 li fas alguna cosa que el manual no explica, posa `manual.html` als seus
 `propis` del `FILLA.json` i actualitza-l'hi allà (veure `FILLES.md`).
 
+## ⚠ ABANS DE TOCAR RES: A QUI HA D'ARRIBAR?
+
+Hi ha **una mare i diverses apps**: la plantilla d'especialistes, la de
+direcció, i l'app de cada mestra. Un canvi fet aquí no arriba sol enlloc:
+cal sincronitzar-lo. I no tots els canvis són per a tothom.
+
+**REGLA: si en Pol no diu a qui va, PREGUNTA-L'HI abans de tocar cap
+fitxer.** No ho suposis. Les opcions són:
+
+| Abast | On es fa | Com hi arriba |
+|---|---|---|
+| **Tots els rols** | aquí, a la mare | `node eines/sync-totes.js` |
+| **Només un rol** (especialistes, direcció) | aquí, darrere `esEspecialista()` / `esDireccio()` | `node eines/sync-totes.js` |
+| **Només tutors** | aquí, darrere el rol tutor | `node eines/sync-totes.js` |
+| **Una sola mestra** | el seu `js/personal.js`, a la seva carpeta | no se sincronitza |
+
+**Compte:** un canvi «per a especialistes» NO es fa a la carpeta
+`VedrunApp-Especialistes`. Es fa **aquí**, darrere `esEspecialista()`. Si es
+toca el codi dins d'una filla, aquell fitxer deixa de rebre arranjaments per
+sempre (veure `FILLES.md`).
+
+**En Pol té una conversa per rol** (Tutors, Especialistes, Direcció) i una de
+canvis generals, i **totes treballen aquí, a la mare**. Que la conversa es
+digui «Direcció» no vol dir que s'hagi de treballar dins de
+`VedrunApp-Direccio`: vol dir que el canvi va dins d'un `esDireccio()`. El
+detall és a `PROJECTE.md`, apartat 3ter.
+
+**Per veure a qui arribarà**, abans i després:
+
+```bash
+node eines/estat-apps.js            # totes les apps, el seu rol i la seva versió
+node eines/estat-apps.js --rol especialista
+node eines/estat-apps.js --endarrerides
+```
+
+Un canvi general no està acabat fins que:
+1. és a la mare i provat,
+2. s'ha passat `node eines/sync-totes.js --prova` i després sense `--prova`,
+3. `node eines/estat-apps.js` diu «Tot al dia»,
+4. i cada app publicada s'ha pujat al seu GitHub.
+
+## ⚠ AQUESTA CARPETA NO ES PUBLICA MAI
+
+Aquesta carpeta és **només la plantilla mare**: la base per crear i mantenir
+les apps de les mestres. **No té remote de git i no n'ha de tenir.**
+
+- **No facis `git push`**, ni afegeixis cap `origin`, ni la publiquis a
+  GitHub Pages. El repositori `github.com/poldpm/VedrunApp` es fa servir per
+  a **l'app d'en Pol**, que es gestiona en una conversa a part: si des d'aquí
+  s'hi pujava res, li trepitjaríem l'app publicada.
+- Els commits **locals** sí: són l'historial de la plantilla. Només no surten
+  d'aquí.
+- Els arranjaments arriben a les apps de les mestres amb
+  `node eines/sync-totes.js` (des del disc, no per GitHub). Cada filla ja té
+  el seu repositori i el seu Pages.
+
 ## Workflow tècnic
 - Frontend HTML/CSS/JS pur, sense frameworks. Backend: Google Apps Script (`Code.gs`).
 - **A cada canvi de frontend, puja la versió als TRES fitxers alhora**, o
@@ -68,6 +124,12 @@ li fas alguna cosa que el manual no explica, posa `manual.html` als seus
 - `node --check` de cada fitxer JS modificat.
 - **`node eines/comprova-controls.js`** — cap botó ni casella pot no fer res.
   Torna codi 1 si en troba. Veure "Botons que no fan res" aquí sota.
+- **`node eines/comprova-rols.js`** — carrega l'app sencera en un navegador de
+  mentida i li prem els botons **amb els tres rols** (`tutor`,
+  `especialista`, `direccio`). Obligatori si has tocat res que depengui del
+  rol o del grup de treball: en Pol només trepitja l'app dels tutors, i els
+  camins dels altres dos no els prova ningú fins que ja són a mans d'una
+  mestra. Torna codi 1 si en falla cap.
 - Comprova que l'HTML queda ben tancat.
 - Si toques el backend, valida `Code.gs` amb mocks (SpreadsheetApp, PropertiesService…).
 - Prova amb dades buides (cas mestre nou): cap render ha de petar.

@@ -3,8 +3,13 @@
   "filles": [
     {
       "mestra": "Especialistes",
-      "carpeta": "C:/Escorial/VedrunApp-Especialistes",
+      "carpeta": "C:/Escorial/VedrunApp/VedrunApp-Especialistes",
       "nota": "Plantilla, no és d'una mestra: la versió per a totes les especialistes. NO es publica (sense repositori ni Pages), viu només al disc; d'aquí en surten les apps de les especialistes amb eines/nova-filla.js. L'únic propi és js/rol.js (i el nom als manifests)."
+    },
+    {
+      "mestra": "Direcció",
+      "carpeta": "C:/Escorial/VedrunApp/VedrunApp-Direccio",
+      "nota": "Plantilla, no és d'una persona: la versió per a l'equip directiu. NO es publica (sense repositori ni Pages), viu només al disc; d'aquí en surten les apps de cada director amb 'node eines/nova-filla.js \"<Nom>\" --direccio'. L'únic propi és js/rol.js (i el nom als manifests)."
     }
   ]
 }

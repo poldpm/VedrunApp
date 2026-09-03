@@ -5,9 +5,12 @@
 > qualsevol persona (o Claude Code) pugui continuar el desenvolupament sense
 > perdre context.
 
-**Versió actual:** v117 (cache `vedruna-v117` al `sw.js`)
+**Versió actual:** la que digui `versio.json`. Aquí no s'escriu el número —
+quedava vell a la primera pujada.
 **Idioma de tota la interfície i la documentació:** Català
-**Autor/mantenidor:** Pol (tutor de 2n de Primària)
+**Aquesta carpeta és la PLANTILLA MARE:** no és l'app de cap mestre.
+No hi ha d'haver mai dades, objectius ni configuració de ningú. Les apps de
+cada mestre surten d'aquí amb `eines/nova-filla.js`.
 
 ---
 
@@ -56,13 +59,13 @@ vedruna-app/
 ├── sw.js                   # Service worker (PWA, cache). Bump de versió a cada canvi!
 ├── manifest.webmanifest    # Manifest PWA (el que es fa servir)
 ├── manifest.json           # Manifest antic (es manté per compatibilitat)
-├── manual.html             # Manual d'usuari (18 seccions)
+├── manual.html             # Manual d'usuari (24 apartats)
 ├── README.md               # Instruccions bàsiques de desplegament
 ├── PROJECTE.md             # AQUEST document
 ├── css/
 │   └── main.css            # TOTS els estils
 ├── js/
-│   ├── rol.js              # 'tutor' o 'especialista'. NO SE SINCRONITZA mai!
+│   ├── rol.js              # 'tutor', 'especialista' o 'direccio'. NO SE SINCRONITZA mai!
 │   ├── config.local.js     # NOMÉS el token. NO SE SUBSTITUEIX en actualitzar!
 │   ├── personal.js         # El que és propi d'una mestra. Buit a la mare.
 │   ├── app.js              # Nucli: navegació, home, alumnes, notes, planning,
@@ -71,6 +74,10 @@ vedruna-app/
 │   ├── notes.js            # Notes d'assignatures i actitud
 │   ├── seients.js          # Distribució de l'aula (plànol + auto-assignació)
 │   ├── grupview.js         # Vista de grup / desdoblaments
+│   ├── docents.js          # Apartat Docents: portada + llistat del claustre (direcció)
+│   ├── coordinacio.js      # Els esmorzars de la reunió de coordinació (direcció)
+│   ├── regdocents.js       # Registres amb el claustre a les files (direcció)
+│   ├── segentrevistes.js   # Seguiment de les entrevistes dels tutors (direcció)
 │   ├── postits.js          # Notes i post-its
 │   ├── horari.js           # Horari (plantilla setmanal → omple planning)
 │   └── vedrunu.js          # Xatbot "Vedrunu" (IA)
@@ -79,25 +86,42 @@ vedruna-app/
 
 ---
 
-## 3bis. LES DUES APPS: TUTORS I ESPECIALISTES
+## 3bis. LES TRES APPS: TUTORS, ESPECIALISTES I DIRECCIÓ
 
-Hi ha **dues adreces** amb **exactament el mateix codi**. L'única diferència és
+Hi ha **tres versions** amb **exactament el mateix codi**. L'única diferència és
 `js/rol.js`:
 
 ```javascript
 window.APP_ROL = 'tutor';        // app dels tutors (aquest repositori)
 window.APP_ROL = 'especialista'; // app dels especialistes
+window.APP_ROL = 'direccio';     // app de l'equip directiu
 ```
 
 `sync-filla.js` té `js/rol.js` a `SEMPRE_PROPI`: mai no se sincronitza, o
 l'app dels especialistes tornaria a ser la dels tutors a la primera
-actualització. La carpeta és `C:\Escorial\VedrunApp-Especialistes` i s'hi
-propaga tot amb `node eines/sync-filla.js "C:/Escorial/VedrunApp-Especialistes"`.
+actualització. Les carpetes són `C:\Escorial\VedrunApp\VedrunApp-Especialistes` i
+`C:\Escorial\VedrunApp\VedrunApp-Direccio`, i s'hi propaga tot amb
+`node eines/sync-totes.js` (o `sync-filla.js` per a una de sola).
 
-Aquesta carpeta és una **plantilla local**: no té repositori ni GitHub Pages
-(decidit el 3 de setembre de 2026) i no cal que en tingui, perquè
+Totes les apps viuen dins de `C:\Escorial\VedrunApp\`, cadascuna a la seva
+carpeta (`VedrunApp-Tutors` és la mare). L'esquema sencer és a `FILLES.md`,
+apartat "On viuen les carpetes".
+
+Totes dues són **plantilles locals**: no tenen repositori ni GitHub Pages
+(decidit el 3 de setembre de 2026) i no cal que en tinguin, perquè
 `nova-filla.js` en copia fitxers, no clona res. Qui es publica a Internet és
-l'app de cada mestra, no aquesta.
+l'app de cada mestra, no aquestes.
+
+**Com es comprova que cada rol fa el que ha de fer:**
+
+```bash
+node eines/comprova-rols.js                                       # els tres rols
+node eines/comprova-rols.js --carpeta "C:/Escorial/VedrunApp/VedrunApp-Direccio"   # una carpeta tal com està
+```
+
+Carrega l'app sencera dins d'un navegador de mentida i li prem els botons.
+Cal perquè en Pol només trepitja l'app dels tutors: els camins dels altres
+dos rols no els prova ningú fins que ja són a mans d'una mestra.
 
 **Què canvia quan `APP_ROL === 'especialista'`:**
 
@@ -119,12 +143,182 @@ amb els alumnes que toquen. **Va per assignatura i no només per grup perquè
 la llista d'alumnes depèn del desdoblament:** l'Anglès de 3r A pot ser mig
 grup i la Música la classe sencera.
 
+**Què canvia quan `APP_ROL === 'direccio'`:**
+
+Direcció fa classe però **no tutoritza cap grup**, i ha de poder entrar a
+qualsevol grup de primària per posar-hi les dades que el seu tutor no hi posa
+(correus, PI, AM, observacions) i per veure què hi va escrivint la resta.
+
+| On | Què |
+|---|---|
+| Sota el logo | «Gestió de curs · Direcció» |
+| Perfil | Igual que una especialista: es trien **grups**, no tutoria (`_perfilSenseTutoria()`) |
+| Menú | **No s'amaga res.** Hi ha Alumnes i Distribució de l'aula, com un tutor |
+| Alumnes | Selector curs+línia amb els 18 grups (`_dirCarregaGrup`), i la fitxa és la **completa**, editable |
+| Observacions | Les del grup triat, amb l'opció «General» (és el que fa el tutor) |
+| Registres d'aula | Una pestanya per grup: `"Registres 4t B"` |
+| Distribució de l'aula | **Un plànol per grup** (`seients_layout__4t B`) |
+| Compartir notes | Hi surt sempre la casella: no són tutors de res (`grupTutoria()` → `null`) |
+| **Docents** | Apartat de més al menú (`PAGINES_NOMES_DIRECCIO`), amb el claustre de primària |
+
+**L'apartat «Docents»** (`js/docents.js`) és una **portada amb eines**
+(`DOCENTS_EINES`), no una llista. Cada eina és un contenidor dins de
+`page-docents` i `docentsVista(clau)` les intercanvia; la vista va a l'estat
+de l'historial, o sigui que el gest d'enrere del mòbil torna a la portada i no
+fa fora de l'apartat. Per afegir-ne una de nova: una entrada a `DOCENTS_EINES`
+i el seu `<div>` a l'`index.html`.
+
+Eines que hi ha:
+
+- **Llistat de docents** — el claustre: qui tutoritza cada
+grup, les especialistes de cada cicle, qui coordina cada cicle, l'equip
+directiu i l'equip SIEI. La llista (`DOCENTS`) **viu al codi a posta**: és la
+mateixa per a tota l'escola i canvia un cop l'any, com el calendari escolar.
+Així no cal ni backend ni redesplegar el `Code.gs`; s'actualitza aquí i arriba
+amb `sync-totes.js`. Les consultes (`docentDelGrup`, `cicleDelGrup`,
+`coordinadorDelCicle`…) són públiques a posta, perquè les eines que vinguin no
+hagin de tornar a escriure la llista.
+
+- **Coordinació** (`js/coordinacio.js`) — els esmorzars de la reunió setmanal
+de l'equip de coordinació: qui li tocava, si l'ha portat, quina nota mereix i
+què va portar. Al costat, les mitjanes, el comptador i els **gomets vermells**
+de qui se n'oblida; als 3, un popup de **penyora**. És una broma de l'equip,
+però **les dades van al full "Grups" COMPARTIT** (`loadEsmorzars` /
+`saveEsmorzars` al `Code.gs`, clau `coord_esmorzars`), no al full personal: si
+anessin al personal, els dos directors tindrien cada un la seva llista i no
+coincidirien mai. L'equip (`coordEquip()`) surt sol de `DOCENTS`: qui coordina
+un cicle i qui és de l'equip directiu. **El gràfic ÉS la taula** — la barra viu
+dins de la cel·la de la mitjana, així qui la mira de lluny veu qui guanya i qui
+la llegeix amb un lector de pantalla té els números igual.
+
+  **El torn i el correu del dilluns.** `esmProperTorn()` diu a qui li toca: al
+  que n'ha fet menys, i si empaten, al que fa més que no li toca; alfabètic
+  per desempatar. **És determinista a posta**: amb les mateixes dades sempre
+  diu el mateix, que és el que evita la discussió. En apuntar el torn s'hi
+  desa el dia de la reunió, i el **dilluns d'aquella setmana** un **disparador
+  diari** de l'Apps Script (`recordatoriEsmorzars`, instal·lat un cop amb
+  `configuraRecordatoriEsmorzars()`) li envia el correu i marca `avisat`
+  perquè no n'hi arribin dos. Si el dilluns falla, hi torna cada dia fins al
+  dia de la reunió.
+
+  ⚠ El disparador s'executa **sense navegador**: no pot llegir `js/docents.js`.
+  Per això l'app, cada cop que desa, hi deixa també l'**equip amb els correus**
+  dins de la mateixa clau del full compartit.
+
+  ⚠ Això demana **dos permisos nous** a l'`appsscript.json`
+  (`script.send_mail` i `script.scriptapp`) i, per tant, **tornar a autoritzar
+  i desplegar una versió nova**. Els correus són a `DOCENTS` (camp `email`),
+  només per a qui és de coordinació o de direcció; sense correu, l'eina ho diu
+  i no envia res.
+
+- **Registres** (`js/regdocents.js`) — el registre d'aula amb el claustre a
+les files: ítems de casella o de text, per portar el que calgui per mestre.
+Reaprofita el **mateix modal** d'ítem nou (`openNewItemModal('docents')` +
+`newItemCrear()`), i les dades van al full compartit (`loadRegistreDocents` /
+`saveRegistreDocents`, clau `coord_registre_docents`). **Les cel·les es desen
+pel NOM del docent, no pel número de fila**, al contrari del registre d'aula:
+així, el dia que la llista del claustre canviï, el que hi ha apuntat no es
+desplaça a la persona equivocada.
+
+- **Seguiment d'entrevistes** (`js/segentrevistes.js`) — de cada tutor,
+quantes entrevistes ha fet amb les famílies i quan, i quins alumnes no en
+tenen cap. Tot ve d'**una sola crida**
+(`resumEntrevistes` al `Code.gs`): els 18 resums publicats es llegeixen d'una
+sola lectura de `_AppData`, i només les llistes d'alumnes van pestanya a
+pestanya. Fer-ho des del navegador serien 36 crides.
+
+  ⚠ **Què hi arriba i què no.** Cada tutor desa el detall de les entrevistes
+  (inclòs el que ha escrit de com va anar) al SEU full, i això no surt mai
+  d'allà. `_entrPublica_` publica al compartit **només** `quantes`, `ultima`
+  i `dates`. **Les dates s'hi van afegir a la v135**: els resums publicats
+  abans només tenen el compte i l'última, i la pantalla ho diu en comptes
+  d'ensenyar un buit. Es posa al dia sol, perquè `_entrPublica_` recalcula
+  el grup sencer cada cop que el tutor desa qualsevol entrevista.
+
+⚠ **EL QUE VA AL FULL "GRUPS" COMPARTIT EL POT LLEGIR QUALSEVOL MESTRE** que
+obri aquell full de càlcul (és al full ocult `_AppData`, però no és cap
+secret). Hi és perquè cada director té la seva app i el seu full personal, i
+és l'única manera que tots dos hi vegin el mateix (decidit el 3 de setembre
+de 2026). Afecta els esmorzars i el registre de docents. Si algun dia hi ha
+d'anar res delicat, cal un **full de direcció a part**: un `DIREC_ID` nou a
+les Script Properties, compartit només amb ells dos, i canviar
+`getGrupsSpreadsheet` per aquell a les accions de coordinació.
+
+L'apartat es tanca per **dues bandes**: el botó del menú neix amagat a
+l'`index.html` i només `_rolAplicaInterficie()` l'ensenya a direcció, i
+`showPage()` torna a Inici si algú hi arriba per l'adreça (`#docents`) amb un
+altre rol.
+
+**El grup de treball** és `_grupDeTreball()` (a `js/perfil.js`): la tutoria per
+a un tutor, i `_direccioGrup` per a direcció. Tot el que penja del grup hi
+passa —`_loadTutoriaGrup`, `_restoreTutoriaStudents`, `_registreGrup()`,
+`_seientsLS()`— així no hi pot haver mitja pantalla parlant d'un grup i mitja
+d'un altre. **`grupActual()` i `grupTutoria()` no són el mateix:** el primer
+és el grup que es veu, el segon el grup del qual ets tutor (a direcció, cap).
+
+⚠ `js/rol.js` no se sincronitza mai, o sigui que a les apps ja repartides
+aquell fitxer és el vell i `esDireccio()` **no hi existeix**. Per això
+sempre es pregunta amb `typeof esDireccio === 'function' && esDireccio()`
+(embolicat a `_rolDireccio()` i `_perfilSenseTutoria()`).
+
 **El nom de l'assignatura i els desdoblaments:** el full de desdoblaments
 busca `"Anglès"`, no `"angles"` (clau del menú) ni `"Anglès · 3r A"`
 (etiqueta dels selectors). Cada pantalla hi arribava amb una clau diferent i
 el desdoblament no s'aplicava. Ara hi ha `_assigNomNet(clau)` a
 `js/perfil.js` i **tothom hi passa**: `_refreshGrupStudents`,
 `_carregaAlumnesGrupNet` i el «Veure alumnes» de `grupview.js`.
+
+---
+
+## 3ter. LES CONVERSES DE TREBALL (on es fa cada canvi)
+
+En Pol té **quatre converses obertes de Claude Code**, i **totes quatre
+treballen dins la carpeta mare** (`VedrunApp-Tutors`). No n'hi ha cap dins de
+`VedrunApp-Especialistes` ni de `VedrunApp-Direccio`, i no n'hi ha d'haver.
+
+| Conversa | Què hi demana | Com s'escriu el canvi |
+|---|---|---|
+| **VedrunApp · Tutors** | canvis que només veuen els tutors | fora dels interruptors de rol |
+| **VedrunApp · Especialistes** | canvis que només veuen les especialistes | dins d'`esEspecialista()` |
+| **VedrunApp · Direcció** | canvis que només veu l'equip directiu | dins d'`esDireccio()` |
+| **Canvis generals** | el que ha d'arribar a tothom | sense cap interruptor |
+
+**El que decideix a quina app arriba un canvi NO és la carpeta on es treballa:
+és l'interruptor de rol.** Totes les apps porten exactament el mateix codi;
+cadascuna ensenya només la part que li toca segons el seu `js/rol.js`.
+`esEspecialista()` i `esDireccio()` són a `js/rol.js`.
+
+**Però el fitxer viatja sempre a totes.** Les tres apps porten el mateix
+`js/app.js`: l'interruptor decideix **qui ho veu**, no on va el fitxer. Per
+tant **qualsevol canvi a la mare s'ha de sincronitzar**, encara que només el
+vegin els tutors; si no, les altres dues es queden amb codi vell.
+
+`estat-apps.js` **compara els fitxers un per un**, no només el número de
+versió. Per això detecta també els canvis que no la pugen (documentació,
+`Code.gs`): diu «LI FALTEN FITXERS» i quins són. Quan diu «Tot al dia», el
+sync no té res a copiar. Fins al setembre del 2026 només mirava la versió i
+deia «Tot al dia» amb les filles endarrerides.
+
+Per això les converses comparteixen carpeta: la mare és **l'únic lloc des d'on
+un canvi arriba a l'app d'aquell rol**. Un canvi fet dins de
+`VedrunApp-Direccio` el **esborra la següent sincronització**, sense avisar i
+sense deixar rastre (`sync-totes.js` hi reescriu tot el que no és `propi`).
+
+Les dues carpetes de plantilla són **el resultat, no el taller**: es refan
+soles i només serveixen perquè `nova-filla.js` en tregui l'app d'una
+especialista o d'un director concrets.
+
+**L'excepció són les mestres.** El dia que existeixi `VedrunApp-Anna`, aquella
+app sí que té carpeta pròpia i conversa pròpia, perquè hi ha coses que són
+seves i només seves (`js/personal.js`). Ho explica `FILLES.md`, apartat
+"Regla per a les converses per mestra". Però fins i tot allà, **un bug general
+es continua arreglant a la mare** i s'hi propaga amb el sync.
+
+**Compte amb dues converses obertes alhora.** Com que totes treballen a la
+mateixa carpeta, dues que editin a la vegada es poden trepitjar els fitxers i
+barrejar-se els commits. Val més fer-les anar d'una en una, i mirar
+`git status` en començar per veure si algú altre ha deixat res a mig fer.
+
 
 ## 4. REGLES ABSOLUTES (no s'han de trencar mai)
 
@@ -203,13 +397,21 @@ afegir-hi (SENSE esborrar la resta del fitxer):
   "https://www.googleapis.com/auth/spreadsheets",
   "https://www.googleapis.com/auth/script.external_request",
   "https://www.googleapis.com/auth/calendar",
-  "https://www.googleapis.com/auth/tasks"
+  "https://www.googleapis.com/auth/tasks",
+  "https://www.googleapis.com/auth/script.send_mail",
+  "https://www.googleapis.com/auth/script.scriptapp"
 ]
 ```
 
-Aquests 4 són tots els que fa servir el `Code.gs`:
+Aquests 6 són tots els que fa servir el `Code.gs`:
 `SpreadsheetApp` → spreadsheets · `UrlFetchApp` (Gemini) → script.external_request ·
-`CalendarApp` + servei avançat `Calendar` → calendar · servei avançat `Tasks` → tasks.
+`CalendarApp` + servei avançat `Calendar` → calendar · servei avançat `Tasks` → tasks ·
+`MailApp` (el recordatori dels esmorzars) → script.send_mail ·
+`ScriptApp` (el disparador diari d aquell recordatori) → script.scriptapp.
+
+Els **dos últims només els fa servir l app de direcció**, però hi han de ser a
+tothom: el manifest és el mateix per a totes, i si en falta cap l app peta.
+Mentre ningú no executi `configuraRecordatoriEsmorzars()`, no fan res.
 
 ⚠️ Declarar-los a mà **substitueix** la llista que Apps Script dedueix sol: si
 se'n falta cap, l'app peta. Després cal tornar a autoritzar (executant
@@ -231,14 +433,18 @@ Guió complet pas a pas: **`INSTALLACIO.md`** (uns 10 minuts per mestra).
 
 ```bash
 node eines/nova-filla.js "<Mestra>" --especialista   # si és especialista
+node eines/nova-filla.js "<Mestra>" --direccio       # si és de l equip directiu
 node eines/nova-filla.js "<Mestra>"                  # si és tutora
 ```
 
-Una **especialista** surt SEMPRE de `VedrunApp-Especialistes`, no de la mare
-(veure secció 3bis). Mai copiar una carpeta a mà: tindria el rol equivocat.
+Una **especialista** surt SEMPRE de `VedrunApp-Especialistes`, i una de
+**direcció** de `VedrunApp-Direccio`, no de la mare (veure secció 3bis).
+Mai copiar una carpeta a mà: tindria el rol equivocat.
 
 En resum, la resta:
 
+0. (un cop) Deixar un full de PLANTILLA net amb **`buidaLesDades()`**, per
+   copiar-lo a cada mestra.
 1. Full de càlcul nou al seu Drive → **Extensions → Apps Script**.
 2. Enganxar-hi **`Code.gs`** i també **`appsscript.json`**
    (roda dentada → "Mostra el fitxer de manifest"). El manifest ja porta els

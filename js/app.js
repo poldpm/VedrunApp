@@ -52,8 +52,17 @@ let _currentPage = 'home';
 // plànol de la teva classe). A l'app dels especialistes no hi surten.
 const PAGINES_NOMES_TUTOR = ['alumnes', 'seients'];
 
+// Pàgines que només són a l'app de direcció: el claustre de primària (qui
+// tutoritza cada grup, qui coordina cada cicle). Als altres dos rols ni el
+// botó del menú hi surt, però es tanca també aquí per si algú hi arriba per
+// l'adreça (#docents) o pel botó d'enrere.
+const PAGINES_NOMES_DIRECCIO = ['docents'];
+
 function showPage(pageId, _fromPop) {
   if (typeof esEspecialista === 'function' && esEspecialista() && PAGINES_NOMES_TUTOR.indexOf(pageId) !== -1) {
+    pageId = 'home';
+  }
+  if (!_rolDireccio() && PAGINES_NOMES_DIRECCIO.indexOf(pageId) !== -1) {
     pageId = 'home';
   }
   document.querySelectorAll('.page-content').forEach(p => p.classList.add('page-hidden'));
@@ -84,9 +93,14 @@ function showPage(pageId, _fromPop) {
   // s'ha de tornar a posar la llista de la tutoria abans de pintar-les.
   // (A l'app dels especialistes això no fa res: no hi ha tutoria, i el grup
   // el tria ella amb el selector de dalt.)
-  if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); renderAlumnesList(); }
-  if (pageId === 'registres')    { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('registres'); renderRegistre(); }
-  if (pageId === 'observacions') { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('observacions'); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
+  if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); if (typeof _dirRenderGrupPicker === 'function') _dirRenderGrupPicker(); renderAlumnesList();
+    // A qui li falta l'entrevista: es carrega i es repinta quan arriba
+    if (typeof carregaEntrevistes === 'function') {
+      carregaEntrevistes().then(() => { _entrPintaComptador(); renderAlumnesList(); }).catch(() => {});
+      _entrPintaComptador();
+    } }
+  if (pageId === 'registres')    { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('registres'); _dirAvisRegistres(); renderRegistre(); }
+  if (pageId === 'observacions') { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('observacions'); _dirAvisObservacions(); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
   if (pageId === 'home')         renderHome();
   if (pageId === 'planning')     renderPlanning();
   if (pageId === 'assoliments')  { _initAssolimentsPage(); }
@@ -99,6 +113,7 @@ function showPage(pageId, _fromPop) {
   if (pageId === 'calendari')    { renderCalendari(); }
   if (pageId === 'tasques')      renderTasques();
   if (pageId === 'horari')       { if (typeof initHorari === 'function') initHorari(); }
+  if (pageId === 'docents')      { if (typeof initDocents === 'function') initDocents(); }
 }
 
 function showFitxa(studentId, _fromPop) {
@@ -146,6 +161,11 @@ function _onPopState(e) {
   const desti = st.page || 'home';
   if (desti === 'fitxa' && st.studentId != null) {
     showFitxa(st.studentId, true);
+  } else if (desti === 'docents') {
+    // Docents té eines a dins (llistat, coordinació): l'enrere ha de tornar
+    // a la portada de l'apartat, no fer-ne fora d'una revolada.
+    showPage('docents', true);
+    if (typeof docentsVista === 'function') docentsVista(st.vista || 'hub', true);
   } else if (desti === 'home') {
     // Ja tornem a home (o hi som): mostra home sense afegir historial
     showPage('home', true);
@@ -337,7 +357,7 @@ function _piamAssigsDelCurs() {
     if (g) grup = g;
   }
   if (grup) {
-    const curs = grup.split(' ')[0]; // "2n C" → "2n"
+    const curs = grup.split(' ')[0]; // "4t B" → "4t"
     if (typeof PERFIL_ASSIGS_PER_CURS !== 'undefined' && PERFIL_ASSIGS_PER_CURS[curs]) {
       return PERFIL_ASSIGS_PER_CURS[curs];
     }
@@ -671,7 +691,32 @@ async function _autoSetupInicial(forcar) {
     // Silenciós: si falla, es pot reintentar; no bloqueja l'app
   }
 }
-function openNewItemModal() { document.getElementById('newItemName').value = ''; selectTypeByValue('checkbox'); document.getElementById('newItemOverlay').classList.add('open'); setTimeout(() => document.getElementById('newItemName').focus(), 100); }
+/* El mateix modal serveix per als dos registres: el d'aula (files = alumnes)
+   i el de docents de l'app de direcció (files = mestres). Nomes canvia on va
+   a parar l'item i els textos que parlen d'alumnes. */
+let _newItemDesti = 'aula';
+
+function openNewItemModal(desti) {
+  _newItemDesti = (desti === 'docents') ? 'docents' : 'aula';
+  const doc = _newItemDesti === 'docents';
+  const sub = document.getElementById('newItemSub');
+  if (sub) sub.textContent = doc
+    ? 'Es crearà una nova columna al registre de docents'
+    : 'Es crearà una nova columna al full «Registres d\'aula»';
+  const perA = doc ? 'per cada docent' : 'per cada alumne';
+  const cb = document.getElementById('newItemSubCasella');
+  if (cb) cb.textContent = 'Sí / No ' + perA;
+  document.getElementById('newItemName').value = '';
+  selectTypeByValue('checkbox');
+  document.getElementById('newItemOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('newItemName').focus(), 100);
+}
+
+// El botó "Crear ítem" del modal: cadascú al seu registre.
+function newItemCrear() {
+  if (_newItemDesti === 'docents' && typeof regdocAfegeixItem === 'function') return regdocAfegeixItem();
+  return addRegistreItem();
+}
 function closeNewItemModal() { document.getElementById('newItemOverlay').classList.remove('open'); }
 
 /* ============================================================
@@ -861,6 +906,10 @@ async function loadAll() {
     document.getElementById('setupBanner').style.display = 'none';
     _paintAllViews();
 
+    // A l'app de direcció el bootstrap no porta cap grup (no en tenen de
+    // tutoria): es torna a obrir el que miraven l'últim cop.
+    if (_rolDireccio() && _dirGrup()) _dirCarregaGrup(_dirGrup());
+
     // === CÀRREGUES EN SEGON PLA (no bloquegen; el botó ja és verd) ===
     loadGoogleTasksSilent();
 
@@ -1005,6 +1054,13 @@ function _motiuSenseAlumnes() {
     return { titol: 'Tria un grup',
              text: 'Al selector de dalt tria de quin dels teus grups vols veure els alumnes. Si no n\'hi surt cap, digues a <strong>El meu perfil</strong> a quins grups fas classe.' };
   }
+  if (_rolDireccio()) {
+    return _dirGrup()
+      ? { titol: _dirGrup() + ' encara no té cap alumne',
+          text: 'Aquest grup no té ningú al full compartit de l\'escola. Quan hi siguin, sortiran aquí sols.' }
+      : { titol: 'Tria un grup',
+          text: 'A dalt, tria el curs i la línia del grup que vols mirar. Pots entrar a qualsevol grup de primària.' };
+  }
   const teTutoria = (typeof grupActual === 'function') && grupActual();
   if (!teTutoria) {
     return { titol: 'No ets tutor/a de cap grup',
@@ -1048,6 +1104,9 @@ function renderAlumnesList() {
         ${hasPI ? '<span class="alumne-badge-pi" title="Pla Individualitzat: ' + escapeHtml(pd.pi.replace(/\|/g,', ')) + '">PI</span>' : ''}
         ${hasAM ? '<span class="alumne-badge-am" title="Adaptació Metodològica: ' + escapeHtml(pd.am.replace(/\|/g,', ')) + '">AM</span>' : ''}
         ${hasAlert ? '<span class="alumne-card-alert" title="' + escapeHtml(alertTip) + '">⚠</span>' : ''}
+        ${(typeof entrevistesFetes === 'function' && typeof grupActual === 'function' && grupActual()
+            && !entrevistesFetes(s.id))
+            ? '<span class="alumne-badge-entr" title="Encara no hi ha cap entrevista amb aquesta família">Sense entrevista</span>' : ''}
       </div>
       <div class="alumne-card-top" title="Obrir fitxa">
         <div class="student-avatar alumne-card-avatar">${getInitials(s.nom)}</div>
@@ -1125,8 +1184,8 @@ async function renderFitxa(studentId) {
   const s  = students.find(x => x.id === studentId);
   if (!s) return;
 
-  // El grup de la fitxa: abans l'HTML deia "2n C · Primària" fix, o sigui que
-  // una tutora de 4t B veia "2n C" a la fitxa de cada alumne seu.
+  // El grup de la fitxa: abans l'HTML portava un grup escrit a pèl, o sigui
+  // que a la fitxa de cada alumne hi sortia un grup que no era el seu.
   const _fm = document.getElementById('fitxaMeta');
   if (_fm) { const g = grupActual(); _fm.textContent = g ? g + ' · Primària' : 'Primària'; }
 
@@ -1214,6 +1273,19 @@ async function renderFitxa(studentId) {
   const notesBody = document.getElementById('fitxaNotes');
   loadFitxaNotes(studentId, notesBody);
   loadFitxaAssoliments(studentId, document.getElementById('fitxaAssoliments'));
+
+  // Entrevistes amb la família. Es carreguen un cop per grup i es queden
+  // en memòria, així passar de fitxa en fitxa no demana res al servidor.
+  if (typeof carregaEntrevistes === 'function') {
+    carregaEntrevistes().then(() => {
+      // Si mentrestant ha canviat d'alumne, no li pintem les d'un altre.
+      const c = document.getElementById('fitxaEntrevistes');
+      if (c && String(c.getAttribute('data-alumne')) === String(studentId)) pintaEntrevistes(studentId);
+    }).catch(() => {});
+    const c0 = document.getElementById('fitxaEntrevistes');
+    if (c0) c0.setAttribute('data-alumne', String(studentId));
+    pintaEntrevistes(studentId);
+  }
   _updateFitxaNav();
 }
 
@@ -1260,7 +1332,7 @@ async function loadFitxaNotes(studentId, container) {
 
   // Usa el resum cachejat (1 sola crida per tota la classe, no per alumne). El
   // resum es demana pel grup de tutoria: així llegeix les pestanyes reals
-  // per-grup ("1T_Matemàtiques_2n C") i cobreix qualsevol assignatura del perfil.
+  // per-grup ("1T_Matemàtiques_4t B") i cobreix qualsevol assignatura del perfil.
   let resum, mats;
   if (_notesResumCache && Date.now() - _notesResumTs < 120000) {
     resum = _notesResumCache; mats = _notesResumMats;
@@ -1358,7 +1430,29 @@ async function loadFitxaNotes(studentId, container) {
             ${TRIMS.map(t => `<td>${Q(resultat[k][t]?.arrod ?? null)}</td>`).join('')}
           </tr>`).join('')}
       </tbody>
-    </table>`;
+    </table>
+    <div id="fitxaNotesAltres" data-alumne="${studentId}"></div>`;
+
+  /* Privilegi del tutor: les assignatures que li fan ALTRES mestres.
+     Cada mestra decideix si comparteix les seves notes; si no, aquí hi
+     surt "Notes no compartides". Va a part i en segon pla, perquè les
+     seves notes no s'endarrereixin esperant el full compartit. */
+  if (tutorGrup && typeof carregaNotesCompartides === 'function') {
+    const _rowId = (personal[studentId] && personal[studentId].rowId) || null;
+    if (_rowId) {
+      carregaNotesCompartides(tutorGrup).then(assigs => {
+        const cont = document.getElementById('fitxaNotesAltres');
+        if (!cont) return;   // ha canviat de pantalla mentrestant
+        // ⚠ CARRERA: passant fitxes de pressa, la resposta d'un alumne pot
+        // arribar quan ja se n'està mirant un altre. Sense aquesta
+        // comprovació li pintaríem les notes del primer: notes d'un altre
+        // nen a la seva fitxa. El contenidor porta de qui és.
+        if (String(cont.getAttribute('data-alumne')) !== String(studentId)) return;
+        try { cont.innerHTML = pintaNotesAltresMestres(assigs, _rowId, MATS_SHOW); }
+        catch (e) { /* que no peti la fitxa per això */ }
+      }).catch(() => {});
+    }
+  }
 }
 
 function loadFitxaAssoliments(studentId, container) {
@@ -1749,6 +1843,11 @@ async function syncRegistre(){
     await _rolCarregaGrupTreball(_entradaTreball, 'registres');
     return;
   }
+  // A direcció, el registre és el del grup triat: recarrega'l sencer.
+  if (_rolDireccio()) {
+    if (_dirGrup()) await _dirCarregaGrup(_dirGrup());
+    return;
+  }
   await loadAll(); renderRegistre();
 }
 
@@ -1791,17 +1890,29 @@ function setEmptyState(msg) {
   em.style.display='block';
   document.getElementById('studentList').querySelectorAll('.student-item').forEach(el=>el.remove());
 }
-/* El grup de qui fa servir l'app ARA. Abans hi havia "2n C" escrit a pèl a
-   quatre llocs: era el grup d'en Pol i el veia tothom, tant si era el seu com
-   si no. Torna null si encara no se sap (mestra nova) o si no té tutoria
-   (especialista): en aquest cas val més no dir cap grup que dir-ne un de fals. */
+/* El grup de qui fa servir l'app ARA. Abans hi havia un grup escrit a pèl a
+   quatre llocs, i el veia tothom tant si era el seu com si no. Torna null si
+   encara no se sap (mestra nova) o si no té tutoria (especialista): en aquest
+   cas val més no dir cap grup que dir-ne un de fals. */
 function grupActual() {
   if (typeof _tutoriaGrup !== 'undefined' && _tutoriaGrup) return _tutoriaGrup;
   if (typeof _perfilTutorGrupKey === 'function') { const g = _perfilTutorGrupKey(); if (g) return g; }
   return null;
 }
-// " · 2n C" quan se sap el grup, i res quan no.
+// " · 4t B" quan se sap el grup, i res quan no.
 function _sufixGrup() { const g = grupActual(); return g ? ' · ' + g : ''; }
+
+/* El grup del qual ETS tutor/a, o null si no en tens (especialistes i
+   direcció). NO és el mateix que `grupActual()`: a l'app de direcció, el grup
+   que es veu a la pantalla és el que han triat ells, i no en són tutors.
+   Confondre-ho amagava la casella de compartir notes amb el tutor, justament
+   a qui més falta li fa que hi arribin. */
+function grupTutoria() {
+  if (_rolDireccio()) return null;
+  if (typeof _perfilTutorGrupKey === 'function') { const g = _perfilTutorGrupKey(); if (g) return g; }
+  if (typeof _tutoriaGrup !== 'undefined' && _tutoriaGrup) return _tutoriaGrup;
+  return null;
+}
 
 function updateHomeCounters() {
   // Comptador a la pàgina d'alumnes
@@ -1845,8 +1956,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Mostra el nom del perfil al menú des del cache local (immediat)
   try {
     const pc = localStorage.getItem('vedruna_perfil');
-    if (pc) { _perfil = JSON.parse(pc); if (typeof _perfilUpdateNav === 'function') _perfilUpdateNav(); if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors(); }
+    if (pc) { _perfil = JSON.parse(pc); if (typeof _perfilUpdateNav === 'function') _perfilUpdateNav(); }
   } catch(e) {}
+  // Sempre, també amb el perfil BUIT (mestra nova): si no, l'apartat
+  // "Assignatures" del menú es quedava mut, sense ni dir què s'hi ha de fer.
+  try { if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors(); } catch(e) {}
   document.getElementById('newStudentName').addEventListener('keydown',e=>{if(e.key==='Enter') addStudent();});
   document.getElementById('newItemName').addEventListener('keydown',   e=>{if(e.key==='Enter') addRegistreItem();});
   document.getElementById('obsText').addEventListener('keydown',       e=>{if(e.key==='Enter'&&e.ctrlKey) saveObservacio();});
@@ -1873,10 +1987,28 @@ document.addEventListener('DOMContentLoaded', () => {
 let _entradaTreball = null;
 let _clauRegistre = null;
 
+/* True si aquesta còpia de l'app és la de direcció.
+
+   ⚠ Es pregunta amb `typeof` perquè `js/rol.js` no se sincronitza mai: a les
+   apps que ja estan repartides aquell fitxer és el vell i `esDireccio` no hi
+   és. Sense la comprovació, l'app d'una mestra petaria al primer clic. */
+function _rolDireccio() {
+  return (typeof esDireccio === 'function') && esDireccio();
+}
+
 function _rolAplicaInterficie() {
   const esp = (typeof esEspecialista === 'function') && esEspecialista();
   const titol = document.getElementById('sidebarBrandTitle');
   if (titol && typeof rolSubtitol === 'function') titol.textContent = rolSubtitol();
+  if (_rolDireccio()) {
+    // Direcció ho veu tot, com un tutor. L'única diferència és que el grup
+    // no és fix: el trien a Alumnes i els segueix per tota l'app. I hi tenen
+    // un apartat més, el claustre de primària.
+    const nd = document.getElementById('navDocents');
+    if (nd) nd.style.display = '';
+    _dirAplicaTextos();
+    return;
+  }
   if (!esp) return;
   ['navAlumnes', 'navSeients', 'homeAccioAlumnes'].forEach(id => {
     const el = document.getElementById(id);
@@ -2009,10 +2141,204 @@ function canviaGrupRegistre(clau) {
   _rolCarregaGrupTreball(clau, 'registres');
 }
 
-// Què s'envia al backend als registres d'aula. A l'app dels tutors, res: es
-// manté la pestanya "Registres d'aula" de sempre.
+/* Què s'envia al backend als registres d'aula.
+   · Tutors: res. Es manté la pestanya "Registres d'aula" de sempre.
+   · Especialistes: l'assignatura i el grup ("3r A · Anglès").
+   · Direcció: el grup triat ("4t B"). Cada grup té la seva pestanya, o les
+     creus d'un grup acabarien a les files d'un altre. */
 function _registreGrup() {
-  return (typeof esEspecialista === 'function' && esEspecialista()) ? (_clauRegistre || '') : '';
+  if (typeof esEspecialista === 'function' && esEspecialista()) return _clauRegistre || '';
+  if (_rolDireccio()) return (typeof _direccioGrup !== 'undefined' && _direccioGrup) ? _direccioGrup : '';
+  return '';
+}
+
+/* ============================================================
+   DIRECCIÓ — el grup de treball
+   ------------------------------------------------------------
+   Direcció té els mateixos permisos que un tutor, però no ho és de
+   cap grup: a Alumnes hi trien de quin dels 18 grups de primària
+   volen veure (i modificar) les fitxes. El grup que trien els
+   segueix per tota l'app: observacions, registres d'aula i
+   distribució de l'aula.
+
+   Per què serveix: si el tutor d'un grup no fa servir l'app, aquell
+   grup es queda sense correus, PI, AM ni observacions. Des d'aquí
+   els hi poden posar ells, i veure què hi va escrivint la resta.
+   ============================================================ */
+
+let _dirCursObert = null;   // curs desplegat al selector (pot no ser el carregat)
+let _dirCarregaId  = 0;     // per no deixar que una resposta lenta pinti un grup vell
+
+// Textos que donen per fet que tens tutoria i a direcció no encaixen.
+function _dirAplicaTextos() {
+  const d = document.getElementById('alumnesHeroDesc');
+  if (d) d.textContent = 'Tria un grup i tindràs la fitxa de cada alumne: dades de la família, PI, AM i observacions. Les pots modificar, com ho faria el seu tutor.';
+  _dirRenderGrupPicker();
+}
+
+// El grup triat, o null si encara no n'hi ha cap.
+function _dirGrup() {
+  return (typeof _direccioGrup !== 'undefined' && _direccioGrup) ? _direccioGrup : null;
+}
+
+/* Un avís d'una línia que diu de quin grup és el que hi ha a la pantalla.
+   Als tutors no hi surt: només en tenen un i ja ho saben. A direcció n'hi ha
+   18, i sense dir-ho no hi ha manera de saber a qui estàs posant les creus. */
+function _dirAvisGrup(idElement, amb, sense) {
+  const el = document.getElementById(idElement);
+  if (!el) return;
+  if (!_rolDireccio()) { el.style.display = 'none'; return; }
+  const g = _dirGrup();
+  el.style.display = '';
+  el.className = 'dir-avis-grup' + (g ? '' : ' is-buit');
+  el.textContent = g ? amb.replace('{grup}', g) : sense;
+}
+
+function _dirAvisRegistres() {
+  _dirAvisGrup('regGrupAvis',
+    'Aquest és el registre de {grup}. Cada grup té el seu.',
+    'Primer tria un grup a Alumnes: el registre i els alumnes són els d\'aquell grup.');
+}
+function _dirAvisObservacions() {
+  _dirAvisGrup('obsGrupAvis',
+    'Observacions de {grup}. Les veu tot el claustre.',
+    'Primer tria un grup a Alumnes: hi veuràs els seus alumnes i les seves observacions.');
+}
+
+function _dirEstat(text, tipus) {
+  const el = document.getElementById('dirGrupEstat');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'dir-grup-estat' + (tipus ? ' is-' + tipus : '');
+}
+
+// Pinta el selector: una fila de cursos i, del curs obert, les tres línies.
+function _dirRenderGrupPicker() {
+  if (!_rolDireccio()) return;
+  const box = document.getElementById('dirGrupPicker');
+  const files = document.getElementById('dirGrupFiles');
+  if (!box || !files) return;
+  box.style.display = '';
+
+  const grup = _dirGrup();
+  if (!_dirCursObert) _dirCursObert = grup ? grup.split(' ')[0] : null;
+
+  const cursos = (typeof PERFIL_CURSOS !== 'undefined') ? PERFIL_CURSOS : ['1r','2n','3r','4t','5è','6è'];
+  const linies = (typeof PERFIL_LINIES !== 'undefined') ? PERFIL_LINIES : ['A','B','C'];
+
+  const cursosHtml = cursos.map(c =>
+    `<button type="button" class="dir-grup-btn${_dirCursObert === c ? ' active' : ''}" aria-pressed="${_dirCursObert === c}" onclick="dirObreCurs('${c}')">${escapeHtml(c)}</button>`
+  ).join('');
+
+  let liniesHtml = '';
+  if (_dirCursObert) {
+    liniesHtml = `<div class="dir-grup-linies" role="group" aria-labelledby="dirGrupLinLabel">
+      <span class="dir-grup-lin-label" id="dirGrupLinLabel">Línia:</span>
+      ${linies.map(l => {
+        const g = _dirCursObert + ' ' + l;
+        return `<button type="button" class="dir-linia-btn${grup === g ? ' active' : ''}" aria-pressed="${grup === g}" onclick="dirTriaGrup('${g}')">${escapeHtml(g)}</button>`;
+      }).join('')}
+    </div>`;
+  }
+  files.innerHTML = `<div class="dir-grup-cursos" role="group" aria-label="Curs">${cursosHtml}</div>${liniesHtml}`;
+  const estat = document.getElementById('dirGrupEstat');
+  if (!grup) _dirEstat('Tria un curs i una línia per començar.');
+  else if (estat && !estat.textContent.trim()) {
+    _dirEstat(students.length
+      ? (grup + ' · ' + students.length + ' alumne' + (students.length !== 1 ? 's' : ''))
+      : (grup + ' · carregant…'));
+  }
+}
+
+function dirObreCurs(curs) {
+  _dirCursObert = curs;
+  _dirRenderGrupPicker();
+}
+
+function dirTriaGrup(grup) {
+  if (!grup) return;
+  _dirCarregaGrup(grup);
+}
+
+/* Carrega TOT el que depèn del grup: alumnes, observacions compartides,
+   registre d'aula i distribució de l'aula. Es fa en un sol lloc perquè no hi
+   pugui haver mai mitja pantalla parlant d'un grup i mitja d'un altre. */
+async function _dirCarregaGrup(grup) {
+  if (!grup || !_rolDireccio()) return;
+  const meu = ++_dirCarregaId;
+
+  _direccioGrup = grup;
+  try { localStorage.setItem('direccio_grup', grup); } catch(e) {}
+  _tutoriaGrup = grup;
+  _dirCursObert = grup.split(' ')[0];
+  _dirRenderGrupPicker();
+
+  if (!config.scriptUrl) {
+    _dirEstat('Encara no estàs connectat: ves a Configuració i enganxa la URL.', 'error');
+    return;
+  }
+  _dirEstat('Carregant ' + grup + '…');
+
+  // 1) Alumnes del full "Grups" compartit
+  let alumnes = [];
+  try {
+    const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
+    if (r && r.ok) alumnes = r.alumnes || [];
+    else throw new Error((r && r.error) || 'resposta buida');
+  } catch (e) {
+    if (meu !== _dirCarregaId) return;
+    _dirEstat('No s\'han pogut carregar els alumnes de ' + grup + ': ' + e.message +
+              '. Torna a clicar el grup; si continua, mira la connexió a Configuració.', 'error');
+    return;
+  }
+  if (meu !== _dirCarregaId) return;   // ja n'han triat un altre
+
+  /* Buida SEMPRE el grup anterior, també quan el nou no té ningú al full.
+     Si no, canviaves de grup, el nou sortia buit i a la pantalla hi quedaven
+     els alumnes de l'altre: hi hauries pogut escriure dades a qui no toca. */
+  _tutoriaAlumnes = [];
+  students = []; personal = {}; observacions = {};
+  if (alumnes.length) {
+    if (typeof _aplicaTutoriaAlumnes === 'function') _aplicaTutoriaAlumnes(alumnes);
+    try { localStorage.setItem('tutoriacache_' + grup, JSON.stringify({ alumnes: alumnes, ts: Date.now() })); } catch(e) {}
+  } else {
+    _grupStudentsCarregat = grup + '|';
+  }
+
+  // 2) Observacions compartides del grup (les que hi va escrivint tothom)
+  try {
+    const ro = await appsScriptGet({ action: 'getGrupObs', grup: grup });
+    if (meu !== _dirCarregaId) return;
+    if (ro && ro.ok && ro.obs) {
+      const rowIdToId = {};
+      students.forEach(st => {
+        const rid = personal[st.id] && personal[st.id].rowId;
+        if (rid !== undefined) rowIdToId[String(rid)] = st.id;
+      });
+      Object.keys(ro.obs).forEach(rowId => {
+        const id = rowIdToId[String(rowId)];
+        if (id !== undefined) observacions[id] = ro.obs[rowId];
+      });
+    }
+  } catch(e) { /* silenciós: les fitxes ja hi són */ }
+
+  // 3) Registre d'aula d'aquest grup (pestanya pròpia, "Registres 4t B")
+  try {
+    const rr = await appsScriptGet({ action: 'getRegistre', grup: grup });
+    if (meu !== _dirCarregaId) return;
+    registreItems = (rr && rr.ok && rr.items) ? rr.items : [];
+    registreData  = (rr && rr.ok && rr.data)  ? rr.data  : {};
+  } catch(e) { registreItems = []; registreData = {}; }
+
+  if (meu !== _dirCarregaId) return;
+  _clauRegistre = grup;
+  if (typeof _seientsCanviaGrup === 'function') _seientsCanviaGrup(grup);
+  _dirAvisRegistres(); _dirAvisObservacions();
+  if (typeof _saveMainToCache === 'function') _saveMainToCache();
+  if (typeof _paintAllViews === 'function') _paintAllViews();
+  _dirEstat(alumnes.length
+    ? (grup + ' · ' + alumnes.length + ' alumne' + (alumnes.length !== 1 ? 's' : ''))
+    : (grup + ' encara no té cap alumne al full compartit.'), alumnes.length ? 'ok' : 'avis');
 }
 
 /* ============================================================
@@ -2647,8 +2973,8 @@ const MESOS_CA = ['Gener','Febrer','Març','Abril','Maig','Juny',
   'Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
 
 /* Categories per defecte (només per a qui encara no en té cap).
-   Abans eren "2nA", "2nB" i "2nC": els grups d'en Pol. Una mestra de 5è
-   obria el calendari i es trobava tres categories de segon. Ara són
+   Abans eren tres línies d'un curs concret, i una mestra d'un altre curs
+   obria el calendari i es trobava categories que no eren seves. Ara són
    neutres i les pot reanomenar des de ⚙ Categories.
    Cap id pot ser una de les que el calendari escolar es reserva
    ('festiu','vacances','local','lliure','escola'): les esborraria. */
@@ -4683,7 +5009,10 @@ function _applyBootstrap(boot) {
       _aplicaTutoriaAlumnes(boot.grupAlumnes);
       try { localStorage.setItem('tutoriacache_' + boot.tutorGrup, JSON.stringify({ alumnes: boot.grupAlumnes, ts: Date.now() })); } catch(e) {}
     }
-  } else if (boot.alumnes && boot.alumnes.length && !editant && !boot.tutorGrup) {
+  } else if (boot.alumnes && boot.alumnes.length && !editant && !boot.tutorGrup && !_rolDireccio()) {
+    // (a direcció, els alumnes són sempre els del grup triat, mai els del
+    //  full personal: si no, en arrencar hi sortiria una llista que no és
+    //  de cap grup i s'hi podrien escriure dades a qui no toca)
     students = boot.alumnes;
     if (boot.personal) {
       personal = {};
@@ -4904,107 +5233,14 @@ function _rescheduleIfNeeded() {
    GENERADOR DE COMENTARIS
    Rubriques per assignatura (format: { nom, nivells:[MBA,ASS,AAJ,NA] })
    ============================================================ */
-const RUBRIQUES = {
-  matematiques: {
-    nom: 'Matemàtiques',
-    objectius: [
-      {
-        nom: 'Sumes amb i sense portar-ne (1–1000)',
-        nivells: [
-          'Resol sumes amb i sense portar-ne amb nombres fins al 1000 amb seguretat, autonomia i precisió, aplicant correctament el procediment i revisant el resultat quan cal.',
-          'Resol correctament sumes amb i sense portar-ne amb nombres fins al 1000, mostrant una bona comprensió del procediment treballat.',
-          'Resol sumes amb i sense portar-ne amb nombres fins al 1000, tot i que en alguns moments necessita suport per ordenar bé els nombres, aplicar el procediment o revisar el resultat.',
-          'Encara li costa resoldre sumes amb i sense portar-ne amb nombres fins al 1000, i necessita continuar treballant el procediment amb suport i pràctica guiada.',
-        ]
-      },
-      {
-        nom: 'Restes sense portar-ne (1–1000)',
-        nivells: [
-          'Resol restes sense portar-ne amb nombres fins al 1000 amb molta seguretat, autonomia i precisió, col·locant correctament els nombres i aplicant el procediment de manera adequada.',
-          'Resol correctament restes sense portar-ne amb nombres fins al 1000 i mostra una bona comprensió del procediment treballat.',
-          'Resol restes sense portar-ne amb nombres fins al 1000, però en alguns casos necessita ajuda per col·locar bé els nombres, seguir l\'ordre del procediment o revisar el resultat.',
-          'Encara presenta dificultats per resoldre restes sense portar-ne amb nombres fins al 1000 i necessita reforçar aquest contingut amb activitats guiades.',
-        ]
-      },
-      {
-        nom: 'Resta portant-ne',
-        nivells: [
-          'Ha començat a entendre molt bé el funcionament de la resta portant-ne i és capaç de calcular-ne amb seguretat, aplicant el procediment de manera cada vegada més autònoma.',
-          'Ha començat a entendre el funcionament de la resta portant-ne i resol aquest tipus de restes de manera adequada en les situacions treballades a l\'aula.',
-          'Ha iniciat la comprensió de la resta portant-ne, però encara necessita suport per aplicar correctament els passos i entendre el canvi entre unitats, desenes o centenes.',
-          'Encara li costa entendre i aplicar el procediment de la resta portant-ne, i necessita continuar treballant aquest contingut de manera manipulativa, visual i guiada.',
-        ]
-      },
-      {
-        nom: 'Descomposició per sumar i restar',
-        nivells: [
-          'Utilitza l\'estratègia de la descomposició per sumar i restar nombres amb molta seguretat, entenent el valor de cada xifra i aplicant-la de manera autònoma.',
-          'Utilitza l\'estratègia de la descomposició per sumar i restar nombres de manera adequada, mostrant una bona comprensió del valor posicional.',
-          'Comença a utilitzar l\'estratègia de la descomposició per sumar i restar nombres, tot i que encara necessita suport per separar correctament centenes, desenes i unitats.',
-          'Encara li costa utilitzar la descomposició com a estratègia de càlcul i necessita reforçar la comprensió del valor de les xifres dins del nombre.',
-        ]
-      },
-      {
-        nom: 'Resolució de problemes',
-        nivells: [
-          'Participa activament en la resolució de problemes, comprèn bé les situacions plantejades, tria estratègies adequades i explica el seu raonament amb claredat.',
-          'Resol problemes adequats al nivell treballat, identificant les dades importants i aplicant estratègies matemàtiques de manera correcta.',
-          'Comença a resoldre problemes matemàtics, però sovint necessita ajuda per comprendre l\'enunciat, identificar les dades importants o escollir l\'operació adequada.',
-          'Encara presenta dificultats en la resolució de problemes i necessita suport per comprendre els enunciats, organitzar la informació i decidir quina estratègia utilitzar.',
-        ]
-      },
-      {
-        nom: 'Dobles dels nombres (1–100)',
-        nivells: [
-          'Té molt ben automatitzats els dobles dels nombres treballats fins al 100 i els utilitza amb rapidesa i seguretat en situacions de càlcul.',
-          'Coneix i calcula correctament els dobles dels nombres treballats fins al 100, mostrant una bona evolució en l\'agilitat del càlcul mental.',
-          'Calcula alguns dobles dels nombres treballats fins al 100, però encara necessita temps, suport o estratègies de referència per arribar al resultat.',
-          'Encara no té automatitzats els dobles dels nombres treballats fins al 100 i necessita continuar practicant-los per guanyar seguretat i rapidesa.',
-        ]
-      },
-      {
-        nom: 'Meitats dels nombres parells (1–100)',
-        nivells: [
-          'Té molt ben automatitzades les meitats dels nombres parells treballats fins al 100 i les calcula amb rapidesa, seguretat i autonomia.',
-          'Calcula correctament les meitats dels nombres parells treballats fins al 100 i mostra una bona comprensió de la relació entre doble i meitat.',
-          'Calcula algunes meitats dels nombres parells treballats fins al 100, però encara necessita suport, temps o material de referència per assegurar el resultat.',
-          'Encara li costa calcular les meitats dels nombres parells treballats fins al 100 i necessita reforçar la relació entre doble i meitat.',
-        ]
-      },
-      {
-        nom: 'Càlcul per deducció de fets',
-        nivells: [
-          'Utilitza estratègies de deducció per calcular amb molta seguretat, relacionant fets coneguts i aplicant-los de manera flexible en nous càlculs.',
-          'Comença a utilitzar fets coneguts per deduir nous resultats i mostra una bona evolució en l\'ús d\'estratègies de càlcul mental.',
-          'Comença a establir relacions entre càlculs coneguts i nous resultats, però encara necessita suport per aplicar aquestes deduccions de manera autònoma.',
-          'Encara li costa utilitzar fets coneguts per deduir nous càlculs i necessita continuar treballant estratègies de càlcul mental de manera guiada.',
-        ]
-      },
-      {
-        nom: 'Representació i descomposició de nombres (1–1000)',
-        nivells: [
-          'Representa nombres fins al 1000 amb molta seguretat i els descompon correctament en centenes, desenes i unitats, demostrant una molt bona comprensió del sistema decimal.',
-          'Representa nombres fins al 1000 i els descompon correctament en centenes, desenes i unitats en les activitats treballades a l\'aula.',
-          'Representa i descompon nombres fins al 1000, però encara necessita suport per identificar correctament el valor de les centenes, desenes i unitats.',
-          'Encara presenta dificultats per representar i descompondre nombres fins al 1000, i necessita reforçar la comprensió de les centenes, desenes i unitats.',
-        ]
-      },
-      {
-        nom: 'Identificar nombres per propietats (1–100)',
-        nivells: [
-          'Identifica nombres entre 1 i 100 a partir de les seves propietats amb molta seguretat, utilitzant pistes i raonaments matemàtics de manera autònoma.',
-          'Identifica nombres entre 1 i 100 a partir de les seves propietats i mostra una bona capacitat per interpretar pistes matemàtiques.',
-          'Comença a identificar nombres entre 1 i 100 a partir de les seves propietats, però necessita ajuda per interpretar algunes pistes o comprovar el resultat.',
-          'Encara li costa identificar nombres entre 1 i 100 a partir de les seves propietats i necessita suport per relacionar les pistes amb el nombre corresponent.',
-        ]
-      },
-    ]
-  },
-  catala:       { nom: 'Català',    objectius: [] },
-  medi:         { nom: 'Medi Natural', objectius: [] },
-  musica:       { nom: 'Música',    objectius: [] },
-  angles:       { nom: 'Anglès',    objectius: [] },
-};
+/* Els objectius d'avaluació de cada assignatura.
+   BUIT a posta: aquesta és la plantilla mare. Cada mestra es fa els seus
+   des del generador de comentaris → "Editar objectius" (o els importa d'un
+   document), i es desen al SEU full. Quan l'app els carrega, rubriques.js
+   els posa aquí dins amb la mateixa forma { nom, objectius: [...] }.
+   Mentre una assignatura no en tingui, el generador ho diu clarament en
+   comptes d'inventar-se res. */
+const RUBRIQUES = {};
 
 const NIVELL_INFO = [
   { key: 'mba',  label: 'Molt ben assolit', short: 'MBA',  cls: 'badge-mba'  },

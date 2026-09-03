@@ -12,6 +12,51 @@ let _seientsOrient = 'h';     // orientació de la nova fila
 let _seientsDragData = null;  // drag d'alumnes
 let _seientsGroupDrag = null; // drag de grups (moure per canvas)
 
+/* DE QUIN GRUP ÉS EL PLÀNOL.
+
+   Un tutor només en té un, el de la seva classe, i es desa tal com sempre
+   (claus `seients_layout`, `seients_markers`, `seients_history`).
+
+   A l'app de DIRECCIÓ no hi ha una classe sola: el plànol és el del grup que
+   hagin triat a Alumnes, i cada grup té el seu (`seients_layout__4t B`). Si
+   en compartissin un, en canviar de grup hi trobarien les taules amb els
+   alumnes de l'altra classe assegudes. */
+function _seientsGrup() {
+  if (typeof esDireccio !== 'function' || !esDireccio()) return '';
+  return (typeof _grupDeTreball === 'function' && _grupDeTreball()) || '';
+}
+function _seientsLS(base) {
+  const g = _seientsGrup();
+  return g ? base + '__' + g : base;
+}
+
+/* A direcció, diu de quin grup és el plànol que s'està tocant. Sense això,
+   amb 18 grups possibles no hi ha manera de saber-ho mirant les taules.
+   L'avís el pinta `_dirAvisGrup` (a app.js), igual que el de Registres i el
+   d'Observacions, perquè els tres diguin el mateix i de la mateixa manera. */
+function _seientsPintaAvisGrup() {
+  if (typeof _dirAvisGrup !== 'function') return;
+  _dirAvisGrup('seientsGrupAvis',
+    'Estàs col·locant l\'aula de {grup}. Cada grup té el seu plànol.',
+    'Primer tria un grup a Alumnes: el plànol i els alumnes són els d\'aquell grup.');
+}
+
+/* Direcció canvia de grup: el plànol que hi havia a la pantalla és de l'altre
+   grup, s'ha de buidar i tornar a carregar el que toca. */
+function _seientsCanviaGrup() {
+  _seientsLayout = [];
+  _seientsMarkers = [];
+  try {
+    const l = JSON.parse(localStorage.getItem(_seientsLS('seients_layout')) || 'null');
+    if (l && Array.isArray(l)) _seientsLayout = l;
+    const m = JSON.parse(localStorage.getItem(_seientsLS('seients_markers')) || 'null');
+    if (m && Array.isArray(m)) _seientsMarkers = m;
+  } catch(e) {}
+  if (typeof renderSeients === 'function') { try { renderSeients(); } catch(e) {} }
+  _seientsPintaAvisGrup();
+  _seientsLoadFromSheets(true);
+}
+
 // _seientsMarkers: marcadors de l'aula (taula del mestre, porta, finestres)
 // marker = { tipus:'mestre'|'porta'|'finestra', x, y }
 let _seientsMarkers = [];
@@ -51,9 +96,9 @@ function seientsRemoveMarker(tipus) {
 // Desa els marcadors (cache local + Google Sheets). Abans els marcadors només
 // arribaven al full en prémer "Desar distribució"; si no, es perdien.
 function _seientsPersistMarkers() {
-  try { localStorage.setItem('seients_markers', JSON.stringify(_seientsMarkers)); } catch(e) {}
+  try { localStorage.setItem(_seientsLS('seients_markers'), JSON.stringify(_seientsMarkers)); } catch(e) {}
   if (config.scriptUrl) {
-    appsScriptPost({ action: 'saveSeients', markers: JSON.stringify(_seientsMarkers) }).catch(() => {});
+    appsScriptPost({ action: 'saveSeients', grup: _seientsGrup(), markers: JSON.stringify(_seientsMarkers) }).catch(() => {});
   }
 }
 
@@ -113,11 +158,11 @@ function _neighborPairs(g) {
   return pairs;
 }
 function _loadPairHistory() {
-  try { return JSON.parse(localStorage.getItem('seients_history') || '{}'); }
+  try { return JSON.parse(localStorage.getItem(_seientsLS('seients_history')) || '{}'); }
   catch(e) { return {}; }
 }
 function _savePairHistory(h) {
-  try { localStorage.setItem('seients_history', JSON.stringify(h)); } catch(e) {}
+  try { localStorage.setItem(_seientsLS('seients_history'), JSON.stringify(h)); } catch(e) {}
   _seientsSyncToSheets(); // persisteix també al Google Sheets
 }
 
@@ -126,7 +171,7 @@ function _seientsSyncToSheets() {
   if (!config.scriptUrl) return;
   const layout  = _seientsLayout;
   const history = _loadPairHistory();
-  appsScriptPost({ action: 'saveSeients', layout: JSON.stringify(layout), history: JSON.stringify(history) })
+  appsScriptPost({ action: 'saveSeients', grup: _seientsGrup(), layout: JSON.stringify(layout), history: JSON.stringify(history) })
     .catch(() => { /* silenciós; ja hi ha còpia local */ });
 }
 
@@ -134,17 +179,18 @@ function initSeients() {
   // 1) Pinta immediatament amb el cache local (instantani)
   if (!_seientsLayout.length) {
     try {
-      const saved = JSON.parse(localStorage.getItem('seients_layout') || 'null');
+      const saved = JSON.parse(localStorage.getItem(_seientsLS('seients_layout')) || 'null');
       if (saved && Array.isArray(saved)) _seientsLayout = saved;
     } catch(e) {}
   }
   // Marcadors de l'aula
   if (!_seientsMarkers.length) {
     try {
-      const savedM = JSON.parse(localStorage.getItem('seients_markers') || 'null');
+      const savedM = JSON.parse(localStorage.getItem(_seientsLS('seients_markers')) || 'null');
       if (savedM && Array.isArray(savedM)) _seientsMarkers = savedM;
     } catch(e) {}
   }
+  _seientsPintaAvisGrup();
   // Assegura que hi ha alumnes de tutoria SENSE desdoblament
   _seientsAssegurraAlumnes();
   renderSeients();
@@ -156,7 +202,7 @@ function initSeients() {
 // sense aplicar desdoblaments (tots els nens del curs).
 async function _seientsAssegurraAlumnes() {
   // Si ja tenim els students de tutoria carregats, prou.
-  const tutorGrup = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+  const tutorGrup = (typeof _grupDeTreball === 'function') ? _grupDeTreball() : null;
   if (!tutorGrup || !config.scriptUrl) return;
   // students ja hauria de ser el grup de tutoria (sense desdoblament) per defecte.
   // Si en algun moment s'ha filtrat, el restaurem.
@@ -165,11 +211,12 @@ async function _seientsAssegurraAlumnes() {
   }
 }
 
-async function _seientsLoadFromSheets() {
+async function _seientsLoadFromSheets(forcat) {
   if (!config.scriptUrl) return;
-  if (typeof _recentFullLoad === 'function' && _recentFullLoad()) return; // el bootstrap ja els ha portat
+  // El bootstrap ja els ha portat... tret que acabem de canviar de grup.
+  if (!forcat && typeof _recentFullLoad === 'function' && _recentFullLoad()) return;
   try {
-    const r = await appsScriptGet({ action: 'loadSeients' });
+    const r = await appsScriptGet({ action: 'loadSeients', grup: _seientsGrup() });
     if (r.ok) _applySeientsData(r);
   } catch(e) { /* silenciós; ja tenim el cache local */ }
 }
@@ -179,17 +226,17 @@ function _applySeientsData(r) {
   if (!r) return;
   if (r.layout && Array.isArray(r.layout) && r.layout.length) {
     _seientsLayout = r.layout;
-    try { localStorage.setItem('seients_layout', JSON.stringify(r.layout)); } catch(e) {}
+    try { localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(r.layout)); } catch(e) {}
   }
   // Només aplica els marcadors remots si en porten. Si el full encara no en té
   // (loadSeients retorna []), NO s'han de buidar els que ja tenim a la pantalla:
   // això és el que els feia desaparèixer de cop i esborrava també la còpia local.
   if (r.markers && Array.isArray(r.markers) && r.markers.length) {
     _seientsMarkers = r.markers;
-    try { localStorage.setItem('seients_markers', JSON.stringify(r.markers)); } catch(e) {}
+    try { localStorage.setItem(_seientsLS('seients_markers'), JSON.stringify(r.markers)); } catch(e) {}
   }
   if (r.history) {
-    try { localStorage.setItem('seients_history', JSON.stringify(r.history)); } catch(e) {}
+    try { localStorage.setItem(_seientsLS('seients_history'), JSON.stringify(r.history)); } catch(e) {}
   }
   if (typeof renderSeients === 'function') { try { renderSeients(); } catch(e) {} }
 }
@@ -477,11 +524,11 @@ function _seientsComprovaIncompliments(seatGeom) {
 
 /* ---- Desar ---- */
 function seientsSave() {
-  localStorage.setItem('seients_layout', JSON.stringify(_seientsLayout));
-  try { localStorage.setItem('seients_markers', JSON.stringify(_seientsMarkers)); } catch(e) {}
+  localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(_seientsLayout));
+  try { localStorage.setItem(_seientsLS('seients_markers'), JSON.stringify(_seientsMarkers)); } catch(e) {}
   // Desa també al núvol (layout + marcadors)
   if (config.scriptUrl) {
-    appsScriptPost({ action: 'saveSeients', layout: _seientsLayout, markers: _seientsMarkers }).catch(()=>{});
+    appsScriptPost({ action: 'saveSeients', grup: _seientsGrup(), layout: _seientsLayout, markers: _seientsMarkers }).catch(()=>{});
   }
   const history = _loadPairHistory();
   _seientsLayout.forEach(g => {
@@ -614,7 +661,7 @@ function _seientsGroupMouseDown(ev, gid) {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     groupEl.classList.remove('dragging-group');
-    localStorage.setItem('seients_layout', JSON.stringify(_seientsLayout));
+    localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(_seientsLayout));
     _seientsSyncToSheets();
   }
   document.addEventListener('mousemove', onMove);
@@ -652,7 +699,7 @@ function _seientsDrop(ev, targetSeatId) {
     origSeat.studentId = tmp;
   }
   _seientsDragData = null;
-  localStorage.setItem('seients_layout', JSON.stringify(_seientsLayout));
+  localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(_seientsLayout));
   _seientsSyncToSheets();
   renderSeients();
 }

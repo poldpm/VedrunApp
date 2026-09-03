@@ -18,6 +18,21 @@ APP_TOKEN  = ...
 
 ---
 
+## El full de plantilla
+
+Tingues UN full net del qual cada mestra en faci una còpia. Perquè quedi
+net, obre-hi l'Apps Script i executa **`buidaLesDades()`**: treu les dades
+de proves i deixa l'estructura a punt.
+
+Diu al registre exactament què ha buidat, i **no toca**: el full **Grups**
+ni el de **Desdoblaments** (són documents a part), ni les credencials, ni
+el Google Calendar, ni el Google Tasks.
+
+> ⚠ No es pot desfer. Fes-ho només al full que vols de plantilla; si has de
+> conservar-hi res, **Fitxer → Fes-ne una còpia** abans.
+
+---
+
 ## El full ha de ser SEU, i ha de desplegar ella
 
 **No preparis el seu backend al teu Drive per estalviar-te temps.** És
@@ -106,9 +121,16 @@ posar-li la clau de Gemini i omplir el perfil i l'horari.
    node eines/nova-filla.js "<Mestra>" --especialista
    ```
 
-   Sense `--especialista` si és **tutora**. L'eina la munta a partir de
-   l'app que li toca (la dels especialistes o la mare), l'apunta a
-   `filles.json` i comprova que el rol hagi quedat bé.
+   Amb `--direccio` si és de l'**equip directiu**, i sense res si és
+   **tutora**. L'eina la munta a partir de l'app que li toca (la dels
+   especialistes, la de direcció o la mare), l'apunta a `filles.json` i
+   comprova que el rol hagi quedat bé.
+
+   **Només si és de direcció:** a més, executa un cop
+   `configuraRecordatoriEsmorzars()` des de l'editor de l'Apps Script. És el
+   que fa que el recordatori de l'esmorzar surti sol cada dilluns. Sense
+   això, tota la resta de Coordinació funciona igual, però l'avís s'ha
+   d'enviar a mà. `configuraTot()` t'ho recorda si falta.
    Si fas servir el mateix `APP_TOKEN` per a totes, **no has de tocar
    `js/config.local.js`**.
 
@@ -128,6 +150,10 @@ posar-li la clau de Gemini i omplir el perfil i l'horari.
     - **tutora** → de quin grup ho és i quines assignatures hi fa;
     - **especialista** → «A quins grups fas classe?»: hi afegeix cada grup
       (3r A, 3r B…) i hi marca les assignatures.
+    - **direcció** → igual que una especialista (tampoc no tria tutoria).
+      Ensenya-li que el grup de treball el tria a **Alumnes**, amb el curs i
+      la línia, i que d'allà surten també les observacions, els registres i
+      la distribució de l'aula.
 12. **Horari:** l'editor visual, o "Importar ràpid" enganxant-lo d'un full.
 
 La resta (objectius d'avaluació, la seva manera d'escriure comentaris,

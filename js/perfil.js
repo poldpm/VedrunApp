@@ -20,14 +20,14 @@ const PERFIL_ASSIGS_PER_CURS = {
 function _assigsDeCurs(curs) { return PERFIL_ASSIGS_PER_CURS[curs] || []; }
 
 // Estat del perfil
-// tutorCurs: '2n', tutorLinia: 'C'  → tutor de 2n C
-// classes: { "2n C": ['Matemàtiques', ...], "5è A": ['Música'], ... }
+// tutorCurs: '4t', tutorLinia: 'B'  → tutor de 4t B
+// classes: { "4t B": ['Matemàtiques', ...], "5è A": ['Música'], ... }
 let _perfil = {
   nom: '',
   cognom: '',
   tutorCurs: null,
   tutorLinia: null,
-  classes: {},      // NOMÉS la tutoria: { "2n C": [assignatures] }
+  classes: {},      // NOMÉS la tutoria: { "4t B": [assignatures] }
   altres: {},       // altres cursos on fa classe: { "3r": [assignatures] }
   desdobGrup: {},   // grup triat per assignatura d'altre curs: { "curs|assig": "3r A" }
 };
@@ -111,7 +111,7 @@ function _perfilRender() {
   if (cognomEl) cognomEl.value = _perfil.cognom || '';
   _perfilUpdateAvatar();
   _perfilAplicaRol();
-  if (_perfilEsEspecialista()) {
+  if (_perfilSenseTutoria()) {
     _perfilRenderGrupsEspecialista();
   } else {
     _perfilRenderTutorSel();
@@ -125,9 +125,26 @@ function _perfilEsEspecialista() {
   return (typeof esEspecialista === 'function') ? esEspecialista() : false;
 }
 
+// True si aquesta còpia és la de direcció (js/rol.js).
+function _perfilEsDireccio() {
+  return (typeof esDireccio === 'function') ? esDireccio() : false;
+}
+
+/* True quan en aquesta còpia el mestre NO tutoritza cap grup: les
+   especialistes i direcció. Totes dues trien els GRUPS on fan classe en
+   comptes de dir de quin grup són tutores.
+
+   ⚠ Es comprova aquí i no cridant `senseTutoria()` directament perquè
+   `js/rol.js` no se sincronitza mai: a les apps que ja estan repartides,
+   aquell fitxer és el vell i la funció no hi és. */
+function _perfilSenseTutoria() {
+  if (typeof senseTutoria === 'function') return senseTutoria();
+  return _perfilEsEspecialista() || _perfilEsDireccio();
+}
+
 // Ensenya o amaga les targetes del perfil segons el rol de l'app.
 function _perfilAplicaRol() {
-  const esp = _perfilEsEspecialista();
+  const esp = _perfilSenseTutoria();
   const mostra = (id, visible) => { const el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
   mostra('perfilCardGrups', esp);
   mostra('perfilCardTutoria', !esp);
@@ -312,7 +329,7 @@ function _perfilUpdateNav() {
 async function perfilSave() {
   _perfil.nom = (document.getElementById('perfilNom')?.value || '').trim();
   _perfil.cognom = (document.getElementById('perfilCognom')?.value || '').trim();
-  if (_perfilEsEspecialista()) {
+  if (_perfilSenseTutoria()) {
     const ambAssig = Object.keys(_perfil.classes || {}).filter(g => (_perfil.classes[g] || []).length);
     const ambAltres = Object.keys(_perfil.altres || {}).filter(c => (_perfil.altres[c] || []).length);
     if (!ambAssig.length && !ambAltres.length) {
@@ -341,15 +358,30 @@ async function perfilSave() {
    ============================================================ */
 // Guarda les dades completes dels alumnes del grup de tutoria
 let _tutoriaAlumnes = [];   // amb dataNaix, mare, pare, etc.
-let _tutoriaGrup    = null; // "2n C"
+let _tutoriaGrup    = null; // "4t B"
 
 function _perfilTutorGrupKey() {
   if (_perfil && _perfil.tutorCurs && _perfil.tutorLinia) return _perfil.tutorCurs + ' ' + _perfil.tutorLinia;
   return null;
 }
 
+/* EL GRUP AMB QUÈ ES TREBALLA ARA.
+
+   Per a un tutor és sempre el seu, i no canvia mai. A l'app de direcció no
+   hi ha tutoria: el grup és el que hagin triat al selector d'Alumnes, i pot
+   ser qualsevol dels 18 de primària. Tot el que penja del grup (fitxes,
+   observacions, registres, distribució de l'aula) passa per aquí, així no hi
+   ha dos llocs que puguin acabar parlant de grups diferents. */
+let _direccioGrup = null;
+try { _direccioGrup = localStorage.getItem('direccio_grup') || null; } catch(e) {}
+
+function _grupDeTreball() {
+  if (typeof esDireccio === 'function' && esDireccio()) return _direccioGrup || null;
+  return _perfilTutorGrupKey();
+}
+
 async function _loadTutoriaGrup() {
-  const grup = _perfilTutorGrupKey();
+  const grup = _grupDeTreball();
   if (!grup || !config.scriptUrl) return;
   _tutoriaGrup = grup;
 
@@ -381,7 +413,7 @@ function _aplicaTutoriaAlumnes(alumnes) {
   // si el servidor retorna buit per un error temporal)
   if (!alumnes || !alumnes.length) return;
   _tutoriaAlumnes = alumnes;
-  _grupStudentsCarregat = (_perfilTutorGrupKey() || '') + '|';
+  _grupStudentsCarregat = (_grupDeTreball() || '') + '|';
   students = alumnes.map(function(a) { return { id: a.id, nom: a.nom, genere: a.genere }; });
   personal = {};
   alumnes.forEach(function(a) {
@@ -552,7 +584,7 @@ function _navMateriaKey(e) {
    Si el grup és el de tutoria, ja hi són. Si no, els carrega
    del full "grups" i, si l'assignatura és desdoblada, filtra.
    ============================================================ */
-let _grupStudentsCarregat = null; // "2n C|Matemàtiques"
+let _grupStudentsCarregat = null; // "4t B|Matemàtiques"
 
 async function _ensureGrupStudents(grup, materia) {
   if (!grup || !config.scriptUrl) return;
@@ -628,12 +660,12 @@ async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
 // registres, observacions... que sempre són del grup propi).
 function _restoreTutoriaStudents() {
   if (!_tutoriaAlumnes || !_tutoriaAlumnes.length) return;
-  const grup = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+  const grup = (typeof _grupDeTreball === 'function') ? _grupDeTreball() : null;
   // Només es pot estalviar la feina si el que hi ha carregat és la llista
-  // SENCERA de la tutoria, que és la clau "2n C|" (sense assignatura).
+  // SENCERA de la tutoria, que és la clau "4t B|" (sense assignatura).
   //
-  // Abans es comparava només la part del grup, i "2n C|Matemàtiques" també
-  // passava. Però aquesta clau vol dir "els alumnes de Matemàtiques de 2n C",
+  // Abans es comparava només la part del grup, i "4t B|Matemàtiques" també
+  // passava. Però aquesta clau vol dir "els alumnes de Matemàtiques de 4t B",
   // que amb desdoblament són NOMÉS LA MEITAT. Resultat: obries les notes
   // d'una assignatura desdoblada, tornaves a Alumnes i hi veies 15 alumnes
   // en comptes de tots, sense cap avís.
@@ -683,7 +715,7 @@ function _perfilEntradesAmbGrup() {
     return a.grup.localeCompare(b.grup) || a.nom.localeCompare(b.nom);
   });
   return entrades.map(e => {
-    // Clau única que inclou el grup (perquè Tallers 2n C ≠ Tallers 3r C)
+    // Clau única que inclou el grup (perquè Tallers 4t B ≠ Tallers 3r C)
     const key = _assigKey(e.nom) + '__' + _normNomSimple(e.grup).replace(/[^a-z0-9]/g, '');
     // L'etiqueta del grup només es mostra si NO és el grup de tutoria
     // (el grup de tutoria ja se sobreentén).
@@ -1001,16 +1033,15 @@ function perfilRenderAllSelectors() {
 
 // Noms masculins habituals acabats en -a (excepcions a la regla general)
 const _NOMS_MASC_EXCEPCIONS = [
-  'josep maria','joan maria','pere maria','elies','ilies','ionut','mustafa',
-  'zakaria','iker','luca','lluca','cosma','nikola','andrea','borja','aitor'
+  'josep maria','joan maria','pere maria','andrea','borja',
+  'luca','lluca','cosma','nikola','mustafa','zakaria'
 ];
 // Noms femenins que NO acaben en -a (excepcions)
 const _NOMS_FEM_EXCEPCIONS = [
   'montse','montserrat','mariam','miriam','carmen','pilar','isabel','raquel',
   'ester','esther','ingrid','astrid','meritxell','nuria','núria','iris','beatriz',
   'dolors','mercè','merce','judith','edith','elisabet','abril','ruth','sol',
-  // Noms del claustre (garantits explícitament)
-  'carme','elisabeth','roser','imma'
+  'carme','elisabeth','roser','imma','sonia','tania','laia','gemma'
 ];
 
 // Detecta si un nom és femení (per decidir Benvingut / Benvinguda)
