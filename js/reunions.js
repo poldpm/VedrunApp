@@ -20,14 +20,23 @@ const _REU_DIES = ['Diumenge','Dilluns','Dimarts','Dimecres','Dijous','Divendres
 const _REU_MESOS = ['gener','febrer','març','abril','maig','juny','juliol','agost','setembre','octubre','novembre','desembre'];
 
 function _reuDataText(d) {
-  if (!d) return '';
-  const p = String(d).split('-');
+  const s = _reuNormData(d);
+  if (!s) return String(d || '');    // no s'entén: es diu tal qual, no "Undefined NaN"
+  const p = s.split('-');
   const dt = new Date(+p[0], +p[1] - 1, +p[2]);
   return _REU_DIES[dt.getDay()] + ', ' + (+p[2]) + ' de ' + _REU_MESOS[+p[1] - 1];
 }
 function _reuDataCurta(d) {
-  const p = String(d).split('-');
+  const s = _reuNormData(d);
+  if (!s) return '';                 // millor no dir res que dir "NaN/NaN"
+  const p = s.split('-');
   return (+p[2]) + '/' + (+p[1]);
+}
+/* «del 8/9 al 7/10», o res si les dates no s'entenen. Abans sortia
+   «del NaN/NaN al NaN/NaN», que no diu res a ningú. */
+function _reuTramDates(c) {
+  const a = _reuDataCurta(c.desDe), b = _reuDataCurta(c.finsA);
+  return (a && b) ? ' · del ' + a + ' al ' + b : '';
 }
 function _reuAvui() {
   const d = new Date(), p = n => (n < 10 ? '0' : '') + n;
@@ -87,7 +96,7 @@ function _renderReunions() {
         </div>
         <div class="reu-card-meta">
           ${c.durada} min${c.lloc ? ' · ' + escapeHtml(c.lloc) : ''}
-          ${c.desDe ? ' · del ' + _reuDataCurta(c.desDe) + ' al ' + _reuDataCurta(c.finsA) : ''}
+          ${_reuTramDates(c)}
         </div>
       </div>
 
@@ -153,23 +162,70 @@ let _reuDiaObert = {};   // { calId: 'YYYY-MM-DD' }
 
 const _REU_COLS = ['DL', 'DM', 'DC', 'DJ', 'DV', 'DS', 'DG'];
 
-/* Totes les hores del calendari (lliures i reservades) indexades per dia. */
+/* ── ENTENDRE LES DATES VINGUIN COM VINGUIN ──────────────────────────────
+   El servidor hauria de donar sempre "2026-09-10" i "17:00", però si el
+   Apps Script encara no s'ha redesplegat dona el que el full li torna:
+   "Wed Sep 10 2026 00:00:00 GMT+0200 (…)" i "Sat Dec 30 1899 17:20:00 …".
+   Aquí es recupera el que es pugui, en comptes de pintar "Undefined NaN"
+   i una graella buida com passava el 4 de setembre del 2026.            */
+function _reuNormData(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (!isNaN(d.getTime()) && d.getFullYear() > 2000) {
+    const p = n => (n < 10 ? '0' : '') + n;
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  return null;                       // no s'entén: NO es llença, es mostra a part
+}
+function _reuNormHora(v) {
+  const s = String(v == null ? '' : v).trim();
+  const m = s.match(/^(\d{1,2}):(\d{2})/);
+  if (m) return ('0' + m[1]).slice(-2) + ':' + m[2];
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const p = n => (n < 10 ? '0' : '') + n;
+    return p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  return s;
+}
+
+/* Totes les hores del calendari (lliures i reservades) indexades per dia.
+   Les que no tenen data entenedora van a `soltes`: mai es perden de vista. */
 function _reuHoresPerDia(c) {
-  const perDia = {};
+  const perDia = {}, soltes = [];
   const posa = (h, estat) => {
-    if (!h || !h.data) return;
-    (perDia[h.data] = perDia[h.data] || []).push(Object.assign({ estat }, h));
+    if (!h) return;
+    const d = _reuNormData(h.data);
+    const n = Object.assign({}, h, { estat, inici: _reuNormHora(h.inici), fi: _reuNormHora(h.fi) });
+    if (!d) { soltes.push(n); return; }
+    n.data = d;
+    (perDia[d] = perDia[d] || []).push(n);
   };
   (c.horesLliures || []).forEach(h => posa(h, 'lliure'));
   (c.reserves || []).forEach(h => posa(h, 'ocupat'));
-  Object.keys(perDia).forEach(d => perDia[d].sort((a, b) => a.inici.localeCompare(b.inici)));
+  Object.keys(perDia).forEach(d => perDia[d].sort((a, b) => String(a.inici).localeCompare(String(b.inici))));
+  perDia._soltes = soltes;
   return perDia;
 }
 
 function _reuCalendari(c) {
   const perDia = _reuHoresPerDia(c);
-  const dies = Object.keys(perDia).sort();
-  if (!dies.length) return '';
+  const soltes = perDia._soltes || [];
+  const dies = Object.keys(perDia).filter(k => k !== '_soltes').sort();
+
+  // Les que no s'han pogut situar en cap dia es mostren igualment. Abans
+  // desapareixien i quedava un calendari buit amb "16 lliures" a dalt.
+  const blocSoltes = soltes.length ? `
+    <div class="reucal-soltes">
+      <strong>${soltes.length} ${soltes.length === 1 ? 'hora' : 'hores'} que l'app no sap a quin dia van.</strong>
+      Segurament el servidor (Apps Script) encara no s'ha tornat a desplegar.
+      <div class="reucal-hores">
+        ${soltes.map(h => `<span class="reucal-h reucal-h-ple">${escapeHtml(h.inici || '?')}</span>`).join('')}
+      </div>
+    </div>` : '';
+
+  if (!dies.length) return blocSoltes;
 
   // Només els mesos que tenen hores: així no cal navegar enlloc.
   const mesos = [];
@@ -234,6 +290,7 @@ function _reuCalendari(c) {
   }).join('');
 
   return `<div class="reucal">
+    ${blocSoltes}
     ${graelles}
     <p class="reucal-llegenda">
       <span class="reucal-mostra reucal-n-lliure"></span> hores lliures

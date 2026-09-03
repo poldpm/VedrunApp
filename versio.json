@@ -1,10 +1,10 @@
 {
-  "versio": "v138",
+  "versio": "v139",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Entrevistes, esmorzars i registres del claustre: si algun dia el que tens desat no es pot llegir, l app s atura i t avisa en comptes de desar a sobre. Abans t ho podia esborrar sense dir res.",
-    "Si una llista arriba al límit del que cap en un full, ara ho diu clar i no desa res, en lloc de tallar-ho pel mig.",
-    "Arreglat: desar una entrevista podia crear-ne dues si la desada trigava massa."
+    "Reunions: el calendari ja no es queda buit. Encara que el servidor et doni les dates en un format estrany, l app les entén i te les pinta; i si alguna no la sap situar, te la ensenya a part en comptes de fer-la desaparèixer.",
+    "Reunions: esborrar un calendari ara és immediat. Abans esborrava les hores d una en una i podia trigar molt.",
+    "Arreglat: a la fitxa hi sortia del NaN/NaN al NaN/NaN i Undefined NaN al calendari."
   ]
 }

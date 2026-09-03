@@ -4613,3 +4613,13 @@ button.reucal-cel:focus-visible {
   button.reucal-cel, .reucal-h-lliure, .reucal-tanca { transition: none; }
   button.reucal-cel:active, .reucal-h-lliure:active { transform: none; }
 }
+
+/* Hores que l'app no ha sabut situar en cap dia. Han de sortir SEMPRE:
+   abans desapareixien i quedava una graella buida amb "16 lliures" a dalt. */
+.reucal-soltes {
+  margin: 0 0 14px; padding: 12px;
+  border: 1px solid var(--crimson-soft); border-left: 3px solid var(--crimson);
+  border-radius: var(--r-sm); background: #fdf2f5;
+  font-size: 12.5px; line-height: 1.5; color: var(--text-main);
+}
+.reucal-soltes .reucal-hores { margin-top: 8px; }

@@ -1237,11 +1237,23 @@ function reunionsEsborra(ss, calId) {
     var shH = _reuHores_(ss), n = shH.getLastRow(), esborratsEvents = 0;
     if (n >= 2) {
       var v = shH.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
-      for (var i = v.length - 1; i >= 0; i--) {
-        if (String(v[i][0]) !== String(calId)) continue;
-        var gId = String(v[i][8]);
-        if (gId) { try { Calendar.Events.remove('primary', gId); esborratsEvents++; } catch (e) {} }
-        shH.deleteRow(i + 2);
+      // Abans es feia deleteRow() DINS del bucle: amb 16 hores eren 16
+      // viatges a Google d'un en un i l'esborrat trigava una eternitat.
+      // Ara es queda el que NO s'esborra i es reescriu el bloc sencer:
+      // dues crides, tant si són 16 hores com si en són 300.
+      var queden = [];
+      for (var i = 0; i < v.length; i++) {
+        if (String(v[i][0]) === String(calId)) {
+          var gId = String(v[i][8]);
+          if (gId) { try { Calendar.Events.remove('primary', gId); esborratsEvents++; } catch (e) {} }
+          continue;
+        }
+        queden.push(v[i]);
+      }
+      if (queden.length !== v.length) {
+        if (queden.length) shH.getRange(2, 1, queden.length, REU_CAP_HORES.length).setValues(queden);
+        var sobren = v.length - queden.length;
+        if (sobren > 0) shH.deleteRows(2 + queden.length, sobren);
       }
     }
     var f = _reuCalFila_(ss, calId);
