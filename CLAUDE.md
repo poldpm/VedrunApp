@@ -95,6 +95,12 @@ Un canvi general no està acabat fins que:
 3. `node eines/estat-apps.js` diu «Tot al dia»,
 4. i cada app publicada s'ha pujat al seu GitHub.
 
+⚠ **Sincronitzar NO és publicar.** El `sync-totes.js` copia els fitxers al
+disc; l'app que la mestra obre viu al seu GitHub Pages i no canvia fins que
+s'hi fa `git push`. Ara `estat-apps.js` ho comprova i avisa amb **«NO
+PUBLICADA»**, però abans deia «Tot al dia» amb l'app d'en Pol servint una
+versió vella, i se'n va adonar ell.
+
 ## ⚠ AQUESTA CARPETA NO ES PUBLICA MAI
 
 Aquesta carpeta és **només la plantilla mare**: la base per crear i mantenir
