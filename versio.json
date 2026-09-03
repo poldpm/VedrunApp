@@ -1,10 +1,10 @@
 {
-  "versio": "v137",
-  "data": "2026-09-03",
+  "versio": "v138",
+  "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Convocar reunions: les hores ja no surten en una llista interminable, sinó en un calendari del mes. Cada dia et diu quantes n hi ha lliures (verd) i quantes ja té algú (vermell); cliques el dia i et surten les seves hores.",
-    "Arreglat: les hores sortien amb un rètol estrany (Sat Dec 30 1899…) i no eren les que havies posat. Ara surten com toca.",
-    "Arreglat: de vegades es creaven DOS calendaris de reunions iguals quan la creació trigava massa."
+    "Entrevistes, esmorzars i registres del claustre: si algun dia el que tens desat no es pot llegir, l app s atura i t avisa en comptes de desar a sobre. Abans t ho podia esborrar sense dir res.",
+    "Si una llista arriba al límit del que cap en un full, ara ho diu clar i no desa res, en lloc de tallar-ho pel mig.",
+    "Arreglat: desar una entrevista podia crear-ne dues si la desada trigava massa."
   ]
 }

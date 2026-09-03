@@ -125,10 +125,16 @@ async function desaEntrevista() {
   const btn = document.getElementById('entrDesa');
   if (btn) { btn.disabled = true; btn.textContent = 'Desant…'; }
   try {
+    // L'id d'una entrevista nova el fa el NAVEGADOR, no el servidor. Si la
+    // desada triga massa i el navegador la torna a enviar, hi va el mateix
+    // id i el servidor la reemplaça en comptes d'afegir-ne una segona.
+    // Sense això sortien entrevistes duplicades, com va passar amb els
+    // calendaris de reunions.
+    const idEntrevista = _entrEditant || ('e' + Date.now() + Math.random().toString(36).slice(2, 6));
     const r = await appsScriptPost({
       action: 'saveEntrevista', grup, rowId: rid,
       entrevista: {
-        id: _entrEditant || '',
+        id: idEntrevista,
         data,
         hora: document.getElementById('entrHora').value || '',
         nota: document.getElementById('entrNota').value || '',

@@ -258,9 +258,16 @@ function _entrClauPub_(grup) { return 'entrevistes_pub_' + grup; }
 /* Totes les entrevistes del grup, del SEU full.
    { rowId: [ {id, data, hora, nota}, … ] } */
 function _entrLlegeix_(ss, grup) {
-  var v = sheetGetJSON(ss, '_AppData', _entrClauDet_(grup));
-  if (!v) return {};
-  try { return JSON.parse(v) || {}; } catch (e) { return {}; }
+  var r = _jsonDeCela_(ss, '_AppData', _entrClauDet_(grup));
+  return (r.hi && r.dades) ? r.dades : {};
+}
+/* La mateixa lectura, però PETA si el que hi ha desat no es pot llegir.
+   La fan servir les desades: val més un error a la pantalla que esborrar
+   les entrevistes d'un grup sencer sense que ningú se n'assabenti. */
+function _entrLlegeixSegur_(ss, grup) {
+  var r = _capMalament_(_jsonDeCela_(ss, '_AppData', _entrClauDet_(grup)),
+                        'les entrevistes de ' + grup);
+  return (r.hi && r.dades) ? r.dades : {};
 }
 
 function loadEntrevistes(ss, grup) {
@@ -309,7 +316,7 @@ function saveEntrevista(ss, grup, rowId, e) {
   var hora = String(e.hora || '').trim();
   if (hora && !/^\d{2}:\d{2}$/.test(hora)) hora = '';
 
-  var det = _entrLlegeix_(ss, grup);
+  var det = _entrLlegeixSegur_(ss, grup);
   var k = String(rowId);
   if (!det[k]) det[k] = [];
 
@@ -393,13 +400,12 @@ var ESMORZARS_CLAU = 'coord_esmorzars';
    l'Apps Script, que s'executa sol, sense navegador, i no té manera de
    llegir el fitxer del frontend. Cada cop que l'app hi desa res, l'hi torna
    a deixar actualitzat. */
-function _esmLlegeix_(gss) {
-  var v = sheetGetJSON(gss, '_AppData', ESMORZARS_CLAU);
-  if (!v) return { registres: [], torns: [], equip: [] };
-  try {
-    var o = JSON.parse(v) || {};
-    return { registres: o.registres || [], torns: o.torns || [], equip: o.equip || [], actualitzat: o.actualitzat || '' };
-  } catch (e) { return { registres: [], torns: [], equip: [] }; }
+function _esmLlegeix_(gss, exigent) {
+  var r = _jsonDeCela_(gss, '_AppData', ESMORZARS_CLAU);
+  if (exigent) _capMalament_(r, 'els esmorzars');
+  var o = (r.hi && r.dades) ? r.dades : {};
+  return { registres: o.registres || [], torns: o.torns || [], equip: o.equip || [],
+           actualitzat: o.actualitzat || '', illegible: !!r.malament };
 }
 
 function _esmEscriu_(gss, dades) {
@@ -429,7 +435,7 @@ function saveEsmorzars(ss, registres, torns, equip) {
   if (!regs) return { ok: false, error: 'La llista d\'esmorzars no és vàlida' };
   var t = _llista(torns);
   var eq = _llista(equip);
-  var abans = _esmLlegeix_(gss);
+  var abans = _esmLlegeix_(gss, true);
   _esmEscriu_(gss, {
     registres: regs,
     torns: t || abans.torns,
@@ -517,12 +523,14 @@ var REGDOC_CLAU = 'coord_registre_docents';
 function loadRegistreDocents(ss) {
   var gss = getGrupsSpreadsheet(ss);
   if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
-  var v = sheetGetJSON(gss, '_AppData', REGDOC_CLAU);
-  if (!v) return { ok: true, items: [], data: {} };
-  try {
-    var o = JSON.parse(v) || {};
-    return { ok: true, items: o.items || [], data: o.data || {}, actualitzat: o.actualitzat || '' };
-  } catch (e) { return { ok: true, items: [], data: {} }; }
+  var r = _jsonDeCela_(gss, '_AppData', REGDOC_CLAU);
+  // Si hi ha alguna cosa desada i no es pot llegir, s'ha de DIR. Abans es
+  // tornava la llista buida i la pantalla semblava acabada d'estrenar;
+  // la primera desada s'ho enduia tot.
+  if (r.malament) return { ok: false, error: 'Els registres del claustre que hi ha desats no es poden llegir (' +
+    r.mida + ' caràcters). No hi desis res fins que en Pol ho hagi mirat, o els perdràs.' };
+  var o = (r.hi && r.dades) ? r.dades : {};
+  return { ok: true, items: o.items || [], data: o.data || {}, actualitzat: o.actualitzat || '' };
 }
 
 function saveRegistreDocents(ss, items, data) {
@@ -533,6 +541,10 @@ function saveRegistreDocents(ss, items, data) {
   if (Object.prototype.toString.call(items) !== '[object Array]') {
     return { ok: false, error: 'La llista d\'ítems no és vàlida' };
   }
+  // Aquesta desada escriu el blob SENCER a sobre. Si el que hi ha desat no
+  // es pot llegir, val més aturar-se que trepitjar-ho: fins ara la lectura
+  // tornava una llista buida i la desada s'ho enduia tot sense dir res.
+  _capMalament_(_jsonDeCela_(gss, '_AppData', REGDOC_CLAU), 'els registres del claustre');
   sheetSetJSON(gss, '_AppData', REGDOC_CLAU, JSON.stringify({
     items: items,
     data: data || {},
@@ -3785,7 +3797,51 @@ function getOrCreateDataSheet(ss, nom) {
   return sh;
 }
 
+/* Una cel·la del Google Sheets admet 50.000 caràcters. Les eines que desen
+   tota la seva informació en JOSN dins d'UNA cel·la (entrevistes, esmorzars,
+   registres del claustre) hi poden arribar amb un curs sencer de dades. Fins
+   ara no ho mirava ningú: s'hi escrivia i el full ho tallava o petava, i la
+   propera lectura ja no es podia llegir. Ara s'atura ABANS d'escriure, amb
+   marge, i no es toca el que ja hi ha. */
+var MAX_CELA = 45000;
+
+/* ── LLEGIR UN JSON DESAT SENSE PERDRE'L ─────────────────────────────────
+   Aquestes eines fan: llegir el JSON → canviar-hi una cosa → tornar-lo a
+   escriure SENCER. Si la lectura fallava, el codi feia
+   `catch (e) { return {}; }` i seguia: la desada següent escrivia el buit
+   a sobre i s'emportava tot un curs d'entrevistes sense dir ni piu.
+
+   Aquest ajudant distingeix tres casos, i el tercer és el perillós:
+     { hi:false }                  → no hi havia res (primer cop, normal)
+     { hi:true, dades:… }          → llegit bé
+     { hi:true, malament:true }    → hi ha alguna cosa i NO es pot llegir
+   Amb _capMalament_ el tercer cas atura la desada en comptes d'esborrar. */
+function _jsonDeCela_(ss, nom, clau) {
+  var v = sheetGetJSON(ss, nom, clau);
+  if (v === null || v === undefined || String(v).trim() === '') return { hi: false };
+  try {
+    var o = JSON.parse(v);
+    if (o === null || typeof o !== 'object') return { hi: true, malament: true, mida: String(v).length };
+    return { hi: true, dades: o };
+  } catch (e) { return { hi: true, malament: true, mida: String(v).length }; }
+}
+
+function _capMalament_(r, que) {
+  if (r && r.malament) {
+    throw new Error('Les dades de ' + que + ' que hi ha desades no es poden llegir (' +
+      r.mida + ' caràcters). NO s\'ha desat res, per no esborrar-les. ' +
+      'Avisa en Pol abans de tornar-ho a provar.');
+  }
+  return r;
+}
+
 function sheetSetJSON(ss, nom, clau, valor) {
+  var txt = String(valor == null ? '' : valor);
+  if (txt.length > MAX_CELA) {
+    throw new Error('Ja no hi cap més informació a "' + clau + '": són ' +
+      Math.round(txt.length / 1000) + ' mil caràcters i el full n\'admet 50 mil. ' +
+      'NO s\'ha desat res, per no fer malbé el que ja hi havia. Avisa en Pol.');
+  }
   var sh = getOrCreateDataSheet(ss, nom);
   // Cerca la clau a la columna A
   var lr = sh.getLastRow();

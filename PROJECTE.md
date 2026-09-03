@@ -642,3 +642,43 @@ notes i el criden de tres llocs: val més fer-ho a part i amb calma.
 **No toquis els `flush()` de les reunions**: hi són a posta, per
 l'anti-solapament. I `propagaCarpeta()` sembla cara però el seu bucle només
 fa 3 voltes (les assignatures amb carpeta): no val la pena.
+
+---
+
+## 14. LES DADES NO ES PERDEN EN SILENCI
+
+```bash
+node eines/comprova-dades.js
+```
+
+Hi ha eines que desen **tota** la seva informació en JSON dins d'**una sola
+cel·la** del full: entrevistes, esmorzars i registres del claustre. Totes fan
+el mateix ball:
+
+> llegir el JSON → canviar-hi una cosa → tornar-lo a escriure **sencer**
+
+**El perill és el primer pas.** Si la lectura falla i el codi ho engoleix
+(`catch (e) { return {}; }`), la desada següent escriu el buit a sobre i
+s'emporta un curs sencer **sense que la mestra vegi cap error**: li surt
+«desat ✓».
+
+Arreglat el **4 de setembre del 2026**, abans que cap mestra estrenés aquestes
+eines:
+
+| Què passava | Ara |
+|---|---|
+| Un JSON il·legible es tractava com «no hi ha res» i la desada l'esborrava | S'atura amb un error que diu què passa i **no toca res** |
+| Una cel·la del Sheets admet 50.000 caràcters i ningú ho mirava | `sheetSetJSON` s'atura a 45.000 abans d'escriure |
+| `loadRegistreDocents` tornava la llista buida si no es podia llegir | Torna un error: la pantalla no pot semblar acabada d'estrenar |
+| Desar una entrevista nova podia crear-ne dues si es reintentava | L'id el fa el navegador, i el reintent la reemplaça |
+
+**Límit conegut i NO resolt:** els esmorzars i els registres del claustre van
+al full **compartit**, i cada mestra té el seu propi Apps Script. El
+`LockService` és per script, o sigui que **no protegeix de dues mestres
+desant alhora**: la segona es menja el que hagi escrit la primera. Amb poca
+gent i claus diferents és improbable, però hi és. Resoldre-ho de debò vol
+canviar el disseny (files independents en comptes d'un sol bloc de JSON).
+
+`eines/comprova-controls.js` també comprova que **cap acció que demani el
+navegador falti al `Code.gs`**: un botó pot cridar una funció que existeix i
+morir a la crida al servidor.
