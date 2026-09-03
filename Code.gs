@@ -34,6 +34,570 @@ function _prop(clau) {
 // FUNCIÓ D'AJUDA: executa-la UN COP per desar totes les credencials de cop.
 // Posa els teus valors aquí, executa-la des de l'editor d'Apps Script, i
 // després pots ESBORRAR els valors d'aquí (queden desats a les propietats).
+
+/* ============================================================
+   CONVOCAR REUNIONS
+   ------------------------------------------------------------
+   La mestra marca quines hores té lliures, l'app li dona un
+   enllaç, l'envia per correu i cada família tria la seva hora.
+   La reserva li entra al SEU Google Calendar.
+
+   ⚠ LA REGLA QUE NO ES POT TRENCAR MAI: dues persones no poden
+   quedar-se la mateixa hora, ni tenir reunions que se solapin.
+
+   Com es garanteix (i per què no n'hi ha prou amb el navegador):
+   dues famílies poden clicar el mateix segon des de dos mòbils.
+   Qui decideix és NOMÉS el servidor, i ho fa així:
+
+     1. LockService: mentre s'atén una reserva, cap altra hi entra.
+        No és un "sembla que va bé": Apps Script garanteix que
+        només una execució té el pany.
+     2. Ja amb el pany posat, es torna a LLEGIR la fila del full
+        (mai es fa cas del que digui el navegador, que pot tenir
+        la pàgina oberta de fa mitja hora).
+     3. Es comprova també el Google Calendar de la mestra, per si
+        ella hi ha posat res des que va crear el calendari.
+     4. Es marca la fila com a ocupada i es fa flush() ABANS de
+        crear l'event: així la porta queda tancada encara que la
+        crida al Calendar vagi lenta o falli.
+     5. Si el Calendar falla, la fila ES QUEDA OCUPADA i s'apunta
+        l'error. Val més una hora bloquejada de més (que la mestra
+        pot alliberar) que dues famílies a la mateixa hora.
+
+   Les franges es generen AL SERVIDOR i no se solapen mai per
+   construcció: van una darrere l'altra, amb el descans (buffer)
+   que hagi dit la mestra.
+   ============================================================ */
+
+var REU_CALS  = 'Reunions';
+var REU_HORES = 'Reunions_Hores';
+var REU_MAX_FRANGES = 500;   // barrera de seguretat
+
+var REU_CAP_CALS  = ['id','titol','descripcio','durada','buffer','lloc','actiu','creat','avisar','maxPersona','desDe','finsA'];
+var REU_CAP_HORES = ['calId','slotId','data','inici','fi','estat','nom','email','gEventId','reservat','error'];
+
+function _reuFull_(ss, nom, capcalera) {
+  var sh = ss.getSheetByName(nom);
+  if (!sh) {
+    sh = ss.insertSheet(nom);
+    sh.getRange(1, 1, 1, capcalera.length).setValues([capcalera]);
+    sh.setFrozenRows(1);
+    try {
+      sh.getRange(1, 1, 1, capcalera.length)
+        .setBackground('#7A1E2E').setFontColor('#FFFFFF').setFontWeight('bold');
+    } catch (e) {}
+  }
+  return sh;
+}
+function _reuCals_(ss)  { return _reuFull_(ss, REU_CALS,  REU_CAP_CALS); }
+function _reuHores_(ss) { return _reuFull_(ss, REU_HORES, REU_CAP_HORES); }
+
+// Identificador llarg i impossible d'endevinar: l'enllaç és la clau.
+function _reuId_() {
+  var lletres = 'abcdefghijkmnopqrstuvwxyz23456789';
+  var s = '';
+  for (var i = 0; i < 22; i++) s += lletres.charAt(Math.floor(Math.random() * lletres.length));
+  return s;
+}
+
+function _reuPad_(n) { return (n < 10 ? '0' : '') + n; }
+
+// 'YYYY-MM-DD' + 'HH:MM' -> Date en la zona del script
+function _reuData_(data, hora) {
+  var d = String(data).split('-'), h = String(hora).split(':');
+  return new Date(+d[0], +d[1] - 1, +d[2], +h[0], +h[1], 0, 0);
+}
+function _reuISO_(dt) {
+  return Utilities.formatDate(dt, _gTz_(), "yyyy-MM-dd'T'HH:mm:ssXXX");
+}
+function _reuMinuts_(hora) {
+  var h = String(hora).split(':');
+  return (+h[0]) * 60 + (+h[1]);
+}
+function _reuHora_(minuts) {
+  return _reuPad_(Math.floor(minuts / 60)) + ':' + _reuPad_(minuts % 60);
+}
+
+/* Xoca amb res que la mestra ja tingui al calendari?
+   Torna el títol del que xoca, o null si està lliure. */
+function _reuXoca_(data, inici, fi) {
+  try {
+    var r = Calendar.Events.list('primary', {
+      timeMin: _reuISO_(_reuData_(data, inici)),
+      timeMax: _reuISO_(_reuData_(data, fi)),
+      singleEvents: true, maxResults: 20
+    });
+    var items = r.items || [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.status === 'cancelled') continue;
+      if (it.transparency === 'transparent') continue;   // marcat com a "lliure"
+      if (it.start && it.start.date) continue;           // de tot el dia: no bloqueja una hora
+      // Si ella hi ha dit que no hi va, no compta
+      var jo = (it.attendees || []).filter(function (a) { return a.self; })[0];
+      if (jo && jo.responseStatus === 'declined') continue;
+      return it.summary || 'una cosa que ja tens';
+    }
+    return null;
+  } catch (e) {
+    // Si no es pot consultar el calendari, val més NO oferir l'hora que
+    // arriscar-se a una reunió a sobre d'una altra cosa.
+    return '(no s\'ha pogut consultar el calendari)';
+  }
+}
+
+/* ---------- crear un calendari de reunions ---------- */
+function reunionsCrea(ss, d) {
+  d = d || {};
+  var titol = String(d.titol || '').trim();
+  if (!titol) return { ok: false, error: 'Falta el títol' };
+  var durada = parseInt(d.durada, 10) || 15;
+  if (durada < 5 || durada > 240) return { ok: false, error: 'La durada ha de ser entre 5 i 240 minuts' };
+  var buffer = parseInt(d.buffer, 10) || 0;
+  if (buffer < 0 || buffer > 120) buffer = 0;
+  var dies = d.dies || [];               // ['2026-09-15', ...] dates concretes
+  var trams = d.trams || [];             // [{inici:'17:00', fi:'19:00'}]
+  if (!dies.length)  return { ok: false, error: 'Tria com a mínim un dia' };
+  if (!trams.length) return { ok: false, error: 'Posa com a mínim una franja horària' };
+
+  var evitarOcupats = d.evitarOcupats !== false;   // per defecte, sí
+  var calId = _reuId_();
+  var tz = _gTz_();
+  var ara = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+
+  /* --- Generació de les franges: per construcció NO se solapen --- */
+  var files = [], n = 0, saltades = 0;
+  dies.sort();
+  for (var i = 0; i < dies.length; i++) {
+    var dia = String(dies[i]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) continue;
+    // Ordena els trams i comprova que no se solapin entre ells
+    var tr = trams.slice().sort(function (a, b) { return _reuMinuts_(a.inici) - _reuMinuts_(b.inici); });
+    var finsAra = -1;
+    for (var t = 0; t < tr.length; t++) {
+      var m0 = _reuMinuts_(tr[t].inici), m1 = _reuMinuts_(tr[t].fi);
+      if (isNaN(m0) || isNaN(m1) || m1 <= m0) continue;
+      if (m0 < finsAra) m0 = finsAra;          // trams encavalcats: no repetim hores
+      for (var m = m0; m + durada <= m1; m += durada + buffer) {
+        if (n >= REU_MAX_FRANGES) break;
+        var hi = _reuHora_(m), hf = _reuHora_(m + durada);
+        if (evitarOcupats && _reuXoca_(dia, hi, hf)) { saltades++; continue; }
+        files.push([calId, calId + '-' + n, dia, hi, hf, 'lliure', '', '', '', '', '']);
+        n++;
+      }
+      finsAra = m1;
+    }
+  }
+  if (!files.length) {
+    return { ok: false, error: evitarOcupats
+      ? 'No ha quedat cap hora lliure: o els dies que has triat ja els tens plens al calendari, o la durada no hi cap.'
+      : 'No ha quedat cap hora: comprova la durada i les franges.' };
+  }
+
+  var shC = _reuCals_(ss), shH = _reuHores_(ss);
+  shC.appendRow([calId, titol, String(d.descripcio || ''), durada, buffer, String(d.lloc || ''),
+                 'si', ara, (d.avisar === false ? 'no' : 'si'),
+                 parseInt(d.maxPersona, 10) || 0, dies[0], dies[dies.length - 1]]);
+  shH.getRange(shH.getLastRow() + 1, 1, files.length, REU_CAP_HORES.length).setValues(files);
+  SpreadsheetApp.flush();
+
+  return { ok: true, calId: calId, franges: files.length, saltades: saltades, enllac: _reuEnllac_(calId) };
+}
+
+function _reuEnllac_(calId) {
+  var url = '';
+  try { url = ScriptApp.getService().getUrl(); } catch (e) {}
+  if (!url) return '';
+  return url + '?r=' + calId;
+}
+
+/* ---------- llegir ---------- */
+function _reuCalFila_(ss, calId) {
+  var sh = _reuCals_(ss), n = sh.getLastRow();
+  if (n < 2) return null;
+  var v = sh.getRange(2, 1, n - 1, REU_CAP_CALS.length).getValues();
+  for (var i = 0; i < v.length; i++) {
+    if (String(v[i][0]) === String(calId)) return { fila: i + 2, v: v[i] };
+  }
+  return null;
+}
+function _reuCalObj_(f) {
+  return { id: String(f[0]), titol: String(f[1]), descripcio: String(f[2]),
+           durada: +f[3] || 15, buffer: +f[4] || 0, lloc: String(f[5]),
+           actiu: String(f[6]) !== 'no', creat: String(f[7]),
+           avisar: String(f[8]) !== 'no', maxPersona: +f[9] || 0,
+           desDe: String(f[10]), finsA: String(f[11]) };
+}
+
+function reunionsLlista(ss) {
+  var shC = _reuCals_(ss), shH = _reuHores_(ss);
+  var cals = [], hores = [];
+  if (shC.getLastRow() >= 2) cals = shC.getRange(2, 1, shC.getLastRow() - 1, REU_CAP_CALS.length).getValues();
+  if (shH.getLastRow() >= 2) hores = shH.getRange(2, 1, shH.getLastRow() - 1, REU_CAP_HORES.length).getValues();
+
+  var avui = Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd');
+  var perCal = {};
+  hores.forEach(function (h) {
+    var id = String(h[0]);
+    if (!perCal[id]) perCal[id] = { lliures: 0, ocupades: 0, reserves: [], passades: 0 };
+    var passada = String(h[2]) < avui;
+    if (passada) { perCal[id].passades++; }
+    if (String(h[5]) === 'ocupat') {
+      perCal[id].ocupades++;
+      if (!passada) {
+        perCal[id].reserves.push({ slotId: String(h[1]), data: String(h[2]), inici: String(h[3]), fi: String(h[4]),
+                                   nom: String(h[6]), email: String(h[7]), gEventId: String(h[8]),
+                                   quan: String(h[9]), error: String(h[10]) });
+      }
+    } else if (!passada) { perCal[id].lliures++; }
+  });
+
+  var out = cals.map(function (f) {
+    var c = _reuCalObj_(f);
+    var e = perCal[c.id] || { lliures: 0, ocupades: 0, reserves: [], passades: 0 };
+    c.lliures = e.lliures; c.ocupades = e.ocupades; c.passades = e.passades;
+    c.reserves = e.reserves.sort(function (a, b) {
+      return (a.data + a.inici).localeCompare(b.data + b.inici);
+    });
+    c.enllac = _reuEnllac_(c.id);
+    c.acabat = c.finsA && c.finsA < avui;
+    return c;
+  });
+  // Els que ja han passat, al final
+  out.sort(function (a, b) {
+    if (a.acabat !== b.acabat) return a.acabat ? 1 : -1;
+    return String(b.creat).localeCompare(String(a.creat));
+  });
+  return { ok: true, calendaris: out, avui: avui };
+}
+
+/* ---------- accions de la mestra ---------- */
+function reunionsActiva(ss, calId, actiu) {
+  var f = _reuCalFila_(ss, calId);
+  if (!f) return { ok: false, error: 'Aquest calendari no hi és' };
+  _reuCals_(ss).getRange(f.fila, 7).setValue(actiu ? 'si' : 'no');
+  return { ok: true };
+}
+
+/* Allibera una hora reservada: treu l'event del calendari i la torna a
+   deixar lliure. Ho fa amb el pany posat, com les reserves. */
+function reunionsAllibera(ss, calId, slotId) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); } catch (e) { return { ok: false, error: 'Torna-ho a provar en un moment' }; }
+  try {
+    var sh = _reuHores_(ss), n = sh.getLastRow();
+    if (n < 2) return { ok: false, error: 'No hi ha hores' };
+    var v = sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
+    for (var i = 0; i < v.length; i++) {
+      if (String(v[i][0]) !== String(calId) || String(v[i][1]) !== String(slotId)) continue;
+      var gId = String(v[i][8]);
+      if (gId) { try { Calendar.Events.remove('primary', gId); } catch (e) {} }
+      sh.getRange(i + 2, 6, 1, 6).setValues([['lliure', '', '', '', '', '']]);
+      SpreadsheetApp.flush();
+      return { ok: true };
+    }
+    return { ok: false, error: 'Aquesta hora no hi és' };
+  } finally { lock.releaseLock(); }
+}
+
+/* Torna a intentar posar al calendari una reserva que va fallar. */
+function reunionsReintenta(ss, calId, slotId) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); } catch (e) { return { ok: false, error: 'Torna-ho a provar en un moment' }; }
+  try {
+    var f = _reuCalFila_(ss, calId);
+    if (!f) return { ok: false, error: 'Aquest calendari no hi és' };
+    var cal = _reuCalObj_(f.v);
+    var sh = _reuHores_(ss), n = sh.getLastRow();
+    var v = sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
+    for (var i = 0; i < v.length; i++) {
+      if (String(v[i][0]) !== String(calId) || String(v[i][1]) !== String(slotId)) continue;
+      if (String(v[i][8])) return { ok: true, ja: true };
+      var r = _reuCreaEvent_(cal, String(v[i][2]), String(v[i][3]), String(v[i][4]), String(v[i][6]), String(v[i][7]));
+      sh.getRange(i + 2, 9).setValue(r.gEventId || '');
+      sh.getRange(i + 2, 11).setValue(r.error || '');
+      SpreadsheetApp.flush();
+      return r.gEventId ? { ok: true } : { ok: false, error: r.error || 'No s\'ha pogut posar al calendari' };
+    }
+    return { ok: false, error: 'Aquesta hora no hi és' };
+  } finally { lock.releaseLock(); }
+}
+
+/* Esborra un calendari sencer. Les hores reservades i els seus events del
+   Google Calendar també, perquè si no li quedarien reunions fantasma. */
+function reunionsEsborra(ss, calId) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); } catch (e) { return { ok: false, error: 'Torna-ho a provar en un moment' }; }
+  try {
+    var shH = _reuHores_(ss), n = shH.getLastRow(), esborratsEvents = 0;
+    if (n >= 2) {
+      var v = shH.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
+      for (var i = v.length - 1; i >= 0; i--) {
+        if (String(v[i][0]) !== String(calId)) continue;
+        var gId = String(v[i][8]);
+        if (gId) { try { Calendar.Events.remove('primary', gId); esborratsEvents++; } catch (e) {} }
+        shH.deleteRow(i + 2);
+      }
+    }
+    var f = _reuCalFila_(ss, calId);
+    if (f) _reuCals_(ss).deleteRow(f.fila);
+    SpreadsheetApp.flush();
+    return { ok: true, eventsEsborrats: esborratsEvents };
+  } finally { lock.releaseLock(); }
+}
+
+/* ---------- crear l'event al Google Calendar ---------- */
+function _reuCreaEvent_(cal, data, inici, fi, nom, email) {
+  var tz = _gTz_();
+  var ev = {
+    summary: cal.titol + ' — ' + nom,
+    description: 'Reunió reservada des de l\'app.\n\nPersona: ' + nom +
+                 (email ? '\nCorreu: ' + email : '') +
+                 (cal.descripcio ? '\n\n' + cal.descripcio : ''),
+    start: { dateTime: data + 'T' + inici + ':00', timeZone: tz },
+    end:   { dateTime: data + 'T' + fi + ':00',    timeZone: tz }
+  };
+  if (cal.lloc) ev.location = cal.lloc;
+  if (email && cal.avisar) ev.attendees = [{ email: email }];
+  try {
+    var creat = _gRetry_(function () {
+      return Calendar.Events.insert(ev, 'primary',
+        (email && cal.avisar) ? { sendUpdates: 'all' } : { sendUpdates: 'none' });
+    });
+    return { gEventId: creat.id };
+  } catch (e) {
+    return { error: String((e && e.message) || e).slice(0, 250) };
+  }
+}
+
+/* ============================================================
+   RESERVAR — la part on no hi pot haver cap error
+   Crida't NOMÉS des de reuPublicReserva (pàgina pública).
+   ============================================================ */
+function _reuReserva_(calId, slotId, nom, email) {
+  nom = String(nom || '').trim();
+  email = String(email || '').trim();
+  if (nom.length < 3) return { ok: false, error: 'Escriu el teu nom i cognoms.' };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'Escriu un correu electrònic vàlid.' };
+
+  var lock = LockService.getScriptLock();
+  // waitLock, no tryLock: si hi ha algú reservant, s'espera el torn.
+  try { lock.waitLock(28000); }
+  catch (e) { return { ok: false, error: 'Hi ha algú altre reservant en aquest moment. Torna-ho a provar en uns segons.' }; }
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var f = _reuCalFila_(ss, calId);
+    if (!f) return { ok: false, error: 'Aquest calendari de reunions no existeix.' };
+    var cal = _reuCalObj_(f.v);
+    if (!cal.actiu) return { ok: false, error: 'Aquest calendari està tancat: ja no s\'hi poden reservar hores.' };
+
+    var sh = _reuHores_(ss), n = sh.getLastRow();
+    if (n < 2) return { ok: false, error: 'Aquest calendari no té hores.' };
+    var v = sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
+
+    // Límit de reserves per persona (si la mestra n'ha posat)
+    if (cal.maxPersona > 0) {
+      var seves = 0;
+      for (var k = 0; k < v.length; k++) {
+        if (String(v[k][0]) === String(calId) && String(v[k][5]) === 'ocupat' &&
+            String(v[k][7]).toLowerCase() === email.toLowerCase()) seves++;
+      }
+      if (seves >= cal.maxPersona) {
+        return { ok: false, error: 'Ja tens ' + seves + ' hora' + (seves > 1 ? 'es' : '') +
+                 ' reservada' + (seves > 1 ? 'es' : '') + ' amb aquest correu.' };
+      }
+    }
+
+    // La fila d'aquesta franja, LLEGIDA ARA (no el que digui el navegador)
+    var idx = -1;
+    for (var i = 0; i < v.length; i++) {
+      if (String(v[i][0]) === String(calId) && String(v[i][1]) === String(slotId)) { idx = i; break; }
+    }
+    if (idx === -1) return { ok: false, error: 'Aquesta hora ja no hi és.' };
+    if (String(v[idx][5]) === 'ocupat') {
+      return { ok: false, error: 'Ho sentim: aquesta hora l\'acaba d\'agafar una altra persona. Tria\'n una altra.', ocupada: true };
+    }
+
+    var data = String(v[idx][2]), inici = String(v[idx][3]), fi = String(v[idx][4]);
+
+    // Ja ha passat?
+    if (_reuData_(data, inici).getTime() < Date.now()) {
+      return { ok: false, error: 'Aquesta hora ja ha passat.' };
+    }
+
+    // Cap altra franja ocupada d'aquest calendari s'hi pot solapar.
+    // (Per construcció no hi hauria d'haver solapaments, però això ho
+    //  comprova de debò en comptes de confiar-hi.)
+    var iniM = _reuMinuts_(inici), fiM = _reuMinuts_(fi);
+    for (var j = 0; j < v.length; j++) {
+      if (j === idx) continue;
+      if (String(v[j][5]) !== 'ocupat') continue;
+      if (String(v[j][2]) !== data) continue;
+      var a0 = _reuMinuts_(String(v[j][3])), a1 = _reuMinuts_(String(v[j][4]));
+      if (iniM < a1 && a0 < fiM) {
+        return { ok: false, error: 'Aquesta hora es trepitja amb una reunió ja reservada. Tria\'n una altra.', ocupada: true };
+      }
+    }
+
+    // I res del calendari de la mestra s'hi pot solapar tampoc
+    var xoc = _reuXoca_(data, inici, fi);
+    if (xoc) return { ok: false, error: 'Aquesta hora ja no està disponible. Tria\'n una altra.', ocupada: true };
+
+    /* PORTA TANCADA: es marca ocupada i es confirma al full ABANS de
+       tocar el Google Calendar. Si el Calendar falla, l'hora es queda
+       ocupada i s'apunta l'error: mai dues persones a la mateixa hora. */
+    var ara = Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm');
+    sh.getRange(idx + 2, 6, 1, 5).setValues([['ocupat', nom, email, '', ara]]);
+    SpreadsheetApp.flush();
+
+    var r = _reuCreaEvent_(cal, data, inici, fi, nom, email);
+    sh.getRange(idx + 2, 9).setValue(r.gEventId || '');
+    sh.getRange(idx + 2, 11).setValue(r.error || '');
+    SpreadsheetApp.flush();
+
+    return { ok: true, data: data, inici: inici, fi: fi, titol: cal.titol, lloc: cal.lloc,
+             alCalendari: !!r.gEventId };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* ============================================================
+   PÀGINA PÚBLICA
+   Qui reserva no té l'app ni cap token: l'enllaç ja és la clau
+   (l'id del calendari són 22 caràcters a l'atzar).
+   Es serveix des de l'Apps Script, així que funciona per a
+   qualsevol, sense instal·lar res.
+   ============================================================ */
+
+// Crides que fa la pàgina pública (google.script.run). NO demanen token.
+function reuPublicInfo(calId) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var f = _reuCalFila_(ss, calId);
+    if (!f) return { ok: false, error: 'Aquest enllaç no és vàlid.' };
+    var cal = _reuCalObj_(f.v);
+    var sh = _reuHores_(ss), n = sh.getLastRow();
+    var lliures = [];
+    if (n >= 2) {
+      var v = sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
+      var ara = Date.now();
+      v.forEach(function (h) {
+        if (String(h[0]) !== String(calId)) return;
+        if (String(h[5]) !== 'lliure') return;                 // ocupada: no es mostra
+        if (_reuData_(String(h[2]), String(h[3])).getTime() < ara) return;  // ja passada
+        lliures.push({ slotId: String(h[1]), data: String(h[2]), inici: String(h[3]), fi: String(h[4]) });
+      });
+    }
+    lliures.sort(function (a, b) { return (a.data + a.inici).localeCompare(b.data + b.inici); });
+    return { ok: true, titol: cal.titol, descripcio: cal.descripcio, lloc: cal.lloc,
+             durada: cal.durada, actiu: cal.actiu, hores: lliures };
+  } catch (e) {
+    return { ok: false, error: 'Hi ha hagut un problema. Torna-ho a provar.' };
+  }
+}
+
+function reuPublicReserva(calId, slotId, nom, email) {
+  try { return _reuReserva_(calId, slotId, nom, email); }
+  catch (e) { return { ok: false, error: 'Hi ha hagut un problema. Torna-ho a provar.' }; }
+}
+
+function _reuPaginaHtml_(calId) {
+  var h = ''
+  + '<!DOCTYPE html><html lang="ca"><head><meta charset="utf-8">'
+  + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+  + '<title>Reservar hora</title><style>'
+  + ':root{--g:#7A1E2E;--c:#C01E4B;--gd:#4A1520;--soft:#FBEAED;--bd:#EADFE2;--tx:#2A2124;--mu:#8A7F82}'
+  + '*{box-sizing:border-box;margin:0;padding:0}'
+  + 'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#FAF7F8;color:var(--tx);line-height:1.6;padding:18px}'
+  + '.w{max-width:620px;margin:0 auto}'
+  + '.card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.04)}'
+  + 'h1{font-size:23px;color:var(--gd);line-height:1.25;margin-bottom:6px}'
+  + '.desc{color:var(--mu);margin-bottom:4px;white-space:pre-wrap}'
+  + '.meta{font-size:13px;color:var(--mu);margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)}'
+  + '.dia{margin-top:20px}'
+  + '.dia h2{font-size:14px;color:var(--g);text-transform:uppercase;letter-spacing:.05em;margin-bottom:9px}'
+  + '.hores{display:flex;flex-wrap:wrap;gap:8px}'
+  + 'button.h{font:inherit;font-weight:700;font-size:15px;background:#fff;color:var(--g);border:1.5px solid var(--bd);'
+  + 'border-radius:9px;padding:11px 15px;cursor:pointer;min-width:88px;min-height:46px}'
+  + 'button.h:hover{border-color:var(--c);background:var(--soft)}'
+  + 'button.h:focus-visible{outline:3px solid var(--c);outline-offset:2px}'
+  + '.btn{font:inherit;font-weight:700;background:var(--c);color:#fff;border:0;border-radius:9px;padding:13px 20px;cursor:pointer;min-height:48px;width:100%}'
+  + '.btn[disabled]{opacity:.55;cursor:not-allowed}'
+  + '.btn2{background:#fff;color:var(--g);border:1.5px solid var(--bd)}'
+  + 'label{display:block;font-weight:700;font-size:14px;margin:14px 0 5px}'
+  + 'input{font:inherit;width:100%;padding:12px;border:1.5px solid var(--bd);border-radius:9px;min-height:46px}'
+  + 'input:focus{outline:3px solid var(--c);outline-offset:1px;border-color:var(--c)}'
+  + '.tria{background:var(--soft);border-left:4px solid var(--c);padding:12px 15px;border-radius:0 9px 9px 0;margin-bottom:6px;font-weight:700;color:var(--gd)}'
+  + '.err{background:#FEF3C7;border-left:4px solid #D97706;padding:12px 15px;border-radius:0 9px 9px 0;margin:14px 0;color:#92400E}'
+  + '.ok{text-align:center;padding:10px 0}.ok .tic{font-size:44px;line-height:1}'
+  + '.buit{text-align:center;color:var(--mu);padding:26px 0}'
+  + '.carregant{text-align:center;color:var(--mu);padding:30px 0}'
+  + '.hint{font-size:12.5px;color:var(--mu);margin-top:6px}'
+  + '</style></head><body><div class="w"><div class="card" id="app">'
+  + '<div class="carregant">Carregant les hores disponibles…</div>'
+  + '</div></div><script>'
+  + 'var CAL=' + JSON.stringify(String(calId)) + ';var INFO=null,TRIA=null;'
+  + 'var DIES=["Diumenge","Dilluns","Dimarts","Dimecres","Dijous","Divendres","Dissabte"];'
+  + 'var MESOS=["gener","febrer","març","abril","maig","juny","juliol","agost","setembre","octubre","novembre","desembre"];'
+  + 'function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[m];});}'
+  + 'function dataText(d){var p=d.split("-");var dt=new Date(+p[0],+p[1]-1,+p[2]);'
+  + 'return DIES[dt.getDay()]+", "+(+p[2])+" de "+MESOS[+p[1]-1];}'
+  + 'var app=document.getElementById("app");'
+  + 'function carrega(){google.script.run.withSuccessHandler(pinta).withFailureHandler(function(){'
+  + 'app.innerHTML="<div class=\'err\'>No s\'ha pogut carregar. Comprova la connexió i torna-ho a provar.</div>";'
+  + '}).reuPublicInfo(CAL);}'
+  + 'function pinta(r){INFO=r;if(!r||!r.ok){app.innerHTML="<div class=\'err\'>"+esc((r&&r.error)||"Enllaç no vàlid")+"</div>";return;}'
+  + 'var h="<h1>"+esc(r.titol)+"</h1>";'
+  + 'if(r.descripcio)h+="<div class=\'desc\'>"+esc(r.descripcio)+"</div>";'
+  + 'if(!r.actiu){h+="<div class=\'err\'>Aquest calendari està tancat: ja no s\'hi poden reservar hores.</div>";app.innerHTML=h;return;}'
+  + 'if(!r.hores.length){h+="<div class=\'buit\'><strong>Ara mateix no queda cap hora lliure.</strong><br>Si necessites una altra hora, respon el correu amb què t\'han enviat aquest enllaç.</div>";app.innerHTML=h;return;}'
+  + 'h+="<div class=\'meta\'>Reunions de "+r.durada+" minuts"+(r.lloc?" &middot; "+esc(r.lloc):"")+" &middot; queden "+r.hores.length+" hores lliures</div>";'
+  + 'var perDia={},ordre=[];r.hores.forEach(function(s){if(!perDia[s.data]){perDia[s.data]=[];ordre.push(s.data);}perDia[s.data].push(s);});'
+  + 'ordre.forEach(function(d){h+="<div class=\'dia\'><h2>"+esc(dataText(d))+"</h2><div class=\'hores\'>";'
+  + 'perDia[d].forEach(function(s){h+="<button class=\'h\' data-s=\'"+esc(s.slotId)+"\'>"+esc(s.inici)+"</button>";});'
+  + 'h+="</div></div>";});'
+  + 'app.innerHTML=h;'
+  + 'app.querySelectorAll("button.h").forEach(function(b){b.addEventListener("click",function(){'
+  + 'var s=r.hores.filter(function(x){return x.slotId===b.getAttribute("data-s");})[0];if(s)formulari(s);});});}'
+  + 'function formulari(s){TRIA=s;'
+  + 'app.innerHTML="<h1>"+esc(INFO.titol)+"</h1>"'
+  + '+"<div class=\'tria\'>"+esc(dataText(s.data))+" &middot; "+esc(s.inici)+" - "+esc(s.fi)+"</div>"'
+  + '+(INFO.lloc?"<div class=\'hint\'>On: "+esc(INFO.lloc)+"</div>":"")'
+  + '+"<label for=\'n\'>Nom i cognoms</label><input id=\'n\' autocomplete=\'name\'>"'
+  + '+"<label for=\'e\'>Correu electrònic</label><input id=\'e\' type=\'email\' autocomplete=\'email\'>"'
+  + '+"<div class=\'hint\'>Hi rebràs la confirmació i l\'avís al calendari.</div>"'
+  + '+"<div id=\'msg\'></div>"'
+  + '+"<div style=\'margin-top:16px;display:flex;gap:9px;flex-direction:column\'>"'
+  + '+"<button class=\'btn\' id=\'ok\'>Reservar aquesta hora</button>"'
+  + '+"<button class=\'btn btn2\' id=\'no\'>Triar-ne una altra</button></div>";'
+  + 'document.getElementById("no").addEventListener("click",function(){carrega();});'
+  + 'document.getElementById("ok").addEventListener("click",envia);'
+  + 'document.getElementById("n").focus();}'
+  + 'function envia(){var n=document.getElementById("n").value.trim();var e=document.getElementById("e").value.trim();'
+  + 'var msg=document.getElementById("msg");'
+  + 'if(n.length<3){msg.innerHTML="<div class=\'err\'>Escriu el teu nom i cognoms.</div>";document.getElementById("n").focus();return;}'
+  + 'if(!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(e)){msg.innerHTML="<div class=\'err\'>Escriu un correu electrònic vàlid.</div>";document.getElementById("e").focus();return;}'
+  + 'var b=document.getElementById("ok");b.disabled=true;b.textContent="Reservant\\u2026";msg.innerHTML="";'
+  + 'google.script.run.withSuccessHandler(function(r){'
+  + 'if(r&&r.ok){fet(r);return;}'
+  + 'b.disabled=false;b.textContent="Reservar aquesta hora";'
+  + 'msg.innerHTML="<div class=\'err\'>"+esc((r&&r.error)||"No s\'ha pogut reservar.")+"</div>";'
+  + 'if(r&&r.ocupada)setTimeout(carrega,2200);'
+  + '}).withFailureHandler(function(){b.disabled=false;b.textContent="Reservar aquesta hora";'
+  + 'msg.innerHTML="<div class=\'err\'>No s\'ha pogut reservar. Comprova la connexió i torna-ho a provar.</div>";'
+  + '}).reuPublicReserva(CAL,TRIA.slotId,n,e);}'
+  + 'function fet(r){app.innerHTML="<div class=\'ok\'><div class=\'tic\'>\\u2705</div>"'
+  + '+"<h1 style=\'margin-top:8px\'>Hora reservada</h1>"'
+  + '+"<p style=\'margin:10px 0\'><strong>"+esc(dataText(r.data))+"</strong><br>"+esc(r.inici)+" - "+esc(r.fi)+"</p>"'
+  + '+(r.lloc?"<p class=\'hint\'>On: "+esc(r.lloc)+"</p>":"")'
+  + '+"<p class=\'hint\' style=\'margin-top:12px\'>Ho hem apuntat. Si no hi pots venir, respon el correu amb què t\'han enviat l\'enllaç.</p></div>";}'
+  + 'carrega();'
+  + '</script></body></html>';
+  return h;
+}
+
 /* ============================================================
    CONFIGURAR UNA APP NOVA — TOT EN UNA SOLA EXECUCIO
    ------------------------------------------------------------
@@ -101,6 +665,8 @@ function configuraTot() {
     diu('   Registres d aula ....... OK');
   } catch (e) { diu('   Registres d aula ....... HA FALLAT: ' + e.message); }
   // Els fulls de dades ocults es creen sols en escriure-hi la primera clau
+  try { _reuCals_(ss); _reuHores_(ss); diu('   Reunions .............. OK'); }
+  catch (e) { diu('   Reunions .............. HA FALLAT: ' + e.message); }
   ['_AppData', '_AppData_Planning', '_AppData_Assim', '_AppData_Actitud'].forEach(function (nom) {
     try {
       var sh = ss.getSheetByName(nom);
@@ -293,7 +859,17 @@ function _notesTabName(trimestre, nomBase, grup) {
   return trimestre + 'T_' + nomBase;
 }
 
-function doGet(e)  { return handleRequest(e); }
+function doGet(e) {
+  // Pàgina pública per reservar hora (?r=<id>). No demana token: la
+  // clau és l'enllaç mateix, i qui reserva no té ni app ni token.
+  var r = e && e.parameter && e.parameter.r;
+  if (r) {
+    return HtmlService.createHtmlOutput(_reuPaginaHtml_(r))
+      .setTitle('Reservar hora')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+  return handleRequest(e);
+}
 function doPost(e) { return handleRequest(e); }
 
 function handleRequest(e) {
@@ -321,6 +897,12 @@ function handleRequest(e) {
     switch (action) {
       case 'getAlumnes':           result = getAlumnes(ss); break;
       case 'getMainData':          result = getMainData(ss); break;
+      case 'reunionsLlista':      result = reunionsLlista(ss); break;
+      case 'reunionsCrea':        result = reunionsCrea(ss, (body&&body.dades)||{}); break;
+      case 'reunionsAllibera':    result = reunionsAllibera(ss, (body&&body.calId)||p.calId, (body&&body.slotId)||p.slotId); break;
+      case 'reunionsReintenta':   result = reunionsReintenta(ss, (body&&body.calId)||p.calId, (body&&body.slotId)||p.slotId); break;
+      case 'reunionsActiva':      result = reunionsActiva(ss, (body&&body.calId)||p.calId, !!(body&&body.actiu)); break;
+      case 'reunionsEsborra':     result = reunionsEsborra(ss, (body&&body.calId)||p.calId); break;
       case 'bootstrap':            result = bootstrap(ss, parseWeekIds((body&&body.weekIds)||p.weekIds)); break;
       case 'setAlumnes':           result = setAlumnes(ss, body.alumnes); break;
       case 'getPersonal':          result = getPersonal(ss, (body&&body.studentId)||p.studentId); break;

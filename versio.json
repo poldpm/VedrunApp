@@ -1,9 +1,11 @@
 {
-  "versio": "v118",
+  "versio": "v119",
   "data": "2026-09-02",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "ARREGLAT: si obries les notes d una assignatura desdoblada i després anaves a Alumnes, Observacions o Registres d aula, hi sortia només mitja classe. Ara hi tornen a sortir tots.",
-    "A les notes d una assignatura desdoblada hi continuen sortint només els teus, que és el correcte."
+    "NOVA EINA: Convocar reunions. Marca quan tens lliure, envia l enllaç a les famílies i cadascuna tria la seva hora. La reserva et va sola al teu Google Calendar.",
+    "Dues famílies no poden agafar la mateixa hora: quan algú reserva, aquella hora desapareix a l instant per a tothom.",
+    "Pots dir-li que no ofereixi hores que ja tens ocupades al calendari, i posar-hi un descans entre reunions.",
+    "A la pantalla de l eina hi tens tots els calendaris, qui ha reservat què, i pots tancar les reserves o alliberar una hora."
   ]
 }

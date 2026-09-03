@@ -94,6 +94,7 @@ function showPage(pageId, _fromPop) {
   if (pageId === 'grups')        initGrups();
   if (pageId === 'seients')      initSeients();
   if (pageId === 'postits')      initPostits();
+  if (pageId === 'reunions')     { if (typeof initReunions === 'function') initReunions(); }
   if (pageId === 'perfil')       initPerfil();
   if (pageId === 'calendari')    { renderCalendari(); }
   if (pageId === 'tasques')      renderTasques();

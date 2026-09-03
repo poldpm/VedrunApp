@@ -3671,3 +3671,79 @@ body {
 .gvf-obsform-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .gvf-obsform-row .modal-input { flex: 1 1 160px; min-width: 0; }
 .gvf-obsform textarea.modal-input { min-height: 92px; resize: vertical; }
+
+/* ============================================================
+   CONVOCAR REUNIONS
+   ============================================================ */
+.reu-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 18px 20px; margin-bottom: 14px;
+}
+.reu-card.reu-acabat { opacity: .62; }
+.reu-card-head { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; align-items: baseline; }
+.reu-card-titol { font-size: 16px; color: var(--garnet-deep); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.reu-card-meta { font-size: 12.5px; color: var(--text-muted); }
+.reu-badge {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--border); color: var(--text-muted); padding: 2px 7px; border-radius: 5px;
+}
+.reu-badge-tancat { background: #FEF3C7; color: #92400E; }
+.reu-desc { font-size: 13.5px; color: var(--text-muted); margin: 8px 0 0; white-space: pre-wrap; }
+
+.reu-xifres { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.reu-xifra {
+  font-size: 12.5px; color: var(--garnet-text); background: var(--garnet-soft);
+  padding: 4px 10px; border-radius: 20px;
+}
+.reu-xifra b { font-weight: 800; }
+.reu-xifra-avis { background: #FEF3C7; color: #92400E; }
+
+.reu-enllac { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.reu-enllac input { flex: 1; font-size: 12.5px; font-family: 'SF Mono', Consolas, monospace; }
+
+.reu-reserves { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.reu-reserves-tit {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-muted); margin-bottom: 8px;
+}
+.reu-reserva {
+  display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center;
+  padding: 8px 10px; border-radius: var(--r-sm); background: var(--bg-alt, #FAF7F8); margin-bottom: 6px;
+}
+.reu-reserva-avis { background: #FEF3C7; }
+.reu-reserva-quan { font-size: 13px; min-width: 118px; color: var(--garnet-text); }
+.reu-reserva-qui { flex: 1; min-width: 160px; font-size: 13.5px; display: flex; flex-direction: column; }
+.reu-reserva-mail { font-size: 12px; color: var(--text-muted); }
+.reu-reserva-err { font-size: 12px; color: #92400E; font-weight: 700; }
+.reu-reserva-acc { display: flex; gap: 6px; flex-wrap: wrap; }
+.reu-card-acc { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.reu-del { color: var(--crimson); }
+
+.reu-dos { display: flex; gap: 12px; }
+.reu-dos > * { flex: 1; }
+.reu-afegir { display: flex; gap: 8px; align-items: center; }
+.reu-afegir input { flex: 1; min-width: 0; }
+.reu-fins { color: var(--text-muted); font-size: 13px; }
+.reu-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.reu-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+  background: var(--garnet-soft); color: var(--garnet-text);
+  padding: 4px 6px 4px 11px; border-radius: 20px;
+}
+.reu-chip button {
+  border: 0; background: transparent; color: var(--garnet-text); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 0 4px; border-radius: 50%;
+}
+.reu-chip button:hover { background: var(--garnet-soft2); }
+.reu-opc { font-weight: 400; color: var(--text-muted); }
+.reu-resum {
+  background: var(--garnet-soft); border-left: 4px solid var(--crimson);
+  padding: 10px 14px; border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  margin: 6px 0 14px; font-size: 13.5px; color: var(--garnet-deep);
+}
+
+@media (max-width: 700px) {
+  .reu-dos { flex-direction: column; gap: 0; }
+  .reu-afegir { flex-wrap: wrap; }
+  .reu-enllac { flex-direction: column; align-items: stretch; }
+}
