@@ -21,7 +21,7 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v173';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v174';   // ← ha de coincidir amb el CACHE del sw.js
 
   /* La versió MÉS VELLA del Code.gs amb què aquesta app encara funciona.
      ------------------------------------------------------------------
@@ -35,6 +35,21 @@
   var BACKEND_MINIM = 'v171';
 
   var K_AJORNAT  = 'versio_ajornada';
+  /* ⚠ EL BUCLE DEL 4/9/2026.
+     L'app d'en Pol va entrar en bucle: sortia l'avís de versió nova, ell
+     clicava "Actualitzar ara", i dos segons després tornava a sortir. La
+     recàrrega demanava l'index.html amb una adreça nova, però els fitxers
+     js/ es tornaven a llegir de la còpia guardada del navegador: la versió
+     no canviava mai.
+
+     L'arranjament de debò és la versió a l'adreça de cada fitxer (ho fa
+     eines/puja-versio.js). Això d'aquí és la xarxa: si ja ho hem provat i
+     la versió segueix sense quadrar, NO es torna a preguntar. Es diu un
+     cop, amb una franja discreta, i es deixa treballar.
+
+     Un avís que torna cada dos segons no és un avís: és una app trencada. */
+  var K_INTENT   = 'versio_intent';
+  var ESPERA_MS  = 10 * 60 * 1000;   // deu minuts
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, function (m) {
@@ -42,9 +57,37 @@
     });
   }
 
+  function llegeixIntent() {
+    try { return JSON.parse(sessionStorage.getItem(K_INTENT) || 'null'); } catch (e) { return null; }
+  }
+  function desaIntent(versio) {
+    var v = llegeixIntent();
+    var n = (v && v.versio === versio ? (v.vegades || 0) : 0) + 1;
+    try { sessionStorage.setItem(K_INTENT, JSON.stringify({ versio: versio, quan: Date.now(), vegades: n })); } catch (e) {}
+  }
+  function oblidaIntent() { try { sessionStorage.removeItem(K_INTENT); } catch (e) {} }
+
+  /* La franja discreta per quan ja ho hem provat i no ha arribat. No
+     interromp: diu què passa i deixa treballar. */
+  function avisDiscret(info) {
+    if (document.getElementById('verFranja')) return;
+    var d = document.createElement('div');
+    d.id = 'verFranja';
+    d.className = 'ver-franja';
+    d.setAttribute('role', 'status');
+    d.innerHTML =
+      '<span>Hi ha una versió nova (la ' + esc(info.versio) + ') i encara està arribant. ' +
+      'Pot trigar uns minuts; mentrestant pots seguir treballant.</span>' +
+      '<button class="btn btn-secondary btn-sm" id="verFranjaX">D\'acord</button>';
+    document.body.insertBefore(d, document.body.firstChild);
+    var x = document.getElementById('verFranjaX');
+    if (x) x.addEventListener('click', function () { d.remove(); });
+  }
+
   // Esborra la còpia guardada i torna a carregar. És el que de debò
   // desencalla el navegador quan el Ctrl+Shift+R no n'hi ha prou.
-  async function actualitza(btn) {
+  async function actualitza(btn, versio) {
+    desaIntent(versio || '');
     if (btn) { btn.disabled = true; btn.textContent = 'Actualitzant…'; }
     try {
       if (navigator.serviceWorker) {
@@ -100,7 +143,7 @@
       '</div>';
 
     document.body.appendChild(ov);
-    document.getElementById('verAra').addEventListener('click', function () { actualitza(this); });
+    document.getElementById('verAra').addEventListener('click', function () { actualitza(this, info.versio); });
     document.getElementById('verDespres').addEventListener('click', function () {
       // Només per aquesta versió: si en surt una altra, es tornarà a avisar.
       try { localStorage.setItem(K_AJORNAT, info.versio || ''); } catch (e) {}
@@ -115,7 +158,14 @@
       if (!r.ok) return;
       var info = await r.json();
       if (!info || !info.versio) return;
-      if (info.versio === VERSIO_APP) return;              // ja està al dia
+      if (info.versio === VERSIO_APP) { oblidaIntent(); return; }   // ja està al dia
+
+      // Ja ho hem provat i no ha arribat: no es torna a preguntar.
+      var intent = llegeixIntent();
+      if (intent && intent.versio === info.versio && (Date.now() - intent.quan) < ESPERA_MS) {
+        avisDiscret(info);
+        return;
+      }
       var ajornada = null;
       try { ajornada = localStorage.getItem(K_AJORNAT); } catch (e) {}
       if (ajornada === info.versio) return;                // ja ha dit "ara no"

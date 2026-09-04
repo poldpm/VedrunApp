@@ -1,9 +1,10 @@
 {
-  "versio": "v173",
+  "versio": "v174",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
+    "Arreglat: l avís de versió nova ja no pot tornar a sortir sense parar.",
     "A la fitxa de l alumne hi surten els trastorns, l aula d acollida, els drets d imatge i l EMVic, cadascun amb la seva etiqueta.",
-    "Les observacions de conducta ja no van al camp d informació mèdica: allà hi van les al lèrgies i les intoleràncies, com toca."
+    "Les observacions de conducta ja no van al camp d informació mèdica: allà hi van les al lèrgies i les intoleràncies."
   ]
 }

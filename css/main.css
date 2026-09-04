@@ -4683,3 +4683,12 @@ button.reucal-cel:focus-visible {
   background: var(--surface); color: var(--text-main); font-size: 13px;
 }
 .dubte-tria select:focus-visible { outline: 2px solid var(--crimson); outline-offset: 2px; }
+
+/* La franja de "la versió nova encara està arribant". No interromp: és
+   una franja, no un modal. Un avís que torna cada dos segons no és un
+   avís, és una app trencada. */
+.ver-franja {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; background: #FEF3C7; color: #92400E;
+  font-size: 13px; line-height: 1.4; border-bottom: 1px solid #FDE68A;
+}

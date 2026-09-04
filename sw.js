@@ -1,5 +1,5 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v173';
+const CACHE = 'vedruna-v174';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
   './js/rol.js', './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/vedrunu.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js', './img/vedrunu-icon.png',
@@ -21,7 +21,11 @@ self.addEventListener('fetch', e => {
   // navegador serveix codi antic. Si es guardes, no ho detectaria mai.
   if (url.includes('versio.json')) return;
   e.respondWith(
-    caches.match(e.request).then(cached => {
+    // ⚠ ignoreSearch: des de la v174 els fitxers es demanen amb la versió a
+    // l adreça (js/app.js?v=v174) perquè el navegador no en pugui servir una
+    // còpia vella. Sense això, la còpia guardada com a "js/app.js" no
+    // quadraria mai amb la petició i tot aniria sempre a la xarxa.
+    caches.match(e.request, { ignoreSearch: true }).then(cached => {
       // Si el tenim en cache, el servim DIRECTAMENT (sense tornar a demanar-lo a
       // la xarxa): els assets es versionen amb CACHE, així que quan es puja una
       // versió nova el sw ja els refresca sol. Això estalvia moltes peticions
