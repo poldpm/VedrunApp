@@ -1,10 +1,9 @@
 {
-  "versio": "v144",
+  "versio": "v145",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "IMPORTANT: quan una família reservava una hora, l event no arribava al teu Google Calendar. Ella veia Hora reservada i a tu no t apareixia res. Arreglat.",
-    "Una hora que ja havia passat també es podia reservar. Ara no.",
-    "La pantalla de confirmació que veu la família ja no ensenya Sat Dec 30 1899."
+    "Si Google no deixa convidar la família a la reunió, l event es crea igualment al teu calendari i t avisa. Abans es perdia tot: ni event ni res, i la família amb l hora reservada.",
+    "Quan una cosa del Google Calendar falla, ara es desa PER QUÈ ha fallat, no només que ha fallat."
   ]
 }

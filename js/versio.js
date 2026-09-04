@@ -21,7 +21,7 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v144';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v145';   // ← ha de coincidir amb el CACHE del sw.js
   var K_AJORNAT  = 'versio_ajornada';
 
   function esc(s) {

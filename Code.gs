@@ -1286,7 +1286,26 @@ function _reuCreaEvent_(cal, data, inici, fi, nom, email) {
     });
     return { gEventId: creat.id };
   } catch (e) {
-    return { error: String((e && e.message) || e).slice(0, 250) };
+    /* Si Google diu que no, guardem PROU informació per saber per què. Amb
+       un "Bad Request" pelat no es pot fer res: cal saber què li enviàvem.
+       I si el problema és el convidat, es torna a provar SENSE convidat:
+       val més que l'event hi sigui i la família no rebi la invitació, que
+       no que no hi hagi res al calendari de la mestra. */
+    var msg = String((e && e.message) || e);
+    if (ev.attendees) {
+      try {
+        var creat2 = _gRetry_(function () {
+          var sense = {};
+          Object.keys(ev).forEach(function (k) { if (k !== 'attendees') sense[k] = ev[k]; });
+          return Calendar.Events.insert(sense, 'primary', { sendUpdates: 'none' });
+        });
+        return { gEventId: creat2.id,
+                 error: 'L\'event és al teu calendari, però NO s\'ha pogut convidar ' +
+                        (email || 'la família') + ': ' + msg.slice(0, 150) };
+      } catch (e2) { msg += ' | i sense convidat també falla: ' + String((e2 && e2.message) || e2); }
+    }
+    return { error: (msg + '  [' + ev.start.dateTime + ' → ' + ev.end.dateTime +
+                     ', zona ' + tz + ']').slice(0, 400) };
   }
 }
 
@@ -3877,7 +3896,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v144';
+var BACKEND_VERSIO = 'v145';
 
 var MAX_CELA = 45000;
 
@@ -4739,6 +4758,49 @@ function provaEscripturaGoogle() {
   // ---- CALENDAR ----
   diu('');
   diu('--- Google Calendar ---');
+  diu('  Zona horària d\'aquest script: ' + _gTz_());
+
+  /* Provem l'event PAS A PAS per saber QUINA PART rebutja Google. Amb un
+     "Bad Request" pelat no es pot fer res; sabent quin tros falla, sí.
+     El 4 de setembre del 2026 una reserva d'una família va fallar amb
+     "calendar.events.insert ha fallat: Bad Request" i no hi havia manera
+     de saber per què. */
+  (function () {
+    var dm = new Date(); dm.setDate(dm.getDate() + 2);
+    var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    var dia = dm.getFullYear() + '-' + p2(dm.getMonth() + 1) + '-' + p2(dm.getDate());
+    var base = function () {
+      return { summary: 'PROVA pas a pas (s esborra sola)',
+               start: { dateTime: dia + 'T18:00:00', timeZone: _gTz_() },
+               end:   { dateTime: dia + 'T18:15:00', timeZone: _gTz_() } };
+    };
+    var jo = '';
+    try { jo = Session.getActiveUser().getEmail() || ''; } catch (e) {}
+
+    var passos = [
+      ['el mínim (sense res més)', function () { return Calendar.Events.insert(base(), 'primary'); }],
+      ['amb la teva zona horària', function () {
+        var e = base(); e.start.timeZone = _gTz_(); e.end.timeZone = _gTz_();
+        return Calendar.Events.insert(e, 'primary'); }],
+      ['amb un convidat (com una reserva de família)', function () {
+        var e = base(); e.attendees = [{ email: jo || 'ningu@example.com' }];
+        return Calendar.Events.insert(e, 'primary', { sendUpdates: 'none' }); }],
+      ['amb un id nostre (com el calendari de l\'app)', function () {
+        var e = base(); e.id = 'provavedruna' + String(Date.now()).slice(-9);
+        return Calendar.Events.insert(e, 'primary'); }],
+    ];
+    passos.forEach(function (p) {
+      try {
+        var c = p[1]();
+        diu('  [BE]    ' + p[0]);
+        try { Calendar.Events.remove('primary', c.id); } catch (e) {}
+      } catch (e) {
+        diu('  [FALLA] ' + p[0] + '  →  ' + (e && e.message ? e.message : e));
+      }
+    });
+  })();
+
+  diu('');
   var idProva = 'provavedruna' + String(Date.now()).slice(-8);
   try {
     var dema = new Date(); dema.setDate(dema.getDate() + 1);
