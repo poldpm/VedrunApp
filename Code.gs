@@ -3933,7 +3933,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v151';
+var BACKEND_VERSIO = 'v152';
 
 var MAX_CELA = 45000;
 
@@ -5156,6 +5156,13 @@ function grupsSincronitza(ss, prova) {
       tot.naixOmplerts += r.naixOmplerts || 0;
       tot.jaNoHiSon += r.jaNoHiSon || 0;
     });
+    // Sempre per ordre alfabètic de cognom: ara que cada alumne porta el
+    // seu codi, moure files ja no barreja res.
+    var ordenats = 0;
+    if (!prova) Object.keys(ap.parelles).forEach(function (g) {
+      ordenats += (grupsOrdena(ss, gss, g, false).mogudes || 0);
+    });
+    tot.ordenats = ordenats;
     if (!prova) sheetSetJSON(gss, '_AppData', 'grups_sync', JSON.stringify({
       quan: Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'), tot: tot }));
     return { ok: true, prova: !!prova, grups: resultats, total: tot,
@@ -5597,17 +5604,18 @@ function grupsPrepara(ss, prova) {
     });
     _oblidaMapaUids_();
 
-    // 3) I que tothom tingui codi
-    var uids = 0;
+    // 3) Que tothom tingui codi, i ordenar per cognom
+    var uids = 0, ordenats = 0;
     if (!prova) GRUPS_PRIMARIA.forEach(function (g) {
       uids += (grupsAssignaUids(gss, g, false).posats || 0);
+      ordenats += (grupsOrdena(ss, gss, g, false).mogudes || 0);
     });
 
     var tot = { afegits: 0, jaHiEren: 0 };
     resultats.forEach(function (r) { tot.afegits += r.afegits || 0; tot.jaHiEren += r.jaHiEren || 0; });
 
     return { ok: true, prova: !!prova, pestanyesAparellades: quantes,
-             netejat: net, alumnes: tot, codisNous: uids,
+             netejat: net, alumnes: tot, codisNous: uids, filesOrdenades: ordenats,
              senseParella: ap.sense,
              grups: resultats.map(function (r) {
                return { grup: r.grup, alumnes: (r.jaHiEren || 0) + (r.afegits || 0) };
@@ -5625,6 +5633,93 @@ function provaPrepararGrups() {
 /* ⚠ AQUESTA TOCA EL FULL: neteja les proves i omple els 18 grups. */
 function preparaGrupsDEBO() {
   var r = grupsPrepara(SpreadsheetApp.getActiveSpreadsheet(), false);
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+
+/* ============================================================
+   ELS ALUMNES, PER ORDRE ALFABÈTIC DE COGNOM
+   ------------------------------------------------------------
+   Això abans hauria estat impensable: quan un alumne s'identificava
+   pel número de fila, ordenar el full barrejava les observacions
+   de tota la classe. Ara que cada alumne porta el seu codi, les
+   files poden anar on calgui.
+
+   ⚠ Es mou la FILA SENCERA (les 15 columnes), no només el nom:
+   si es moguessin només els noms, cada nen es quedaria amb el PI
+   i l'EAP del que abans hi havia en aquella fila.
+
+   Per seguretat, abans d'ordenar s'assegura que tothom té codi i
+   que no queda cap dada indexada per fila. Si en quedés i
+   ordenéssim, aquella dada passaria a un altre nen.
+   ============================================================ */
+
+/* Per comparar cognoms en català: sense accents ni majúscules, i els
+   números al final (perquè "Àlvarez" i "Alvarez" quedin junts). */
+function _clauOrdre_(cognom, nom) {
+  var s = String(cognom || '') + ' ' + String(nom || '');
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function grupsOrdena(ss, gss, grup, prova) {
+  var sh = gss.getSheetByName(grup);
+  if (!sh) return { grup: grup, error: 'no existeix' };
+  var lr = sh.getLastRow();
+  if (lr < 3) return { grup: grup, mogudes: 0 };      // 0 o 1 alumne: res a fer
+
+  // Que ningú es quedi sense codi, i que no hi hagi dades per fila.
+  grupsAssignaUids(gss, grup, false);
+  _oblidaMapaUids_();
+
+  var ample = Math.max(sh.getLastColumn(), GRUP_HEADERS.length);
+  var files = sh.getRange(2, 1, lr - 1, ample).getValues();
+
+  // Es queden fora les files buides: no s'ordenen ni es perden.
+  var amb = [], buides = [];
+  files.forEach(function (r) {
+    var te = String(r[0] || '').trim() || String(r[1] || '').trim();
+    (te ? amb : buides).push(r);
+  });
+
+  var abans = amb.map(function (r) { return String(r[COL_UID - 1] || ''); }).join('|');
+  amb.sort(function (a, b) {
+    var ka = _clauOrdre_(a[1], a[0]), kb = _clauOrdre_(b[1], b[0]);
+    return ka < kb ? -1 : (ka > kb ? 1 : 0);
+  });
+  var despres = amb.map(function (r) { return String(r[COL_UID - 1] || ''); }).join('|');
+  if (abans === despres) return { grup: grup, mogudes: 0 };   // ja estava ordenat
+
+  var mogudes = 0;
+  amb.forEach(function (r, i) { if (String(r[COL_UID - 1] || '') !== abans.split('|')[i]) mogudes++; });
+
+  if (!prova) {
+    sh.getRange(2, 1, amb.concat(buides).length, ample).setValues(amb.concat(buides));
+    _oblidaMapaUids_();
+  }
+  return { grup: grup, mogudes: mogudes, alumnes: amb.length };
+}
+
+/* Ordena els 18 grups. */
+function grupsOrdenaTots(ss, prova) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var lock = LockService.getScriptLock(), tinc = false;
+  try { lock.waitLock(120000); tinc = true; }
+  catch (e) { return { ok: false, error: 'Hi ha una altra feina en marxa.' }; }
+  try {
+    var out = [], total = 0;
+    GRUPS_PRIMARIA.forEach(function (g) {
+      var r = grupsOrdena(ss, gss, g, prova);
+      if (r.mogudes) { out.push(r); total += r.mogudes; }
+    });
+    return { ok: true, prova: !!prova, filesMogudes: total, grups: out };
+  } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
+}
+
+/* Per a l'editor. */
+function ordenaGrupsDEBO() {
+  var r = grupsOrdenaTots(SpreadsheetApp.getActiveSpreadsheet(), false);
   Logger.log(JSON.stringify(r, null, 2));
   return r;
 }

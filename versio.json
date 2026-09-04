@@ -1,8 +1,8 @@
 {
-  "versio": "v151",
+  "versio": "v152",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Els grups del full compartit s omplen amb els alumnes de la llista de l escola: cada tutora hi troba els seus sense haver de teclejar ningú."
+    "Els alumnes de cada grup surten sempre per ordre alfabètic de cognom, i es reordenen sols cada cop que arriben alumnes nous de la llista de l escola."
   ]
 }
