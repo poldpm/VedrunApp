@@ -21,7 +21,7 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v165';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v166';   // ← ha de coincidir amb el CACHE del sw.js
 
   /* La versió MÉS VELLA del Code.gs amb què aquesta app encara funciona.
      ------------------------------------------------------------------
@@ -32,7 +32,7 @@
      ⚠ Aquesta línia NOMÉS es puja quan l'app deixa de funcionar amb el
      servidor d'abans: una acció nova al Code.gs, un camp nou que el
      navegador espera... Si el canvi és de pantalla, NO es toca. */
-  var BACKEND_MINIM = 'v155';
+  var BACKEND_MINIM = 'v166';
 
   var K_AJORNAT  = 'versio_ajornada';
 

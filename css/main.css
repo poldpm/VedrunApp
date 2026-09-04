@@ -4658,3 +4658,21 @@ button.reucal-cel:focus-visible {
 .cal2-gwrite-btn:active { transform: scale(0.97); }
 .cal2-gwrite-btn:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .cal2-gwrite-btn { transition: none; } .cal2-gwrite-btn:active { transform: none; } }
+
+/* Els dubtes del document de fitxes: "de qui és, aquesta dada?".
+   Cada fila ha de deixar clar QUÈ diu el document i ON surt, perquè la
+   mestra pugui decidir sense obrir el document. */
+.dubte-fila {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.dubte-fila:first-of-type { border-top: none; }
+.dubte-qui { font-size: 13px; color: var(--text-main); }
+.dubte-on { font-size: 12px; color: var(--text-muted); margin: 2px 0 6px; }
+.dubte-tria { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dubte-tria select {
+  flex: 1 1 200px; min-height: 36px; padding: 6px 8px;
+  border: 1.5px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text-main); font-size: 13px;
+}
+.dubte-tria select:focus-visible { outline: 2px solid var(--crimson); outline-offset: 2px; }

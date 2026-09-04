@@ -5828,6 +5828,93 @@ async function llistesEstat() {
   } catch (e) { out.textContent = ''; }
 }
 
+/* ============================================================
+   ELS ALUMNES QUE L'APP NO SAP QUI SÓN
+   ------------------------------------------------------------
+   Al document de fitxes de grup molts alumnes hi surten pel nom
+   de pila. Quan al grup n'hi ha dos que es diuen igual, l'app no
+   n'endevina cap —una dada al nen equivocat és pitjor que una
+   dada que falta— i el dubte surt aquí perquè el resolgui una
+   persona.
+
+   ⚠ Això abans es feia des de l'editor de l'Apps Script, i allà
+   NO es poden executar funcions amb arguments: no hi havia
+   manera de dir-ho. Per això és una pantalla.
+   ============================================================ */
+async function dubtesCarrega() {
+  const out = document.getElementById('dubtesResult');
+  if (!out) return;
+  out.textContent = 'Mirant el document…';
+  try {
+    const r = await appsScriptPost({ action: 'fitxesDubtes' });
+    if (!r || !r.ok) {
+      out.innerHTML = '<span style="color:#B71C1C">' +
+        escapeHtml((r && r.error) || 'No s\'ha pogut llegir') + '</span>';
+      return;
+    }
+    const d = r.dubtes || [];
+    if (!d.length) { out.innerHTML = '<strong>No hi ha cap dubte.</strong> Tot està assignat.'; return; }
+
+    const triables = d.filter(x => x.teCandidats);
+    const altres = d.filter(x => !x.teCandidats);
+    let h = '';
+    if (triables.length) {
+      h += '<p><strong>' + triables.length + '</strong> per resoldre. Tria de qui es tracta:</p>';
+      h += triables.map((x, i) => {
+        const id = 'dub' + i;
+        return '<div class="dubte-fila">' +
+          '<div class="dubte-qui"><strong>' + escapeHtml(x.grup) + '</strong> · al document hi diu «' +
+          escapeHtml(x.etiqueta) + '»</div>' +
+          '<div class="dubte-on">' + escapeHtml(x.on.slice(0, 3).join(', ')) +
+          (x.on.length > 3 ? ' i ' + (x.on.length - 3) + ' més' : '') + '</div>' +
+          '<div class="dubte-tria">' +
+          '<select id="' + id + '">' +
+          '<option value="">— tria l\'alumne —</option>' +
+          x.candidats.map(c => '<option value="' + escapeHtml(c.uid) + '">' +
+            escapeHtml(c.nom + ' ' + c.cognoms) + '</option>').join('') +
+          '</select> ' +
+          '<button class="btn btn-primary btn-sm" onclick="dubtesDesa(\'' +
+          escapeHtml(x.grup).replace(/'/g, '') + '\',\'' +
+          escapeHtml(x.etiqueta).replace(/'/g, '') + '\',\'' + id + '\')">És aquest</button>' +
+          '</div></div>';
+      }).join('');
+    }
+    if (altres.length) {
+      h += '<p style="margin-top:10px"><strong>' + altres.length +
+           '</strong> que no són de cap alumne d\'aquell grup. Això s\'ha d\'arreglar al document:</p><ul style="margin:4px 0 0 16px">' +
+           altres.map(x => '<li>' + escapeHtml(x.grup) + ' · «' + escapeHtml(x.etiqueta) + '» — ' +
+                           escapeHtml(x.motiu) + '</li>').join('') + '</ul>';
+    }
+    out.innerHTML = h;
+  } catch (e) {
+    out.innerHTML = '<span style="color:#B71C1C">' + escapeHtml(e.message) + '</span>';
+  }
+}
+
+async function dubtesDesa(grup, etiqueta, idSelect) {
+  const sel = document.getElementById(idSelect);
+  if (!sel || !sel.value) {
+    if (typeof showToast === 'function') showToast('Tria primer de quin alumne es tracta', 'warning');
+    return;
+  }
+  try {
+    const r = await appsScriptPost({ action: 'fitxesPosaAlies', grup, etiqueta, uid: sel.value });
+    if (!r || !r.ok) {
+      if (typeof showToast === 'function') showToast((r && r.error) || 'No s\'ha pogut desar', 'error');
+      return;
+    }
+    if (typeof showToast === 'function') showToast('«' + etiqueta + '» és ' + r.alumne + ' ✓', 'success');
+    // I ara que ja se sap qui és, portar-li les seves dades
+    const a = await appsScriptPost({ action: 'fitxesAplica', prova: false });
+    if (a && a.ok && a.total && a.total.camps && typeof showToast === 'function') {
+      showToast(a.total.camps + ' dades portades a la seva fitxa', 'success');
+    }
+    dubtesCarrega();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message, 'error');
+  }
+}
+
 async function llistesSync(prova) {
   const out = document.getElementById('llistesResult');
   if (out) out.innerHTML = prova ? 'Mirant…' : 'Portant-les…';

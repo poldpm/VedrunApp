@@ -2116,6 +2116,9 @@ function handleRequest(e) {
       case 'setupGrups':             result = setupGrups(getGrupsSpreadsheet(ss) || ss); break;
       case 'grupsSincronitza':       result = grupsSincronitza(ss, !!(body && body.prova)); break;
       case 'grupsSyncEstat':         result = grupsSyncEstat(ss); break;
+      case 'fitxesDubtes':           result = fitxesDubtes(ss); break;
+      case 'fitxesPosaAlies':        result = fitxesPosaAlies(ss, body && body.grup, body && body.etiqueta, body && body.uid); break;
+      case 'fitxesAplica':           result = fitxesAplica(ss, !!(body && body.prova)); break;
       case 'getGrupAlumnes':         result = _withGrups(ss, function(gss){ return getGrupAlumnes(gss, (body&&body.grup) || p.grup); }); break;
       case 'saveGrupPersonal':       result = _withGrups(ss, function(gss){ return saveGrupPersonal(gss, body.grup, body.rowId, body.dades); }); break;
       case 'saveGrupGenere':         result = _withGrups(ss, function(gss){ return saveGrupGenere(gss, body.grup, body.rowId, body.genere); }); break;
@@ -3965,7 +3968,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v165';
+var BACKEND_VERSIO = 'v166';
 
 var MAX_CELA = 45000;
 
@@ -6961,4 +6964,101 @@ function _fitxesAplicaTxt_(prova) {
   var txt = l.join('\n');
   Logger.log(txt);
   return txt;
+}
+
+/* ============================================================
+   ELS DUBTES, PERQUÈ ELS RESOLGUI UNA MESTRA
+   ------------------------------------------------------------
+   Hi ha empats que cap regla no pot desfer: a 2n C hi ha dues
+   Gales i totes dues es diuen Gala de primer nom.
+
+   ⚠ Això NO es pot resoldre des de l'editor de l'Apps Script:
+   allà només es poden executar funcions SENSE arguments, i
+   posaAlies() en demana tres. Va passar el 4/9/2026: en Pol no
+   tenia cap manera d'executar-la i el missatge d'error li va
+   passar per alt.
+
+   Per això els dubtes surten a l'app, amb la llista de
+   candidats, i es resolen clicant.
+   ============================================================ */
+
+/* Els alumnes del grup que tenen res a veure amb aquesta etiqueta.
+   Serveix per oferir-los a la mestra, no per triar-ne cap. */
+function _quiCandidats_(preparats, etiqueta) {
+  var mots = _motsUtils_(etiqueta);
+  if (!mots.length) return [];
+  var fora = [];
+  preparats.forEach(function (p) {
+    var toca = mots.some(function (m) {
+      return p.tots.some(function (t) {
+        return t === m || (m.length >= 3 && t.indexOf(m) === 0) ||
+               (m.length >= 5 && _distancia1_(m, t));
+      });
+    });
+    if (toca) fora.push({ uid: p.ref.uid, nom: p.ref.nom, cognoms: p.ref.cognoms });
+  });
+  return fora;
+}
+
+/* La llista de dubtes que una persona pot resoldre. */
+function fitxesDubtes(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var doc;
+  try { doc = _fitxesTotes_(); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut obrir el document de fitxes: ' + e.message }; }
+
+  var fora = [], vistos = {};
+  Object.keys(doc.perGrup).forEach(function (g) {
+    var alumnes = _fitxaAlumnes_(gss, g);
+    if (!alumnes.length) return;
+    var prep = _quiPrepara_(alumnes);
+    var alies = _aliesLlegeix_(gss, g);
+    var f = doc.perGrup[g];
+
+    function mira(on, nom) {
+      var clau = g + '|' + _motsUtils_(nom).join(' ');
+      if (vistos[clau]) { vistos[clau].on.push(on); return; }
+      var r = _qui_(prep, nom, alies);
+      if (r.alumne || (r.alumnes && r.alumnes.length)) return;
+      var cands = _quiCandidats_(prep, nom);
+      var d = { grup: g, etiqueta: nom, on: [on], candidats: cands,
+                motiu: r.dubte || '', teCandidats: cands.length > 0 };
+      vistos[clau] = d;
+      fora.push(d);
+    }
+
+    [['observació', f.obs], ['informe EAP', f.eap]].forEach(function (par) {
+      par[1].forEach(function (x) {
+        if (!x.etiqueta || _fnorm_(x.etiqueta) === 'nom alumne/a') return;
+        if (!/[A-Za-zÀ-ÿ]/.test(x.etiqueta)) return;
+        x.etiqueta.split(/\s+i\s+|\s*,\s*/).forEach(function (n) {
+          n = n.trim(); if (n) mira(par[0], n);
+        });
+      });
+    });
+    [['trastorn', f.trastorns], ['PI', f.pi], ['adaptació', f.am]].forEach(function (par) {
+      par[1].forEach(function (x) {
+        _fitxaNoms_(x.valor).forEach(function (n) { mira(par[0] + ' · ' + _fitxaEtiq_(x.etiqueta), n); });
+      });
+    });
+  });
+
+  // Primer els que es poden resoldre clicant
+  fora.sort(function (a, b) { return (b.teCandidats ? 1 : 0) - (a.teCandidats ? 1 : 0); });
+  return { ok: true, dubtes: fora };
+}
+
+/* Desa un àlies des de l'app: la mestra ha triat de quin nen es tracta. */
+function fitxesPosaAlies(ss, grup, etiqueta, uid) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  if (!grup || !etiqueta || !uid) return { ok: false, error: 'Falta el grup, el nom o l\'alumne' };
+  var alumnes = _fitxaAlumnes_(gss, grup);
+  var qui = alumnes.filter(function (a) { return a.uid === uid; })[0];
+  if (!qui) return { ok: false, error: 'Aquest alumne ja no és a ' + grup };
+  var mapa = _aliesLlegeix_(gss, grup);
+  mapa[_motsUtils_(etiqueta).join(' ')] = uid;
+  _aliesDesa_(gss, grup, mapa);
+  return { ok: true, grup: grup, etiqueta: etiqueta, alumne: qui.nom + ' ' + qui.cognoms };
 }

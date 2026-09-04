@@ -1,9 +1,9 @@
 {
-  "versio": "v165",
+  "versio": "v166",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El PI, l AM, l informe de l EAP i les observacions s omplen sols des del document de fitxes de grup de l escola. Ja no els has d escriure tu.",
-    "Els suports (aula d acollida, biblioteca, TSAE) també arriben sols a les adaptacions de qui en rep."
+    "Nou a Configuració: Alumnes que l app no sap qui són. Quan al document hi ha dos nens que es diuen igual, tries quin és i les seves dades li arriben al moment.",
+    "El PI, l AM, l informe de l EAP i les observacions s omplen sols des del document de fitxes de grup."
   ]
 }
