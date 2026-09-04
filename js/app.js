@@ -5797,12 +5797,17 @@ async function llistesEstat() {
   try {
     const r = await appsScriptPost({ action: 'grupsSyncEstat' });
     if (!r || !r.ok) { out.textContent = ''; return; }
-    if (!r.quan) {
+    if (!r.quan && !r.mirat) {
       out.innerHTML = '<span style="color:#7C4A03">Encara no s\'han portat mai.</span>';
       return;
     }
-    let h = 'Última vegada: <strong>' + escapeHtml(r.quan) + '</strong>';
-    if (r.auto) h += ' · es porten soles cada ' + (r.cada || 15) + ' minuts des d\'aquesta app';
+    // Dues dates diferents, i cal que ho siguin: "comprovat" diu que el
+    // sistema va; "últim canvi" diu quan va entrar l'últim alumne. Amb una
+    // de sola no es pot distingir "no ha canviat res" de "està aturat".
+    let h = '';
+    if (r.mirat) h += 'Comprovat: <strong>' + escapeHtml(r.mirat) + '</strong>';
+    if (r.quan) h += (h ? '<br>' : '') + 'Últim canvi: <strong>' + escapeHtml(r.quan) + '</strong>';
+    if (r.auto) h += '<br>Es comprova sol cada ' + (r.cada || 15) + ' minuts des d\'aquesta app.';
     out.innerHTML = h;
   } catch (e) { out.textContent = ''; }
 }

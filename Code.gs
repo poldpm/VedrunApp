@@ -3965,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v154';
+var BACKEND_VERSIO = 'v155';
 
 var MAX_CELA = 45000;
 
@@ -5273,12 +5273,20 @@ function grupsSincronitzaSiCal(ss) {
   }
   var ara = _llistesEmpremta_(ap.parelles);
   var abans = sheetGetJSON(gss, '_AppData', 'grups_empremta');
-  if (abans && String(abans) === ara) return { ok: true, calia: false, empremta: ara };
+
+  // Deixa dit que s'ha MIRAT, encara que no hi hagués res a fer. Sense
+  // això, la mestra veu la data de l'últim CANVI i no pot distingir "fa
+  // tres dies que no canvia res" de "fa tres dies que està aturat".
+  var quan = Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm');
+  try { sheetSetJSON(gss, '_AppData', 'grups_mirat', quan); } catch (e) {}
+
+  if (abans && String(abans) === ara) return { ok: true, calia: false, empremta: ara, mirat: quan };
 
   var r = grupsSincronitza(ss, false);
   if (r && r.ok) sheetSetJSON(gss, '_AppData', 'grups_empremta', ara);
   r.calia = true;
   r.empremta = ara;
+  r.mirat = quan;
   return r;
 }
 
@@ -5372,11 +5380,12 @@ function treuSincronitzacioLlistes() {
 function grupsSyncEstat(ss) {
   var gss = getGrupsSpreadsheet(ss);
   if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
-  var quan = null, tot = null;
+  var quan = null, tot = null, mirat = null;
   try {
     var raw = sheetGetJSON(gss, '_AppData', 'grups_sync');
     if (raw) { var j = JSON.parse(raw); quan = j.quan || null; tot = j.tot || null; }
   } catch (e) {}
+  try { mirat = sheetGetJSON(gss, '_AppData', 'grups_mirat') || null; } catch (e) {}
   var auto = false;
   try {
     auto = ScriptApp.getProjectTriggers().some(function (t) {
@@ -5384,7 +5393,7 @@ function grupsSyncEstat(ss) {
     }) && String(PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES') || '')
           .toLowerCase() === 'si';
   } catch (e) {}
-  return { ok: true, quan: quan, tot: tot, auto: auto, cada: SYNC_CADA_MINUTS };
+  return { ok: true, quan: quan, mirat: mirat, tot: tot, auto: auto, cada: SYNC_CADA_MINUTS };
 }
 
 /* Per mirar com va, sense esperar el quart d'hora. */
