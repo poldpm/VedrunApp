@@ -1,8 +1,8 @@
 {
-  "versio": "v150",
+  "versio": "v151",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Per dins: cada alumne té un codi propi que no canvia mai, en comptes d identificar-se pel número de fila del full. No canvia res del que veus ni del que fas."
+    "Els grups del full compartit s omplen amb els alumnes de la llista de l escola: cada tutora hi troba els seus sense haver de teclejar ningú."
   ]
 }

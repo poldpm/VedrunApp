@@ -3933,7 +3933,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v150';
+var BACKEND_VERSIO = 'v151';
 
 var MAX_CELA = 45000;
 
@@ -5521,5 +5521,110 @@ function migraCodisDEBO() {
     Logger.log('Les còpies de seguretat són al full ocult _AppData, amb');
     Logger.log('claus que comencen per "backup_".');
   }
+  return r;
+}
+
+/* ============================================================
+   DEIXAR EL FULL "GRUPS" LLEST PER A TOTHOM
+   ------------------------------------------------------------
+   Fa dues coses seguides:
+     1. Treu les dades de PROVA (les columnes que omple l'app,
+        les observacions i les entrevistes). En Pol va dir que
+        res d'això és real.
+     2. Porta els alumnes de la llista de l'escola a les 18
+        pestanyes, perquè cada tutora hi trobi els seus.
+
+   ⚠ ES NEGA A NETEJAR SI NO POT OMPLIR. Si les pestanyes dels
+   dos fulls no s'aparellen, para abans de tocar res: val més
+   deixar-ho com estava que deixar el full buit.
+
+   Els codis dels alumnes (columna O) NO es toquen mai: són
+   justament el que no ha de canviar.
+   ============================================================ */
+function grupsPrepara(ss, prova) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var llistes;
+  try { llistes = SpreadsheetApp.openById(LLISTES_ID); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut obrir el full de llistes: ' + e.message }; }
+
+  // Primer de tot: es poden aparellar les pestanyes? Si no, no es toca res.
+  var ap = _llistesAparella_(llistes);
+  var quantes = Object.keys(ap.parelles).length;
+  if (!quantes) {
+    return { ok: false,
+      error: 'No he sabut aparellar cap pestanya, així que no toco res. ' +
+             'Al full de llistes hi ha: ' + ap.nomsOrigen.join(', ') + '. ' +
+             'I al full Grups hi busco: ' + GRUPS_PRIMARIA.join(', ') + '.',
+      pestanyesOrigen: ap.nomsOrigen, senseParella: ap.sense };
+  }
+
+  var lock = LockService.getScriptLock(), tinc = false;
+  try { lock.waitLock(120000); tinc = true; }
+  catch (e) { return { ok: false, error: 'Hi ha una altra feina en marxa.' }; }
+  try {
+    var net = { files: 0, claus: 0 };
+
+    // 1) Netejar les proves
+    GRUPS_PRIMARIA.forEach(function (grup) {
+      var sh = gss.getSheetByName(grup);
+      if (!sh) return;
+      var lr = sh.getLastRow();
+      if (lr >= 2) {
+        // Columnes D–N: tot el que escriu l'app. La O (el codi) NO es toca.
+        var buides = [];
+        for (var i = 0; i < lr - 1; i++) buides.push(['', '', '', '', '', '', '', '', '', '', '']);
+        var teRes = sh.getRange(2, 4, lr - 1, 11).getValues()
+          .some(function (r) { return r.some(function (c) { return String(c || '').trim(); }); });
+        if (teRes) {
+          net.files += lr - 1;
+          if (!prova) sh.getRange(2, 4, lr - 1, 11).setValues(buides);
+        }
+      }
+      // Observacions i entrevistes de proves
+      ['obs_' + grup].forEach(function (k) {
+        if (sheetGetJSON(gss, '_AppData', k)) { net.claus++; if (!prova) sheetSetJSON(gss, '_AppData', k, ''); }
+      });
+      var ke = _entrClauDet_(grup);
+      if (sheetGetJSON(ss, '_AppData', ke)) { net.claus++; if (!prova) sheetSetJSON(ss, '_AppData', ke, ''); }
+    });
+    _oblidaMapaUids_();
+
+    // 2) Omplir des de la llista de l'escola
+    var resultats = [];
+    Object.keys(ap.parelles).forEach(function (g) {
+      resultats.push(_grupsFusiona_(gss, g, ap.parelles[g], prova));
+    });
+    _oblidaMapaUids_();
+
+    // 3) I que tothom tingui codi
+    var uids = 0;
+    if (!prova) GRUPS_PRIMARIA.forEach(function (g) {
+      uids += (grupsAssignaUids(gss, g, false).posats || 0);
+    });
+
+    var tot = { afegits: 0, jaHiEren: 0 };
+    resultats.forEach(function (r) { tot.afegits += r.afegits || 0; tot.jaHiEren += r.jaHiEren || 0; });
+
+    return { ok: true, prova: !!prova, pestanyesAparellades: quantes,
+             netejat: net, alumnes: tot, codisNous: uids,
+             senseParella: ap.sense,
+             grups: resultats.map(function (r) {
+               return { grup: r.grup, alumnes: (r.jaHiEren || 0) + (r.afegits || 0) };
+             }) };
+  } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
+}
+
+/* Per a l'editor: mirar sense tocar res. */
+function provaPrepararGrups() {
+  var r = grupsPrepara(SpreadsheetApp.getActiveSpreadsheet(), true);
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+
+/* ⚠ AQUESTA TOCA EL FULL: neteja les proves i omple els 18 grups. */
+function preparaGrupsDEBO() {
+  var r = grupsPrepara(SpreadsheetApp.getActiveSpreadsheet(), false);
+  Logger.log(JSON.stringify(r, null, 2));
   return r;
 }
