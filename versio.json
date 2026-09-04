@@ -1,8 +1,9 @@
 {
-  "versio": "v161",
+  "versio": "v162",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El PI, l AM, l informe EAP i les observacions del document de l escola ja es poden portar sols a la fitxa de cada alumne."
+    "El PI, l AM, l informe de l EAP i les observacions s omplen sols des del document de fitxes de grup de l escola. Ja no els has d escriure tu.",
+    "Els suports (aula d acollida, biblioteca, TSAE) també arriben sols a les adaptacions de qui en rep."
   ]
 }

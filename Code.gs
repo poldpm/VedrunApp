@@ -3965,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v161';
+var BACKEND_VERSIO = 'v162';
 
 var MAX_CELA = 45000;
 
@@ -6216,8 +6216,22 @@ var FITXES_ID = '1muxIeGoux6wG4gMZ7Xus58ULG-99Wsb0H3yONzCHKUo';
 function _fnorm_(s) {
   return String(s == null ? '' : s)
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/\s+/g, ' ').trim();
+    // ⚠ L'apòstrof compta com un espai. Sense això, "Aula d'acollida" mai no
+    // era igual a "aula d acollida" i tota una comparació del codi era
+    // lletra morta: aquelles caselles queien a la secció que tocava per
+    // atzar. Es va veure a la passada en sec, no llegint el codi.
+    .toLowerCase().replace(/['’]/g, ' ').replace(/\s+/g, ' ').trim();
 }
+
+/* Els suports que rep un nen. No son cap seccio: son una llista de noms,
+   i el que diuen es de cada alumne. */
+var FITXA_SUPORTS = {
+  'aula d acollida': 'Aula d acollida',
+  'suport biblioteca escola': 'Suport biblioteca',
+  'biblioteca (beet) candidats': 'Biblioteca (BEET)',
+  'alumnes biblioteca': 'Biblioteca',
+  'suport tsae': 'Suport TSAE',
+};
 
 /* Les etiquetes que obren una secció. */
 var FITXA_SECCIONS = {
@@ -6283,9 +6297,13 @@ function _fitxaLlegeix_(sh) {
     if (nova) { seccio = nova; continue; }
     if (!teDosPunts && e.indexOf('altres observacions') === 0) { seccio = 'obs'; continue; }
     if (!teDosPunts && e.indexOf('observacions') === 0 && !val) { seccio = 'obs'; continue; }
-    if (e === 'aula d acollida' || e === 'suport biblioteca escola' ||
-        e === 'suport tsae' || e === 'biblioteca (beet) candidats') {
-      f.grupCamps.push({ camp: etiq, valor: val }); continue;
+    // Els suports no són cap secció: són una llista de qui en rep. I són
+    // informació DE CADA NEN, no del grup, o sigui que van a les seves
+    // adaptacions: que un alumne vagi a l'aula d'acollida importa tant com
+    // que tingui una adaptació de castellà.
+    if (FITXA_SUPORTS[e]) {
+      f.am.push({ etiqueta: FITXA_SUPORTS[e], valor: val, fila: r + 1 });
+      continue;
     }
 
     if (!val && !etiq) continue;
@@ -6733,9 +6751,13 @@ function _fitxaPerAlumne_(f, prep, alies) {
       var tots = [];
       trossos.forEach(function (n) { quins(n).forEach(function (a) { tots.push(a); }); });
       if (!tots.length) return;
-      // El text és de tots els que hi surten. Si no n'hi ha valor, es
-      // guarda l'etiqueta: un informe EAP sense text igual vol dir que en té.
-      var text = String(x.valor || '').trim() || _fitxaEtiq_(x.etiqueta);
+      // El text és de tots els que hi surten. ⚠ Si la casella no en porta,
+      // NO s'hi pot posar l'etiqueta: seria escriure-li el seu propi nom a
+      // la fitxa, que no diu res ("Informe EAP: Maher el Ghazaoui"). El que
+      // vol dir aquella fila és que en TÉ, i això sí que val la pena.
+      var text = String(x.valor || '').trim() ||
+                 (par[0] === 'eap' ? 'Té informe de l\'EAP' : '');
+      if (!text) return;
       tots.forEach(function (a) { per(a.uid)[par[0]].push(text); });
     });
   });
