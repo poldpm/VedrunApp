@@ -1218,7 +1218,10 @@ function reunionsReintenta(ss, calId, slotId) {
     for (var i = 0; i < v.length; i++) {
       if (String(v[i][0]) !== String(calId) || String(v[i][1]) !== String(slotId)) continue;
       if (String(v[i][8])) return { ok: true, ja: true };
-      var r = _reuCreaEvent_(cal, String(v[i][2]), String(v[i][3]), String(v[i][4]), String(v[i][6]), String(v[i][7]));
+      // Pels ajudants també: si no, el "Tornar-ho a provar" tornaria a
+      // muntar l'event amb el text de 1899 i tornaria a fallar sempre.
+      var r = _reuCreaEvent_(cal, _reuTxtData_(v[i][2]), _reuTxtHora_(v[i][3]),
+                             _reuTxtHora_(v[i][4]), String(v[i][6]), String(v[i][7]));
       sh.getRange(i + 2, 9).setValue(r.gEventId || '');
       sh.getRange(i + 2, 11).setValue(r.error || '');
       SpreadsheetApp.flush();
@@ -1336,7 +1339,12 @@ function _reuReserva_(calId, slotId, nom, email) {
       return { ok: false, error: 'Ho sentim: aquesta hora l\'acaba d\'agafar una altra persona. Tria\'n una altra.', ocupada: true };
     }
 
-    var data = String(v[idx][2]), inici = String(v[idx][3]), fi = String(v[idx][4]);
+    // Han de passar pels ajudants SÍ O SÍ: amb aquests valors s'hi munta
+    // l'event del Google Calendar (data + "T" + hora). Si hi arriba el text
+    // que el full torna per a un valor d'hora ("Sat Dec 30 1899 17:00:00
+    // GMT+0014 …"), l'event no es pot crear: la família es pensa que té
+    // hora i a la mestra no li surt res al calendari.
+    var data = _reuTxtData_(v[idx][2]), inici = _reuTxtHora_(v[idx][3]), fi = _reuTxtHora_(v[idx][4]);
 
     // Ja ha passat?
     if (_reuData_(data, inici).getTime() < Date.now()) {
@@ -1350,8 +1358,8 @@ function _reuReserva_(calId, slotId, nom, email) {
     for (var j = 0; j < v.length; j++) {
       if (j === idx) continue;
       if (String(v[j][5]) !== 'ocupat') continue;
-      if (String(v[j][2]) !== data) continue;
-      var a0 = _reuMinuts_(String(v[j][3])), a1 = _reuMinuts_(String(v[j][4]));
+      if (_reuTxtData_(v[j][2]) !== data) continue;   // comparar text amb text
+      var a0 = _reuMinuts_(_reuTxtHora_(v[j][3])), a1 = _reuMinuts_(_reuTxtHora_(v[j][4]));
       if (iniM < a1 && a0 < fiM) {
         return { ok: false, error: 'Aquesta hora es trepitja amb una reunió ja reservada. Tria\'n una altra.', ocupada: true };
       }
@@ -1555,7 +1563,9 @@ function _reuPaginaHtml_(calId) {
   + '}).reuPublicReserva(CAL,TRIA.slotId,n,e);}'
   + 'function fet(r){app.innerHTML="<div class=\'ok\'><div class=\'tic\'>\\u2705</div>"'
   + '+"<h1 style=\'margin-top:8px\'>Hora reservada</h1>"'
-  + '+"<p style=\'margin:10px 0\'><strong>"+esc(dataText(r.data))+"</strong><br>"+esc(r.inici)+" - "+esc(r.fi)+"</p>"'
+  // Les hores també passen pel normHora aquí: aquesta pantalla la veu la
+  // família just després de reservar, i és l'última impressió que s'endú.
+  + '+"<p style=\'margin:10px 0\'><strong>"+esc(dataText(r.data))+"</strong><br>"+esc(normHora(r.inici))+" - "+esc(normHora(r.fi))+"</p>"'
   + '+(r.lloc?"<p class=\'hint\'>On: "+esc(r.lloc)+"</p>":"")'
   + '+"<p class=\'hint\' style=\'margin-top:12px\'>"+esc(r.missatge||"Ho hem apuntat. Si no hi pots venir, respon el correu amb què t\'han enviat l\'enllaç.")+"</p></div>";}'
   + 'carrega();'
@@ -3867,7 +3877,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v143';
+var BACKEND_VERSIO = 'v144';
 
 var MAX_CELA = 45000;
 

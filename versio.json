@@ -1,8 +1,10 @@
 {
-  "versio": "v143",
+  "versio": "v144",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "L app ara t avisa a dalt de tot quan el Google Apps Script s ha quedat enrere, i t explica què has de clicar. Fins ara això era invisible: l app es veia malament i no hi havia manera de saber per què."
+    "IMPORTANT: quan una família reservava una hora, l event no arribava al teu Google Calendar. Ella veia Hora reservada i a tu no t apareixia res. Arreglat.",
+    "Una hora que ja havia passat també es podia reservar. Ara no.",
+    "La pantalla de confirmació que veu la família ja no ensenya Sat Dec 30 1899."
   ]
 }
