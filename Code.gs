@@ -3968,7 +3968,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v169';
+var BACKEND_VERSIO = 'v170';
 
 var MAX_CELA = 45000;
 
@@ -6272,6 +6272,7 @@ function _fitxaLlegeix_(sh) {
   var f = { grup: grup, pestanya: sh.getName(), tutor: '', descripcio: '',
             trastorns: [], eap: [], pi: [], am: [], obs: [], grupCamps: [] };
   var seccio = '';
+  var ultimaEtiq = '';   // l'última etiqueta vista: la fan servir les cel·les combinades
 
   for (var r = fila + 1; r < d.length; r++) {
     var etiq = String(d[r][colEtiq] == null ? '' : d[r][colEtiq]).trim();
@@ -6310,6 +6311,22 @@ function _fitxaLlegeix_(sh) {
     }
 
     if (!val && !etiq) continue;
+
+    // ⚠ CEL·LES COMBINADES. Al document, un "Català:" pot valer per a
+    // quatre files: només la primera porta l'etiqueta i la resta arriben
+    // buides. Sense això, aquelles files es guardaven amb el camp en blanc
+    // i el PI d'aquells alumnes quedava en un ": Mohamed nivell I5" que no
+    // diu de què és.
+    //
+    // No es va veure fins a la passada en sec amb les dades de debò: el
+    // banc de proves es va fer a partir de l'exportació del document, i
+    // aquella DESFÀ les combinacions i repeteix l'etiqueta a cada fila.
+    if (!etiq && val && ultimaEtiq && (seccio === 'pi' || seccio === 'am' || seccio === 'trastorns')) {
+      etiq = ultimaEtiq;
+    } else if (etiq) {
+      ultimaEtiq = etiq;
+    }
+
     var entrada = { etiqueta: etiq, valor: val, fila: r + 1 };
 
     if (seccio === 'trastorns') f.trastorns.push(entrada);
@@ -6795,7 +6812,12 @@ function _parlaDAltres_(text, prep, uidsSeus) {
   var altri = false;
   prep.forEach(function (p) {
     if (altri || uidsSeus[p.ref.uid]) return;
-    if (p.tots.some(function (t) { return t.length >= 4 && mots[t]; })) altri = true;
+    // ⚠ Només el NOM, no el cognom. A 6è C hi ha l Aina GARCIA Mas i l Anna
+    // Monteis GARCIA: amb el cognom, "Aina Garcia (no medica)" semblava que
+    // parlava de totes dues i la nena perdia el "(no medica)". Un cognom
+    // compartit no vol dir que el text parli de l altra criatura; un nom
+    // de pila enmig d una frase, gairebé sempre sí.
+    if (p.noms.some(function (t) { return t.length >= 4 && mots[t]; })) altri = true;
   });
   return altri;
 }
