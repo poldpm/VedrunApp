@@ -5777,3 +5777,54 @@ function _avisaBackendVell(versioServidor) {
     'parlant amb la vella.</span>';
   document.body.insertBefore(d, document.body.firstChild);
 }
+
+/* ============================================================
+   PORTAR LES LLISTES DE L'ESCOLA AL FULL "GRUPS"
+   ------------------------------------------------------------
+   Es fa sola amb un disparador al Apps Script; això és el botó
+   per fer-ho ara. Sempre amb la possibilitat de mirar-ho abans
+   ("Veure què faria"), perquè escriu al full compartit de tota
+   l'escola.
+   ============================================================ */
+async function llistesSync(prova) {
+  const out = document.getElementById('llistesResult');
+  if (out) out.innerHTML = prova ? 'Mirant…' : 'Portant-les…';
+  try {
+    const r = await appsScriptPost({ action: 'grupsSincronitza', prova: !!prova });
+    if (!r || !r.ok) {
+      if (out) out.innerHTML = '<span style="color:#B71C1C">' +
+        escapeHtml((r && r.error) || 'No s\'ha pogut fer') + '</span>';
+      return;
+    }
+    const t = r.total || {};
+    const ambCanvis = (r.grups || []).filter(g => g.afegits || g.naixOmplerts || g.jaNoHiSon);
+    let h = '<strong>' + (prova ? 'Això és el que faria' : 'Fet') + ':</strong> ' +
+      (t.afegits || 0) + ' alumne' + (t.afegits === 1 ? '' : 's') + (prova ? ' per afegir' : ' afegits') +
+      (t.naixOmplerts ? ' · ' + t.naixOmplerts + ' data' + (t.naixOmplerts === 1 ? '' : 'es') + ' de naixement' : '') +
+      (t.jaNoHiSon ? ' · <strong>' + t.jaNoHiSon + '</strong> que ja no són a la llista de l\'escola' : '');
+    if (ambCanvis.length) {
+      h += '<ul style="margin:6px 0 0 16px">' + ambCanvis.map(g =>
+        '<li>' + escapeHtml(g.grup) + ': ' +
+        (g.afegits ? g.afegits + ' de nous' : '') +
+        (g.afegits && g.jaNoHiSon ? ', ' : '') +
+        (g.jaNoHiSon ? g.jaNoHiSon + ' que ja no hi són' : '') +
+        (g.nomsAfegits && g.nomsAfegits.length ? ' <em>(' + escapeHtml(g.nomsAfegits.join(', ')) + '…)</em>' : '') +
+        '</li>').join('') + '</ul>';
+    } else {
+      h += '<br>Tot ja estava al dia.';
+    }
+    if ((r.senseParella || []).length) {
+      h += '<br><span style="color:#7C4A03">No he trobat la pestanya de: ' +
+        escapeHtml(r.senseParella.join(', ')) + '. Al full de llistes hi ha: ' +
+        escapeHtml((r.pestanyesOrigen || []).join(', ')) + '</span>';
+    }
+    if (t.jaNoHiSon) {
+      h += '<br><span class="modal-hint">Els que ja no hi són <strong>no s\'esborren</strong>: ' +
+           'mira-ho tu i decideix, que poden tenir observacions i entrevistes.</span>';
+    }
+    if (out) out.innerHTML = h;
+    if (!prova && typeof showToast === 'function') showToast('Llistes al dia ✓', 'success');
+  } catch (e) {
+    if (out) out.innerHTML = '<span style="color:#B71C1C">' + escapeHtml(e.message) + '</span>';
+  }
+}

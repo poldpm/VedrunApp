@@ -1,8 +1,9 @@
 {
-  "versio": "v146",
+  "versio": "v147",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al Calendari, sota les fletxes dels mesos, ara hi diu si el que hi facis anirà al teu Google Calendar o es quedarà només a l app. Si no hi va, hi tens un botó per activar-ho allà mateix. Abans això només es podia saber entrant a Configuració, i els events es quedaven aquí sense que res ho digués."
+    "Els alumnes del full de llistes de l escola es porten sols al full Grups: ja no cal copiar i enganxar cap classe. A Configuració hi ha Llistes d alumnes de l escola, amb un botó per veure què faria abans de fer-ho.",
+    "Mai mou ningú de lloc ni esborra ningú: només afegeix els que falten. Els que ja no són a la llista de l escola te ls diu, i decideixes tu."
   ]
 }

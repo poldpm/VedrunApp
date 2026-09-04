@@ -1853,6 +1853,22 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div id="diagGrupsResult" class="modal-hint" style="margin-top:8px"></div>
         </details>
 
+        <!-- Portar les llistes de l'escola al full "Grups". Es fa sola, però
+             el botó hi és per quan no es vol esperar. -->
+        <details class="cfg-block" id="cfgLlistesBlock">
+          <summary>Llistes d'alumnes de l'escola</summary>
+          <p class="modal-hint">
+            Els alumnes del full <strong>«Llistat alumnes per grup»</strong> es porten al full
+            <strong>«Grups»</strong>, que és el que llegeix l'app. Es fa sol; això és per fer-ho ara.
+            <strong>Mai mou ningú de lloc ni esborra res</strong>: només afegeix els que falten.
+          </p>
+          <div class="cfg-btn-row">
+            <button class="btn btn-secondary btn-sm" onclick="llistesSync(true)">Veure què faria</button>
+            <button class="btn btn-primary btn-sm" onclick="llistesSync(false)">Portar-les ara</button>
+          </div>
+          <div id="llistesResult" class="modal-hint" style="margin-top:8px"></div>
+        </details>
+
         <!-- Camps ocults necessaris per a funcions internes -->
         <div style="display:none">
           <input id="cfgGrupsSheet" type="text">

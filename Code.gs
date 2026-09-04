@@ -2077,6 +2077,7 @@ function handleRequest(e) {
       case 'saveProfile':            result = saveProfile(ss, body.profile); break;
       case 'loadProfile':            result = loadProfile(ss); break;
       case 'setupGrups':             result = setupGrups(getGrupsSpreadsheet(ss) || ss); break;
+      case 'grupsSincronitza':       result = grupsSincronitza(ss, !!(body && body.prova)); break;
       case 'getGrupAlumnes':         result = _withGrups(ss, function(gss){ return getGrupAlumnes(gss, (body&&body.grup) || p.grup); }); break;
       case 'saveGrupPersonal':       result = _withGrups(ss, function(gss){ return saveGrupPersonal(gss, body.grup, body.rowId, body.dades); }); break;
       case 'saveGrupGenere':         result = _withGrups(ss, function(gss){ return saveGrupGenere(gss, body.grup, body.rowId, body.genere); }); break;
@@ -3896,7 +3897,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v146';
+var BACKEND_VERSIO = 'v147';
 
 var MAX_CELA = 45000;
 
@@ -4967,4 +4968,158 @@ function migrateOldFormat(){
     if(!h)return;var p=h.toString().split('|');
     if(p.length===3&&!isNaN(parseInt(p[2]))){var c=sh.getRange(1,idx+2);c.setValue(p[0]);c.setNote(p[1]+'|'+p[2]);}
   });
+}
+
+/* ============================================================
+   OMPLIR EL FULL "GRUPS" DES DE LA LLISTA DE L'ESCOLA
+   ------------------------------------------------------------
+   En Pol té els documents oficials de l'escola (que no es toquen
+   mai) i unes CÒPIES seves que s'hi sincronitzen soles amb un
+   `onEdit` + `copyTo` de la pestanya sencera. El full de llistes
+   d'alumnes n'és una.
+
+   ⚠ AMB "GRUPS" NO ES POT FER AIXÒ. Les còpies són miralls i es
+   poden refer senceres perquè ningú més hi escriu. "Grups" no:
+   hi escriu l'app (correus, PI, AM, EAP, observacions i les
+   condicions de seient), i un `copyTo` s'ho enduria tot.
+
+   I encara hi ha una cosa pitjor. L'app identifica cada alumne
+   PER NÚMERO DE FILA (`rowId: i+2`). D'aquest número hi pengen
+   les observacions (`obs_<grup>` = { fila: {...} }), les
+   entrevistes i fins i tot les incompatibilitats de seient
+   (`noAmb: [2,11,15]`, que són files d'altres alumnes). Si la
+   llista canviés d'ordre o hi entrés algú pel mig, TOT es
+   desplaçaria i l'observació d'un nen sortiria a la fitxa d'un
+   altre, sense cap error.
+
+   Per això això és una FUSIÓ i no una còpia:
+     · qui ja hi és, NO ES MOU (conserva fila, i doncs, tot)
+     · qui és nou, s'AFEGEIX AL FINAL
+     · qui ja no hi és a la llista NO S'ESBORRA: s'informa i prou
+   ============================================================ */
+
+var LLISTES_ID = '17iWVwC7tHJqAjd-khBRZ1B7WwLKCeuxhKsOh_I0_rtQ';
+
+/* Nom comparable: sense accents, sense majúscules, sense espais de més.
+   "Miquel dels Sants  Genís" i "miquel dels sants genis" són el mateix. */
+function _nomClau_(nom, cognoms) {
+  var s = String(nom || '') + ' ' + String(cognoms || '');
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/* Aparella les pestanyes dels dos fulls pel nom, tolerant accents i
+   espais. Torna { '1r A': <full origen>, … } i què no ha sabut aparellar. */
+function _llistesAparella_(llistes) {
+  var perClau = {};
+  llistes.getSheets().forEach(function (sh) {
+    perClau[_nomClau_(sh.getName(), '')] = sh;
+  });
+  var parelles = {}, sense = [];
+  GRUPS_PRIMARIA.forEach(function (g) {
+    var sh = perClau[_nomClau_(g, '')];
+    if (sh) parelles[g] = sh; else sense.push(g);
+  });
+  return { parelles: parelles, sense: sense, nomsOrigen: llistes.getSheets().map(function (s) { return s.getName(); }) };
+}
+
+/* La feina, per a un grup. `prova` = només mirar, no escriure. */
+function _grupsFusiona_(gss, grup, shOrigen, prova) {
+  var shDesti = gss.getSheetByName(grup);
+  if (!shDesti) return { grup: grup, error: 'La pestanya "' + grup + '" no existeix al full Grups' };
+
+  // Origen: Nom | Cognoms | Data naixement
+  var lrO = shOrigen.getLastRow();
+  var origen = lrO >= 2 ? shOrigen.getRange(2, 1, lrO - 1, 3).getValues() : [];
+  var alumnesOrigen = [];
+  origen.forEach(function (r) {
+    var nom = String(r[0] == null ? '' : r[0]).trim();
+    var cog = String(r[1] == null ? '' : r[1]).trim();
+    if (!nom && !cog) return;
+    alumnesOrigen.push({ nom: nom, cognoms: cog, naix: _reuTxtData_(r[2]) || String(r[2] || '').trim(),
+                         clau: _nomClau_(nom, cog) });
+  });
+
+  // Destí: qui hi ha ara
+  var lrD = shDesti.getLastRow();
+  var desti = lrD >= 2 ? shDesti.getRange(2, 1, lrD - 1, 3).getValues() : [];
+  var jaHi = {}, ordreDesti = [];
+  desti.forEach(function (r, i) {
+    var nom = String(r[0] == null ? '' : r[0]).trim();
+    var cog = String(r[1] == null ? '' : r[1]).trim();
+    if (!nom && !cog) return;
+    var k = _nomClau_(nom, cog);
+    jaHi[k] = { fila: i + 2, naix: r[2] };
+    ordreDesti.push(k);
+  });
+
+  var nous = [], marxats = [], naixOmplerts = [];
+  alumnesOrigen.forEach(function (a) {
+    if (jaHi[a.clau]) {
+      // Hi és: NO es toca la fila. Només s'omple la data de naixement si
+      // era buida, que és afegir informació, no moure'n cap.
+      var actual = jaHi[a.clau].naix;
+      if (a.naix && (actual === '' || actual === null || actual === undefined)) {
+        naixOmplerts.push({ fila: jaHi[a.clau].fila, naix: a.naix, nom: a.nom + ' ' + a.cognoms });
+      }
+    } else {
+      nous.push(a);
+    }
+  });
+  var clausOrigen = {};
+  alumnesOrigen.forEach(function (a) { clausOrigen[a.clau] = true; });
+  ordreDesti.forEach(function (k) {
+    if (!clausOrigen[k]) marxats.push({ fila: jaHi[k].fila });
+  });
+
+  if (!prova) {
+    naixOmplerts.forEach(function (x) { shDesti.getRange(x.fila, 3).setValue(x.naix); });
+    if (nous.length) {
+      var desDe = Math.max(2, lrD + 1);
+      shDesti.getRange(desDe, 1, nous.length, 3).setValues(
+        nous.map(function (a) { return [a.nom, a.cognoms, a.naix]; }));
+    }
+  }
+
+  return { grup: grup, aOrigen: alumnesOrigen.length, jaHiEren: Object.keys(jaHi).length,
+           afegits: nous.length, naixOmplerts: naixOmplerts.length, jaNoHiSon: marxats.length,
+           nomsAfegits: nous.slice(0, 5).map(function (a) { return a.nom + ' ' + a.cognoms; }) };
+}
+
+/* Punt d'entrada. `prova` = passada en sec: mira i explica, no escriu.
+   Amb el pany posat, perquè dues mestres poden prémer el botó alhora. */
+function grupsSincronitza(ss, prova) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var llistes;
+  try { llistes = SpreadsheetApp.openById(LLISTES_ID); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut obrir el full de llistes de l\'escola: ' + e.message }; }
+
+  var lock = LockService.getScriptLock(), tinc = false;
+  try { lock.waitLock(60000); tinc = true; } catch (e) {
+    return { ok: false, error: 'Hi ha una altra actualització en marxa. Torna-ho a provar d\'aquí un moment.' };
+  }
+  try {
+    var ap = _llistesAparella_(llistes);
+    var resultats = [];
+    Object.keys(ap.parelles).forEach(function (g) {
+      resultats.push(_grupsFusiona_(gss, g, ap.parelles[g], prova));
+    });
+    var tot = { afegits: 0, naixOmplerts: 0, jaNoHiSon: 0 };
+    resultats.forEach(function (r) {
+      tot.afegits += r.afegits || 0;
+      tot.naixOmplerts += r.naixOmplerts || 0;
+      tot.jaNoHiSon += r.jaNoHiSon || 0;
+    });
+    if (!prova) sheetSetJSON(gss, '_AppData', 'grups_sync', JSON.stringify({
+      quan: Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'), tot: tot }));
+    return { ok: true, prova: !!prova, grups: resultats, total: tot,
+             senseParella: ap.sense, pestanyesOrigen: ap.nomsOrigen };
+  } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
+}
+
+/* Per al disparador: sense arguments i sense sessió de navegador. */
+function grupsSincronitzaAuto() {
+  try { grupsSincronitza(SpreadsheetApp.getActiveSpreadsheet(), false); }
+  catch (e) { Logger.log('grupsSincronitzaAuto: ' + e.message); }
 }
