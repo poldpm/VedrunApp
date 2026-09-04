@@ -3933,7 +3933,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v149';
+var BACKEND_VERSIO = 'v150';
 
 var MAX_CELA = 45000;
 
@@ -5501,5 +5501,25 @@ function provaCodis() {
 function provaLlistes() {
   var r = grupsSincronitza(SpreadsheetApp.getActiveSpreadsheet(), true);
   Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+
+/* ⚠ AQUESTA SÍ QUE TOCA LES DADES. Es diu així de lleig a posta, perquè al
+   desplegable de l'editor no es cliqui per error al costat de provaCodis().
+
+   Abans d'executar-la cal haver DESPLEGAT una versió nova, no només desat:
+   si el que serveix l'app és codi antic, no sabrà llegir les claus noves i
+   les observacions no li sortiran. Per això ho comprova ella mateixa. */
+function migraCodisDEBO() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var r = grupsMigraAUids(ss, false);
+  Logger.log(JSON.stringify(r, null, 2));
+  if (r && r.ok) {
+    Logger.log('');
+    Logger.log('FET. Si a l\'app no et surten les observacions, és que encara');
+    Logger.log('serveix codi antic: torna-hi i desplega una versió nova.');
+    Logger.log('Les còpies de seguretat són al full ocult _AppData, amb');
+    Logger.log('claus que comencen per "backup_".');
+  }
   return r;
 }
