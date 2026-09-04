@@ -1,8 +1,8 @@
 {
-  "versio": "v158",
+  "versio": "v159",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Feina interna: l app ja sap llegir el document de fitxes de grup de l escola. Encara no en fa res; el pas següent és omplir sola la fitxa de cada alumne."
+    "Feina interna: l app ja endevina de quin alumne parla cada casella del document de fitxes de grup. Encara no en fa res."
   ]
 }

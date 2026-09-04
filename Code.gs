@@ -3965,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v158';
+var BACKEND_VERSIO = 'v159';
 
 var MAX_CELA = 45000;
 
@@ -6027,67 +6027,127 @@ function _qui_(preparats, etiqueta, alies) {
     if (trobat) return { alumne: trobat, com: 'alies' };
   }
 
+  function noms(cands) {
+    return cands.map(function (p) { return p.ref.nom + ' ' + p.ref.cognoms; }).join(' / ');
+  }
+  function tria(cands, com, perque) {
+    if (cands.length === 1) return { alumne: cands[0].ref, com: com };
+    if (cands.length > 1) {
+      var g = _desempata_(cands, mots);
+      if (g) return { alumne: g, com: com + '+desempat' };
+      return { dubte: perque + ': ' + noms(cands) };
+    }
+    return null;
+  }
+
   // 1) Totes les paraules de l'etiqueta són del nom o del cognom.
   //    Cobreix "Kai Molist", "Miquel Genís" i també "Lilly" tota sola.
-  var quadren = preparats.filter(function (p) {
+  var r = tria(preparats.filter(function (p) {
     return mots.every(function (m) { return p.tots.indexOf(m) >= 0; });
-  });
-  if (quadren.length === 1) return { alumne: quadren[0].ref, com: 'exacte' };
-  if (quadren.length > 1) {
-    return { dubte: 'n\'hi ha ' + quadren.length + ' que hi encaixen: ' +
-                    quadren.map(function (p) { return p.ref.nom + ' ' + p.ref.cognoms; }).join(' / ') };
-  }
+  }), 'exacte', 'n\'hi ha ' + '' + 'més d\'un que hi encaixa');
+  if (r) return r;
 
-  // 2) "Arlet P": nom sencer + inicial del cognom.
-  //    Es mira PRIMER la inicial del PRIMER cognom, que és com ho
-  //    escriu tothom. Si es miressin tots els cognoms alhora, l'Arlet
-  //    Muntal PARRAMON també quadraria amb "Arlet P" i no en podríem
-  //    triar cap. El nom s'admet amb una lletra picada ("Arnar B").
+  // 2) "Arlet P", "Dani R": nom + inicial del cognom.
+  //    Es mira PRIMER la inicial del PRIMER cognom, que és com ho escriu
+  //    tothom. Si es miressin tots els cognoms alhora, l'Arlet Muntal
+  //    PARRAMON també quadraria amb "Arlet P" i no en podríem triar cap.
   if (mots.length === 2 && mots[1].length === 1) {
-    var elNom = function (p) {
-      return p.noms.indexOf(mots[0]) >= 0 ||
-             (mots[0].length >= 5 && p.noms.some(function (n) { return _distancia1_(mots[0], n); }));
-    };
-    var primerCognom = preparats.filter(function (p) {
+    var elNom = function (p) { return _quadraMot_(p.noms, mots[0]); };
+    r = tria(preparats.filter(function (p) {
       return elNom(p) && p.cogs.length && p.cogs[0].charAt(0) === mots[1];
-    });
-    if (primerCognom.length === 1) return { alumne: primerCognom[0].ref, com: 'inicial' };
-
-    var qualsevolCognom = preparats.filter(function (p) {
+    }), 'inicial', 'la inicial no desfà l\'empat');
+    if (r) return r;
+    r = tria(preparats.filter(function (p) {
       return elNom(p) && p.cogs.some(function (c) { return c.charAt(0) === mots[1]; });
-    });
-    if (qualsevolCognom.length === 1) return { alumne: qualsevolCognom[0].ref, com: 'inicial' };
-    if (primerCognom.length > 1 || qualsevolCognom.length > 1) {
-      return { dubte: 'la inicial no desfà l\'empat' };
-    }
+    }), 'inicial', 'la inicial no desfà l\'empat');
+    if (r) return r;
   }
 
-  // 3) Escurçat: "Bouba" per "Boubacar", "Fatou" per "Fatoumata".
-  //    Només amb 4 lletres o més (amb menys, "Mar" valdria per Maria,
-  //    Marc i Mariona) i només si n'hi ha UN de sol.
-  if (mots.length === 1 && mots[0].length >= 4) {
-    var comenca = preparats.filter(function (p) {
-      return p.tots.some(function (t) { return t.indexOf(mots[0]) === 0; });
-    });
-    if (comenca.length === 1) return { alumne: comenca[0].ref, com: 'escurçat' };
-    if (comenca.length > 1) {
-      return { dubte: 'l\'escurçat encaixa amb ' + comenca.length + ': ' +
-                      comenca.map(function (p) { return p.ref.nom + ' ' + p.ref.cognoms; }).join(' / ') };
-    }
+  // 3) "M. Antonia": inicial del nom + la resta.
+  if (mots.length >= 2 && mots[0].length === 1) {
+    var resta = mots.slice(1);
+    r = tria(preparats.filter(function (p) {
+      return p.noms.some(function (n) { return n.charAt(0) === mots[0]; }) &&
+             resta.every(function (m) { return _quadraMot_(p.tots, m); });
+    }), 'inicial del nom', 'la inicial del nom no desfà l\'empat');
+    if (r) return r;
   }
 
-  // 4) Una lletra picada: "Arnar" per "Arnau", "Caycedo" per "Caicedo".
-  //    Distància 1 sobre una paraula prou llarga, i només si n'hi ha un.
-  if (mots.length <= 2) {
-    var aprop = preparats.filter(function (p) {
-      return mots.every(function (m) {
-        return p.tots.some(function (t) { return t === m || (m.length >= 5 && _distancia1_(m, t)); });
-      });
+  // 4) Escurçat: "Gio" per "Giorgi", "Bouba" per "Boubacar", "Dani Prieto"
+  //    per "Daniel Prieto". Amb tres lletres n'hi ha prou PERQUÈ després
+  //    s'exigeix que no hi encaixi ningú més: "Mar" no passaria d'aquí en
+  //    un grup amb una Maria i un Marc.
+  if (mots.every(function (m) { return m.length >= 3; })) {
+    r = tria(preparats.filter(function (p) {
+      return mots.every(function (m) { return _quadraMot_(p.tots, m); });
+    }), 'escurçat', 'l\'escurçat encaixa amb més d\'un');
+    if (r) return r;
+  }
+
+  // 5) Una lletra picada: "Arnar" per "Arnau", "Caycedo" per "Caicedo".
+  r = tria(preparats.filter(function (p) {
+    return mots.every(function (m) {
+      return p.tots.some(function (t) { return t === m || (m.length >= 5 && _distancia1_(m, t)); });
     });
-    if (aprop.length === 1) return { alumne: aprop[0].ref, com: 'quasi' };
+  }), 'quasi', 'tots dos s\'hi assemblen');
+  if (r) return r;
+
+  // 6) L'últim recurs: una part del nom quadra i la resta no s'assembla a
+  //    ningú més del grup. És el cas de l'"Obed Mdowo", que és l'Obed
+  //    MFODWO amb el cognom mal escrit. ⚠ Només val si NOMÉS UN nen del
+  //    grup té res a veure amb l'etiqueta: si en toca dos, vol dir que a
+  //    la casella hi ha dos nens ("Aliou Zion") i no se n'ha de triar cap.
+  if (mots.length >= 2) {
+    var toquen = [];
+    preparats.forEach(function (p) {
+      var n = mots.filter(function (m) {
+        return m.length >= 3 && p.tots.some(function (t) {
+          return t.indexOf(m) === 0 || (m.length >= 5 && _distancia1_(m, t));
+        });
+      }).length;
+      if (n > 0) toquen.push({ p: p, n: n });
+    });
+    if (toquen.length === 1 && toquen[0].n * 2 >= mots.length) {
+      return { alumne: toquen[0].p.ref, com: 'parcial' };
+    }
+    if (toquen.length > 1) {
+      return { dubte: 'l\'etiqueta toca ' + toquen.length + ' nens: ' +
+                      toquen.map(function (x) { return x.p.ref.nom + ' ' + x.p.ref.cognoms; }).join(' / ') };
+    }
   }
 
   return { dubte: 'no trobo ningú que s\'hi assembli' };
+}
+
+/* Una paraula de l'etiqueta quadra amb alguna del nen: igual, o el seu
+   començament ("gio" → "giorgi"). */
+function _quadraMot_(llista, m) {
+  return llista.some(function (t) { return t === m || (m.length >= 3 && t.indexOf(m) === 0); });
+}
+
+/* Quan n'hi ha més d'un que hi encaixa, dues regles desfan l'empat.
+   Si no el desfan, NO es tria ningú: val més un dubte que una fitxa
+   equivocada.
+
+   1a — qui hi encaixa pel NOM guanya qui només hi encaixa pel COGNOM.
+        "Mohamed" és el nom d'en Mohamed Ahidar i el segon cognom d'en
+        Rayan Radi Mohamed. Quan una mestra escriu "Mohamed", parla del
+        primer.
+   2a — qui el porta com a PRIMER nom guanya qui el porta de segon.
+        "Isabella" és la Isabella Romero, no la Dariana Isabella. */
+function _desempata_(cands, mots) {
+  var perNom = cands.filter(function (p) {
+    return mots.every(function (m) { return _quadraMot_(p.noms, m); });
+  });
+  if (perNom.length === 1) return perNom[0].ref;
+
+  var base = perNom.length ? perNom : cands;
+  var primer = base.filter(function (p) {
+    return p.noms.length && (p.noms[0] === mots[0] ||
+           (mots[0].length >= 3 && p.noms[0].indexOf(mots[0]) === 0));
+  });
+  if (primer.length === 1) return primer[0].ref;
+  return null;
 }
 
 /* Dues paraules que es diferencien en una sola lletra (canviada,
@@ -6236,44 +6296,107 @@ function _fitxesTotes_() {
   return { perGrup: perGrup, sense: sense };
 }
 
-/* D'una casella com "Yasmin, Àlex, Rayan i Lexian" en surten quatre
-   candidats. D'una com "Olivia- Cal fer valoració. Hi ha algun
-   retard..." en surt un i prou, perquè la resta és text.
+/* Paraules que comencen en majúscula però no són cap nen. Surten de
+   llegir el document de debò: "Possible Elna", "Totes les àrees",
+   "Seria ideal per...", "Comencem fent adaptacions...". Sense això,
+   cada frase generava un candidat fantasma que tapava els dubtes bons. */
+/* ⚠ Aquí NO hi poden anar "intervenció", "derivació", "mare", "pare" ni
+   "tutor": al document van seguits del nom d una PERSONA QUE NO ES CAP
+   ALUMNE (la Núria de l EAP, la Mercè logopeda, el tutor de la Llar). Si
+   se saltessin, el nom de darrere es prendria per un nen, i el dia que
+   coincidís amb el d un alumne li penjaríem el PI d un altre. */
+var FITXA_NO_NOMS = {
+  // 1 = SALTA-LA: darrere seu hi pot haver un nen de debo.
+  possible: 1, possibles: 1, potser: 1, seria: 1, serien: 1, sera: 1,
+  mirar: 1, vetllar: 1, vigilar: 1, llegir: 1, cal: 1, caldria: 1, calen: 1,
+  totes: 1, tots: 1, tot: 1, tota: 1, nomes: 1, sempre: 1, mai: 1,
+  si: 1, no: 1, hi: 1, ja: 1, ara: 1, molt: 1, molta: 1, molts: 1,
 
-   Es talla pel primer signe de puntuació: el que hi ha després és
-   explicació, no un altre nom. Val més trobar-ne pocs i segurs que
-   no pas molts i dubtosos. */
+  // 2 = ATURA-HO AQUI: darrere seu NO hi ha mai cap nen, i sovint hi ha el
+  // nom d una persona adulta. "Intervencio Nuria" es la Nuria de l EAP;
+  // "Tutor Jordi Gutierrez" es el tutor de la Llar; "Va amb la Merce" es
+  // la logopeda. El dia que un d aquests noms coincideixi amb el d un
+  // alumne, li penjariem el PI d un altre. Per aixo la casella no dona res.
+  intervencio: 2, derivacio: 2, tutor: 2, tutora: 2, mestre: 2, mestra: 2,
+  mare: 2, pare: 2, pares: 2, familia: 2, families: 2, germans: 2, germa: 2,
+  germana: 2, avia: 2, avi: 2, logopeda: 2, psicologa: 2, psicoleg: 2,
+  va: 2, van: 2, veure: 2, avisar: 2, control: 2, alerta: 2, estar: 2,
+  comencem: 2, comencar: 2, nou: 2, nova: 2, nouvingut: 2, nouvinguda: 2,
+  nouvinguts: 2, altres: 2, altre: 2, altra: 2, nom: 2, alumne: 2, alumna: 2,
+  alumnes: 2, diagnostic: 2, informe: 2, informes: 2, certificat: 2, beca: 2,
+  carpeta: 2, nivell: 2, dieta: 2, allergia: 2, allergic: 2, allergica: 2,
+  intolerancia: 2, intolerant: 2, problemes: 2, grup: 2, grups: 2, classe: 2,
+  curs: 2, escola: 2, quan: 2, quant: 2, des: 2, durant: 2, aquest: 2,
+  aquesta: 2, aquests: 2, bona: 2, bon: 2, cap: 2, algun: 2, alguns: 2,
+  per: 2, amb: 2, sense: 2, fins: 2, conductual: 2, conductuals: 2,
+  aspectes: 2, temes: 2, tema: 2, seguiment: 2, proves: 2, sessions: 2,
+};
+
+/* D'una casella com "Yasmin, Àlex, Rayan i Lexian" en surten quatre
+   candidats. D'una com "Olivia- Cal fer valoració. Hi ha algun retard..."
+   en surt un i prou, perquè la resta és text.
+
+   ⚠ Es prefereix perdre un nom que no pas endevinar-ne un. Al document hi
+   ha molts noms propis que NO són alumnes (la Núria de l'EAP, la Mercè
+   logopeda, el CSMIJ, l'Espai Viu). Si es busqués un nom enmig d'una
+   frase, un dia n'hi hauria un que coincidiria amb el d'un nen i li
+   penjaríem el PI d'un altre. Per això només es mira el començament. */
 function _fitxaNoms_(valor) {
   var v = String(valor == null ? '' : valor).trim();
   if (!v || v === '-') return [];
 
-  // El guionet separa NOMES amb espais als dos costats ("Lilly - Francis").
+  // "M. Antonia": el punt d'una inicial no talla la frase.
+  v = v.replace(/(^|[^A-Za-zÀ-ÿ])([A-Za-zÀ-ÿ])\.\s*/g, '$1$2 ');
+
+  // Els noms tant poden anar abans dels dos punts ("Sami: certificat de
+  // discapacitat") com després ("Comencem fent adaptacions...: Manel,
+  // Johan"). Es miren totes dues bandes: la que és prosa no dóna res.
+  var fora = [];
+  v.split(':').forEach(function (banda) {
+    _fitxaNomsBanda_(banda).forEach(function (n) { if (fora.indexOf(n) < 0) fora.push(n); });
+  });
+  return fora;
+}
+
+function _fitxaNomsBanda_(v) {
+  // El guionet separa NOMÉS amb espais als dos costats ("Lilly - Francis").
   // Entre lletres forma part del nom: en Boubacar-Sidy no s'ha de partir.
-  var trossos = v.split(/\s*[,;/|\n]\s*|\s+[-–—]\s+|\s+i\s+|\s+y\s+/);
+  var trossos = String(v).split(/\s*[,;/|\n]\s*|\s+[-–—]\s+|\s+i\s+|\s+y\s+/);
   var fora = [];
   trossos.forEach(function (t, k) {
     // Un guionet enganxat al nom i seguit d'espai ("Olivia- Cal fer...")
-    // tambe talla; entre lletres, no.
+    // també talla; entre lletres, no.
     var cap = String(t).replace(/-(?![A-Za-zÀ-ÿ])/g, ' | ');
-    cap = cap.split(/[(.:|!?¡¿]/)[0].trim();
+    cap = cap.split(/[(.|!?¡¿]/)[0].trim();
     cap = cap.replace(/^["'«»\s]+|["'«»\s]+$/g, '');
     if (!cap) return;
 
-    // Els noms van en majúscula i el que ve després, no. De "Mohamed nivell
-    // I5" en surt "Mohamed"; de "molt mal comportament", res.
     var mots = cap.split(/\s+/);
+    var net = function (x) { return _fnorm_(x).replace(/[^a-z]/g, ''); };
+    var i = 0;
+    // Salta les paraules que mai no són un nen ("Possible Elna" → Elna),
+    // i atura't del tot si la primera és de les que porten un adult a
+    // darrere ("Intervenció Núria" → res).
+    if (FITXA_NO_NOMS[net(mots[0])] === 2) return;
+    while (i < mots.length && FITXA_NO_NOMS[net(mots[i])] === 1) i++;
+    if (i < mots.length && FITXA_NO_NOMS[net(mots[i])] === 2) return;
+
+    // Els noms van en majúscula i el que ve després, no. De "Mohamed
+    // nivell I5" en surt "Mohamed"; de "molt mal comportament", res.
     var bons = [];
-    for (var i = 0; i < mots.length; i++) {
+    for (; i < mots.length; i++) {
       var m = mots[i].replace(/^[^A-Za-zÀ-ÿ0-9]+|[^A-Za-zÀ-ÿ0-9]+$/g, '');
       if (!m || !/^[A-ZÀ-ÖØ-Þ]/.test(m) || /\d/.test(m)) break;
+      if (FITXA_NO_NOMS[net(m)]) break;
       bons.push(m);
     }
     if (!bons.length || bons.length > 4) return;
 
-    // Un tros que despres del nom continua amb prosa NOMES val si es el
-    // primer. "Mohamed Ahidar - Nouvingut des del 3 de desembre" te el nom
-    // al davant; el que ve despres del guionet es l'explicacio, no un altre
-    // nen. Sense aixo, cada data i cada aclariment es prenia per un alumne.
+    // Un tros que després del nom continua amb prosa NOMÉS val si és el
+    // primer. "Mohamed Ahidar - Nouvingut des del 3 de desembre" té el nom
+    // al davant; el que ve després del guionet és l'explicació, no un
+    // altre nen. Sense això, cada data i cada aclariment es prenia per un
+    // alumne.
     if (k > 0 && bons.length < mots.length) return;
 
     fora.push(bons.join(' '));
@@ -6330,10 +6453,18 @@ function fitxesInforme(ss) {
     [['observació', f.obs], ['informe EAP', f.eap]].forEach(function (par) {
       par[1].forEach(function (x) {
         if (!x.etiqueta || _fnorm_(x.etiqueta) === 'nom alumne/a') return;
-        c.caselles++;
-        var r = _qui_(prep, x.etiqueta);
-        if (r.alumne) c.resoltes++;
-        else { c.dubtes++; dubtes.push({ grup: g, on: par[0], text: x.etiqueta, per: r.dubte }); }
+        if (!/[A-Za-zÀ-ÿ]/.test(x.etiqueta)) return;      // un guionet i prou
+        // Una observació pot ser de dos nens alhora ("Ricard i Badr",
+        // "Àlex i Biel"). Si no es partís, no seria de cap dels dos.
+        var qui = x.etiqueta.split(/\s+i\s+|\s*,\s*/).map(function (s) { return s.trim(); })
+                            .filter(function (s) { return s; });
+        if (!qui.length) qui = [x.etiqueta];
+        qui.forEach(function (nom) {
+          c.caselles++;
+          var r = _qui_(prep, nom);
+          if (r.alumne) c.resoltes++;
+          else { c.dubtes++; dubtes.push({ grup: g, on: par[0], text: nom, per: r.dubte }); }
+        });
       });
     });
 
