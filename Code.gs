@@ -3933,7 +3933,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v148';
+var BACKEND_VERSIO = 'v149';
 
 var MAX_CELA = 45000;
 
@@ -5476,4 +5476,30 @@ function _reclau_(gss, grup, obj) {
     fora[nova] = obj[k];
   });
   return fora;
+}
+
+/* ============================================================
+   FUNCIONS PER EXECUTAR DES DE L'EDITOR
+   ------------------------------------------------------------
+   L'editor del Apps Script només pot executar funcions SENSE
+   arguments. Aquestes hi són perquè en Pol no hagi d'enganxar
+   res per fer una comprovació: es trien al desplegable de dalt
+   i es clica Executar. El resultat surt al registre.
+
+   Cap d'aquestes toca res: totes són passades EN SEC.
+   ============================================================ */
+
+/* Què faria la neteja dels codis d'alumne, sense fer-la. */
+function provaCodis() {
+  var r = grupsMigraAUids(SpreadsheetApp.getActiveSpreadsheet(), true);
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+
+/* Què faria portar les llistes de l'escola al full "Grups", sense fer-ho.
+   També diu com ha aparellat les pestanyes dels dos fulls. */
+function provaLlistes() {
+  var r = grupsSincronitza(SpreadsheetApp.getActiveSpreadsheet(), true);
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
 }

@@ -1,9 +1,8 @@
 {
-  "versio": "v148",
+  "versio": "v149",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Per dins: cada alumne passa a tenir un codi propi que no canvia mai. Fins ara s identificaven pel número de fila del full, i si algú n esborrava una, l observació d un nen podia acabar a la fitxa d un altre. Ara ja no pot passar.",
-    "No canvia res del que veus ni del que fas."
+    "Per dins: cada alumne té un codi propi que no canvia mai, en comptes d identificar-se pel número de fila del full. No canvia res del que veus."
   ]
 }
