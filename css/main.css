@@ -2769,6 +2769,13 @@ body {
 .fitxa-avis-pi    { background: #2563EB; color: #fff; }
 .fitxa-avis-am    { background: #EA580C; color: #fff; }
 .fitxa-avis-eap   { background: #7C3AED; color: #fff; }
+/* Les categories que vénen del document de fitxes de l'escola. Cadascuna
+   amb el seu color: barrejades, la mestra no distingeix un diagnòstic
+   d'una nota de conducta, que és justament el que passava abans. */
+.fitxa-avis-trast { background: #0F766E; color: #fff; }
+.fitxa-avis-acoll { background: #0369A1; color: #fff; }
+.fitxa-avis-drets { background: #EEF2FF; color: #3730A3; }
+.fitxa-avis-emvic { background: #ECFDF5; color: #065F46; }
 
 /* ============================================================
    VEDRUNU — Assistent IA

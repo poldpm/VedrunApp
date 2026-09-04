@@ -1,9 +1,9 @@
 {
-  "versio": "v170",
+  "versio": "v171",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Nou a Configuració: Alumnes que l app no sap qui són. Quan al document hi ha dos nens que es diuen igual, tries quin és i les seves dades li arriben al moment.",
-    "El PI, l AM, l informe de l EAP i les observacions s omplen sols des del document de fitxes de grup."
+    "A la fitxa de l alumne hi surten els trastorns, l aula d acollida, els drets d imatge i l EMVic, cadascun amb la seva etiqueta.",
+    "Les observacions de conducta ja no van al camp d informació mèdica: allà hi van les al lèrgies i les intoleràncies, com toca."
   ]
 }

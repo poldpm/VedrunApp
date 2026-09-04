@@ -1206,6 +1206,16 @@ async function renderFitxa(studentId) {
     const linies = pd.especific.trim().split('\n').map(l => l.trim()).filter(l => l);
     avisos.push('<span class="fitxa-avis-tag fitxa-avis-espec">⚠ Específic</span> ' + linies.map(l => escapeHtml(l)).join(' <span class="obs-sep">|</span> '));
   }
+  // Els trastorns tenen etiqueta pròpia: al document de l'escola són una
+  // categoria a part, i barrejats amb els aspectes conductuals es perdien.
+  if (pd.trastorns && pd.trastorns.trim()) {
+    avisos.push('<span class="fitxa-avis-tag fitxa-avis-trast">◆ Trastorn</span> ' +
+                escapeHtml(pd.trastorns.trim()));
+  }
+  if (pd.acollida && pd.acollida.trim()) {
+    avisos.push('<span class="fitxa-avis-tag fitxa-avis-acoll">Aula d\'acollida</span> ' +
+                escapeHtml(pd.acollida.trim()));
+  }
   if (pd.pi && pd.pi.trim()) {
     avisos.push('<span class="fitxa-avis-tag fitxa-avis-pi">PI</span> Pla Individualitzat: ' + escapeHtml(pd.pi.replace(/\|/g, ', ')));
   }
@@ -1214,6 +1224,15 @@ async function renderFitxa(studentId) {
   }
   if (pd.eap && pd.eap.trim()) {
     avisos.push('<span class="fitxa-avis-tag fitxa-avis-eap">EAP</span> Informe de l\'EAP: ' + escapeHtml(pd.eap.trim()));
+  }
+  // Els drets d'imatge no són cap avís pedagògic, però val més tenir-los a
+  // la vista: és el que s'ha de mirar abans de penjar una foto.
+  if (pd.drets && pd.drets.trim()) {
+    avisos.push('<span class="fitxa-avis-tag fitxa-avis-drets">📷 Drets d\'imatge</span> ' +
+                escapeHtml(pd.drets.trim()));
+  }
+  if (pd.emvic && pd.emvic.trim()) {
+    avisos.push('<span class="fitxa-avis-tag fitxa-avis-emvic">EMVic</span> Hi va');
   }
   if (avisos.length) {
     alertText.innerHTML = avisos.join('<br>');

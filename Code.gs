@@ -1938,9 +1938,68 @@ const GRUPS_PRIMARIA = [
 const GRUP_HEADERS = [
   'Nom','Cognom','Data naixement','Nom mare','Nom pare','Email mare','Email pare',
   'Observació important','Gènere','PI','AM','Aspectes específics','Informe EAP','Condicions seient',
-  'Id'   // ⚠ NO TOCAR: veure "L'IDENTIFICADOR PERMANENT" més avall
+  'Id',   // ⚠ NO TOCAR: veure "L'IDENTIFICADOR PERMANENT" més avall
+  // Aquestes van DESPRÉS de l'Id a posta: així el COL_UID no es mou i el
+  // codi de cada alumne segueix on era. La posició, de tota manera, ja no
+  // decideix res: cada columna es busca pel NOM de la capçalera.
+  'Trastorns','Aula d\'acollida','Drets d\'imatge','EMVic'
 ];
 const COL_UID = 15;   // columna O
+
+/* ============================================================
+   LES COLUMNES, PEL NOM
+   ------------------------------------------------------------
+   Fins ara les columnes eren números fixos. Ha anat bé mentre no
+   n'hi havia cap de nova, però la regla d'en Pol val també aquí:
+   res no ha de dependre de la posició. Això llegeix la capçalera
+   i diu on és cada cosa; si algú n'afegeix una al mig, tot
+   continua funcionant.
+   ============================================================ */
+function _colsDe_(sh) {
+  var lc = Math.max(sh.getLastColumn(), GRUP_HEADERS.length);
+  var cap = sh.getRange(1, 1, 1, lc).getValues()[0];
+  var m = {};
+  cap.forEach(function (c, i) {
+    var k = _fnorm_(c);
+    if (k && !m[k]) m[k] = i + 1;
+  });
+  // Si el full és vell i encara no té una columna, es diu que no hi és.
+  function on(nom) { return m[_fnorm_(nom)] || 0; }
+  return {
+    obs: on('Observació important') || 8,
+    pi: on('PI') || 10,
+    am: on('AM') || 11,
+    especific: on('Aspectes específics') || 12,
+    eap: on('Informe EAP') || 13,
+    seient: on('Condicions seient') || 14,
+    uid: on('Id') || COL_UID,
+    trastorns: on('Trastorns'),
+    acollida: on('Aula d\'acollida'),
+    drets: on('Drets d\'imatge'),
+    emvic: on('EMVic'),
+    _ample: lc,
+  };
+}
+
+/* Posa les capçaleres que falten a totes les pestanyes de grup.
+   Es pot repetir sense por: només escriu el que no hi és. */
+function grupsAfegeixColumnes(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var fets = [];
+  GRUPS_PRIMARIA.forEach(function (g) {
+    var sh = gss.getSheetByName(g);
+    if (!sh) return;
+    var lc = Math.max(sh.getLastColumn(), 1);
+    var cap = sh.getRange(1, 1, 1, lc).getValues()[0].map(function (c) { return _fnorm_(c); });
+    var falten = GRUP_HEADERS.filter(function (h) { return cap.indexOf(_fnorm_(h)) < 0; });
+    if (!falten.length) return;
+    sh.getRange(1, lc + 1, 1, falten.length).setValues([falten])
+      .setFontWeight('bold').setBackground('#FBEAED').setFontColor('#7A1E2E');
+    fets.push(g + ': ' + falten.join(', '));
+  });
+  return { ok: true, fets: fets };
+}
 
 // Resol l'ID del full de grups: primer el desat pel mestre, si no el compartit
 function _resolGrupsId(ss) {
@@ -2119,6 +2178,7 @@ function handleRequest(e) {
       case 'fitxesDubtes':           result = fitxesDubtes(ss); break;
       case 'fitxesPosaAlies':        result = fitxesPosaAlies(ss, body && body.grup, body && body.etiqueta, body && body.uid); break;
       case 'fitxesAplica':           result = fitxesAplica(ss, !!(body && body.prova)); break;
+      case 'grupsAfegeixColumnes':   result = grupsAfegeixColumnes(ss); break;
       case 'getGrupAlumnes':         result = _withGrups(ss, function(gss){ return getGrupAlumnes(gss, (body&&body.grup) || p.grup); }); break;
       case 'saveGrupPersonal':       result = _withGrups(ss, function(gss){ return saveGrupPersonal(gss, body.grup, body.rowId, body.dades); }); break;
       case 'saveGrupGenere':         result = _withGrups(ss, function(gss){ return saveGrupGenere(gss, body.grup, body.rowId, body.genere); }); break;
@@ -2337,6 +2397,7 @@ function getGrupAlumnes(ss, grup) {
   var lr = sh.getLastRow();
   if (lr < 2) return { ok:true, alumnes:[], grup:grup, existeix:true };
   var lc = Math.max(sh.getLastColumn(), GRUP_HEADERS.length);
+  var cols = _colsDe_(sh);
   var rows = sh.getRange(2, 1, lr-1, lc).getValues();
 
   // Mapa fila→codi, muntat amb les files que ja hem hagut de llegir. Es deixa
@@ -2381,6 +2442,13 @@ function getGrupAlumnes(ss, grup) {
       emailMare: r[5]||'', emailPare: r[6]||'',
       obs: r[7]||'',
       pi: r[9]||'', am: r[10]||'', especific: r[11]||'', eap: r[12]||'',
+      // Les columnes noves. Es busquen PEL NOM de la capçalera, o sigui
+      // que si el full d'una mestra encara no les té, surten buides i no
+      // passa res.
+      trastorns: (cols.trastorns ? r[cols.trastorns - 1] : '') || '',
+      acollida:  (cols.acollida  ? r[cols.acollida  - 1] : '') || '',
+      drets:     (cols.drets     ? r[cols.drets     - 1] : '') || '',
+      emvic:     (cols.emvic     ? r[cols.emvic     - 1] : '') || '',
       seient: (function(){
         try {
           var o = r[13] ? JSON.parse(r[13]) : null;
@@ -3968,7 +4036,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v170';
+var BACKEND_VERSIO = 'v171';
 
 var MAX_CELA = 45000;
 
@@ -6270,7 +6338,7 @@ function _fitxaLlegeix_(sh) {
   if (!grup) return null;
 
   var f = { grup: grup, pestanya: sh.getName(), tutor: '', descripcio: '',
-            trastorns: [], eap: [], pi: [], am: [], obs: [], grupCamps: [] };
+            trastorns: [], eap: [], pi: [], am: [], obs: [], acollida: [], grupCamps: [] };
   var seccio = '';
   var ultimaEtiq = '';   // l'última etiqueta vista: la fan servir les cel·les combinades
 
@@ -6306,7 +6374,11 @@ function _fitxaLlegeix_(sh) {
     // adaptacions: que un alumne vagi a l'aula d'acollida importa tant com
     // que tingui una adaptació de castellà.
     if (FITXA_SUPORTS[e]) {
-      f.am.push({ etiqueta: FITXA_SUPORTS[e], valor: val, fila: r + 1 });
+      // L'aula d'acollida té columna pròpia (en Pol: "necessita una nova
+      // categoria, fas el mateix que trastorns"). Els altres suports
+      // —biblioteca, BEET, TSAE— són una adaptació més i es queden a AM.
+      var onVa = (e === 'aula d acollida') ? f.acollida : f.am;
+      onVa.push({ etiqueta: FITXA_SUPORTS[e], valor: val, fila: r + 1 });
       continue;
     }
 
@@ -6772,12 +6844,30 @@ function _hashCurt_(s) {
   return h.toString(36) + '-' + t.length;
 }
 
-var FITXA_COL = {
-  obs: 8,    // Observació important
-  pi: 10,    // PI
-  am: 11,    // AM
-  asp: 12,   // Aspectes específics
-  eap: 13,   // Informe EAP
+/* On va cada cosa del document. El mapa el va dictar en Pol el 4/9/2026,
+   i és més net que el que jo havia fet:
+
+     TRASTORNS (TEA, TDAH...)     → Trastorns          (columna nova)
+     Aula d'acollida              → Aula d'acollida    (columna nova)
+     Drets d'imatge               → Drets d'imatge     (columna nova)
+     EMVic                        → EMVic              (columna nova)
+     PI                           → PI
+     Adaptacions + suports        → AM
+     INFORMES EAP                 → Informe EAP
+     Altres observacions          → Aspectes específics (conductuals)
+     Relació entre iguals         → Aspectes específics
+     Família                      → Aspectes específics
+     Intoleràncies, al·lèrgies    → Observació important (la MÈDICA)
+
+   ⚠ El que hi havia abans posava les observacions de conducta al camp
+   MÈDIC. A la fitxa, "Pares separats molt mala relació" sortia amb la
+   creueta ✚ al costat de les al·lèrgies. */
+var FITXA_CAMPS = ['obs', 'pi', 'am', 'asp', 'eap', 'trastorns', 'acollida', 'drets', 'emvic'];
+
+/* De la clau interna al nom de la columna al full. */
+var FITXA_COL_NOM = {
+  obs: 'obs', pi: 'pi', am: 'am', asp: 'especific', eap: 'eap',
+  trastorns: 'trastorns', acollida: 'acollida', drets: 'drets', emvic: 'emvic',
 };
 
 /* L'etiqueta d'una casella, neta: "TEA:" → "TEA", "[merged] Català:" → "Català" */
@@ -6825,7 +6915,7 @@ function _parlaDAltres_(text, prep, uidsSeus) {
 function _fitxaPerAlumne_(f, prep, alies) {
   var acc = {};
   function per(uid) {
-    if (!acc[uid]) acc[uid] = { obs: [], pi: [], am: [], asp: [], eap: [] };
+    if (!acc[uid]) { acc[uid] = {}; FITXA_CAMPS.forEach(function (k) { acc[uid][k] = []; }); }
     return acc[uid];
   }
   /* Resol una etiqueta i torna la llista d'alumnes (0, 1 o més). */
@@ -6837,7 +6927,7 @@ function _fitxaPerAlumne_(f, prep, alies) {
   }
 
   // (a) Observacions i informes EAP: l'etiqueta és el nen, el valor el text
-  [['obs', f.obs], ['eap', f.eap]].forEach(function (par) {
+  [['asp', f.obs], ['eap', f.eap]].forEach(function (par) {
     par[1].forEach(function (x) {
       if (!x.etiqueta || _fnorm_(x.etiqueta) === 'nom alumne/a') return;
       if (!/[A-Za-zÀ-ÿ]/.test(x.etiqueta)) return;
@@ -6859,7 +6949,7 @@ function _fitxaPerAlumne_(f, prep, alies) {
   });
 
   // (b) Trastorns, PI i adaptacions: l'etiqueta és el camp, el valor la llista
-  [['asp', f.trastorns], ['pi', f.pi], ['am', f.am]].forEach(function (par) {
+  [['trastorns', f.trastorns], ['pi', f.pi], ['am', f.am], ['acollida', f.acollida]].forEach(function (par) {
     par[1].forEach(function (x) {
       var etiq = _fitxaEtiq_(x.etiqueta);
       var noms = _fitxaNoms_(x.valor);
@@ -6887,15 +6977,48 @@ function _fitxaPerAlumne_(f, prep, alies) {
     });
   });
 
+  /* (c) La secció "Altres": informació de grup on cada casella és una
+     llista de noms. Fins ara no se n aprofitava res.
+
+       Drets d imatge          → columna pròpia, amb el que digui
+       EMVic                   → columna pròpia (una marca)
+       Intoleràncies, al·lèrgies → INFORMACIÓ MÈDICA
+       Relació entre iguals    → aspectes conductuals
+       Família, pares separats → aspectes conductuals
+       Pagament porteria       → NO. És cosa de secretaria, no de la fitxa. */
+  (f.grupCamps || []).forEach(function (x) {
+    var e = _fnorm_(x.camp);
+    var on = null, ambText = true;
+    if (e.indexOf("drets d imatge") === 0) { on = "drets"; }
+    else if (e.indexOf("emvic") === 0) { on = "emvic"; ambText = false; }
+    else if (e.indexOf("intoler") === 0 || e.indexOf("al lerg") === 0) { on = "obs"; }
+    else if (e.indexOf("relacio entre iguals") === 0) { on = "asp"; }
+    else if (e.indexOf("familia") === 0) { on = "asp"; }
+    if (!on) return;
+
+    var noms = _fitxaNoms_(x.valor);
+    if (!noms.length) return;
+    var tots = [];
+    noms.forEach(function (n) { quins(n).forEach(function (a) { tots.push(a); }); });
+    if (!tots.length) return;
+    var uids = {};
+    tots.forEach(function (a) { uids[a.uid] = 1; });
+    var text = String(x.valor || "").trim();
+    // Igual que abans: el text sencer només si parla d un sol nen i de
+    // ningú més. Si no, la marca i prou.
+    var sol = Object.keys(uids).length === 1 && !_parlaDAltres_(text, prep, uids);
+    tots.forEach(function (a) {
+      if (!ambText) { per(a.uid)[on].push("Sí"); return; }
+      per(a.uid)[on].push(sol && text.length > noms.join(" ").length + 4
+                          ? _fitxaEtiq_(x.camp) + ": " + text
+                          : _fitxaEtiq_(x.camp));
+    });
+  });
+
   var fora = {};
   Object.keys(acc).forEach(function (uid) {
-    fora[uid] = {
-      obs: _fitxaJunta_(acc[uid].obs),
-      pi:  _fitxaJunta_(acc[uid].pi),
-      am:  _fitxaJunta_(acc[uid].am),
-      asp: _fitxaJunta_(acc[uid].asp),
-      eap: _fitxaJunta_(acc[uid].eap),
-    };
+    fora[uid] = {};
+    FITXA_CAMPS.forEach(function (k) { fora[uid][k] = _fitxaJunta_(acc[uid][k]); });
   });
   return fora;
 }
@@ -6937,7 +7060,8 @@ function fitxesAplica(ss, prova) {
       var diu = _fitxaPerAlumne_(doc.perGrup[g], prep, alies);
 
       // Una sola lectura de tot el bloc, i una sola escriptura per columna
-      var d = sh.getRange(2, 1, lr - 1, COL_UID).getValues();
+      var cols = _colsDe_(sh);
+      var d = sh.getRange(2, 1, lr - 1, cols._ample).getValues();
       var c = { grup: g, alumnes: 0, camps: 0, iguals: 0 };
       var toca = {};   // columna → {fila: valor}
 
@@ -6954,7 +7078,7 @@ function fitxesAplica(ss, prova) {
       var escritesAra = {};
 
       d.forEach(function (fila, i) {
-        var uid = String(fila[COL_UID - 1] || '').trim();
+        var uid = String(fila[cols.uid - 1] || '').trim();
         if (!uid) return;
 
         // Primer, el que hem de TREURE: ho vam escriure nosaltres, el
@@ -6962,7 +7086,7 @@ function fitxesAplica(ss, prova) {
         var abans = escritesAbans[uid] || {};
         Object.keys(abans).forEach(function (camp) {
           if (diu[uid] && diu[uid][camp]) return;      // el document encara en parla
-          var col = FITXA_COL[camp];
+          var col = cols[FITXA_COL_NOM[camp]];
           if (!col) return;
           var ara = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
           if (!ara) return;
@@ -6980,12 +7104,13 @@ function fitxesAplica(ss, prova) {
 
         if (!diu[uid]) return;
         var teCanvi = false;
-        Object.keys(FITXA_COL).forEach(function (camp) {
+        FITXA_CAMPS.forEach(function (camp) {
           var nou = diu[uid][camp];
           if (!nou) return;                       // el document no en diu res: no s'hi toca
           if (!escritesAra[uid]) escritesAra[uid] = {};
           escritesAra[uid][camp] = _hashCurt_(nou);
-          var col = FITXA_COL[camp];
+          var col = cols[FITXA_COL_NOM[camp]];
+          if (!col) return;      // aquesta columna encara no existeix al full
           var vell = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
           if (vell === nou) { c.iguals++; return; }
           if (!toca[col]) toca[col] = {};
@@ -7011,11 +7136,11 @@ function fitxesAplica(ss, prova) {
         // desfer.
         var vell = {};
         d.forEach(function (fila, i) {
-          var uid = String(fila[COL_UID - 1] || '').trim();
+          var uid = String(fila[cols.uid - 1] || '').trim();
           if (!uid) return;
-          Object.keys(FITXA_COL).forEach(function (camp) {
-            var col = FITXA_COL[camp];
-            if (!toca[col] || toca[col][i + 2] === undefined) return;
+          FITXA_CAMPS.forEach(function (camp) {
+            var col = cols[FITXA_COL_NOM[camp]];
+            if (!col || !toca[col] || toca[col][i + 2] === undefined) return;
             var q = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
             if (!q) return;
             if (!vell[uid]) vell[uid] = {};
@@ -7050,6 +7175,16 @@ function fitxesAplica(ss, prova) {
 }
 
 /* Mira què faria, sense tocar res. */
+/* Posa les columnes noves a totes les pestanyes. Es fa un cop, i es pot
+   repetir sense por: nomes escriu les que falten. */
+function afegeixColumnesDEBO() {
+  var r = grupsAfegeixColumnes(SpreadsheetApp.getActiveSpreadsheet());
+  var txt = r.ok ? (r.fets.length ? 'COLUMNES AFEGIDES\n' + r.fets.join('\n')
+                                  : 'Ja hi eren totes.') : 'ERROR: ' + r.error;
+  Logger.log(txt);
+  return txt;
+}
+
 function provaAplicarFitxes() { return _fitxesAplicaTxt_(true); }
 /* I ara sí. */
 function aplicaFitxesDEBO() { return _fitxesAplicaTxt_(false); }
@@ -7221,13 +7356,15 @@ function fitxesNeteja(ss, prova) {
       var prep = _quiPrepara_(alumnes);
       var diu = _fitxaPerAlumne_(doc.perGrup[g], prep, _aliesLlegeix_(gss, g));
 
-      var d = sh.getRange(2, 1, lr - 1, COL_UID).getValues();
+      var cols = _colsDe_(sh);
+      var d = sh.getRange(2, 1, lr - 1, cols._ample).getValues();
       var treure = [];
       d.forEach(function (fila, i) {
-        var uid = String(fila[COL_UID - 1] || '').trim();
+        var uid = String(fila[cols.uid - 1] || '').trim();
         if (!uid) return;
-        Object.keys(FITXA_COL).forEach(function (camp) {
-          var col = FITXA_COL[camp];
+        FITXA_CAMPS.forEach(function (camp) {
+          var col = cols[FITXA_COL_NOM[camp]];
+          if (!col) return;
           var ara = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
           if (!ara) return;
           if (diu[uid] && diu[uid][camp]) return;      // el document en parla: es queda
@@ -7243,7 +7380,7 @@ function fitxesNeteja(ss, prova) {
         d.forEach(function (fila, i) {
           treure.forEach(function (t) {
             if (t.fila !== i + 2) return;
-            var uid = String(fila[COL_UID - 1] || '').trim();
+            var uid = String(fila[cols.uid - 1] || '').trim();
             if (!copia[uid]) copia[uid] = {};
             copia[uid]['col' + t.col] = String(fila[t.col - 1] || '');
           });
