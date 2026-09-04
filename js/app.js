@@ -238,6 +238,13 @@ let _piAssigs = [];  // assignatures marcades amb PI
 let _amAssigs = [];  // assignatures marcades amb AM
 
 function fillPersonalForm(d) {
+  // El gènere: l'única dada de l'alumne que es tria aquí. La resta ve dels
+  // documents de l'escola i només es mostra.
+  var g = document.getElementById('pGenere');
+  if (g) {
+    var st = students.filter(function (x) { return x.id === currentPersonalStudentId; })[0];
+    g.value = (st && st.genere === 'f') ? 'f' : 'm';
+  }
   document.getElementById('pMare').value      = d.mare      || '';
   document.getElementById('pPare').value      = d.pare      || '';
   document.getElementById('pEmailMare').value = d.emailMare || '';
@@ -382,8 +389,36 @@ function closePersonalDrawer() {
   document.body.style.overflow = '';
   currentPersonalStudentId = null;
 }
+/* El botó "Dades de contacte alumnes" encara no té document. Però un botó
+   que no fa res és el pitjor que hi pot haver: la mestra hi clica, no passa
+   res, i deixa de fiar-se de tota l'app. O sigui que, mentre no en tingui,
+   diu que no en té. */
+function _dadesContacte() {
+  const msg = 'Aquest botó encara no té document. Digues-li al Pol quin ha de ser i l\'hi posem.';
+  if (typeof showToast === 'function') showToast(msg, 'info');
+  else alert(msg);
+}
+
+/* Treu l alumne des del calaix. És el mateix esborrat de sempre; només
+   canvia des d on es demana, perquè el botó de "Gestionar alumnes" ja no hi
+   és. */
+async function _esborraDesDelCalaix() {
+  const id = currentPersonalStudentId;
+  const st = students.filter(function (x) { return x.id === id; })[0];
+  const nom = st ? st.nom : "aquest alumne";
+  if (!confirm('Treure ' + nom + ' de la llista?\n\nPerdràs les seves observacions i entrevistes, i no es pot desfer.')) return;
+  if (typeof closePersonalDrawer === "function") closePersonalDrawer();
+  await deleteStudent(id);
+}
+
 async function savePersonalDrawer() {
   const id    = currentPersonalStudentId;
+  // El gènere es desa amb la llista d alumnes, no amb les dades del full.
+  const gSel = document.getElementById("pGenere");
+  if (gSel) {
+    const st = students.filter(function (x) { return x.id === id; })[0];
+    if (st && st.genere !== gSel.value) { st.genere = gSel.value; try { await saveStudents(); } catch (e) {} }
+  }
   const dades = {
     mare:      document.getElementById('pMare').value.trim(),
     pare:      document.getElementById('pPare').value.trim(),

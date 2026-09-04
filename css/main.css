@@ -4692,3 +4692,18 @@ button.reucal-cel:focus-visible {
   padding: 10px 16px; background: #FEF3C7; color: #92400E;
   font-size: 13px; line-height: 1.4; border-bottom: 1px solid #FDE68A;
 }
+
+/* Els camps que només es miren. Han de semblar text, no una casella on
+   escriure: si semblen editables, la mestra hi escriu i després veu com se
+   li desfà quan arriba el document de l'escola. */
+.form-input-nomes-mirar {
+  background: var(--bg); border-color: transparent;
+  color: var(--text-main); cursor: default; resize: none;
+}
+.form-input-nomes-mirar:focus { outline: none; box-shadow: none; border-color: transparent; }
+.pi-am-check input:disabled + span { opacity: 0.85; }
+
+/* Treure un alumne: l'última cosa del calaix, i separada de la resta. */
+.personal-esborrar {
+  margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border);
+}

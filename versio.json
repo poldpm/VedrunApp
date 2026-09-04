@@ -1,10 +1,10 @@
 {
-  "versio": "v175",
+  "versio": "v176",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: a Alumnes hi sortia una llista antiga (amb algun alumne que ja no hi és) i sense dades. La còpia guardada al navegador tapava el que hi ha al full.",
-    "Ara, si l app no pot llegir els alumnes del full, t ho diu en comptes de mostrar-te una llista vella com si fos bona.",
-    "Nou botó a Configuració: Tornar a llegir els alumnes del full."
+    "A Alumnes hi ha els documents de l escola a un clic: Aspectes generals grup, Desdoblaments grups i Llistat d alumnes per grup.",
+    "Les dades de l alumne ja no s editen des de l app: surten dels documents oficials i aquí només es miren. Així el que escrius val per a tothom i no se t desfà.",
+    "Al calaix de dades hi pots triar el gènere de l alumne, i a baix de tot treure l de la llista."
   ]
 }
