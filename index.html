@@ -1855,13 +1855,15 @@ Català, Matemàtiques, Anglès, Medi, Català
 
         <!-- Portar les llistes de l'escola al full "Grups". Es fa sola, però
              el botó hi és per quan no es vol esperar. -->
-        <details class="cfg-block" id="cfgLlistesBlock">
+        <details class="cfg-block" id="cfgLlistesBlock" ontoggle="if(this.open) llistesEstat()">
           <summary>Llistes d'alumnes de l'escola</summary>
           <p class="modal-hint">
             Els alumnes del full <strong>«Llistat alumnes per grup»</strong> es porten al full
-            <strong>«Grups»</strong>, que és el que llegeix l'app. Es fa sol; això és per fer-ho ara.
-            <strong>Mai mou ningú de lloc ni esborra res</strong>: només afegeix els que falten.
+            <strong>«Grups»</strong>, que és el que llegeix l'app. <strong>Es fa sol</strong>;
+            això és per no haver d'esperar. Només afegeix els que falten i els ordena per cognom:
+            <strong>no esborra ningú</strong>.
           </p>
+          <div id="llistesEstat" class="modal-hint" style="margin-bottom:8px"></div>
           <div class="cfg-btn-row">
             <button class="btn btn-secondary btn-sm" onclick="llistesSync(true)">Veure què faria</button>
             <button class="btn btn-primary btn-sm" onclick="llistesSync(false)">Portar-les ara</button>

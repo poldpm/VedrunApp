@@ -1845,6 +1845,26 @@ function configuraTot() {
     diu('   No s han pogut mirar els disparadors: ' + e.message);
   }
 
+  /* 7) Sincronitzacio constant de les llistes d'alumnes */
+  diu('');
+  diu('7) Sincronitzacio constant de les llistes de l escola');
+  diu('   NOMES ha d estar engegada en UNA app (la de DIRECCIO).');
+  diu('   Si s engega a mes d una, dos scripts escriurien el mateix full alhora.');
+  try {
+    var permisSync = String(PropertiesService.getScriptProperties()
+      .getProperty('SYNC_LLISTES') || '').toLowerCase() === 'si';
+    var dispSync = ScriptApp.getProjectTriggers().filter(function (t) {
+      return t.getHandlerFunction() === 'grupsSincronitzaAuto';
+    }).length;
+    diu('   Permis (SYNC_LLISTES) .. ' + (permisSync ? 'si' : 'no'));
+    diu('   Disparador ............. ' + (dispSync ? 'posat (cada ' + SYNC_CADA_MINUTS + ' min)' : 'NO hi es'));
+    if (permisSync && !dispSync) pendents.push('Te el permis pero NO el disparador: executa configuraSincronitzacioLlistes().');
+    if (!permisSync && dispSync) pendents.push('Te el disparador pero NO el permis: no fara res. Executa configuraSincronitzacioLlistes() o treuSincronitzacioLlistes().');
+    if (!permisSync && !dispSync) diu('   Si es l app de DIRECCIO: executa configuraSincronitzacioLlistes() un cop.');
+  } catch (e) {
+    diu('   No s ha pogut mirar: ' + e.message);
+  }
+
   /* Resum */
   diu('');
   diu('=====================');
@@ -2084,6 +2104,7 @@ function handleRequest(e) {
       case 'loadProfile':            result = loadProfile(ss); break;
       case 'setupGrups':             result = setupGrups(getGrupsSpreadsheet(ss) || ss); break;
       case 'grupsSincronitza':       result = grupsSincronitza(ss, !!(body && body.prova)); break;
+      case 'grupsSyncEstat':         result = grupsSyncEstat(ss); break;
       case 'getGrupAlumnes':         result = _withGrups(ss, function(gss){ return getGrupAlumnes(gss, (body&&body.grup) || p.grup); }); break;
       case 'saveGrupPersonal':       result = _withGrups(ss, function(gss){ return saveGrupPersonal(gss, body.grup, body.rowId, body.dades); }); break;
       case 'saveGrupGenere':         result = _withGrups(ss, function(gss){ return saveGrupGenere(gss, body.grup, body.rowId, body.genere); }); break;
@@ -3933,7 +3954,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v152';
+var BACKEND_VERSIO = 'v153';
 
 var MAX_CELA = 45000;
 
@@ -5165,15 +5186,171 @@ function grupsSincronitza(ss, prova) {
     tot.ordenats = ordenats;
     if (!prova) sheetSetJSON(gss, '_AppData', 'grups_sync', JSON.stringify({
       quan: Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'), tot: tot }));
+    // Deixa constància de com era el full de l'escola: així el disparador
+    // que passa cada quart d'hora no repeteix una feina acabada de fer.
+    if (!prova) { try { sheetSetJSON(gss, '_AppData', 'grups_empremta', _llistesEmpremta_(ap.parelles)); } catch (e) {} }
     return { ok: true, prova: !!prova, grups: resultats, total: tot,
              senseParella: ap.sense, pestanyesOrigen: ap.nomsOrigen };
   } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
 }
 
-/* Per al disparador: sense arguments i sense sessió de navegador. */
+/* ============================================================
+   LA SINCRONITZACIÓ CONSTANT
+   ------------------------------------------------------------
+   Perquè cap mestra no hagi d'entrar dades d'alumnes mai més,
+   "Grups" s'ha de mantenir sol al dia amb el full de l'escola.
+
+   Tres coses expliquen per què està fet així i no d'una altra
+   manera:
+
+   1. "Grups" és UN SOL full, compartit per totes les mestres.
+      Si totes les instal·lacions el sincronitzessin, hi
+      escriurien alhora: el LockService és per script, o sigui
+      que NO les protegeix les unes de les altres. Per això la
+      sincronització automàtica només s'engega en UNA
+      instal·lació (la de direcció), i la resta en veuen el
+      resultat. El permís és la propietat SYNC_LLISTES.
+
+   2. Un disparador onEdit NO salta quan qui escriu és un
+      script, i el full de l'escola l'omple un script. Per això
+      va per temps i no per edició: si anés per edició, no
+      saltaria mai.
+
+   3. Cada passada gasta quota (Google en dóna ~90 minuts al
+      dia). Per això primer mira si el full de l'escola ha
+      canviat gens, i només fa la feina de debò si cal.
+   ============================================================ */
+
+var SYNC_CADA_MINUTS = 15;   // 1, 5, 10, 15 o 30: només aquests valors accepta Google
+
+/* L'empremta del full de l'escola: un resum curt de tot el que
+   ens importa (qui hi ha a cada grup i quan va néixer). Si no ha
+   canviat, no cal tocar res. Un canvi de color o una nota al
+   full de l'escola no fa treballar ningú. */
+function _llistesEmpremta_(parelles) {
+  var trossos = [];
+  Object.keys(parelles).sort().forEach(function (g) {
+    var sh = parelles[g];
+    var lr = sh.getLastRow();
+    trossos.push('#' + g);
+    if (lr < 2) return;
+    sh.getRange(2, 1, lr - 1, 3).getValues().forEach(function (f) {
+      var nom = String(f[0] == null ? '' : f[0]).trim();
+      var cog = String(f[1] == null ? '' : f[1]).trim();
+      if (!nom && !cog) return;
+      trossos.push(_nomClau_(nom, cog) + '|' + (_reuTxtData_(f[2]) || String(f[2] || '').trim()));
+    });
+  });
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, trossos.join('\n'));
+  return bytes.map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+/* Sincronitza NOMÉS si el full de l'escola ha canviat.
+   És el que crida el disparador cada quart d'hora. */
+function grupsSincronitzaSiCal(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var llistes;
+  try { llistes = SpreadsheetApp.openById(LLISTES_ID); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut obrir el full de llistes de l\'escola: ' + e.message }; }
+
+  var ap = _llistesAparella_(llistes);
+  if (!Object.keys(ap.parelles).length) {
+    // Cap pestanya aparellada: o el full és un altre, o encara no hi ha res.
+    // Val més no fer res que no pas fer-hi mal.
+    return { ok: false, error: 'No he sabut aparellar cap pestanya del full de l\'escola' };
+  }
+  var ara = _llistesEmpremta_(ap.parelles);
+  var abans = sheetGetJSON(gss, '_AppData', 'grups_empremta');
+  if (abans && String(abans) === ara) return { ok: true, calia: false, empremta: ara };
+
+  var r = grupsSincronitza(ss, false);
+  if (r && r.ok) sheetSetJSON(gss, '_AppData', 'grups_empremta', ara);
+  r.calia = true;
+  r.empremta = ara;
+  return r;
+}
+
+/* Per al disparador: sense arguments i sense sessió de navegador.
+   Es reparteix a totes les apps, però només treballa a la que
+   té el permís: si no, divuit scripts escriurien el mateix full
+   alhora i el LockService no els protegiria (és per script). */
 function grupsSincronitzaAuto() {
-  try { grupsSincronitza(SpreadsheetApp.getActiveSpreadsheet(), false); }
-  catch (e) { Logger.log('grupsSincronitzaAuto: ' + e.message); }
+  try {
+    var permis = PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES');
+    if (String(permis || '').toLowerCase() !== 'si') return;
+    var r = grupsSincronitzaSiCal(SpreadsheetApp.getActiveSpreadsheet());
+    if (r && r.ok && r.calia === false) return;         // no ha canviat res: ni ho apuntem
+    Logger.log('grupsSincronitzaAuto: ' + JSON.stringify(r && r.total ? r.total : r));
+  } catch (e) { Logger.log('grupsSincronitzaAuto ha petat: ' + e.message); }
+}
+
+/* Engega la sincronització constant EN AQUESTA instal·lació.
+   S'executa un cop des de l'editor, i NOMÉS a l'app de direcció.
+   Es pot repetir sense por: primer treu el disparador vell. */
+function configuraSincronitzacioLlistes() {
+  var fora = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'grupsSincronitzaAuto') { ScriptApp.deleteTrigger(t); fora++; }
+  });
+  ScriptApp.newTrigger('grupsSincronitzaAuto').timeBased().everyMinutes(SYNC_CADA_MINUTS).create();
+  PropertiesService.getScriptProperties().setProperty('SYNC_LLISTES', 'si');
+  var txt = 'Sincronitzacio constant ENGEGADA en aquesta instal lacio: cada ' +
+            SYNC_CADA_MINUTS + ' minuts.' + (fora ? ' N he tret ' + fora + ' de vell.' : '') +
+            '\nCOMPTE: nomes ha d estar engegada en UNA app (la de direccio).' +
+            '\nPer veure si va: executa provaSincronitzacio().';
+  Logger.log(txt);
+  return txt;
+}
+
+/* Per apagar-la (si s'ha engegat a l'app que no tocava). */
+function treuSincronitzacioLlistes() {
+  var fora = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'grupsSincronitzaAuto') { ScriptApp.deleteTrigger(t); fora++; }
+  });
+  PropertiesService.getScriptProperties().setProperty('SYNC_LLISTES', 'no');
+  var txt = 'Sincronitzacio constant APAGADA en aquesta instal lacio. Disparadors trets: ' + fora + '.';
+  Logger.log(txt);
+  return txt;
+}
+
+/* Què n'ha de saber la mestra: quan es va portar l'última vegada
+   i si va sola. Sense això, tota aquesta feina és invisible i
+   ningú no sap si funciona o si fa dies que està aturada. */
+function grupsSyncEstat(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var quan = null, tot = null;
+  try {
+    var raw = sheetGetJSON(gss, '_AppData', 'grups_sync');
+    if (raw) { var j = JSON.parse(raw); quan = j.quan || null; tot = j.tot || null; }
+  } catch (e) {}
+  var auto = false;
+  try {
+    auto = ScriptApp.getProjectTriggers().some(function (t) {
+      return t.getHandlerFunction() === 'grupsSincronitzaAuto';
+    }) && String(PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES') || '')
+          .toLowerCase() === 'si';
+  } catch (e) {}
+  return { ok: true, quan: quan, tot: tot, auto: auto, cada: SYNC_CADA_MINUTS };
+}
+
+/* Per mirar com va, sense esperar el quart d'hora. */
+function provaSincronitzacio() {
+  var permis = PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES');
+  var quants = ScriptApp.getProjectTriggers().filter(function (t) {
+    return t.getHandlerFunction() === 'grupsSincronitzaAuto';
+  }).length;
+  var r = grupsSincronitzaSiCal(SpreadsheetApp.getActiveSpreadsheet());
+  var txt = 'Permis (SYNC_LLISTES): ' + (permis || '(no posat)') +
+            '\nDisparadors posats: ' + quants +
+            '\nCada: ' + SYNC_CADA_MINUTS + ' minuts' +
+            '\nAra mateix: ' + (r.ok === false ? 'ERROR ' + r.error
+              : (r.calia ? 'hi havia canvis i els he portat' : 'el full de l escola no ha canviat, no calia fer res')) +
+            '\n' + JSON.stringify(r, null, 2);
+  Logger.log(txt);
+  return txt;
 }
 
 /* ============================================================

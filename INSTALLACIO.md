@@ -131,6 +131,17 @@ posar-li la clau de Gemini i omplir el perfil i l'horari.
    que fa que el recordatori de l'esmorzar surti sol cada dilluns. Sense
    això, tota la resta de Coordinació funciona igual, però l'avís s'ha
    d'enviar a mà. `configuraTot()` t'ho recorda si falta.
+
+   **I, també només a direcció:** `configuraSincronitzacioLlistes()`, que és
+   el que porta les llistes d'alumnes de l'escola al full «Grups» cada quart
+   d'hora. ⚠ **Només en UNA app de tota l'escola.** «Grups» és un sol full
+   compartit i el `LockService` és per script: si dues instal·lacions el
+   sincronitzessin, s'hi escriurien a sobre sense adonar-se'n. El codi es
+   reparteix a totes, però només treballa on hi ha la propietat
+   `SYNC_LLISTES = si`, que és la que hi posa aquesta funció. Per apagar-la,
+   `treuSincronitzacioLlistes()`; per mirar com va sense esperar,
+   `provaSincronitzacio()`. `configuraTot()` també ho comprova.
+
    Si fas servir el mateix `APP_TOKEN` per a totes, **no has de tocar
    `js/config.local.js`**.
 

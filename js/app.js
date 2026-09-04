@@ -5786,6 +5786,27 @@ function _avisaBackendVell(versioServidor) {
    ("Veure què faria"), perquè escriu al full compartit de tota
    l'escola.
    ============================================================ */
+/* Quan es van portar per última vegada. Sense això, que es facin
+   soles és invisible: la mestra no sap si va o si fa dies que
+   està aturada. Es demana en obrir l'apartat, no en carregar
+   l'app, perquè no costi una crida a tothom cada matí. */
+async function llistesEstat() {
+  const out = document.getElementById('llistesEstat');
+  if (!out) return;
+  out.textContent = 'Mirant…';
+  try {
+    const r = await appsScriptPost({ action: 'grupsSyncEstat' });
+    if (!r || !r.ok) { out.textContent = ''; return; }
+    if (!r.quan) {
+      out.innerHTML = '<span style="color:#7C4A03">Encara no s\'han portat mai.</span>';
+      return;
+    }
+    let h = 'Última vegada: <strong>' + escapeHtml(r.quan) + '</strong>';
+    if (r.auto) h += ' · es porten soles cada ' + (r.cada || 15) + ' minuts des d\'aquesta app';
+    out.innerHTML = h;
+  } catch (e) { out.textContent = ''; }
+}
+
 async function llistesSync(prova) {
   const out = document.getElementById('llistesResult');
   if (out) out.innerHTML = prova ? 'Mirant…' : 'Portant-les…';
@@ -5823,7 +5844,10 @@ async function llistesSync(prova) {
            'mira-ho tu i decideix, que poden tenir observacions i entrevistes.</span>';
     }
     if (out) out.innerHTML = h;
-    if (!prova && typeof showToast === 'function') showToast('Llistes al dia ✓', 'success');
+    if (!prova) {
+      if (typeof showToast === 'function') showToast('Llistes al dia ✓', 'success');
+      llistesEstat();
+    }
   } catch (e) {
     if (out) out.innerHTML = '<span style="color:#B71C1C">' + escapeHtml(e.message) + '</span>';
   }

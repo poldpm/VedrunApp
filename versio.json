@@ -1,8 +1,9 @@
 {
-  "versio": "v152",
+  "versio": "v153",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Els alumnes de cada grup surten sempre per ordre alfabètic de cognom, i es reordenen sols cada cop que arriben alumnes nous de la llista de l escola."
+    "Les llistes d alumnes de l escola es porten soles cada quart d hora: si la direcció dóna d alta un alumne, el tens a la teva llista sense fer res.",
+    "A Configuració > Llistes d alumnes de l escola hi veus quan es van portar per última vegada."
   ]
 }
