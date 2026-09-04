@@ -3965,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v162';
+var BACKEND_VERSIO = 'v163';
 
 var MAX_CELA = 45000;
 
@@ -6226,7 +6226,7 @@ function _fnorm_(s) {
 /* Els suports que rep un nen. No son cap seccio: son una llista de noms,
    i el que diuen es de cada alumne. */
 var FITXA_SUPORTS = {
-  'aula d acollida': 'Aula d acollida',
+  'aula d acollida': 'Aula d\'acollida',
   'suport biblioteca escola': 'Suport biblioteca',
   'biblioteca (beet) candidats': 'Biblioteca (BEET)',
   'alumnes biblioteca': 'Biblioteca',
@@ -6861,6 +6861,36 @@ function fitxesAplica(ss, prova) {
       });
 
       if (!prova) {
+        // ⚠ Abans d'escriure a sobre: còpia del que hi HAVIA, però només
+        // del que no era buit. La primera passada no en guardarà res
+        // (els camps estan buits); les següents, només allò que de debò
+        // es destrueix. Va lligat al CODI de l'alumne, o sigui que serveix
+        // encara que després canviï de fila.
+        //
+        // Si la còpia falla, NO s'escriu: val més no portar les dades que
+        // no pas trepitjar el que ha escrit una mestra sense poder-ho
+        // desfer.
+        var vell = {};
+        d.forEach(function (fila, i) {
+          var uid = String(fila[COL_UID - 1] || '').trim();
+          if (!uid) return;
+          Object.keys(FITXA_COL).forEach(function (camp) {
+            var col = FITXA_COL[camp];
+            if (!toca[col] || toca[col][i + 2] === undefined) return;
+            var q = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
+            if (!q) return;
+            if (!vell[uid]) vell[uid] = {};
+            vell[uid][camp] = q;
+          });
+        });
+        if (Object.keys(vell).length) {
+          try { _copiaSeguretat_(gss, 'fitxes_' + g, JSON.stringify(vell)); }
+          catch (e) {
+            perGrup.push({ grup: g, alumnes: 0, camps: 0, iguals: 0,
+                           error: 'no he pogut desar la copia de seguretat, o sigui que no toco res: ' + e.message });
+            return;
+          }
+        }
         Object.keys(toca).forEach(function (col) {
           Object.keys(toca[col]).forEach(function (fila) {
             sh.getRange(Number(fila), Number(col)).setValue(toca[col][fila]);
