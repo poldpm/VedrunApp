@@ -3439,15 +3439,32 @@ body {
 .cfg-section-title:first-child { margin-top: 0; }
 .cfg-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* Opcions avançades plegables a la configuració */
-.cfg-avancat { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); }
-.cfg-avancat summary {
+/* Els blocs plegables de la configuració.
+   Van tots dos igual a posta: si un porta el triangle cru del navegador
+   i l'altre no, sembla que un dels dos hi sigui per error. */
+.cfg-avancat,
+.cfg-block { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); }
+.cfg-avancat > summary,
+.cfg-block > summary {
   cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text-muted);
   list-style: none; user-select: none;
+  padding: 5px 0; border-radius: var(--r-sm);
+  transition: color 0.12s var(--ease);
 }
-.cfg-avancat summary::-webkit-details-marker { display: none; }
-.cfg-avancat summary::before { content: '▸ '; }
-.cfg-avancat[open] summary::before { content: '▾ '; }
+.cfg-avancat > summary:hover,
+.cfg-block > summary:hover { color: var(--garnet-text); }
+/* Amb el teclat s'ha de veure on ets: sense això, el Tab hi passa per
+   sobre sense deixar rastre. */
+.cfg-avancat > summary:focus-visible,
+.cfg-block > summary:focus-visible {
+  outline: 2px solid var(--crimson); outline-offset: 3px; color: var(--garnet-text);
+}
+.cfg-avancat > summary::-webkit-details-marker,
+.cfg-block > summary::-webkit-details-marker { display: none; }
+.cfg-avancat > summary::before,
+.cfg-block > summary::before { content: '▸ '; }
+.cfg-avancat[open] > summary::before,
+.cfg-block[open] > summary::before { content: '▾ '; }
 
 /* ============================================================
    HORARI (plantilla setmanal)

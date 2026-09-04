@@ -1,9 +1,8 @@
 {
-  "versio": "v155",
+  "versio": "v156",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Les llistes d alumnes de l escola es porten soles cada quart d hora: si la direcció dóna d alta un alumne, el tens a la teva llista sense fer res.",
-    "A Configuració > Llistes d alumnes de l escola hi veus quan es va comprovar per última vegada i quan hi va entrar l últim alumne."
+    "Els dos apartats plegables de Configuració ara es veuen igual."
   ]
 }
