@@ -3968,7 +3968,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v166';
+var BACKEND_VERSIO = 'v167';
 
 var MAX_CELA = 45000;
 
@@ -6404,52 +6404,63 @@ function _fitxaNoms_(valor) {
 }
 
 function _fitxaNomsBanda_(v) {
-  // El guionet separa NOMÉS amb espais als dos costats ("Lilly - Francis").
-  // Entre lletres forma part del nom: en Boubacar-Sidy no s'ha de partir.
-  var trossos = String(v).split(/\s*[,;/|\n]\s*|\s+[-–—]\s+|\s+i\s+|\s+y\s+/);
+  /* Dos talls, i no fan la mateixa feina.
+
+     El GUIONET amb espais ("Mohamed Ahidar - Nouvingut des del 3 de
+     desembre") separa el nom de l'explicació: el que ve després NO és
+     un altre nen. Entre lletres forma part del nom, i en Boubacar-Sidy
+     no s'ha de partir.
+
+     La COMA i la "i" ("Gala i Mustafa necessiten PI de tot") separen
+     NOMS. Aquí el segon tros sí que comença per un nen, encara que
+     després continuï amb l'explicació.
+
+     Confondre-ho costava dues coses alhora: en Mustafa es quedava
+     sense l'entrada, i a la Gala li anava a la fitxa una frase que
+     parlava dels dos. */
   var fora = [];
-  trossos.forEach(function (t, k) {
-    // Un guionet enganxat al nom i seguit d'espai ("Olivia- Cal fer...")
-    // també talla; entre lletres, no.
-    var cap = String(t).replace(/-(?![A-Za-zÀ-ÿ])/g, ' | ');
-    cap = cap.split(/[(.|!?¡¿]/)[0].trim();
-    cap = cap.replace(/^["'«»\s]+|["'«»\s]+$/g, '');
-    if (!cap) return;
+  String(v).split(/\s+[-–—]\s+/).forEach(function (part, kPart) {
+    part.split(/\s*[,;/|\n]\s*|\s+i\s+|\s+y\s+/).forEach(function (t, kTros) {
+      // Un guionet enganxat al nom i seguit d'espai ("Olivia- Cal fer...")
+      // també talla; entre lletres, no.
+      var cap = String(t).replace(/-(?![A-Za-zÀ-ÿ])/g, ' | ');
+      cap = cap.split(/[(.|!?¡¿]/)[0].trim();
+      cap = cap.replace(/^["'«»\s]+|["'«»\s]+$/g, '');
+      if (!cap) return;
 
-    var mots = cap.split(/\s+/);
-    var net = function (x) { return _fnorm_(x).replace(/[^a-z]/g, ''); };
-    var i = 0;
-    // Salta les paraules que mai no són un nen ("Possible Elna" → Elna),
-    // i atura't del tot si la primera és de les que porten un adult a
-    // darrere ("Intervenció Núria" → res).
-    if (FITXA_NO_NOMS[net(mots[0])] === 2) return;
-    while (i < mots.length && FITXA_NO_NOMS[net(mots[i])] === 1) i++;
-    if (i < mots.length && FITXA_NO_NOMS[net(mots[i])] === 2) return;
+      var mots = cap.split(/\s+/);
+      var net = function (x) { return _fnorm_(x).replace(/[^a-z]/g, ''); };
+      var i = 0;
+      // Salta les paraules que mai no són un nen ("Possible Elna" → Elna),
+      // i atura't del tot si la primera és de les que porten un adult a
+      // darrere ("Intervenció Núria" → res).
+      if (FITXA_NO_NOMS[net(mots[0])] === 2) return;
+      while (i < mots.length && FITXA_NO_NOMS[net(mots[i])] === 1) i++;
+      if (i < mots.length && FITXA_NO_NOMS[net(mots[i])] === 2) return;
 
-    // Els noms van en majúscula i el que ve després, no. De "Mohamed
-    // nivell I5" en surt "Mohamed"; de "molt mal comportament", res.
-    var bons = [];
-    for (; i < mots.length; i++) {
-      var m = mots[i].replace(/^[^A-Za-zÀ-ÿ0-9]+|[^A-Za-zÀ-ÿ0-9]+$/g, '');
-      if (!m || !/^[A-ZÀ-ÖØ-Þ]/.test(m) || /\d/.test(m)) break;
-      if (FITXA_NO_NOMS[net(m)]) break;
-      bons.push(m);
-    }
-    if (!bons.length || bons.length > 4) return;
-    // ⚠ Els articles NO poden anar a la llista de paraules d'aturada: "El
-    // Klai", "El Mouden" i "El Asri" són cognoms de debò. Però una paraula
-    // sola de dues lletres no és mai un nen —"La van derivar", "IQ alt"—,
-    // i cap alumne de l'escola no en té cap de tan curt.
-    if (bons.length === 1 && bons[0].length <= 2) return;
+      // Els noms van en majúscula i el que ve després, no. De "Mohamed
+      // nivell I5" en surt "Mohamed"; de "molt mal comportament", res.
+      var bons = [];
+      for (; i < mots.length; i++) {
+        var m = mots[i].replace(/^[^A-Za-zÀ-ÿ0-9]+|[^A-Za-zÀ-ÿ0-9]+$/g, '');
+        if (!m || !/^[A-ZÀ-ÖØ-Þ]/.test(m) || /\d/.test(m)) break;
+        if (FITXA_NO_NOMS[net(m)]) break;
+        bons.push(m);
+      }
+      if (!bons.length || bons.length > 4) return;
+      // ⚠ Els articles NO poden anar a la llista de paraules d'aturada: "El
+      // Klai", "El Mouden" i "El Asri" són cognoms de debò. Però una paraula
+      // sola de dues lletres no és mai un nen —"La van derivar", "IQ alt"—,
+      // i cap alumne de l'escola no en té cap de tan curt.
+      if (bons.length === 1 && bons[0].length <= 2) return;
 
-    // Un tros que després del nom continua amb prosa NOMÉS val si és el
-    // primer. "Mohamed Ahidar - Nouvingut des del 3 de desembre" té el nom
-    // al davant; el que ve després del guionet és l'explicació, no un
-    // altre nen. Sense això, cada data i cada aclariment es prenia per un
-    // alumne.
-    if (k > 0 && bons.length < mots.length) return;
+      // Un tros que després del nom continua amb prosa només val si és el
+      // primer... i AIXÒ NOMÉS DESPRÉS D'UN GUIONET. Després d'una coma o
+      // d'una "i", el que ve és un altre nen.
+      if (kPart > 0 && kTros === 0 && bons.length < mots.length) return;
 
-    fora.push(bons.join(' '));
+      if (fora.indexOf(bons.join(' ')) < 0) fora.push(bons.join(' '));
+    });
   });
   return fora;
 }
