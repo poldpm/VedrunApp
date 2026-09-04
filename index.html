@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v174">
+  <link rel="stylesheet" href="css/main.css?v=v175">
 </head>
 <body>
 
@@ -1884,6 +1884,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           </p>
           <div class="cfg-btn-row">
             <button class="btn btn-secondary btn-sm" onclick="dubtesCarrega()">Veure els dubtes</button>
+            <button class="btn btn-secondary btn-sm" onclick="refrescaAlumnes()">Tornar a llegir els alumnes del full</button>
           </div>
           <div id="dubtesResult" class="modal-hint" style="margin-top:8px"></div>
         </details>
@@ -2067,29 +2068,29 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/rol.js?v=v174"></script>
-  <script defer src="js/config.local.js?v=v174"></script>
-  <script defer src="js/app.js?v=v174"></script>
-  <script defer src="js/notes.js?v=v174"></script>
-  <script defer src="js/seients.js?v=v174"></script>
-  <script defer src="js/perfil.js?v=v174"></script>
-  <script defer src="js/grupview.js?v=v174"></script>
-  <script defer src="js/postits.js?v=v174"></script>
-  <script defer src="js/horari.js?v=v174"></script>
-  <script defer src="js/vedrunu.js?v=v174"></script>
-  <script defer src="js/gwrite.js?v=v174"></script>
-  <script defer src="js/rubriques.js?v=v174"></script>
-  <script defer src="js/docents.js?v=v174"></script>
-  <script defer src="js/coordinacio.js?v=v174"></script>
-  <script defer src="js/regdocents.js?v=v174"></script>
-  <script defer src="js/segentrevistes.js?v=v174"></script>
-  <script defer src="js/entrevistes.js?v=v174"></script>
-  <script defer src="js/notescomp.js?v=v174"></script>
-  <script defer src="js/reunions.js?v=v174"></script>
-  <script defer src="js/versio.js?v=v174"></script>
+  <script defer src="js/rol.js?v=v175"></script>
+  <script defer src="js/config.local.js?v=v175"></script>
+  <script defer src="js/app.js?v=v175"></script>
+  <script defer src="js/notes.js?v=v175"></script>
+  <script defer src="js/seients.js?v=v175"></script>
+  <script defer src="js/perfil.js?v=v175"></script>
+  <script defer src="js/grupview.js?v=v175"></script>
+  <script defer src="js/postits.js?v=v175"></script>
+  <script defer src="js/horari.js?v=v175"></script>
+  <script defer src="js/vedrunu.js?v=v175"></script>
+  <script defer src="js/gwrite.js?v=v175"></script>
+  <script defer src="js/rubriques.js?v=v175"></script>
+  <script defer src="js/docents.js?v=v175"></script>
+  <script defer src="js/coordinacio.js?v=v175"></script>
+  <script defer src="js/regdocents.js?v=v175"></script>
+  <script defer src="js/segentrevistes.js?v=v175"></script>
+  <script defer src="js/entrevistes.js?v=v175"></script>
+  <script defer src="js/notescomp.js?v=v175"></script>
+  <script defer src="js/reunions.js?v=v175"></script>
+  <script defer src="js/versio.js?v=v175"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v174"></script>
+  <script defer src="js/personal.js?v=v175"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

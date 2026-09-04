@@ -387,11 +387,18 @@ async function _loadTutoriaGrup() {
 
   // Cache: aplica immediatament si el tenim
   const cacheKey = 'tutoriacache_' + grup;
+  const versioAra = (window.versioApp && window.versioApp.actual) || '';
   try {
     const raw = localStorage.getItem(cacheKey);
     if (raw) {
       const c = JSON.parse(raw);
-      if (c && c.alumnes && c.alumnes.length) {
+      /* ⚠ La còpia guardada NO val si és d'una versió anterior de l'app.
+         Va passar el 4/9/2026: en Pol veia un alumne que ja no és al full i
+         cap dada dels altres. La còpia era de fa hores i tapava el que hi
+         havia de debò. Una còpia serveix per anar de pressa, no per decidir
+         què és cert: si l'app ha canviat, es llença i es torna a demanar. */
+      const mateixaVersio = !versioAra || c.v === versioAra;
+      if (c && c.alumnes && c.alumnes.length && mateixaVersio) {
         _aplicaTutoriaAlumnes(c.alumnes);
         // Si és recent (<10 min), no refresquis
         if (Date.now() - (c.ts||0) < 600000) return;
@@ -403,9 +410,46 @@ async function _loadTutoriaGrup() {
     const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
     if (r.ok && r.alumnes && r.alumnes.length) {
       _aplicaTutoriaAlumnes(r.alumnes);
-      try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes: r.alumnes, ts: Date.now() })); } catch(e) {}
+      try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes: r.alumnes, ts: Date.now(), v: versioAra })); } catch(e) {}
+    } else if (r && r.ok === false) {
+      _avisAlumnesVells(r.error || 'el servidor no ha pogut donar la llista');
     }
-  } catch(e) { /* silenciós */ }
+  } catch(e) {
+    /* ⚠ Abans això era silenciós, i és el pitjor que podia ser: si el
+       servidor fallava, a la pantalla hi quedava la còpia vella i semblava
+       la bona. Val més dir-ho. */
+    _avisAlumnesVells(e && e.message ? e.message : 'sense connexió amb el servidor');
+  }
+}
+
+/* Diu que el que es veu pot no ser el que hi ha al full. */
+function _avisAlumnesVells(motiu) {
+  if (document.getElementById('avisAlumnesVells')) return;
+  const d = document.createElement('div');
+  d.id = 'avisAlumnesVells';
+  d.className = 'ver-franja';
+  d.setAttribute('role', 'status');
+  d.innerHTML = '<span><strong>Els alumnes que veus poden no estar al dia.</strong> ' +
+    'No he pogut demanar la llista al full: ' + (typeof escapeHtml === 'function' ? escapeHtml(motiu) : motiu) +
+    '</span><button class="btn btn-secondary btn-sm" id="avisAlumnesX">D\'acord</button>';
+  document.body.insertBefore(d, document.body.firstChild);
+  const x = document.getElementById('avisAlumnesX');
+  if (x) x.addEventListener('click', () => d.remove());
+}
+
+/* Llença la còpia guardada de tots els grups i torna a demanar-ho tot.
+   És la sortida quan la pantalla i el full no diuen el mateix. */
+async function refrescaAlumnes() {
+  try {
+    Object.keys(localStorage).forEach(k => {
+      if (k.indexOf('tutoriacache_') === 0) localStorage.removeItem(k);
+    });
+  } catch (e) {}
+  const av = document.getElementById('avisAlumnesVells');
+  if (av) av.remove();
+  if (typeof showToast === 'function') showToast('Demanant els alumnes al full…', 'info');
+  await _loadTutoriaGrup();
+  if (typeof showToast === 'function') showToast('Alumnes al dia ✓', 'success');
 }
 
 function _aplicaTutoriaAlumnes(alumnes) {
@@ -420,6 +464,10 @@ function _aplicaTutoriaAlumnes(alumnes) {
     personal[a.id] = {
       mare: a.mare, pare: a.pare, emailMare: a.emailMare, emailPare: a.emailPare,
       obs: a.obs, pi: a.pi, am: a.am, especific: a.especific, eap: a.eap, seient: a.seient,
+      // ⚠ Les columnes noves han de passar per aquí. El servidor les enviava i
+      // la fitxa les sabia pintar, però aquest pas del mig no les copiava: a
+      // la pantalla no hi sortia res i semblava que el full estigués buit.
+      trastorns: a.trastorns, acollida: a.acollida, drets: a.drets, emvic: a.emvic,
       dataNaix: a.dataNaix, rowId: a.rowId,
     };
   });

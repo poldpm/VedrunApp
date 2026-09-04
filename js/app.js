@@ -2311,7 +2311,7 @@ async function _dirCarregaGrup(grup) {
   students = []; personal = {}; observacions = {};
   if (alumnes.length) {
     if (typeof _aplicaTutoriaAlumnes === 'function') _aplicaTutoriaAlumnes(alumnes);
-    try { localStorage.setItem('tutoriacache_' + grup, JSON.stringify({ alumnes: alumnes, ts: Date.now() })); } catch(e) {}
+    try { localStorage.setItem('tutoriacache_' + grup, JSON.stringify({ alumnes: alumnes, ts: Date.now(), v: (window.versioApp && window.versioApp.actual) || '' })); } catch(e) {}
   } else {
     _grupStudentsCarregat = grup + '|';
   }
@@ -5027,7 +5027,7 @@ function _applyBootstrap(boot) {
     if (typeof _aplicaTutoriaAlumnes === 'function') {
       _tutoriaGrup = boot.tutorGrup;
       _aplicaTutoriaAlumnes(boot.grupAlumnes);
-      try { localStorage.setItem('tutoriacache_' + boot.tutorGrup, JSON.stringify({ alumnes: boot.grupAlumnes, ts: Date.now() })); } catch(e) {}
+      try { localStorage.setItem('tutoriacache_' + boot.tutorGrup, JSON.stringify({ alumnes: boot.grupAlumnes, ts: Date.now(), v: (window.versioApp && window.versioApp.actual) || '' })); } catch(e) {}
     }
   } else if (boot.alumnes && boot.alumnes.length && !editant && !boot.tutorGrup && !_rolDireccio()) {
     // (a direcció, els alumnes són sempre els del grup triat, mai els del

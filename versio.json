@@ -1,10 +1,10 @@
 {
-  "versio": "v174",
+  "versio": "v175",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: l avís de versió nova ja no pot tornar a sortir sense parar.",
-    "A la fitxa de l alumne hi surten els trastorns, l aula d acollida, els drets d imatge i l EMVic, cadascun amb la seva etiqueta.",
-    "Les observacions de conducta ja no van al camp d informació mèdica: allà hi van les al lèrgies i les intoleràncies."
+    "Arreglat: a Alumnes hi sortia una llista antiga (amb algun alumne que ja no hi és) i sense dades. La còpia guardada al navegador tapava el que hi ha al full.",
+    "Ara, si l app no pot llegir els alumnes del full, t ho diu en comptes de mostrar-te una llista vella com si fos bona.",
+    "Nou botó a Configuració: Tornar a llegir els alumnes del full."
   ]
 }
