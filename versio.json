@@ -1,14 +1,13 @@
 {
-  "versio": "v177",
+  "versio": "v178",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
+    "En obrir l app, si encara no hi ha res per ensenyar (el primer cop o despres d una actualitzacio), s espera a tenir les dades en comptes de deixar-te entrar a apartats buits.",
+    "El avis de dalt de la fitxa de l alumne ara es una nota petita i discreta: deia el mateix pero cridava massa.",
     "Ara es veu quan l app esta carregant: una ratlla fina a dalt quan treballa sola, i la pantalla enfosquida amb una rodona quan has clicat una cosa i s ha d anar a buscar.",
     "Mentre carrega no es pot clicar, a posta: clicar mes vegades el mateix boto no ho fa anar mes rapid, el fa anar mes lent.",
     "Va mes rapid: no torna a demanar el que acaba de demanar, i les coses que abans es demanaven una darrere l altra ara es demanen alhora. Tornar a un grup que acabes de mirar es immediat.",
-    "Arreglat: el calaix de dades de l alumne tornava a sortir al mig de la pantalla; va al costat, com sempre.",
-    "A Alumnes hi ha els documents de l escola a un clic: Aspectes generals grup, Desdoblaments grups i Llistat d alumnes per grup.",
-    "Les dades de l alumne ja no s editen des de l app: surten dels documents oficials i aqui nomes es miren. Aixi el que escrius val per a tothom i no se t desfa.",
-    "Al calaix de dades hi pots triar el genere de l alumne, i a baix de tot treure l de la llista."
+    "Arreglat: el calaix de dades de l alumne sortia al mig de la pantalla; va al costat, com sempre."
   ]
 }

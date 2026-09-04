@@ -4775,3 +4775,15 @@ body.app-ocupada { cursor: progress; }
   .carrega-vel, .carrega-vel-caixa { transition: none; }
   .carrega-vel-caixa { transform: none; }
 }
+
+/* Nota de «això només es mira». Ha de dir-se una vegada i callar: si cridés
+   com un avís, cada cop que s'obre la fitxa d'un alumne semblaria que passa
+   res greu. Va en gris i petita, com les altres pistes de l'app. */
+.nota-mirar {
+  margin: 0 0 20px;
+  padding-left: 11px;
+  border-left: 2px solid var(--border-strong);
+  font-size: 12px; line-height: 1.55;
+  color: var(--text-muted);
+}
+.nota-mirar strong { font-weight: 600; color: var(--text-sub); }

@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v177">
+  <link rel="stylesheet" href="css/main.css?v=v178">
 </head>
 <body>
 
@@ -1633,12 +1633,11 @@ Català, Matemàtiques, Anglès, Medi, Català
         <button class="panel-close" onclick="closePersonalDrawer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="panel-body" style="padding:24px;">
-        <div class="callout warn" style="margin:0 0 18px">
-          <strong>Aquestes dades no s'editen aquí.</strong> Surten dels documents oficials de
-          l'escola i s'actualitzen soles. Per canviar-ne cap, ves al document que toqui
-          (els tens als botons de dalt, a Alumnes): així el que escrius val per a tothom
-          i no es desfà.
-        </div>
+        <p class="nota-mirar">
+          Aquestes dades <strong>només es miren</strong>: surten dels documents oficials de
+          l'escola. Per canviar-ne cap, ves al document que toqui —els tens als botons de
+          dalt, a Alumnes— i així val per a tothom.
+        </p>
 
         <div class="personal-section-label">Aquest alumne</div>
         <div class="personal-field">
@@ -2101,30 +2100,30 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v177"></script>
-  <script defer src="js/rol.js?v=v177"></script>
-  <script defer src="js/config.local.js?v=v177"></script>
-  <script defer src="js/app.js?v=v177"></script>
-  <script defer src="js/notes.js?v=v177"></script>
-  <script defer src="js/seients.js?v=v177"></script>
-  <script defer src="js/perfil.js?v=v177"></script>
-  <script defer src="js/grupview.js?v=v177"></script>
-  <script defer src="js/postits.js?v=v177"></script>
-  <script defer src="js/horari.js?v=v177"></script>
-  <script defer src="js/vedrunu.js?v=v177"></script>
-  <script defer src="js/gwrite.js?v=v177"></script>
-  <script defer src="js/rubriques.js?v=v177"></script>
-  <script defer src="js/docents.js?v=v177"></script>
-  <script defer src="js/coordinacio.js?v=v177"></script>
-  <script defer src="js/regdocents.js?v=v177"></script>
-  <script defer src="js/segentrevistes.js?v=v177"></script>
-  <script defer src="js/entrevistes.js?v=v177"></script>
-  <script defer src="js/notescomp.js?v=v177"></script>
-  <script defer src="js/reunions.js?v=v177"></script>
-  <script defer src="js/versio.js?v=v177"></script>
+  <script defer src="js/espera.js?v=v178"></script>
+  <script defer src="js/rol.js?v=v178"></script>
+  <script defer src="js/config.local.js?v=v178"></script>
+  <script defer src="js/app.js?v=v178"></script>
+  <script defer src="js/notes.js?v=v178"></script>
+  <script defer src="js/seients.js?v=v178"></script>
+  <script defer src="js/perfil.js?v=v178"></script>
+  <script defer src="js/grupview.js?v=v178"></script>
+  <script defer src="js/postits.js?v=v178"></script>
+  <script defer src="js/horari.js?v=v178"></script>
+  <script defer src="js/vedrunu.js?v=v178"></script>
+  <script defer src="js/gwrite.js?v=v178"></script>
+  <script defer src="js/rubriques.js?v=v178"></script>
+  <script defer src="js/docents.js?v=v178"></script>
+  <script defer src="js/coordinacio.js?v=v178"></script>
+  <script defer src="js/regdocents.js?v=v178"></script>
+  <script defer src="js/segentrevistes.js?v=v178"></script>
+  <script defer src="js/entrevistes.js?v=v178"></script>
+  <script defer src="js/notescomp.js?v=v178"></script>
+  <script defer src="js/reunions.js?v=v178"></script>
+  <script defer src="js/versio.js?v=v178"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v177"></script>
+  <script defer src="js/personal.js?v=v178"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

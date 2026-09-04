@@ -984,7 +984,14 @@ async function loadAll() {
   if (!config.scriptUrl) { updateSync('', 'No configurat'); return; }
 
   // 1) PINTA IMMEDIATAMENT des del cache local (l'app es veu plena a l'instant)
-  if (_loadMainFromCache()) {
+  /* I d'aquí surt si l'arrencada s'ha de tapar o no. Si el cache ha pintat,
+     l'app JA es veu plena: tapar-la seria bloquejar-la per res i faria l'efecte
+     contrari, semblar més lenta. Si NO ha pintat —el primer cop, un ordinador
+     nou, o just després d'una versió nova— tot són pantalles buides: la mestra
+     obriria apartats i els trobaria sense res, que és exactament el que fa
+     pensar que l'app està espatllada. Llavors sí que s'espera. */
+  const _hiHaviaDades = _loadMainFromCache();
+  if (_hiHaviaDades) {
     document.getElementById('setupBanner').style.display = 'none';
     _paintAllViews();
     updateSync('syncing', 'Actualitzant…');
@@ -997,7 +1004,14 @@ async function loadAll() {
   //    grup de tutoria. Substitueix 5-7 crides encadenades → molt més ràpid.
   try {
     const weekIds = [getPlanWeekId(-1), getPlanWeekId(0), getPlanWeekId(1)];
-    const boot = await appsScriptGet({ action: 'bootstrap', weekIds: JSON.stringify(weekIds) });
+    let _peticio = appsScriptGet({ action: 'bootstrap', weekIds: JSON.stringify(weekIds) });
+    /* Arrencada amb l'app buida: es tapa. Ningú no ha clicat res —o sigui que
+       el vel no sortiria sol— però és el moment en què més fàcil és pensar que
+       està espatllada, perquè tot es veu buit. */
+    if (!_hiHaviaDades && typeof esperaVisual === 'function') {
+      _peticio = esperaVisual(_peticio, 'Carregant les teves dades…');
+    }
+    const boot = await _peticio;
 
     // Error d'autorització: el token no coincideix
     if (boot && boot._authError) {
