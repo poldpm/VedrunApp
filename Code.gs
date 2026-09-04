@@ -3965,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v159';
+var BACKEND_VERSIO = 'v160';
 
 var MAX_CELA = 45000;
 
@@ -6111,6 +6111,26 @@ function _qui_(preparats, etiqueta, alies) {
       return { alumne: toquen[0].p.ref, com: 'parcial' };
     }
     if (toquen.length > 1) {
+      // Potser no és un nom mal escrit: són DOS NENS en una casella.
+      // "Aliou Zion" a 3r A són l'Alilou i la Zion, que comparteixen
+      // adaptació. Val només si cada paraula toca un nen DIFERENT i no
+      // en sobra cap: si dues paraules apuntessin al mateix nen, seria
+      // un nom sol i no una llista.
+      var perMot = mots.map(function (m) {
+        return preparats.filter(function (p) {
+          return p.tots.some(function (t) {
+            return t === m || (m.length >= 3 && t.indexOf(m) === 0) ||
+                   (m.length >= 5 && _distancia1_(m, t));
+          });
+        });
+      });
+      if (perMot.every(function (l) { return l.length === 1; })) {
+        var uids = {}, llista = [];
+        perMot.forEach(function (l) {
+          if (!uids[l[0].ref.uid]) { uids[l[0].ref.uid] = 1; llista.push(l[0].ref); }
+        });
+        if (llista.length === mots.length) return { alumnes: llista, com: 'llista' };
+      }
       return { dubte: 'l\'etiqueta toca ' + toquen.length + ' nens: ' +
                       toquen.map(function (x) { return x.p.ref.nom + ' ' + x.p.ref.cognoms; }).join(' / ') };
     }
@@ -6330,6 +6350,10 @@ var FITXA_NO_NOMS = {
   aquesta: 2, aquests: 2, bona: 2, bon: 2, cap: 2, algun: 2, alguns: 2,
   per: 2, amb: 2, sense: 2, fins: 2, conductual: 2, conductuals: 2,
   aspectes: 2, temes: 2, tema: 2, seguiment: 2, proves: 2, sessions: 2,
+  // I les sigles, que no son el nom de cap nen.
+  tea: 2, tdah: 2, tel: 2, pi: 2, am: 2, eap: 2, nese: 2, nee: 2, pas: 2,
+  dtac: 2, csmij: 2, creda: 2, cretdic: 2, tsae: 2, emvic: 2, doip: 2,
+  iq: 2, beet: 2, oar: 2, plv: 2, ss: 2, aij: 2,
 };
 
 /* D'una casella com "Yasmin, Àlex, Rayan i Lexian" en surten quatre
@@ -6391,6 +6415,11 @@ function _fitxaNomsBanda_(v) {
       bons.push(m);
     }
     if (!bons.length || bons.length > 4) return;
+    // ⚠ Els articles NO poden anar a la llista de paraules d'aturada: "El
+    // Klai", "El Mouden" i "El Asri" són cognoms de debò. Però una paraula
+    // sola de dues lletres no és mai un nen —"La van derivar", "IQ alt"—,
+    // i cap alumne de l'escola no en té cap de tan curt.
+    if (bons.length === 1 && bons[0].length <= 2) return;
 
     // Un tros que després del nom continua amb prosa NOMÉS val si és el
     // primer. "Mohamed Ahidar - Nouvingut des del 3 de desembre" té el nom
@@ -6421,6 +6450,70 @@ function _fitxaAlumnes_(gss, grup) {
 }
 
 /* ============================================================
+   ELS ÀLIES
+   ------------------------------------------------------------
+   Hi ha empats que cap regla no pot desfer. A 2n C hi ha dues
+   Gales i totes dues es diuen Gala de primer nom; quan la mestra
+   escriu "Gala" parla de la Gala Elizalde, però això només ho
+   sap ella.
+
+   Un àlies és aquesta resposta, guardada perquè no s'hagi de
+   tornar a donar mai. Va al full compartit, o sigui que serveix
+   per a totes les mestres, i va lligat al CODI de l'alumne: si
+   canvia de fila o de cognom, l'àlies el segueix.
+   ============================================================ */
+function _aliesLlegeix_(gss, grup) {
+  try {
+    var raw = sheetGetJSON(gss, '_AppData', 'alies_' + grup);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+
+function _aliesDesa_(gss, grup, mapa) {
+  sheetSetJSON(gss, '_AppData', 'alies_' + grup, JSON.stringify(mapa || {}));
+}
+
+/* Diu qui és, d'una vegada per totes.
+     posaAlies('2n C', 'Gala', 'Elizalde')
+   El tercer és qualsevol cosa que la distingeixi: un cognom, el
+   nom sencer... El que calgui perquè només hi encaixi ella. */
+function posaAlies(grup, etiqueta, qui) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return 'No s ha pogut obrir el full de grups compartit';
+  var alumnes = _fitxaAlumnes_(gss, grup);
+  if (!alumnes.length) return 'El grup "' + grup + '" no te cap alumne al full Grups';
+
+  var prep = _quiPrepara_(alumnes);
+  var r = _qui_(prep, qui);
+  if (!r.alumne) {
+    return 'No se qui es "' + qui + '" a ' + grup + ': ' + (r.dubte || 'no el trobo') +
+           '\nProva-ho amb el nom i el cognom sencers.';
+  }
+  var mapa = _aliesLlegeix_(gss, grup);
+  var clau = _motsUtils_(etiqueta).join(' ');
+  mapa[clau] = r.alumne.uid;
+  _aliesDesa_(gss, grup, mapa);
+  var txt = 'Fet: a ' + grup + ', "' + etiqueta + '" vol dir ' +
+            r.alumne.nom + ' ' + r.alumne.cognoms + '.' +
+            '\nTorna a executar provaFitxes() per veure com queda.';
+  Logger.log(txt);
+  return txt;
+}
+
+/* Treu un àlies posat per error. */
+function treuAlies(grup, etiqueta) {
+  var gss = getGrupsSpreadsheet(SpreadsheetApp.getActiveSpreadsheet());
+  if (!gss) return 'No s ha pogut obrir el full de grups compartit';
+  var mapa = _aliesLlegeix_(gss, grup);
+  var clau = _motsUtils_(etiqueta).join(' ');
+  if (!mapa[clau]) return 'A ' + grup + ' no hi havia cap alies per a "' + etiqueta + '"';
+  delete mapa[clau];
+  _aliesDesa_(gss, grup, mapa);
+  return 'Tret l alies "' + etiqueta + '" de ' + grup;
+}
+
+/* ============================================================
    QUÈ EN SABRÍEM TREURE, D'AQUEST DOCUMENT?
    ------------------------------------------------------------
    Abans d'escriure res enlloc: llegeix les 18 fitxes, mira de
@@ -6436,18 +6529,46 @@ function fitxesInforme(ss) {
   try { doc = _fitxesTotes_(); }
   catch (e) { return { ok: false, error: 'No s\'ha pogut obrir el document de fitxes: ' + e.message }; }
 
+  // Tots els grups a la vegada: així, quan una casella parla d'un nen que
+  // no és d'aquell grup, es pot dir DE QUIN és en comptes de "no el trobo".
+  var prepDe = {};
+  GRUPS_PRIMARIA.forEach(function (g) {
+    var a = _fitxaAlumnes_(gss, g);
+    if (a.length) prepDe[g] = _quiPrepara_(a);
+  });
+  function aQuinGrupEs(nom, excepte) {
+    var on = [];
+    Object.keys(prepDe).forEach(function (g) {
+      if (g === excepte) return;
+      var r = _qui_(prepDe[g], nom);
+      if (r.alumne) on.push(g + ' (' + r.alumne.nom + ' ' + r.alumne.cognoms + ')');
+    });
+    return on;
+  }
+
   var tot = { grups: 0, caselles: 0, resoltes: 0, dubtes: 0 };
   var perGrup = [], dubtes = [];
 
   Object.keys(doc.perGrup).forEach(function (g) {
     var f = doc.perGrup[g];
-    var alumnes = _fitxaAlumnes_(gss, g);
-    if (!alumnes.length) {
+    var prep = prepDe[g];
+    if (!prep) {
       dubtes.push({ grup: g, on: '(tot)', text: '', per: 'aquest grup no té cap alumne al full "Grups"' });
       return;
     }
-    var prep = _quiPrepara_(alumnes);
+    var alies = _aliesLlegeix_(gss, g);
     var c = { grup: g, tutor: f.tutor, caselles: 0, resoltes: 0, dubtes: 0 };
+
+    function resol(on, nom) {
+      c.caselles++;
+      var r = _qui_(prep, nom, alies);
+      if (r.alumne || (r.alumnes && r.alumnes.length)) { c.resoltes++; return; }
+      c.dubtes++;
+      var per = r.dubte;
+      var altres = aQuinGrupEs(nom, g);
+      if (altres.length) per = 'no és d\'aquest grup: és de ' + altres.join(', ');
+      dubtes.push({ grup: g, on: on, text: nom, per: per });
+    }
 
     // (a) On l'ETIQUETA és el nen: observacions i informes EAP
     [['observació', f.obs], ['informe EAP', f.eap]].forEach(function (par) {
@@ -6459,24 +6580,14 @@ function fitxesInforme(ss) {
         var qui = x.etiqueta.split(/\s+i\s+|\s*,\s*/).map(function (s) { return s.trim(); })
                             .filter(function (s) { return s; });
         if (!qui.length) qui = [x.etiqueta];
-        qui.forEach(function (nom) {
-          c.caselles++;
-          var r = _qui_(prep, nom);
-          if (r.alumne) c.resoltes++;
-          else { c.dubtes++; dubtes.push({ grup: g, on: par[0], text: nom, per: r.dubte }); }
-        });
+        qui.forEach(function (nom) { resol(par[0], nom); });
       });
     });
 
     // (b) On el VALOR és una llista de nens: trastorns, PI i adaptacions
     [['trastorn', f.trastorns], ['PI', f.pi], ['adaptació', f.am]].forEach(function (par) {
       par[1].forEach(function (x) {
-        _fitxaNoms_(x.valor).forEach(function (nom) {
-          c.caselles++;
-          var r = _qui_(prep, nom);
-          if (r.alumne) c.resoltes++;
-          else { c.dubtes++; dubtes.push({ grup: g, on: par[0] + ' · ' + x.etiqueta, text: nom, per: r.dubte }); }
-        });
+        _fitxaNoms_(x.valor).forEach(function (nom) { resol(par[0] + ' · ' + x.etiqueta, nom); });
       });
     });
 
@@ -6512,9 +6623,26 @@ function provaFitxes() {
   if (r.dubtes.length) {
     l.push('');
     l.push('EL QUE NO SE (i que per tant NO tocaria):');
+    var vistos = {};
     r.dubtes.forEach(function (d) {
       l.push('  ' + d.grup + ' · ' + d.on + ' · "' + d.text + '" → ' + d.per);
+      // Si l'unic problema es que n'hi ha dos que hi encaixen, ho pot dir
+      // una persona una vegada i no s'ha de tornar a preguntar mai mes.
+      var clau = d.grup + '|' + d.text;
+      if (!vistos[clau] && /hi ha mes d|hi ha més d|encaixa amb mes|encaixa amb més/.test(d.per)) {
+        vistos[clau] = 1;
+        l.push('        ↳ per resoldre-ho per sempre:  posaAlies(\'' + d.grup +
+               '\', \'' + d.text + '\', \'<el cognom>\')');
+      }
     });
+    var quants = Object.keys(vistos).length;
+    if (quants) {
+      l.push('');
+      l.push('Hi ha ' + quants + ' empat' + (quants === 1 ? '' : 's') +
+             ' que nomes pot desfer una persona. Un cop dit, queda dit:');
+      l.push('l alies es guarda al full compartit i el segueix encara que');
+      l.push('l alumne canvii de fila o de cognom.');
+    }
   }
   var txt = l.join('\n');
   Logger.log(txt);

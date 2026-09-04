@@ -1,8 +1,8 @@
 {
-  "versio": "v159",
+  "versio": "v160",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Feina interna: l app ja endevina de quin alumne parla cada casella del document de fitxes de grup. Encara no en fa res."
+    "Feina interna: els empats de noms del document de fitxes ja es poden resoldre d una vegada per totes. Encara no s escriu res al full."
   ]
 }
