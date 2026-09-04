@@ -3968,7 +3968,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v167';
+var BACKEND_VERSIO = 'v168';
 
 var MAX_CELA = 45000;
 
@@ -6418,8 +6418,20 @@ function _fitxaNomsBanda_(v) {
      Confondre-ho costava dues coses alhora: en Mustafa es quedava
      sense l'entrada, i a la Gala li anava a la fitxa una frase que
      parlava dels dos. */
+  /* ⚠ NOMÉS LA PRIMERA FRASE.
+
+     "Shaira, Rim, Inowa, Johan, Grethel i Mohamed. Gio i Dina se'ls hi
+     ofereix, però les famílies ho rebutgen."
+
+     La primera frase és la llista de qui en rep. La segona parla de qui
+     NO en rep. Llegint-ho tot, a la Dina li acabàvem escrivint "Suport
+     biblioteca" quan el document diu exactament el contrari.
+
+     Val per a totes: darrere d'un punt hi ha un aclariment, no més
+     noms. Els noms que vénen després d'uns dos punts sí que compten,
+     i aquells ja s'han separat abans en bandes. */
   var fora = [];
-  String(v).split(/\s+[-–—]\s+/).forEach(function (part, kPart) {
+  String(v).split(/\.(?:\s|$)/)[0].split(/\s+[-–—]\s+/).forEach(function (part, kPart) {
     part.split(/\s*[,;/|\n]\s*|\s+i\s+|\s+y\s+/).forEach(function (t, kTros) {
       // Un guionet enganxat al nom i seguit d'espai ("Olivia- Cal fer...")
       // també talla; entre lletres, no.
@@ -6734,6 +6746,15 @@ function provaFitxes() {
       camp NO es toca. El document mana on parla; on calla, no.
    ============================================================ */
 
+/* Un resum curt d un text. Serveix per saber si el que hi ha a la casella
+   segueix sent el que hi vam escriure NOSALTRES o si algu ho ha canviat.
+   No cal que sigui criptografic: nomes que canvii quan canvia el text. */
+function _hashCurt_(s) {
+  var t = String(s == null ? '' : s), h = 5381;
+  for (var i = 0; i < t.length; i++) { h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; }
+  return h.toString(36) + '-' + t.length;
+}
+
 var FITXA_COL = {
   obs: 8,    // Observació important
   pi: 10,    // PI
@@ -6876,13 +6897,50 @@ function fitxesAplica(ss, prova) {
       var c = { grup: g, alumnes: 0, camps: 0, iguals: 0 };
       var toca = {};   // columna → {fila: valor}
 
+      // Què hi vam escriure l'última vegada. Serveix per treure el que el
+      // document ha deixat de dir: si una mestra esborra un nom d'una
+      // llista, aquella dada ha de marxar de la fitxa. Si no, una
+      // correcció al document no arribaria mai i el full es quedaria amb
+      // coses que ja no són certes.
+      var escritesAbans = {};
+      try {
+        var rawE = sheetGetJSON(gss, '_AppData', 'fitxes_camps_' + g);
+        if (rawE) escritesAbans = JSON.parse(rawE) || {};
+      } catch (e) {}
+      var escritesAra = {};
+
       d.forEach(function (fila, i) {
         var uid = String(fila[COL_UID - 1] || '').trim();
-        if (!uid || !diu[uid]) return;
+        if (!uid) return;
+
+        // Primer, el que hem de TREURE: ho vam escriure nosaltres, el
+        // document ja no ho diu, i ningú no ho ha tocat des de llavors.
+        var abans = escritesAbans[uid] || {};
+        Object.keys(abans).forEach(function (camp) {
+          if (diu[uid] && diu[uid][camp]) return;      // el document encara en parla
+          var col = FITXA_COL[camp];
+          if (!col) return;
+          var ara = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
+          if (!ara) return;
+          // ⚠ Només si segueix sent el que hi vam posar NOSALTRES. Si una
+          // mestra ho ha canviat, allò és seu i no s'hi toca.
+          if (_hashCurt_(ara) !== abans[camp]) return;
+          if (!toca[col]) toca[col] = {};
+          toca[col][i + 2] = '';
+          c.camps++;
+          if (canvis.length < 40) {
+            canvis.push({ grup: g, alumne: fila[0] + ' ' + fila[1], camp: camp + ' (TREURE)',
+                          abans: ara.slice(0, 60), ara: '' });
+          }
+        });
+
+        if (!diu[uid]) return;
         var teCanvi = false;
         Object.keys(FITXA_COL).forEach(function (camp) {
           var nou = diu[uid][camp];
           if (!nou) return;                       // el document no en diu res: no s'hi toca
+          if (!escritesAra[uid]) escritesAra[uid] = {};
+          escritesAra[uid][camp] = _hashCurt_(nou);
           var col = FITXA_COL[camp];
           var vell = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
           if (vell === nou) { c.iguals++; return; }
@@ -6933,6 +6991,8 @@ function fitxesAplica(ss, prova) {
             sh.getRange(Number(fila), Number(col)).setValue(toca[col][fila]);
           });
         });
+        try { sheetSetJSON(gss, '_AppData', 'fitxes_camps_' + g, JSON.stringify(escritesAra)); }
+        catch (e) {}
       }
       total.alumnes += c.alumnes; total.camps += c.camps; total.iguals += c.iguals;
       perGrup.push(c);
