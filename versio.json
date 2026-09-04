@@ -1,9 +1,8 @@
 {
-  "versio": "v145",
+  "versio": "v146",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Si Google no deixa convidar la família a la reunió, l event es crea igualment al teu calendari i t avisa. Abans es perdia tot: ni event ni res, i la família amb l hora reservada.",
-    "Quan una cosa del Google Calendar falla, ara es desa PER QUÈ ha fallat, no només que ha fallat."
+    "Al Calendari, sota les fletxes dels mesos, ara hi diu si el que hi facis anirà al teu Google Calendar o es quedarà només a l app. Si no hi va, hi tens un botó per activar-ho allà mateix. Abans això només es podia saber entrant a Configuració, i els events es quedaven aquí sense que res ho digués."
   ]
 }

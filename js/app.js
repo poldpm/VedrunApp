@@ -3092,6 +3092,8 @@ function cal2SaveAgendar(a) { localStorage.setItem('cal2_agendar', JSON.stringif
 /* --- Render --- */
 function renderCalendari() {
   _hydrateGCalCache();
+  // Diu si el que es faci aquí anirà al Google Calendar o es quedarà a l'app.
+  if (window.gwrite && gwrite.pintaCalendari) { try { gwrite.pintaCalendari(); } catch (e) {} }
   const year = _cal2Year, month = _cal2Month;
   const titleEl = document.getElementById('cal2MonthTitle');
   if (!titleEl) return;

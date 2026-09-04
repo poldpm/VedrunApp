@@ -248,3 +248,57 @@
     pintaEstat: _pintaEstat
   };
 })();
+
+/* ============================================================
+   L'ESTAT, A LA PÀGINA DEL CALENDARI
+   ------------------------------------------------------------
+   L'interruptor de "enviar-ho al Google" viu a Configuració, i
+   quan està apagat `push()` no fa res i no diu res. En Pol va
+   crear un event al calendari de l'app, no li va arribar al
+   Google Calendar, i no hi havia manera de saber per què.
+
+   Això ho posa on es mira: sota la capçalera del calendari.
+   ============================================================ */
+(function () {
+  function pinta() {
+    var el = document.getElementById('cal2Gwrite');
+    if (!el || !window.gwrite) return;
+
+    if (!gwrite.actiu()) {
+      el.className = 'cal2-gwrite cal2-gwrite-off';
+      el.innerHTML = 'Els events que facis aquí <strong>no s\'envien al Google Calendar</strong>. ' +
+        '<button type="button" class="cal2-gwrite-btn" onclick="cal2ActivaGoogle()">Activar-ho</button>';
+      return;
+    }
+    var n = gwrite.pendents();
+    if (n) {
+      el.className = 'cal2-gwrite cal2-gwrite-pend';
+      el.innerHTML = n + ' event' + (n > 1 ? 's' : '') + ' encara no ' + (n > 1 ? 'han' : 'ha') +
+        ' arribat al Google Calendar. ' +
+        '<button type="button" class="cal2-gwrite-btn" onclick="gwrite.push()">Provar ara</button>';
+      return;
+    }
+    el.className = 'cal2-gwrite cal2-gwrite-ok';
+    el.textContent = 'El que facis aquí va al teu Google Calendar ✓';
+  }
+
+  /* Activar-ho des d'aquí mateix: qui és al calendari no ha d'anar a
+     buscar un interruptor a una altra pàgina. */
+  window.cal2ActivaGoogle = function () {
+    gwrite.setActiu(true);
+    var c = document.getElementById('cfgGwrite');
+    if (c) c.checked = true;
+    if (typeof showToast === 'function') {
+      showToast('Activat. El que ja tinguis apuntat s\'anirà enviant.', 'success');
+    }
+    gwrite.push();
+    pinta();
+  };
+
+  window.gwrite.pintaCalendari = pinta;
+
+  // Es repinta en obrir el calendari i quan canvia l'estat de l'enviament
+  var origEstat = window.gwrite.pintaEstat;
+  window.gwrite.pintaEstat = function () { origEstat(); pinta(); };
+  document.addEventListener('DOMContentLoaded', pinta);
+})();

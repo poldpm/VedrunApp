@@ -4619,3 +4619,25 @@ button.reucal-cel:focus-visible {
 .avis-backend strong { color: #92400E; }
 .avis-backend-com { display: block; margin-top: 6px; font-size: 12.5px; opacity: 0.95; }
 @media (max-width: 640px) { .avis-backend { padding: 10px 14px; font-size: 12.5px; } }
+
+/* Si el que faig aquí va al Google Calendar o no. Ha d'estar a la vista:
+   abans només es podia saber entrant a Configuració. */
+.cal2-gwrite {
+  margin: 0 0 12px; padding: 8px 12px; border-radius: var(--r-sm);
+  font-size: 12.5px; line-height: 1.5;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.cal2-gwrite:empty { display: none; }
+.cal2-gwrite-ok   { background: #e6f4ea; color: #1e6b39; }
+.cal2-gwrite-off  { background: #FEF3C7; color: #7C4A03; }
+.cal2-gwrite-pend { background: #FEF3C7; color: #7C4A03; }
+.cal2-gwrite-btn {
+  font: inherit; font-weight: 700; cursor: pointer;
+  background: #fff; border: 1px solid currentColor; color: inherit;
+  border-radius: 999px; padding: 5px 12px; min-height: 32px;
+  transition: background 150ms ease-out, transform 150ms ease-out;
+}
+.cal2-gwrite-btn:hover { background: rgba(255,255,255,0.6); }
+.cal2-gwrite-btn:active { transform: scale(0.97); }
+.cal2-gwrite-btn:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .cal2-gwrite-btn { transition: none; } .cal2-gwrite-btn:active { transform: none; } }
