@@ -1732,9 +1732,14 @@ function buidaLesDades() {
    NOTA: si deixes un valor buit, NO s'esborra el que ja hi hagi.
    Aixi pots tornar-la a executar sense por.
    ============================================================ */
-function configuraTot() {
+/* ⚠ Les credencials poden venir de fora.
+   Quan el codi viu en una BIBLIOTECA compartida, aquest bloc no hi pot
+   viure: seria el mateix per a totes les mestres. Llavors les porta el
+   pont de cada una i arriben aquí com a argument. Enganxant el Code.gs
+   sencer (com sempre), s'omple el bloc d'aquí sota i ja està. */
+function configuraTot(CONFIG) {
   // ▼▼▼ OMPLE AIXO ▼▼▼
-  var CONFIG = {
+  CONFIG = CONFIG || {
     GRUPS_ID:   '',   // ID del full "Grups" compartit
     DESDOB_ID:  '',   // ID del full "Desdoblaments" compartit
     GEMINI_KEY: '',   // clau de Gemini (pot ser la mateixa per a totes)
@@ -2132,6 +2137,17 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(_reuPaginaHtml_(r))
       .setTitle('Reservar hora')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+  /* Obrint la /exec amb ?v=1 diu quin codi hi ha a sobre. No demana token
+     perquè no ensenya cap dada: només un número de versió.
+
+     Serveix per saber què està corrent en una app sense haver de demanar
+     res a la mestra —amb la biblioteca, el seu projecte no canvia mai i no
+     hi ha cap altra manera de saber-ho— i per comprovar que un arranjament
+     li ha arribat. */
+  if (e && e.parameter && e.parameter.v) {
+    return ContentService.createTextOutput('VedrunApp — codi ' + BACKEND_VERSIO)
+      .setMimeType(ContentService.MimeType.TEXT);
   }
   return handleRequest(e);
 }
@@ -4088,7 +4104,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v174';
+var BACKEND_VERSIO = 'v178';
 
 var MAX_CELA = 45000;
 
@@ -6708,7 +6724,12 @@ function veureAlies(grup) {
              (qui ? qui.nom + ' ' + qui.cognoms : 'CODI QUE JA NO HI ES (' + m[k] + ')'));
     });
   });
-  var txt = l.length ? 'ALIES GUARDATS\n' + l.join('\n') : 'No hi ha cap alies guardat.';
+  /* Quin codi s'està executant. Amb la biblioteca, el projecte de la mestra
+     no canvia mai: aquesta és l'única manera de saber quina versió té a
+     sobre, i és el que fa que es pugui comprovar que un arranjament li ha
+     arribat sense haver-li de demanar res. */
+  var txt = 'VedrunApp — codi ' + BACKEND_VERSIO + '\n' +
+            (l.length ? 'ALIES GUARDATS\n' + l.join('\n') : 'No hi ha cap alies guardat.');
   Logger.log(txt);
   return txt;
 }

@@ -153,6 +153,103 @@ posar-li la clau de Gemini i omplir el perfil i l'horari.
 10. **Instal·la-la** com a app (icona d'instal·lar de la barra del navegador) i
     deixa-la-hi a l'escriptori o a la barra de tasques.
 
+
+## ⚠ El clasp no serveix: l API està tancada
+
+L'administrador de l'escola no obre l'**API d'Apps Script**, i és una política
+del domini: val per a totes les mestres, no només per a en Pol. `clasp` queda
+descartat. El que hi ha és la **biblioteca**, aquí sota.
+
+---
+
+## La biblioteca: enganxar el codi una vegada a la vida
+
+L'API d'Apps Script està **tancada per l'administrador de l'escola**, o sigui
+que el codi no es pot pujar sol. La sortida és una **biblioteca compartida**:
+el projecte de cada mestra passa a ser un **pont de 4 KB** que s'enganxa
+**una vegada** i no es torna a tocar mai.
+
+Comprovat en una còpia de proves el 4/9/2026: **un canvi a la biblioteca
+arriba a l'app de la mestra sense enganxar res i sense desplegar res.**
+
+### Un cop per a tota l'escola: la biblioteca
+
+1. Un full de càlcul nou («Vedruna — Biblioteca») → **Extensions → Apps Script**.
+2. Enganxa-hi `biblioteca/Codi.gs` i l'`appsscript.json`. Desa.
+3. **Configuració del projecte** → copia **l'ID de l'script**.
+4. Comparteix el projecte amb **permís d'edició** per a totes les mestres.
+   Cal per a la referència en mode HEAD; sense edició, cada mestra hauria de
+   canviar el número de versió a mà a cada arranjament.
+
+### Un cop per mestra: el pont
+
+1. Al seu Apps Script: esborra-ho tot i enganxa-hi `pont/Code.gs` i
+   l'`appsscript.json`.
+2. **Omple les quatre credencials** de dalt del pont (`GRUPS_ID`,
+   `DESDOB_ID`, `GEMINI_KEY`, `APP_TOKEN`).
+3. **Biblioteques → +** → l'ID de la biblioteca → versió **HEAD
+   (desenvolupament)** → identificador **`Vedruna`**.
+4. `configuraTot()` i acceptar l'autorització.
+5. **Implementa → Nova implementació → Aplicació web** (executar com: jo ·
+   qualsevol) i copiar la `/exec`.
+
+I ja està per sempre.
+
+### Passar a la biblioteca una app que JA funciona
+
+No cal tornar a instal·lar res: es canvia el codi de dins del **mateix**
+projecte de sempre. Les credencials, els disparadors i el full no es toquen.
+
+1. **Guarda't el `Code.gs` que hi ha ara** en un fitxer a part. És la marxa
+   enrere: si res no va, l'enganxes i tornes on eres.
+2. Al seu Apps Script: **esborra-ho tot** i enganxa-hi `pont/Code.gs`. Les
+   quatre credencials, **deixa-les buides**: ja són a les Script Properties
+   i `configuraTot()` no les toca (diu «ja hi eren»).
+3. **Biblioteques → +** → l'ID → **HEAD (desenvolupament)** → `Vedruna`. Desa.
+4. **Implementa → Gestiona implementacions → el llapis → Nova versió.**
+   ⚠ **Actualitza la que ja hi ha, no en facis una de nova**, o la `/exec`
+   canviaria i li hauries de tornar a enganxar a l'app.
+
+⚠ **L'ordre importa: la biblioteca ABANS de desplegar.** La implementació es
+queda una foto del projecte, i la referència a la biblioteca hi va a dins. Si
+desplegues primer, l'editor t'anirà bé (hi treballa amb el codi d'ara) però
+**l'app del navegador dirà que no es connecta**. Si t'ha passat, només és
+tornar a fer el pas 4.
+
+**Comprovació** — l'editor i el navegador són dos camins diferents, mira'ls tots dos:
+
+| On | Què | Ha de dir |
+|---|---|---|
+| Editor | `provaSincronitzacio()` | `Permis: si` i `Disparadors posats: 1` **només a l'app de direcció**; a la resta, `(no posat)` i `0` |
+| Editor | `veureAlies()` | la versió del codi |
+| Navegador | la `/exec` amb `?v=1` | `VedrunApp — codi vNNN` |
+| Navegador | l'app → **Alumnes** | els alumnes, amb les dades |
+
+Fet a l'app d'en Pol el 5/9/2026.
+
+### A partir d'aquí
+
+Un canvi al `Code.gs` de la mare:
+
+```bash
+node eines/fes-biblioteca.js
+```
+
+i enganxar `biblioteca/Codi.gs` a la biblioteca. **A totes les mestres els
+arriba sol.**
+
+### Tres coses que s'han de tenir presents
+
+- **Si la biblioteca es trenca, es trenquen totes les apps alhora.** Abans,
+  una enganxada dolenta en trencava una. Per això `node eines/prova-tot.js`
+  abans de tocar la biblioteca no és opcional.
+- **Una funció NOVA d'editor** (les que s'executen des de l'Apps Script) sí
+  que demana refer el pont i tornar-lo a enganxar. Les **accions noves del
+  navegador**, no: aquelles arriben soles.
+- **Per saber quin codi té una mestra a sobre**, obre la seva `/exec` amb
+  `?v=1`, o executa-hi `veureAlies()`. El seu projecte no canvia mai i no hi
+  ha cap altra manera de saber-ho.
+
 ---
 
 ## C · Amb ella al costat  (2 min)

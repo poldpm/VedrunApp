@@ -807,7 +807,82 @@ async function _geminiGenerate(prompt) {
   return r.text;
 }
 
+/* ============================================================
+   NO DEMANIS DUES VEGADES EL MATEIX
+   ------------------------------------------------------------
+   Cada crida al servidor de Google són uns quants segons, i n'hi ha que
+   es demanen una vegada i una altra: la mestra va i torna entre els grups
+   de Tallers per mirar si les llistes estan bé, i cada tornada tornava a
+   esperar el mateix que ja havia esperat.
+
+   Dues coses, i les dues només per a LECTURES:
+
+   · Si la MATEIXA petició ja està en marxa, no se'n fa una altra: s'espera
+     la que hi ha. Això sol ja mata el mal de clicar tres vegades el mateix
+     botó —les tres esperen la mateixa resposta.
+   · I la resposta es guarda un minut. Tornar a un grup que acabes de mirar
+     és instantani.
+
+   NOMÉS lectures, i NOMÉS un minut: aquests fulls els comparteix tota
+   l'escola i ensenyar dades velles seria pitjor que anar lent. I qualsevol
+   cosa que ESCRIU (`appsScriptPost`) buida el guardat de cop, perquè just
+   després de desar no es pugui veure el d'abans.
+   ============================================================ */
+const _GET_ES_LECTURA = new Set([
+  'getGrupAlumnes', 'getDesdobGrup', 'getGrupObs', 'getRegistre',
+  'getDesdoblament', 'getDesdoblaments', 'getGrupsCurs'
+]);
+const _GET_DURA = 60000;            // 1 minut
+const _getGuardat = new Map();      // clau → { ts, dades }
+const _getEnMarxa = new Map();      // clau → promesa que encara no ha tornat
+
+function _oblidaLectures() { _getGuardat.clear(); }
+
 async function appsScriptGet(params, _retry = true) {
+  const clau = JSON.stringify(params);
+  const esLectura = _GET_ES_LECTURA.has(params.action);
+
+  if (esLectura) {
+    const g = _getGuardat.get(clau);
+    if (g && Date.now() - g.ts < _GET_DURA) {
+      /* Còpia: qui ho rep de vegades hi escriu a sobre, i no ha de tocar
+         el que tenim guardat per als altres. */
+      try { return JSON.parse(JSON.stringify(g.dades)); } catch (e) { return g.dades; }
+    }
+  }
+  const jaHiVa = _getEnMarxa.get(clau);
+  if (jaHiVa) return jaHiVa;
+
+  const p = _appsScriptGetXarxa(params, _retry).then(r => {
+    if (esLectura && r && r.ok) _getGuardat.set(clau, { ts: Date.now(), dades: r });
+    return r;
+  }).finally(() => { _getEnMarxa.delete(clau); });
+
+  _getEnMarxa.set(clau, p);
+  return p;
+}
+
+/* Envolta qualsevol crida al servidor amb el que s'ha de veure mentre dura:
+   la ratlla de dalt sempre, i el vel només si la mestra acaba de clicar (o
+   sigui, si està esperant de cara). Tot passa per aquí, i per això no cal
+   anar posant-ho botó per botó: hi entren tots, també els de demà. */
+function _ambSenyalDEspera(fer, text) {
+  if (typeof _ocupatEntra === 'function') _ocupatEntra();
+  let p = (async () => {
+    try { return await fer(); }
+    finally { if (typeof _ocupatSurt === 'function') _ocupatSurt(); }
+  })();
+  if (typeof _veniaDUnClic === 'function' && typeof esperaVisual === 'function' && _veniaDUnClic()) {
+    p = esperaVisual(p, text);
+  }
+  return p;
+}
+
+async function _appsScriptGetXarxa(params, _retry = true) {
+  return _ambSenyalDEspera(() => _appsScriptGetFetch(params, _retry), 'Carregant…');
+}
+
+async function _appsScriptGetFetch(params, _retry = true) {
   const url = new URL(config.scriptUrl);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   if (APP_TOKEN) url.searchParams.set('token', APP_TOKEN);
@@ -822,13 +897,27 @@ async function appsScriptGet(params, _retry = true) {
     if (_retry) {
       clearTimeout(timeout);
       await new Promise(r => setTimeout(r, 1500));
-      return appsScriptGet(params, false); // segon intent sense més reintents
+      // Va al fetch directament, no a `appsScriptGet`: si hi tornés, es
+      // trobaria la seva pròpia crida "en marxa" i s'esperaria a si mateixa.
+      return _appsScriptGetFetch(params, false); // segon intent sense més reintents
     }
     // Error final: retorna un objecte segur (mai llança) perquè cap crida peti l'app
     return { ok: false, error: (e && e.message) || 'Error de connexió', _networkError: true };
   } finally { clearTimeout(timeout); }
 }
+/* Escriptures que NO toquen res del que llegim dels fulls compartits: no cal
+   llençar el guardat. `saveProfile` és el cas que importa —desar quin grup
+   estàs mirant no canvia cap llista d'alumnes— i si no fos aquí, cada canvi
+   de grup buidaria el guardat i tornar enrere tornaria a esperar. */
+const _POST_NO_TOCA_LECTURES = new Set(['saveProfile']);
+
 async function appsScriptPost(body, _retry = true) {
+  // Acabem d'escriure: el que teníem guardat pot haver quedat vell.
+  if (!_POST_NO_TOCA_LECTURES.has(body && body.action)) _oblidaLectures();
+  return _ambSenyalDEspera(() => _appsScriptPostFetch(body, _retry), 'Desant…');
+}
+
+async function _appsScriptPostFetch(body, _retry = true) {
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), 45000);
   try {
@@ -840,7 +929,7 @@ async function appsScriptPost(body, _retry = true) {
     if (_retry) {
       clearTimeout(timeout);
       await new Promise(r => setTimeout(r, 1500));
-      return appsScriptPost(body, false);
+      return _appsScriptPostFetch(body, false);
     }
     throw e;
   } finally { clearTimeout(timeout); }
@@ -2325,10 +2414,22 @@ async function _dirCarregaGrup(grup) {
   }
   _dirEstat('Carregant ' + grup + '…');
 
+  /* Les TRES peticions alhora, no una darrere l'altra.
+     Abans s'encadenaven —alumnes, després observacions, després registre— i
+     com que cada crida al servidor de Google són uns segons, canviar de grup
+     eren tres esperes seguides. No depenen l'una de l'altra per demanar-se
+     (només per aplicar-se), o sigui que van juntes i s'espera la més lenta.
+     Amb el vel a sobre, perquè aquesta és una espera que la mestra mira. */
+  const [rAlum, rObs, rReg] = await esperaVisual(Promise.all([
+    appsScriptGet({ action: 'getGrupAlumnes', grup: grup }),
+    appsScriptGet({ action: 'getGrupObs',     grup: grup }),
+    appsScriptGet({ action: 'getRegistre',    grup: grup })
+  ]), 'Carregant els alumnes de ' + grup + '…');
+
   // 1) Alumnes del full "Grups" compartit
   let alumnes = [];
   try {
-    const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
+    const r = rAlum;
     if (r && r.ok) alumnes = r.alumnes || [];
     else throw new Error((r && r.error) || 'resposta buida');
   } catch (e) {
@@ -2353,7 +2454,7 @@ async function _dirCarregaGrup(grup) {
 
   // 2) Observacions compartides del grup (les que hi va escrivint tothom)
   try {
-    const ro = await appsScriptGet({ action: 'getGrupObs', grup: grup });
+    const ro = rObs;                       // ja demanada a dalt, alhora
     if (meu !== _dirCarregaId) return;
     if (ro && ro.ok && ro.obs) {
       const rowIdToId = {};
@@ -2370,7 +2471,7 @@ async function _dirCarregaGrup(grup) {
 
   // 3) Registre d'aula d'aquest grup (pestanya pròpia, "Registres 4t B")
   try {
-    const rr = await appsScriptGet({ action: 'getRegistre', grup: grup });
+    const rr = rReg;                       // ja demanada a dalt, alhora
     if (meu !== _dirCarregaId) return;
     registreItems = (rr && rr.ok && rr.items) ? rr.items : [];
     registreData  = (rr && rr.ok && rr.data)  ? rr.data  : {};

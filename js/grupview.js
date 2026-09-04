@@ -42,18 +42,26 @@ async function openGrupAlumnesModal() {
     : null;
 
   try {
-    // 1) Carrega tots els alumnes del grup
-    const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
+    /* Les dues peticions alhora. Abans es demanaven els alumnes, s'esperava,
+       i NOMÉS llavors es preguntava si l'assignatura era desdoblada: dues
+       esperes de servidor seguides per ensenyar una llista. No depenen l'una
+       de l'altra per demanar-se, i el desdoblament es demana sempre que hi
+       hagi assignatura (si al final no cal, s'ignora i no ha costat res). */
+    const parts = grup.split(' ');            // "4t B" → ["4t","B"]
+    const [r, d] = await Promise.all([
+      appsScriptGet({ action: 'getGrupAlumnes', grup: grup }),
+      assignatura
+        ? appsScriptGet({ action: 'getDesdoblament', curs: parts[0], linia: parts[1], assignatura: assignatura })
+        : Promise.resolve(null)
+    ]);
     let alumnes = (r.ok && r.alumnes) ? r.alumnes : [];
     // Guarda un possible error del backend per mostrar-lo
     _grupviewLastError = (!r.ok && r.error) ? r.error : (r.existeix === false ? (r.debug || ('La pestanya "' + grup + '" no existeix al full "Grups"')) : null);
 
     // 2) Si hi ha assignatura, comprova si és desdoblada i filtra
     if (assignatura && alumnes.length) {
-      const parts = grup.split(' '); // "4t B" → ["4t","B"]
       try {
-        const d = await appsScriptGet({ action:'getDesdoblament', curs:parts[0], linia:parts[1], assignatura:assignatura });
-        if (d.ok && d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
+        if (d && d.ok && d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
           // Filtra: només els que es queden (match per nom)
           const quedenNoms = new Set(d.alumnes.map(a => a.nom));
           const filtrats = alumnes.filter(a => quedenNoms.has(a.nom));

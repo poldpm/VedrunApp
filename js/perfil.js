@@ -884,7 +884,12 @@ async function _desdobSetGrup(curs, assig, grup) {
   _perfil.desdobGrup[_desdobMapKey(curs, assig)] = grup;
   try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch(e) {}
   if (config.scriptUrl) {
-    try { await appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }); } catch(e) {}
+    /* NO s'espera. Desar quin grup mires és cosa nostra i la mestra no n'ha
+       de veure res; si s'esperava, canviar de grup eren DUES esperes seguides
+       (desar el perfil i, després, demanar els alumnes) quan només n'hi ha
+       una que li importi. Si el desat falla, el grup ja és al navegador i es
+       tornara a desar al proper canvi. */
+    appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }).catch(function(){});
   }
 }
 
@@ -996,7 +1001,12 @@ async function _desdobTriaGrup(curs, assig, grup, containerId) {
     if (b && b.curs === curs && b.assig === assig) _renderDesdobBar(id, curs, assig, b.onChange);
   });
   const b = _desdobBarRegistry[containerId];
-  if (b && typeof b.onChange === 'function') b.onChange(grup);
+  /* Amb el vel: aquesta és l'espera que la mestra mira de cara. Sense res a
+     la pantalla, semblava que el botó del grup no fes res i es clicava un
+     altre cop —i cada clic era una altra crida al servidor. */
+  if (b && typeof b.onChange === 'function') {
+    await esperaVisual(Promise.resolve(b.onChange(grup)), 'Carregant el grup ' + grup + '…');
+  }
 }
 
 // --- Gestió al Perfil: ALTRES CURSOS on fas classe ---

@@ -4,3 +4,11 @@ node_modules/
 *.log
 
 .claude/
+
+# clasp: l eina que puja el Code.gs a l Apps Script
+node_modules/
+.clasprc.json
+
+# Es generen amb  node eines/fes-biblioteca.js
+biblioteca/
+pont/
