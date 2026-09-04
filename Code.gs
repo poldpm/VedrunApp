@@ -223,7 +223,9 @@ function getNotesCompartides(ss, grup) {
     out.push({
       key: matKey, nom: v.nom || matKey, mestra: v.mestra || '',
       compartit: !!v.compartit, actualitzat: v.actualitzat || '',
-      alumnes: v.compartit ? (v.alumnes || {}) : null
+      // Les claus desades poden ser files (com sempre) o codis (ja migrat):
+      // es tradueixen a la que el navegador espera ara.
+      alumnes: v.compartit ? _reclau_(gss, grup, v.alumnes || {}) : null
     });
   });
   out.sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
@@ -259,7 +261,9 @@ function _entrClauPub_(grup) { return 'entrevistes_pub_' + grup; }
    { rowId: [ {id, data, hora, nota}, … ] } */
 function _entrLlegeix_(ss, grup) {
   var r = _jsonDeCela_(ss, '_AppData', _entrClauDet_(grup));
-  return (r.hi && r.dades) ? r.dades : {};
+  var d = (r.hi && r.dades) ? r.dades : {};
+  var gss = getGrupsSpreadsheet(ss);
+  return gss ? _reclau_(gss, grup, d) : d;
 }
 /* La mateixa lectura, però PETA si el que hi ha desat no es pot llegir.
    La fan servir les desades: val més un error a la pantalla que esborrar
@@ -1902,8 +1906,10 @@ const GRUPS_PRIMARIA = [
 // les 3 últimes són camps propis de l'app).
 const GRUP_HEADERS = [
   'Nom','Cognom','Data naixement','Nom mare','Nom pare','Email mare','Email pare',
-  'Observació important','Gènere','PI','AM','Aspectes específics','Informe EAP','Condicions seient'
+  'Observació important','Gènere','PI','AM','Aspectes específics','Informe EAP','Condicions seient',
+  'Id'   // ⚠ NO TOCAR: veure "L'IDENTIFICADOR PERMANENT" més avall
 ];
+const COL_UID = 15;   // columna O
 
 // Resol l'ID del full de grups: primer el desat pel mestre, si no el compartit
 function _resolGrupsId(ss) {
@@ -2297,6 +2303,17 @@ function getGrupAlumnes(ss, grup) {
   if (lr < 2) return { ok:true, alumnes:[], grup:grup, existeix:true };
   var lc = Math.max(sh.getLastColumn(), GRUP_HEADERS.length);
   var rows = sh.getRange(2, 1, lr-1, lc).getValues();
+
+  // Mapa fila→codi, muntat amb les files que ja hem hagut de llegir. Es deixa
+  // al record perquè les observacions i les entrevistes no el tornin a
+  // demanar: si no, cada arrencada tornava a llegir tot el grup.
+  var mapaUids = { perFila: {}, perUid: {} };
+  rows.forEach(function (r, i) {
+    var u = String(r[COL_UID - 1] || '').trim();
+    if (u) { mapaUids.perFila[i + 2] = u; mapaUids.perUid[u] = i + 2; }
+  });
+  try { _mapaUidsCache[(ss.getId ? ss.getId() : 'x') + '|' + grup] = mapaUids; } catch (e) {}
+
   var alumnes = [], idx = 0;
   rows.forEach(function(r, i){
     var nom = (r[0]||'').toString().trim();
@@ -2314,7 +2331,12 @@ function getGrupAlumnes(ss, grup) {
     }
     alumnes.push({
       id: idx,
-      rowId: i+2,
+      // El que viatja com a "rowId" és EL CODI de l'alumne, que no canvia
+      // mai. Si encara no en té (abans de la migració), s'hi posa la fila
+      // i tot funciona com sempre: el pont accepta les dues coses.
+      rowId: String(r[COL_UID - 1] || '').trim() || (i + 2),
+      fila: i + 2,                                 // la fila de debò, per si cal
+      uid: String(r[COL_UID - 1] || '').trim(),
       nom: nomComplet,
       nomPila: nom,
       cognom: cognom,
@@ -2324,7 +2346,19 @@ function getGrupAlumnes(ss, grup) {
       emailMare: r[5]||'', emailPare: r[6]||'',
       obs: r[7]||'',
       pi: r[9]||'', am: r[10]||'', especific: r[11]||'', eap: r[12]||'',
-      seient: (function(){ try { return r[13] ? JSON.parse(r[13]) : null; } catch(e){ return null; } })()
+      seient: (function(){
+        try {
+          var o = r[13] ? JSON.parse(r[13]) : null;
+          // noAmb apunta a ALTRES alumnes. Si hi ha files antigues, es
+          // tradueixen al codi, que és el que el navegador comparara.
+          if (o && o.noAmb && o.noAmb.length) {
+            o.noAmb = o.noAmb.map(function (x) {
+              return (/^\d+$/.test(String(x)) && mapaUids.perFila[String(x)]) ? mapaUids.perFila[String(x)] : x;
+            });
+          }
+          return o;
+        } catch(e){ return null; }
+      })()
     });
     idx++;
   });
@@ -2335,8 +2369,8 @@ function getGrupAlumnes(ss, grup) {
 function saveGrupPersonal(ss, grup, rowId, d) {
   var sh = ss.getSheetByName(grup);
   if (!sh) return { ok:false, error:'Grup no trobat: ' + grup };
-  var row = parseInt(rowId);
-  if (isNaN(row) || row < 2) return { ok:false, error:'Fila invàlida' };
+  var row = _filaDeClau_(ss, grup, rowId);
+  if (row < 2) return { ok:false, error:'No trobo aquest alumne al grup ' + grup };
   // Cols D-H: mare, pare, emailMare, emailPare, obs (índexs 4-8)
   sh.getRange(row, 4, 1, 5).setValues([[d.mare||'', d.pare||'', d.emailMare||'', d.emailPare||'', d.obs||'']]);
   // Cols J-L: PI, AM, específic (índexs 10-12) — no toquem I (gènere)
@@ -2359,8 +2393,8 @@ function saveGrupGenere(ss, grup, rowId, genere) {
     sh = found;
   }
   if (!sh) return { ok:false, error:'Grup no trobat: ' + grup };
-  var row = parseInt(rowId);
-  if (isNaN(row) || row < 2) return { ok:false, error:'Fila invàlida' };
+  var row = _filaDeClau_(ss, grup, rowId);
+  if (row < 2) return { ok:false, error:'No trobo aquest alumne al grup ' + grup };
   sh.getRange(row, 9).setValue(genere === 'f' ? 'F' : 'M');
   return { ok:true };
 }
@@ -2750,7 +2784,9 @@ function getGrupObs(ss, grup) {
 // Variant que reutilitza un full "Grups" ja obert (evita reobrir-lo al bootstrap).
 function _getGrupObsWith(gss, grup) {
   var v = sheetGetJSON(gss, '_AppData', 'obs_' + grup);
-  return { ok:true, obs: v ? JSON.parse(v) : {} };
+  var o = {};
+  try { o = v ? JSON.parse(v) : {}; } catch (e) { o = {}; }
+  return { ok:true, obs: _reclau_(gss, grup, o) };
 }
 
 function saveGrupObs(ss, grup, rowId, materia, text) {
@@ -3897,7 +3933,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v147';
+var BACKEND_VERSIO = 'v148';
 
 var MAX_CELA = 45000;
 
@@ -5078,6 +5114,15 @@ function _grupsFusiona_(gss, grup, shOrigen, prova) {
       var desDe = Math.max(2, lrD + 1);
       shDesti.getRange(desDe, 1, nous.length, 3).setValues(
         nous.map(function (a) { return [a.nom, a.cognoms, a.naix]; }));
+      // Neixen amb codi: si no, quedarien identificats per fila i tornaríem
+      // a tenir el problema que això venia a resoldre.
+      var usats = {};
+      var mapa = _grupMapaUids_(gss, grup);
+      Object.keys(mapa.perUid).forEach(function (u) { usats[u] = true; });
+      shDesti.getRange(desDe, COL_UID, nous.length, 1).setValues(nous.map(function () {
+        var u; do { u = _uidNou_(); } while (usats[u]); usats[u] = true; return [u];
+      }));
+      _oblidaMapaUids_();
     }
   }
 
@@ -5122,4 +5167,313 @@ function grupsSincronitza(ss, prova) {
 function grupsSincronitzaAuto() {
   try { grupsSincronitza(SpreadsheetApp.getActiveSpreadsheet(), false); }
   catch (e) { Logger.log('grupsSincronitzaAuto: ' + e.message); }
+}
+
+/* ============================================================
+   L'IDENTIFICADOR PERMANENT DE CADA ALUMNE
+   ------------------------------------------------------------
+   Fins al setembre del 2026, l'app identificava cada alumne pel
+   NÚMERO DE FILA del full "Grups" (`rowId: i+2`). D'aquest
+   número hi penjaven les observacions, les entrevistes, les
+   incompatibilitats de seient i les notes compartides.
+
+   Això vol dir que si algú esborrava una fila, tots els de sota
+   pujaven una posició i l'observació d'un nen passava a ser
+   d'un altre. Sense error i sense avís. En Pol ho va veure venir
+   abans que passés, mirant com s'actualitzen els fulls copia de
+   l'escola.
+
+   Ara cada alumne té un codi propi a la columna O que NO CANVIA
+   MAI: ni si canvia de fila, ni si es reordena la llista, ni si
+   li corregeixen un accent al cognom.
+
+   ⚠ REGLA: el NOM serveix per aparellar amb els documents de
+   l'escola. L'UID serveix per identificar-lo dins de l'app.
+   No s'han de barrejar mai.
+   ============================================================ */
+
+/* Un codi curt, únic i que no vol dir res. Que no vulgui dir res és a
+   posta: si portés el nom o el curs, deixaria de ser vàlid el dia que
+   canviessin. */
+function _uidNou_() {
+  var lletres = 'abcdefghijkmnpqrstuvwxyz23456789';   // sense l/1/o/0, que es confonen
+  var s = '';
+  for (var i = 0; i < 10; i++) s += lletres.charAt(Math.floor(Math.random() * lletres.length));
+  return s;
+}
+
+/* Reparteix identificadors als alumnes que encara no en tenen.
+   Idempotent: passar-hi dues vegades no canvia res del que ja hi era. */
+function grupsAssignaUids(gss, grup, prova) {
+  var sh = gss.getSheetByName(grup);
+  if (!sh) return { grup: grup, error: 'no existeix' };
+  var lr = sh.getLastRow();
+  if (lr < 2) return { grup: grup, posats: 0, jaEnTenien: 0 };
+
+  var vals = sh.getRange(2, 1, lr - 1, COL_UID).getValues();
+  var usats = {}, posats = 0, jaEnTenien = 0, nous = [];
+  vals.forEach(function (r) {
+    var u = String(r[COL_UID - 1] || '').trim();
+    if (u) usats[u] = true;
+  });
+  vals.forEach(function (r, i) {
+    var buit = !String(r[0] || '').trim() && !String(r[1] || '').trim();
+    var u = String(r[COL_UID - 1] || '').trim();
+    if (buit) { nous.push(['']); return; }        // fila sense alumne: es deixa buida
+    if (u) { jaEnTenien++; nous.push([u]); return; }
+    do { u = _uidNou_(); } while (usats[u]);
+    usats[u] = true; posats++;
+    nous.push([u]);
+  });
+  if (!prova && posats) {
+    sh.getRange(2, COL_UID, nous.length, 1).setValues(nous);
+    _oblidaMapaUids_();
+  }
+  return { grup: grup, posats: posats, jaEnTenien: jaEnTenien };
+}
+
+/* El pont entre el món vell (files) i el nou (uids), per a un grup.
+   Torna { perFila: {12:'a7k…'}, perUid: {'a7k…':12} }. */
+/* El mapa es demana diverses vegades dins d'una mateixa crida (alumnes,
+   observacions, entrevistes…). Llegir-lo cada cop eren viatges a Google
+   per res: es recorda mentre dura l'execució, que a l'Apps Script són
+   segons. */
+var _mapaUidsCache = {};
+
+function _grupMapaUids_(gss, grup) {
+  var clauCache = gss.getId ? (gss.getId() + '|' + grup) : ('x|' + grup);
+  if (_mapaUidsCache[clauCache]) return _mapaUidsCache[clauCache];
+  var sh = gss.getSheetByName(grup);
+  var buit = { perFila: {}, perUid: {} };
+  if (!sh) return buit;
+  var lr = sh.getLastRow();
+  if (lr < 2) return buit;
+  var vals = sh.getRange(2, 1, lr - 1, COL_UID).getValues();
+  var m = { perFila: {}, perUid: {} };
+  vals.forEach(function (r, i) {
+    var u = String(r[COL_UID - 1] || '').trim();
+    if (!u) return;
+    var fila = i + 2;
+    m.perFila[fila] = u;
+    m.perUid[u] = fila;
+  });
+  _mapaUidsCache[clauCache] = m;
+  return m;
+}
+
+/* Qui escriu codis al full ha de buidar el record, o el següent que el
+   demani tindrà el d'abans. */
+function _oblidaMapaUids_() { _mapaUidsCache = {}; }
+
+/* Una clau desada pot ser vella (un número de fila) o nova (un uid).
+   Això la torna sempre com a uid, perquè res no es perdi pel camí
+   mentre dura la convivència. */
+function _clauAUid_(clau, mapa) {
+  var k = String(clau);
+  if (/^\d+$/.test(k)) return mapa.perFila[k] || k;   // vella: es tradueix
+  return k;                                           // ja és un uid
+}
+
+/* ── PORTAR EL QUE JA HI HA AL MÓN DELS UIDS ─────────────────────────────
+   Quatre coses anaven indexades pel número de fila:
+     1. `obs_<grup>`            observacions   (full COMPARTIT)
+     2. `entrevistes_<grup>`    entrevistes    (full de la MESTRA)
+     3. `noAmb: [fila,…]`       incompatibilitats de seient (columna N)
+     4. `<prefix><grup>|<mat>`  notes compartides (full COMPARTIT)
+
+   Abans de convertir res es desa una CÒPIA del valor original. Si algun
+   dia surt que la conversió va malament, es pot recuperar. Amb dades de
+   criatures no es fa cap conversió sense xarxa.
+
+   Idempotent: passar-hi dues vegades no torna a convertir el que ja és
+   un uid, perquè `_clauAUid_` deixa passar els uids tal com són.       */
+function _copiaSeguretat_(ss, clau, valor) {
+  if (valor === null || valor === undefined || valor === '') return;
+  var quan = Utilities.formatDate(new Date(), _gTz_(), 'yyyyMMdd');
+  sheetSetJSON(ss, '_AppData', 'backup_' + quan + '_' + clau, String(valor));
+}
+
+function _migraClaus_(obj, mapa) {
+  var fora = {}, convertits = 0, perduts = 0;
+  Object.keys(obj || {}).forEach(function (k) {
+    var nova = _clauAUid_(k, mapa);
+    if (/^\d+$/.test(String(k))) {
+      if (nova === String(k)) { perduts++; fora[k] = obj[k]; return; }  // no s'ha trobat: es deixa
+      convertits++;
+    }
+    fora[nova] = obj[k];
+  });
+  return { obj: fora, convertits: convertits, perduts: perduts };
+}
+
+/* El pany ja no cal: des que la lectura tradueix les claus desades a la que
+   el navegador espera (`_reclau_`), l'app funciona igual amb les dades sense
+   migrar que amb les migrades. Migrar ha deixat de ser una operació delicada
+   i ha passat a ser una NETEJA: deixa les dades indexades pel codi en comptes
+   de per la fila, que és més clar de llegir al full i estalvia la traducció.
+   Es queda com a interruptor per si algun dia s'ha de tornar a tancar. */
+var UIDS_ACTIUS = true;
+
+function grupsMigraAUids(ss, prova) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  if (!prova && !UIDS_ACTIUS) {
+    return { ok: false, error: 'Encara no toca. L\'app encara busca els alumnes per número de ' +
+             'fila: si es converteixen ara, les observacions deixarien de sortir. ' +
+             'De moment només la passada en sec.' };
+  }
+
+  var lock = LockService.getScriptLock(), tinc = false;
+  try { lock.waitLock(120000); tinc = true; } catch (e) {
+    return { ok: false, error: 'Hi ha una altra feina en marxa. Torna-ho a provar.' };
+  }
+  try {
+    var resum = { uidsPosats: 0, obs: 0, entrevistes: 0, seients: 0, notes: 0, perduts: 0 };
+    var detall = [];
+
+    GRUPS_PRIMARIA.forEach(function (grup) {
+      var sh = gss.getSheetByName(grup);
+      if (!sh || sh.getLastRow() < 2) return;
+
+      // 1) Repartir uids
+      var u = grupsAssignaUids(gss, grup, prova);
+      resum.uidsPosats += u.posats || 0;
+      // En passada en sec encara no hi són al full: es simula el mapa
+      var mapa = _grupMapaUids_(gss, grup);
+      if (prova && u.posats) {
+        var lr = sh.getLastRow();
+        var noms = sh.getRange(2, 1, lr - 1, 2).getValues();
+        noms.forEach(function (r, i) {
+          var fila = i + 2;
+          if (!mapa.perFila[fila] && (String(r[0] || '').trim() || String(r[1] || '').trim())) {
+            mapa.perFila[fila] = '(nou)';
+          }
+        });
+      }
+
+      var d = { grup: grup, uids: u.posats, obs: 0, entrevistes: 0, seients: 0, notes: 0, perduts: 0 };
+
+      // 2) Observacions (full compartit)
+      var vo = sheetGetJSON(gss, '_AppData', 'obs_' + grup);
+      if (vo) {
+        try {
+          var mo = _migraClaus_(JSON.parse(vo), mapa);
+          d.obs = mo.convertits; d.perduts += mo.perduts;
+          if (!prova && mo.convertits) {
+            _copiaSeguretat_(gss, 'obs_' + grup, vo);
+            sheetSetJSON(gss, '_AppData', 'obs_' + grup, JSON.stringify(mo.obj));
+          }
+        } catch (e) {}
+      }
+
+      // 3) Entrevistes (full de la mestra)
+      var ve = sheetGetJSON(ss, '_AppData', _entrClauDet_(grup));
+      if (ve) {
+        try {
+          var me = _migraClaus_(JSON.parse(ve), mapa);
+          d.entrevistes = me.convertits; d.perduts += me.perduts;
+          if (!prova && me.convertits) {
+            _copiaSeguretat_(ss, _entrClauDet_(grup), ve);
+            sheetSetJSON(ss, '_AppData', _entrClauDet_(grup), JSON.stringify(me.obj));
+          }
+        } catch (e) {}
+      }
+
+      // 4) Incompatibilitats de seient (columna N de cada alumne)
+      var lr2 = sh.getLastRow();
+      if (lr2 >= 2) {
+        var col = sh.getRange(2, 14, lr2 - 1, 1).getValues();
+        var canviat = false;
+        var noves = col.map(function (r) {
+          var txt = String(r[0] || '').trim();
+          if (!txt) return [''];
+          try {
+            var o = JSON.parse(txt);
+            if (o && o.noAmb && o.noAmb.length) {
+              var abans = JSON.stringify(o.noAmb);
+              o.noAmb = o.noAmb.map(function (x) { return _clauAUid_(x, mapa); });
+              if (JSON.stringify(o.noAmb) !== abans) { canviat = true; d.seients++; }
+            }
+            return [JSON.stringify(o)];
+          } catch (e) { return [txt]; }
+        });
+        if (!prova && canviat) {
+          _copiaSeguretat_(gss, 'seients_' + grup, JSON.stringify(col.map(function (r) { return r[0]; })));
+          sh.getRange(2, 14, noves.length, 1).setValues(noves);
+        }
+      }
+
+      // 5) Notes compartides (full compartit, una clau per assignatura)
+      var totes = sheetGetAll(gss, '_AppData');
+      Object.keys(totes).forEach(function (k) {
+        if (k.indexOf(NOTESCOMP_PREFIX + grup + '|') !== 0) return;
+        try {
+          var o = JSON.parse(totes[k]);
+          if (!o || !o.alumnes) return;
+          var mn = _migraClaus_(o.alumnes, mapa);
+          if (mn.convertits) {
+            d.notes += mn.convertits; d.perduts += mn.perduts;
+            if (!prova) {
+              _copiaSeguretat_(gss, k, totes[k]);
+              o.alumnes = mn.obj;
+              sheetSetJSON(gss, '_AppData', k, JSON.stringify(o));
+            }
+          }
+        } catch (e) {}
+      });
+
+      resum.obs += d.obs; resum.entrevistes += d.entrevistes;
+      resum.seients += d.seients; resum.notes += d.notes; resum.perduts += d.perduts;
+      if (d.uids || d.obs || d.entrevistes || d.seients || d.notes) detall.push(d);
+    });
+
+    return { ok: true, prova: !!prova, resum: resum, grups: detall };
+  } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
+}
+
+/* ── EL PONT: UNA CLAU, UNA FILA ─────────────────────────────────────────
+   A partir d'ara, el que viatja entre el servidor i el navegador com a
+   `rowId` és EL CODI de l'alumne, no el número de fila. El navegador no se
+   n'ha d'assabentar: per a ell sempre ha estat una caixa negra que passa
+   d'una banda a l'altra.
+
+   Aquí es tradueix la caixa negra a fila de debò, i s'accepten LES DUES
+   coses mentre duri la convivència:
+     · un codi ("k7m3q…")  → es busca a la columna O
+     · un número ("12")    → és una clau antiga: la fila, tal qual
+   Així res es trenca ni abans ni després de la migració.            */
+function _filaDeClau_(gss, grup, clau) {
+  var k = String(clau == null ? '' : clau).trim();
+  if (!k) return -1;
+  if (/^\d+$/.test(k)) return parseInt(k, 10);          // clau antiga: ja és la fila
+  var m = _grupMapaUids_(gss, grup);
+  return m.perUid[k] || -1;
+}
+
+/* La clau que s'ha de fer servir per DESAR: sempre el codi si es pot.
+   Si l'alumne encara no en té (abans de la migració), es queda la fila,
+   i el dia que es migri es traduirà. */
+function _clauDeFila_(gss, grup, fila) {
+  var m = _grupMapaUids_(gss, grup);
+  return m.perFila[String(fila)] || String(fila);
+}
+
+/* ── LLEGIR SEMPRE AMB LA CLAU QUE EL NAVEGADOR ESPERA ───────────────────
+   El que hi ha desat pot estar indexat per fila (com sempre) o per codi
+   (ja migrat). El navegador, en canvi, sempre demanarà pel que li hem
+   donat a `getGrupAlumnes`.
+
+   Això tradueix les claus desades a la clau que toca ARA. Amb això, l'app
+   funciona igual abans, durant i després de la migració, i migrar deixa
+   de ser una operació delicada: passa a ser una neteja.                */
+function _reclau_(gss, grup, obj) {
+  if (!obj || typeof obj !== 'object') return obj || {};
+  var m = _grupMapaUids_(gss, grup);
+  var fora = {};
+  Object.keys(obj).forEach(function (k) {
+    var nova = k;
+    if (/^\d+$/.test(String(k)) && m.perFila[String(k)]) nova = m.perFila[String(k)];
+    fora[nova] = obj[k];
+  });
+  return fora;
 }
