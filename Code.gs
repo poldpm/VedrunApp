@@ -3968,7 +3968,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v168';
+var BACKEND_VERSIO = 'v169';
 
 var MAX_CELA = 45000;
 
@@ -6784,6 +6784,22 @@ function _fitxaJunta_(trossos) {
 
 /* El que el document diu de cada alumne d'un grup.
    Torna { uid: {obs, pi, am, asp, eap} } amb el text ja fet. */
+/* El text d una casella, anomena algun ALTRE nen del grup?
+   Serveix per no guardar a la fitxa d una criatura el que es d una altra.
+   Nomes es miren paraules de 4 lletres o mes: amb menys, un "Mar" o un
+   "Pau" enmig d una frase faria saltar l avis sense motiu. */
+function _parlaDAltres_(text, prep, uidsSeus) {
+  var mots = {};
+  _motsUtils_(text).forEach(function (m) { if (m.length >= 4) mots[m] = 1; });
+  if (!Object.keys(mots).length) return false;
+  var altri = false;
+  prep.forEach(function (p) {
+    if (altri || uidsSeus[p.ref.uid]) return;
+    if (p.tots.some(function (t) { return t.length >= 4 && mots[t]; })) altri = true;
+  });
+  return altri;
+}
+
 function _fitxaPerAlumne_(f, prep, alies) {
   var acc = {};
   function per(uid) {
@@ -6837,8 +6853,14 @@ function _fitxaPerAlumne_(f, prep, alies) {
       var solUn = Object.keys(uid1).length === 1;
       var textLlarg = String(x.valor || '').trim();
       var teExplicacio = textLlarg.length > (noms.join(' ').length + 4);
+      // ⚠ I encara que en resolgui un de sol, si el text ANOMENA UN ALTRE
+      // NEN del grup, només s'hi guarda l'etiqueta. "Arnau Arcalà:
+      // problemes emocionals. Nour Ahrika: dificultats d'aprenentatge"
+      // resol només l'Arnau —la Nour va després d'un punt— i, sense això,
+      // a la fitxa de l'Arnau hi acabava el que és de la Nour.
+      var dAltri = solUn && _parlaDAltres_(textLlarg, prep, uid1);
       tots.forEach(function (a) {
-        per(a.uid)[par[0]].push(solUn && teExplicacio ? etiq + ': ' + textLlarg : etiq);
+        per(a.uid)[par[0]].push(solUn && teExplicacio && !dAltri ? etiq + ': ' + textLlarg : etiq);
       });
     });
   });
@@ -7132,4 +7154,107 @@ function fitxesPosaAlies(ss, grup, etiqueta, uid) {
   mapa[_motsUtils_(etiqueta).join(' ')] = uid;
   _aliesDesa_(gss, grup, mapa);
   return { ok: true, grup: grup, etiqueta: etiqueta, alumne: qui.nom + ' ' + qui.cognoms };
+}
+
+/* ============================================================
+   TREURE EL QUE EL DOCUMENT NO DIU
+   ------------------------------------------------------------
+   La sincronització normal ja treu el que ha deixat de dir-se,
+   però només d'allò que sap que hi va escriure ella. El que hi
+   va escriure una versió anterior amb un error —a la Dina li
+   vaig posar "Suport biblioteca" quan el document deia que la
+   seva família ho havia rebutjat— no en queda constància, i
+   s'hi quedaria per sempre.
+
+   Això ho repassa tot: cada camp que l'app ompla, on ara hi ha
+   alguna cosa i el document no en diu res.
+
+   ⚠ Amb prova=true NO toca res: només diu què trauria. S'ha de
+   mirar SEMPRE abans, perquè aquí dins hi pot haver text escrit
+   a mà per una mestra, i això no s'ha de tocar.
+   ============================================================ */
+function fitxesNeteja(ss, prova) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var doc;
+  try { doc = _fitxesTotes_(); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut obrir el document de fitxes: ' + e.message }; }
+  if (!Object.keys(doc.perGrup).length) {
+    return { ok: false, error: 'No he sabut aparellar cap fitxa amb cap grup: no toco res.' };
+  }
+
+  var lock = LockService.getScriptLock(), tinc = false;
+  try { lock.waitLock(120000); tinc = true; }
+  catch (e) { return { ok: false, error: 'Hi ha una altra feina en marxa.' }; }
+
+  try {
+    var total = 0, sobren = [];
+    Object.keys(doc.perGrup).forEach(function (g) {
+      var sh = gss.getSheetByName(g);
+      if (!sh) return;
+      var lr = sh.getLastRow();
+      if (lr < 2) return;
+      var alumnes = _fitxaAlumnes_(gss, g);
+      if (!alumnes.length) return;
+      var prep = _quiPrepara_(alumnes);
+      var diu = _fitxaPerAlumne_(doc.perGrup[g], prep, _aliesLlegeix_(gss, g));
+
+      var d = sh.getRange(2, 1, lr - 1, COL_UID).getValues();
+      var treure = [];
+      d.forEach(function (fila, i) {
+        var uid = String(fila[COL_UID - 1] || '').trim();
+        if (!uid) return;
+        Object.keys(FITXA_COL).forEach(function (camp) {
+          var col = FITXA_COL[camp];
+          var ara = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
+          if (!ara) return;
+          if (diu[uid] && diu[uid][camp]) return;      // el document en parla: es queda
+          treure.push({ fila: i + 2, col: col });
+          total++;
+          if (sobren.length < 60) {
+            sobren.push({ grup: g, alumne: fila[0] + ' ' + fila[1], camp: camp, text: ara.slice(0, 70) });
+          }
+        });
+      });
+      if (!prova && treure.length) {
+        var copia = {};
+        d.forEach(function (fila, i) {
+          treure.forEach(function (t) {
+            if (t.fila !== i + 2) return;
+            var uid = String(fila[COL_UID - 1] || '').trim();
+            if (!copia[uid]) copia[uid] = {};
+            copia[uid]['col' + t.col] = String(fila[t.col - 1] || '');
+          });
+        });
+        try { _copiaSeguretat_(gss, 'neteja_' + g, JSON.stringify(copia)); }
+        catch (e) { return; }      // sense còpia, no es toca res d'aquest grup
+        treure.forEach(function (t) { sh.getRange(t.fila, t.col).setValue(''); });
+      }
+    });
+    return { ok: true, prova: !!prova, total: total, sobren: sobren };
+  } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
+}
+
+function provaNetejarFitxes() { return _fitxesNetejaTxt_(true); }
+function netejaFitxesDEBO() { return _fitxesNetejaTxt_(false); }
+
+function _fitxesNetejaTxt_(prova) {
+  var r = fitxesNeteja(SpreadsheetApp.getActiveSpreadsheet(), prova);
+  if (!r.ok) { Logger.log('ERROR: ' + r.error); return r; }
+  var l = [];
+  l.push(prova ? 'AIXO TREURIA (no he tocat res)' : 'TRET');
+  l.push('==============================');
+  l.push('Caselles que el document no diu: ' + r.total);
+  l.push('');
+  l.push('⚠ MIRA-TE-LES UNA PER UNA. Si alguna la va escriure una mestra a');
+  l.push('   ma, NO l executis: digue-m ho i ho faig d una altra manera.');
+  l.push('');
+  r.sobren.forEach(function (s) {
+    l.push('  ' + s.grup + ' · ' + s.alumne + ' · ' + s.camp);
+    l.push('      ' + s.text);
+  });
+  if (r.total > r.sobren.length) l.push('  ... i ' + (r.total - r.sobren.length) + ' mes');
+  var txt = l.join('\n');
+  Logger.log(txt);
+  return txt;
 }
