@@ -1981,26 +1981,78 @@ function _colsDe_(sh) {
   };
 }
 
-/* Posa les capçaleres que falten a totes les pestanyes de grup.
-   Es pot repetir sense por: només escriu el que no hi és. */
+/* Repara la capçalera de totes les pestanyes de grup.
+   ------------------------------------------------------------
+   ⚠ Al full d en Pol, les capçaleres de "Condicions seient" i "Id"
+   estaven BUIDES: mai no s hi van escriure. La primera versió d això les
+   va prendre per columnes que faltaven i les va ENGANXAR AL FINAL. Va
+   quedar una capçalera "Id" a la columna 16, buida, mentre els codis de
+   debò seguien a la 15 — i com que les columnes ara es busquen pel nom,
+   l app buscava els codis on no n hi havia cap i no tocava res.
+
+   Per això aquí es fan tres coses, en aquest ordre:
+     1. les 15 primeres capçaleres s escriuen AL SEU LLOC si són buides,
+     2. les que hi són repetides més enllà de la 15 s esborren,
+     3. i només llavors s afegeixen les que de debò no hi són.
+   Es pot repetir sense por. */
 function grupsAfegeixColumnes(ss) {
   var gss = getGrupsSpreadsheet(ss);
-  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
-  var fets = [];
+  if (!gss) return { ok: false, error: "No s ha pogut obrir el full de grups compartit" };
+  var fets = [], avisos = [];
   GRUPS_PRIMARIA.forEach(function (g) {
     var sh = gss.getSheetByName(g);
     if (!sh) return;
-    var lc = Math.max(sh.getLastColumn(), 1);
-    var cap = sh.getRange(1, 1, 1, lc).getValues()[0].map(function (c) { return _fnorm_(c); });
-    var falten = GRUP_HEADERS.filter(function (h) { return cap.indexOf(_fnorm_(h)) < 0; });
-    if (!falten.length) return;
-    sh.getRange(1, lc + 1, 1, falten.length).setValues([falten])
-      .setFontWeight('bold').setBackground('#FBEAED').setFontColor('#7A1E2E');
-    fets.push(g + ': ' + falten.join(', '));
-  });
-  return { ok: true, fets: fets };
-}
+    var lc = Math.max(sh.getLastColumn(), GRUP_HEADERS.length);
+    var cap = sh.getRange(1, 1, 1, lc).getValues()[0];
+    var canvis = [];
 
+    // 1) Les capçaleres canòniques, al seu lloc de sempre.
+    for (var i = 0; i < GRUP_HEADERS.length && i < 15; i++) {
+      if (!String(cap[i] || "").trim()) {
+        sh.getRange(1, i + 1).setValue(GRUP_HEADERS[i])
+          .setFontWeight("bold").setBackground("#FBEAED").setFontColor("#7A1E2E");
+        cap[i] = GRUP_HEADERS[i];
+        canvis.push(GRUP_HEADERS[i] + " (a la columna " + (i + 1) + ")");
+      }
+    }
+
+    // 2) Les repetides de més enllà de la 15: fora.
+    var vist = {};
+    for (var j = 0; j < cap.length; j++) {
+      var k = _fnorm_(cap[j]);
+      if (!k) continue;
+      if (vist[k] && j >= 15) {
+        sh.getRange(1, j + 1).setValue("");
+        cap[j] = "";
+        canvis.push("tret el duplicat de " + k + " (columna " + (j + 1) + ")");
+        continue;
+      }
+      vist[k] = 1;
+    }
+
+    // 3) I ara sí: les que no hi són enlloc.
+    var teQue = cap.map(function (c) { return _fnorm_(c); });
+    var falten = GRUP_HEADERS.filter(function (h) { return teQue.indexOf(_fnorm_(h)) < 0; });
+    if (falten.length) {
+      var desDe = 1;
+      while (desDe <= cap.length && String(cap[desDe - 1] || "").trim()) desDe++;
+      sh.getRange(1, desDe, 1, falten.length).setValues([falten])
+        .setFontWeight("bold").setBackground("#FBEAED").setFontColor("#7A1E2E");
+      canvis.push("afegides: " + falten.join(", "));
+    }
+    if (canvis.length) fets.push(g + " → " + canvis.join(" · "));
+
+    // Xarxa: després de tot això, els codis han de ser on diu la capçalera.
+    var cols = _colsDe_(sh);
+    var lr = sh.getLastRow();
+    if (lr >= 2) {
+      var mostra = sh.getRange(2, cols.uid, Math.min(5, lr - 1), 1).getValues();
+      var ambCodi = mostra.filter(function (x) { return String(x[0] || "").trim(); }).length;
+      if (!ambCodi) avisos.push(g + ": la columna Id (" + cols.uid + ") no té cap codi");
+    }
+  });
+  return { ok: true, fets: fets, avisos: avisos };
+}
 // Resol l'ID del full de grups: primer el desat pel mestre, si no el compartit
 function _resolGrupsId(ss) {
   var propi = sheetGetJSON(ss, '_AppData', 'grups_sheet_id');
@@ -4036,7 +4088,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v171';
+var BACKEND_VERSIO = 'v172';
 
 var MAX_CELA = 45000;
 
@@ -6572,12 +6624,16 @@ function _fitxaAlumnes_(gss, grup) {
   if (!sh) return [];
   var lr = sh.getLastRow();
   if (lr < 2) return [];
-  var d = sh.getRange(2, 1, lr - 1, COL_UID).getValues();
+  // ⚠ El codi es llegeix on diu la capçalera, igual que a l'hora d'escriure.
+  // Si aquí es llegís d'un lloc i allà d'un altre, tot quadraria per fora i
+  // no s'escriuria res —que és exactament el que va passar el 4/9/2026.
+  var cols = _colsDe_(sh);
+  var d = sh.getRange(2, 1, lr - 1, Math.max(cols.uid, cols._ample)).getValues();
   var out = [];
   d.forEach(function (f) {
     var nom = String(f[0] || '').trim(), cog = String(f[1] || '').trim();
     if (!nom && !cog) return;
-    out.push({ nom: nom, cognoms: cog, uid: String(f[COL_UID - 1] || '').trim() });
+    out.push({ nom: nom, cognoms: cog, uid: String(f[cols.uid - 1] || '').trim() });
   });
   return out;
 }
@@ -7055,6 +7111,13 @@ function fitxesAplica(ss, prova) {
 
       var alumnes = _fitxaAlumnes_(gss, g);
       if (!alumnes.length) return;
+      // Si hi ha alumnes però cap no té codi, no es pot escriure res i cal
+      // dir-ho: en silenci sembla que tot estigui al dia.
+      if (!alumnes.filter(function (a) { return a.uid; }).length) {
+        perGrup.push({ grup: g, alumnes: 0, camps: 0, iguals: 0,
+                       error: 'cap alumne no té codi: executa afegeixColumnesDEBO() i despres grupsAssignaUids' });
+        return;
+      }
       var prep = _quiPrepara_(alumnes);
       var alies = _aliesLlegeix_(gss, g);
       var diu = _fitxaPerAlumne_(doc.perGrup[g], prep, alies);
