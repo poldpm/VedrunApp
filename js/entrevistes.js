@@ -143,9 +143,6 @@ async function desaEntrevista() {
     if (r && r.ok) {
       await carregaEntrevistes(true);
       pintaEntrevistes(_entrAlumne);
-      if (typeof renderAlumnesList === 'function' &&
-          !document.getElementById('page-alumnes').classList.contains('page-hidden')) renderAlumnesList();
-      _entrPintaComptador();
       tancaEntrevista();
       showToast(r.compartit === false
         ? 'Apuntada ✓ (encara no s\'ha pogut compartir amb direcció)'
@@ -170,28 +167,10 @@ async function esborraEntrevista(studentId, id) {
   if (r && r.ok) {
     await carregaEntrevistes(true);
     pintaEntrevistes(studentId);
-    if (typeof renderAlumnesList === 'function' &&
-        !document.getElementById('page-alumnes').classList.contains('page-hidden')) renderAlumnesList();
-    _entrPintaComptador();
     showToast('Esborrada', 'success');
   } else {
     showToast((r && r.error) || 'No s\'ha pogut esborrar', 'error');
   }
-}
-
-/* ---------- el cop d'ull: a qui li'n falta ---------- */
-function entrevistesFetes(studentId) { return _entrDe(studentId).length; }
-
-function _entrPintaComptador() {
-  const el = document.getElementById('entrResum');
-  if (!el) return;
-  if (!_entrGrup() || !students.length) { el.style.display = 'none'; return; }
-  const sense = students.filter(s => !entrevistesFetes(s.id));
-  el.style.display = '';
-  el.innerHTML = sense.length
-    ? `<span class="entr-resum-falten">Falten ${sense.length} entrevistes</span>
-       <span class="entr-resum-qui">${escapeHtml(sense.slice(0, 6).map(s => s.nom.split(' ')[0]).join(', '))}${sense.length > 6 ? ' i ' + (sense.length - 6) + ' més' : ''}</span>`
-    : `<span class="entr-resum-ok">Ja has fet entrevista amb totes les famílies ✓</span>`;
 }
 
 function _entrMuntaModal() {

@@ -93,12 +93,7 @@ function showPage(pageId, _fromPop) {
   // s'ha de tornar a posar la llista de la tutoria abans de pintar-les.
   // (A l'app dels especialistes això no fa res: no hi ha tutoria, i el grup
   // el tria ella amb el selector de dalt.)
-  if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); if (typeof _dirRenderGrupPicker === 'function') _dirRenderGrupPicker(); renderAlumnesList();
-    // A qui li falta l'entrevista: es carrega i es repinta quan arriba
-    if (typeof carregaEntrevistes === 'function') {
-      carregaEntrevistes().then(() => { _entrPintaComptador(); renderAlumnesList(); }).catch(() => {});
-      _entrPintaComptador();
-    } }
+  if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); if (typeof _dirRenderGrupPicker === 'function') _dirRenderGrupPicker(); renderAlumnesList(); }
   if (pageId === 'registres')    { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('registres'); _dirAvisRegistres(); renderRegistre(); }
   if (pageId === 'observacions') { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('observacions'); _dirAvisObservacions(); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
   if (pageId === 'home')         renderHome();
@@ -1104,9 +1099,6 @@ function renderAlumnesList() {
         ${hasPI ? '<span class="alumne-badge-pi" title="Pla Individualitzat: ' + escapeHtml(pd.pi.replace(/\|/g,', ')) + '">PI</span>' : ''}
         ${hasAM ? '<span class="alumne-badge-am" title="Adaptació Metodològica: ' + escapeHtml(pd.am.replace(/\|/g,', ')) + '">AM</span>' : ''}
         ${hasAlert ? '<span class="alumne-card-alert" title="' + escapeHtml(alertTip) + '">⚠</span>' : ''}
-        ${(typeof entrevistesFetes === 'function' && typeof grupActual === 'function' && grupActual()
-            && !entrevistesFetes(s.id))
-            ? '<span class="alumne-badge-entr" title="Encara no hi ha cap entrevista amb aquesta família">Sense entrevista</span>' : ''}
       </div>
       <div class="alumne-card-top" title="Obrir fitxa">
         <div class="student-avatar alumne-card-avatar">${getInitials(s.nom)}</div>
@@ -4988,6 +4980,13 @@ function _processAppData(r) {
 
 // Aplica TOT el que retorna la crida única bootstrap
 function _applyBootstrap(boot) {
+  // 0) El servidor està al dia? Enganxar el Code.gs nou al Apps Script NO
+  //    n'hi ha prou: cal desplegar-ne una versió nova, i si no es fa tot es
+  //    veu malament sense que res ho digui. Va passar el 4 de setembre del
+  //    2026: la pàgina de les famílies ensenyava "UNDEFINED, NAN DE
+  //    UNDEFINED" i dates de 1899 perquè servia codi vell.
+  _avisaBackendVell(boot && boot.backendVersio);
+
   // 1) Perfil (i menú d'assignatures)
   if (boot.profile) {
     _perfil = (typeof _perfilMigrar === 'function')
@@ -5737,4 +5736,42 @@ async function _comentCarregaAlumnesDelGrup(matKey) {
     await _ensureGrupStudents(grup, nomBase || matKey);
     _comentOmpleAlumnes();
   }
+}
+
+/* ============================================================
+   EL SERVIDOR ESTÀ AL DIA?
+   ------------------------------------------------------------
+   L'app (aquest codi) s'actualitza sola des del GitHub Pages.
+   El Code.gs, en canvi, viu al Apps Script i NO s'actualitza
+   sol: s'hi ha d'enganxar el codi nou i, sobretot, desplegar-ne
+   una VERSIÓ NOVA. Si això no es fa, l'app nova parla amb un
+   servidor vell i surten coses rares —dates de 1899, pantalles
+   buides— sense que res ho expliqui.
+
+   Aquest avís ho fa visible. Surt a dalt de tot i no se'n va
+   fins que el servidor està al dia.
+   ============================================================ */
+function _avisaBackendVell(versioServidor) {
+  const meva = (typeof window.versioApp === 'object' && window.versioApp.actual) || null;
+  const id = 'avisBackendVell';
+  const vell = document.getElementById(id);
+  // Sense resposta del servidor o sense saber la nostra versió: no diem res.
+  if (!meva || !versioServidor || versioServidor === meva) { if (vell) vell.remove(); return; }
+  if (vell) return;                                  // ja hi és
+
+  const d = document.createElement('div');
+  d.id = id;
+  d.className = 'avis-backend';
+  d.setAttribute('role', 'status');
+  d.innerHTML =
+    '<strong>El servidor s\'ha quedat enrere.</strong> ' +
+    'L\'app és la ' + escapeHtml(meva) + ' i el Google Apps Script encara serveix la ' +
+    escapeHtml(versioServidor) + '. Fins que no el tornis a desplegar, hi haurà coses ' +
+    'que es veuran malament (dates estranyes, pantalles buides).' +
+    '<span class="avis-backend-com">Al teu full: <b>Extensions → Apps Script</b>, ' +
+    'enganxa-hi el <b>Code.gs</b> nou i després <b>Implementa → Gestiona implementacions → ' +
+    'el llapis → Versió: Nova versió → Desplega</b>. ' +
+    '<b>No facis «Nova implementació»</b>: això crea una adreça nova i la teva app seguiria ' +
+    'parlant amb la vella.</span>';
+  document.body.insertBefore(d, document.body.firstChild);
 }

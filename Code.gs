@@ -3862,6 +3862,13 @@ function getOrCreateDataSheet(ss, nom) {
    ara no ho mirava ningú: s'hi escrivia i el full ho tallava o petava, i la
    propera lectura ja no es podia llegir. Ara s'atura ABANS d'escriure, amb
    marge, i no es toca el que ja hi ha. */
+/* Quina versió del codi hi ha DESPLEGADA ara mateix a aquest Apps Script.
+   Serveix perquè l'app pugui avisar quan el servidor s'ha quedat enrere:
+   enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
+   nova, i fins llavors tot es veu malament sense que ningú ho digui.
+   ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
+var BACKEND_VERSIO = 'v143';
+
 var MAX_CELA = 45000;
 
 /* ── LLEGIR UN JSON DESAT SENSE PERDRE'L ─────────────────────────────────
@@ -4269,7 +4276,7 @@ function loadAppData(ss, weekIds, appDataPre) {
    Això substitueix 5-7 crides encadenades per una de sola.
    ============================================================ */
 function bootstrap(ss, weekIds) {
-  var result = { ok: true };
+  var result = { ok: true, backendVersio: BACKEND_VERSIO };
 
   // Llegim TOT el full _AppData una sola vegada (en comptes de rellegir-lo a
   // cada sheetGetJSON). Estalvia diverses lectures completes del full → més ràpid.

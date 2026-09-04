@@ -682,3 +682,48 @@ canviar el disseny (files independents en comptes d'un sol bloc de JSON).
 `eines/comprova-controls.js` també comprova que **cap acció que demani el
 navegador falti al `Code.gs`**: un botó pot cridar una funció que existeix i
 morir a la crida al servidor.
+
+---
+
+## 15. EL SERVIDOR NO S'ACTUALITZA SOL
+
+L'app es publica al GitHub Pages i s'actualitza sola. **El `Code.gs` no.** Viu
+al Apps Script de cada mestra i, perquè un canvi hi arribi, no n'hi ha prou
+d'enganxar-hi el codi: cal **desplegar-ne una versió nova**.
+
+⚠ **«Implementa → Nova implementació» crea una adreça NOVA**, i l'app segueix
+parlant amb la vella. El que cal és:
+
+> **Implementa → Gestiona implementacions → el llapis → Versió: Nova versió → Desplega**
+
+El 4 de setembre del 2026 en Pol va enganxar el codi, va desplegar, i la
+pàgina de les famílies seguia ensenyant «UNDEFINED, NAN DE UNDEFINED» i dates
+de 1899: servia codi d'abans de la v137. **Res a l'app ho deia.**
+
+Per això ara `Code.gs` porta `BACKEND_VERSIO`, el `bootstrap` la retorna i
+l'app ensenya un avís groc a dalt de tot quan no coincideix amb la seva.
+**Puja-la al mateix temps que les altres tres** (`sw.js`, `js/versio.js`,
+`versio.json`): són quatre, no tres.
+
+---
+
+## 16. PASSAR-HO TOT PEL GARBELL
+
+```bash
+node eines/prova-tot.js
+```
+
+Executa totes les comprovacions i en fa un resum, perquè no calgui recordar-les
+d'una en una:
+
+| Eina | Què mira |
+|---|---|
+| `comprova-controls.js` | Botons que no fan res · accions que el servidor no té · funcions declarades dues vegades |
+| `comprova-dades.js` | Que unes dades il·legibles o massa grosses no s'esborrin en silenci |
+| `comprova-avis.js` | Que l'avís de servidor endarrerit surti quan toca |
+| `comprova-manual.js` | Enllaços, índex, etiquetes i versions |
+| `comprova-rols.js` | L'app sencera amb els tres rols |
+
+A part, quan es toca el backend: `node eines/banc-backend.js` (compta les
+crides a Google) i `node eines/estat-apps.js` (versions, fitxers pendents i
+si alguna app està **sincronitzada però no publicada**).

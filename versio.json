@@ -1,11 +1,8 @@
 {
-  "versio": "v140",
+  "versio": "v143",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "La pàgina que reben les famílies: ara trien primer el dia i després l hora, en comptes de veure totes les hores de totes les setmanes de cop. Al mòbil cap en una pantalla.",
-    "Arreglat: a les famílies els podia sortir Undefined NaN com a nom del dia, i les hores desplaçades mitja hora.",
-    "Reunions: el calendari ja no es queda buit encara que el servidor doni les dates en un format estrany.",
-    "Reunions: esborrar un calendari ara és immediat."
+    "L app ara t avisa a dalt de tot quan el Google Apps Script s ha quedat enrere, i t explica què has de clicar. Fins ara això era invisible: l app es veia malament i no hi havia manera de saber per què."
   ]
 }
