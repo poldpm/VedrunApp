@@ -708,10 +708,17 @@ function recordatoriEsmorzars() {
    Es pot repetir sense por: primer treu el que ja hi hagués. */
 function configuraRecordatoriEsmorzars() {
   var fora = 0;
-  ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'recordatoriEsmorzars') { ScriptApp.deleteTrigger(t); fora++; }
-  });
-  ScriptApp.newTrigger('recordatoriEsmorzars').timeBased().everyDays(1).atHour(7).create();
+  try {
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === 'recordatoriEsmorzars') { ScriptApp.deleteTrigger(t); fora++; }
+    });
+    ScriptApp.newTrigger('recordatoriEsmorzars').timeBased().everyDays(1).atHour(7).create();
+  } catch (e) {
+    var err = _faltaPermisDisparadors_(e) ? _comManifestVell_()
+                                         : 'No s ha pogut posar el disparador: ' + e.message;
+    Logger.log(err);
+    return err;
+  }
   var txt = 'Recordatori dels esmorzars: disparador diari posat (cap a les 7 del mati).' +
             (fora ? ' N he tret ' + fora + ' de vell.' : '');
   Logger.log(txt);
@@ -1842,7 +1849,9 @@ function configuraTot() {
     diu(jaHiEs ? '   Disparador diari ....... ja hi es' : '   Disparador diari ....... NO hi es');
     if (!jaHiEs) pendents.push('Si es l app de direccio: executa configuraRecordatoriEsmorzars() un cop.');
   } catch (e) {
-    diu('   No s han pogut mirar els disparadors: ' + e.message);
+    diu(_faltaPermisDisparadors_(e) ? '   NO s han pogut mirar: el appsscript.json es vell.' 
+                                    : '   No s han pogut mirar els disparadors: ' + e.message);
+    if (_faltaPermisDisparadors_(e)) pendents.push('El appsscript.json d aquest projecte es vell. ' + _comManifestVell_());
   }
 
   /* 7) Sincronitzacio constant de les llistes d'alumnes */
@@ -1862,7 +1871,9 @@ function configuraTot() {
     if (!permisSync && dispSync) pendents.push('Te el disparador pero NO el permis: no fara res. Executa configuraSincronitzacioLlistes() o treuSincronitzacioLlistes().');
     if (!permisSync && !dispSync) diu('   Si es l app de DIRECCIO: executa configuraSincronitzacioLlistes() un cop.');
   } catch (e) {
-    diu('   No s ha pogut mirar: ' + e.message);
+    diu(_faltaPermisDisparadors_(e) ? '   NO s ha pogut mirar: el appsscript.json es vell.'
+                                    : '   No s ha pogut mirar: ' + e.message);
+    if (_faltaPermisDisparadors_(e)) pendents.push('El appsscript.json d aquest projecte es vell. ' + _comManifestVell_());
   }
 
   /* Resum */
@@ -3954,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v153';
+var BACKEND_VERSIO = 'v154';
 
 var MAX_CELA = 45000;
 
@@ -5285,20 +5296,50 @@ function grupsSincronitzaAuto() {
   } catch (e) { Logger.log('grupsSincronitzaAuto ha petat: ' + e.message); }
 }
 
+/* ── EL MANIFEST VELL ───────────────────────────────────────
+   El Code.gs s'enganxa a mà, però el appsscript.json (on hi ha
+   la llista de permisos) no. Si aquell fitxer és vell, tot el
+   que toqui disparadors peta amb un error en anglès que no diu
+   què s'ha de fer. Va passar a l'app d'en Pol el 4/9/2026.
+   ─────────────────────────────────────────────────────────── */
+function _faltaPermisDisparadors_(e) {
+  var m = String((e && e.message) || e || '');
+  return m.indexOf('script.scriptapp') >= 0 ||
+         (m.indexOf('permissions') >= 0 && m.indexOf('getProjectTriggers') >= 0) ||
+         (m.indexOf('permisos') >= 0 && m.indexOf('getProjectTriggers') >= 0);
+}
+function _comManifestVell_() {
+  return 'FALTA UN PERMIS: el fitxer appsscript.json d aquest projecte es vell.\n' +
+         '\nEs arregla en un minut i nomes s ha de fer un cop:\n' +
+         '  1. A l esquerra, Configuracio del projecte (la roda dentada).\n' +
+         '  2. Marca "Mostra el fitxer de manifest appsscript.json a l editor".\n' +
+         '  3. Torna a l editor: ara hi ha un fitxer appsscript.json. Obre l.\n' +
+         '  4. Esborra el que hi ha i enganxa hi el appsscript.json que t han passat.\n' +
+         '  5. Desa i torna a executar aquesta funcio. Et demanara permis: accepta l.\n' +
+         '\n(El Code.gs s enganxa, pero el appsscript.json no: per aixo es queda enrere.)';
+}
+
 /* Engega la sincronització constant EN AQUESTA instal·lació.
    S'executa un cop des de l'editor, i NOMÉS a l'app de direcció.
    Es pot repetir sense por: primer treu el disparador vell. */
 function configuraSincronitzacioLlistes() {
-  var fora = 0;
-  ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'grupsSincronitzaAuto') { ScriptApp.deleteTrigger(t); fora++; }
-  });
-  ScriptApp.newTrigger('grupsSincronitzaAuto').timeBased().everyMinutes(SYNC_CADA_MINUTS).create();
+  var fora = 0, txt;
+  try {
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === 'grupsSincronitzaAuto') { ScriptApp.deleteTrigger(t); fora++; }
+    });
+    ScriptApp.newTrigger('grupsSincronitzaAuto').timeBased().everyMinutes(SYNC_CADA_MINUTS).create();
+  } catch (e) {
+    txt = _faltaPermisDisparadors_(e) ? _comManifestVell_()
+                                      : 'No s ha pogut posar el disparador: ' + e.message;
+    Logger.log(txt);
+    return txt;
+  }
   PropertiesService.getScriptProperties().setProperty('SYNC_LLISTES', 'si');
-  var txt = 'Sincronitzacio constant ENGEGADA en aquesta instal lacio: cada ' +
-            SYNC_CADA_MINUTS + ' minuts.' + (fora ? ' N he tret ' + fora + ' de vell.' : '') +
-            '\nCOMPTE: nomes ha d estar engegada en UNA app (la de direccio).' +
-            '\nPer veure si va: executa provaSincronitzacio().';
+  txt = 'Sincronitzacio constant ENGEGADA en aquesta instal lacio: cada ' +
+        SYNC_CADA_MINUTS + ' minuts.' + (fora ? ' N he tret ' + fora + ' de vell.' : '') +
+        '\nCOMPTE: nomes ha d estar engegada en UNA app (la de direccio).' +
+        '\nPer veure si va: executa provaSincronitzacio().';
   Logger.log(txt);
   return txt;
 }
@@ -5306,9 +5347,19 @@ function configuraSincronitzacioLlistes() {
 /* Per apagar-la (si s'ha engegat a l'app que no tocava). */
 function treuSincronitzacioLlistes() {
   var fora = 0;
-  ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'grupsSincronitzaAuto') { ScriptApp.deleteTrigger(t); fora++; }
-  });
+  try {
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === 'grupsSincronitzaAuto') { ScriptApp.deleteTrigger(t); fora++; }
+    });
+  } catch (e) {
+    // Encara que no puguem tocar els disparadors, treure li el permis ja
+    // l atura: sense SYNC_LLISTES, grupsSincronitzaAuto no fa res.
+    PropertiesService.getScriptProperties().setProperty('SYNC_LLISTES', 'no');
+    var avis = 'Permis tret (ja no fara res), pero NO he pogut treure el disparador.\n' +
+               (_faltaPermisDisparadors_(e) ? _comManifestVell_() : e.message);
+    Logger.log(avis);
+    return avis;
+  }
   PropertiesService.getScriptProperties().setProperty('SYNC_LLISTES', 'no');
   var txt = 'Sincronitzacio constant APAGADA en aquesta instal lacio. Disparadors trets: ' + fora + '.';
   Logger.log(txt);
@@ -5339,9 +5390,15 @@ function grupsSyncEstat(ss) {
 /* Per mirar com va, sense esperar el quart d'hora. */
 function provaSincronitzacio() {
   var permis = PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES');
-  var quants = ScriptApp.getProjectTriggers().filter(function (t) {
-    return t.getHandlerFunction() === 'grupsSincronitzaAuto';
-  }).length;
+  var quants;
+  try {
+    quants = ScriptApp.getProjectTriggers().filter(function (t) {
+      return t.getHandlerFunction() === 'grupsSincronitzaAuto';
+    }).length;
+  } catch (e) {
+    if (_faltaPermisDisparadors_(e)) { Logger.log(_comManifestVell_()); return _comManifestVell_(); }
+    quants = '(no s han pogut mirar: ' + e.message + ')';
+  }
   var r = grupsSincronitzaSiCal(SpreadsheetApp.getActiveSpreadsheet());
   var txt = 'Permis (SYNC_LLISTES): ' + (permis || '(no posat)') +
             '\nDisparadors posats: ' + quants +

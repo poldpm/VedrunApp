@@ -124,6 +124,13 @@ les apps de les mestres. **No té remote de git i no n'ha de tenir.**
   `canvis`, escrits en llenguatge de mestre).
 - **A cada canvi de `Code.gs`: cal desplegar una NOVA versió** al Apps Script.
   Si el canvi NO toca `Code.gs`, no li diguis que redesplegui: no cal.
+- ⚠ **El `appsscript.json` NO viatja amb el `Code.gs`.** Són dos fitxers que
+  s'enganxen a mà per separat, i el segon no se li demana gairebé mai: per
+  això es queda enrere. Si el teu canvi fa servir una API que demana un
+  permís nou (`ScriptApp`, `DriveApp`, `Tasks`…), **passa-li també el
+  `appsscript.json` i digues-li com s'enganxa** (Configuració del projecte →
+  «Mostra el fitxer de manifest»). Si no, li petarà amb un error en anglès
+  que no diu què s'ha de fer. Va passar el 4/9/2026 amb els disparadors.
 - No toquis `js/config.local.js` en actualitzar.
 
 ## Validació abans de donar per bo un canvi
