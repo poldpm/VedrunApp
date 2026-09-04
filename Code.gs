@@ -3132,7 +3132,7 @@ function getNotesResum(ss, grup) {
   var suf = (grup && grup.toString().trim()) ? ('_' + grup.toString().trim()) : '';
 
   // Normalitza per agrupar la mateixa assignatura entre trimestres.
-  function _norm(s){ return (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+  function _norm(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
   // Mapa nom-base conegut → clau curta (matematiques, medi…), per mantenir la
   // compatibilitat amb qui consumeix el resum amb claus fixes (context del xat).
   var NOM2KEY = {};
@@ -3965,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v163';
+var BACKEND_VERSIO = 'v164';
 
 var MAX_CELA = 45000;
 
@@ -5991,7 +5991,7 @@ function ordenaGrupsDEBO() {
    "Boubacar-Sidy" → ["boubacar","sidy"] */
 function _mots_(s) {
   return String(s == null ? '' : s)
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
     .split(' ').filter(function (m) { return m.length > 0; });
 }
@@ -6215,7 +6215,7 @@ var FITXES_ID = '1muxIeGoux6wG4gMZ7Xus58ULG-99Wsb0H3yONzCHKUo';
 
 function _fnorm_(s) {
   return String(s == null ? '' : s)
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     // ⚠ L'apòstrof compta com un espai. Sense això, "Aula d'acollida" mai no
     // era igual a "aula d acollida" i tota una comparació del codi era
     // lletra morta: aquelles caselles queien a la secció que tocava per
