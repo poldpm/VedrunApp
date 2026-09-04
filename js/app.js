@@ -5753,12 +5753,28 @@ async function _comentCarregaAlumnesDelGrup(matKey) {
    Aquest avís ho fa visible. Surt a dalt de tot i no se'n va
    fins que el servidor està al dia.
    ============================================================ */
+/* De 'v153' a 153. Torna null si no ho sap llegir. */
+function _numVersio(v) {
+  const m = /^v(\d+)$/.exec(String(v || '').trim());
+  return m ? parseInt(m[1], 10) : null;
+}
+
 function _avisaBackendVell(versioServidor) {
-  const meva = (typeof window.versioApp === 'object' && window.versioApp.actual) || null;
+  const va = (typeof window.versioApp === 'object' && window.versioApp) || {};
+  const meva = va.actual || null;
   const id = 'avisBackendVell';
   const vell = document.getElementById(id);
-  // Sense resposta del servidor o sense saber la nostra versió: no diem res.
-  if (!meva || !versioServidor || versioServidor === meva) { if (vell) vell.remove(); return; }
+
+  // ⚠ NO es compara la igualtat, sinó el MÍNIM que aquesta app necessita.
+  // Amb la igualtat, un canvi de només CSS ja treia la franja groga i
+  // obligava a redesplegar el servidor per no res.
+  const minim = _numVersio(va.minimServidor);
+  const servidor = _numVersio(versioServidor);
+  const prouNou = (minim === null || servidor === null) ? true : servidor >= minim;
+
+  // Sense resposta del servidor, sense saber la nostra versió, o amb un
+  // servidor prou nou: no diem res.
+  if (!meva || !versioServidor || prouNou) { if (vell) vell.remove(); return; }
   if (vell) return;                                  // ja hi és
 
   const d = document.createElement('div');

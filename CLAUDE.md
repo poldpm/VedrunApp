@@ -124,6 +124,12 @@ les apps de les mestres. **No té remote de git i no n'ha de tenir.**
   `canvis`, escrits en llenguatge de mestre).
 - **A cada canvi de `Code.gs`: cal desplegar una NOVA versió** al Apps Script.
   Si el canvi NO toca `Code.gs`, no li diguis que redesplegui: no cal.
+- **`BACKEND_MINIM` (a `js/versio.js`) NO es puja a cada versió.** És la versió
+  més vella del `Code.gs` amb què l'app encara funciona, i és el que decideix
+  si surt la franja groga de «servidor endarrerit». Puja-la **només** quan
+  l'app deixi de funcionar amb el servidor d'abans (una acció nova al
+  `Code.gs`, un camp nou que el navegador espera). Si el canvi és de pantalla,
+  no la toquis: si no, l'avís sortirà quan no toca i deixarà de servir de res.
 - ⚠ **El `appsscript.json` NO viatja amb el `Code.gs`.** Són dos fitxers que
   s'enganxen a mà per separat, i el segon no se li demana gairebé mai: per
   això es queda enrere. Si el teu canvi fa servir una API que demana un

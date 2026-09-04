@@ -21,7 +21,19 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v156';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v157';   // ← ha de coincidir amb el CACHE del sw.js
+
+  /* La versió MÉS VELLA del Code.gs amb què aquesta app encara funciona.
+     ------------------------------------------------------------------
+     No és la versió d'ara: és el mínim. Abans es comparava la igualtat,
+     i llavors un canvi de només CSS ja feia sortir la franja groga i
+     obligava la mestra a redesplegar el servidor per no res.
+
+     ⚠ Aquesta línia NOMÉS es puja quan l'app deixa de funcionar amb el
+     servidor d'abans: una acció nova al Code.gs, un camp nou que el
+     navegador espera... Si el canvi és de pantalla, NO es toca. */
+  var BACKEND_MINIM = 'v155';
+
   var K_AJORNAT  = 'versio_ajornada';
 
   function esc(s) {
@@ -116,5 +128,6 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  window.versioApp = { actual: VERSIO_APP, comprova: comprova, actualitza: actualitza };
+  window.versioApp = { actual: VERSIO_APP, minimServidor: BACKEND_MINIM,
+                       comprova: comprova, actualitza: actualitza };
 })();

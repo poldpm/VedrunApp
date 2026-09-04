@@ -1,8 +1,8 @@
 {
-  "versio": "v156",
+  "versio": "v157",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Els dos apartats plegables de Configuració ara es veuen igual."
+    "L avís de servidor endarrerit ja no surt quan el canvi és només de pantalla: només quan de debò cal tornar a desplegar."
   ]
 }
