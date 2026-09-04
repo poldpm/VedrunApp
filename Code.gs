@@ -3965,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v160';
+var BACKEND_VERSIO = 'v161';
 
 var MAX_CELA = 45000;
 
@@ -6565,8 +6565,14 @@ function fitxesInforme(ss) {
       if (r.alumne || (r.alumnes && r.alumnes.length)) { c.resoltes++; return; }
       c.dubtes++;
       var per = r.dubte;
-      var altres = aQuinGrupEs(nom, g);
-      if (altres.length) per = 'no és d\'aquest grup: és de ' + altres.join(', ');
+      // ⚠ Només es mira si és d'un altre grup quan a AQUEST no hi ha ningú
+      // que hi encaixi. Si n'hi ha dos (les dues Gales de 2n C), el
+      // problema és l'empat, no el grup: dir "no és d'aquest grup" seria
+      // mentida i, a més, amagaria l'ordre per resoldre'l.
+      if (/no trobo ningú/.test(per || '')) {
+        var altres = aQuinGrupEs(nom, g);
+        if (altres.length) per = 'no és d\'aquest grup: és de ' + altres.join(', ');
+      }
       dubtes.push({ grup: g, on: on, text: nom, per: per });
     }
 
@@ -6643,6 +6649,239 @@ function provaFitxes() {
       l.push('l alies es guarda al full compartit i el segueix encara que');
       l.push('l alumne canvii de fila o de cognom.');
     }
+  }
+  var txt = l.join('\n');
+  Logger.log(txt);
+  return txt;
+}
+
+/* ============================================================
+   DEL DOCUMENT AL FULL
+   ------------------------------------------------------------
+   Ara sí: agafa el que diuen les fitxes de l'escola i ho posa a
+   la fitxa de cada alumne. On va cada cosa:
+
+     TRASTORNS (TEA, TDAH, TEL...)  → Aspectes específics
+     PI (Català, Mates...)          → PI
+     Adaptacions (Castellà...)      → AM
+     INFORMES EAP                   → Informe EAP
+     Altres observacions            → Observació important
+
+   Tres regles que valen la pena:
+
+   1. NOMÉS s'escriu el que se sap de qui és. Les caselles amb
+      dubte no toquen res: es diuen i ja està.
+   2. Si una casella parla d'UN sol nen, se'n guarda tot el text
+      ("Sami: certificat de discapacitat. TEA de grau 3..."). Si
+      en parla de diversos, només l'etiqueta ("TEA"), perquè si
+      no li penjaríem a cadascun l'explicació dels altres.
+   3. Si el document no diu res d'un alumne en un camp, aquell
+      camp NO es toca. El document mana on parla; on calla, no.
+   ============================================================ */
+
+var FITXA_COL = {
+  obs: 8,    // Observació important
+  pi: 10,    // PI
+  am: 11,    // AM
+  asp: 12,   // Aspectes específics
+  eap: 13,   // Informe EAP
+};
+
+/* L'etiqueta d'una casella, neta: "TEA:" → "TEA", "[merged] Català:" → "Català" */
+function _fitxaEtiq_(e) {
+  return String(e || '').replace(/^\[merged\]\s*/i, '').replace(/\s*:\s*$/, '').trim();
+}
+
+/* Ajunta trossos sense repetir-ne cap ni deixar-hi buits. */
+function _fitxaJunta_(trossos) {
+  var vistos = {}, out = [];
+  (trossos || []).forEach(function (t) {
+    var s = String(t == null ? '' : t).trim();
+    if (!s) return;
+    var k = _fnorm_(s);
+    if (vistos[k]) return;
+    vistos[k] = 1;
+    out.push(s);
+  });
+  return out.join(' · ');
+}
+
+/* El que el document diu de cada alumne d'un grup.
+   Torna { uid: {obs, pi, am, asp, eap} } amb el text ja fet. */
+function _fitxaPerAlumne_(f, prep, alies) {
+  var acc = {};
+  function per(uid) {
+    if (!acc[uid]) acc[uid] = { obs: [], pi: [], am: [], asp: [], eap: [] };
+    return acc[uid];
+  }
+  /* Resol una etiqueta i torna la llista d'alumnes (0, 1 o més). */
+  function quins(nom) {
+    var r = _qui_(prep, nom, alies);
+    if (r.alumne) return [r.alumne];
+    if (r.alumnes) return r.alumnes;
+    return [];
+  }
+
+  // (a) Observacions i informes EAP: l'etiqueta és el nen, el valor el text
+  [['obs', f.obs], ['eap', f.eap]].forEach(function (par) {
+    par[1].forEach(function (x) {
+      if (!x.etiqueta || _fnorm_(x.etiqueta) === 'nom alumne/a') return;
+      if (!/[A-Za-zÀ-ÿ]/.test(x.etiqueta)) return;
+      var trossos = x.etiqueta.split(/\s+i\s+|\s*,\s*/).map(function (s) { return s.trim(); })
+                              .filter(function (s) { return s; });
+      if (!trossos.length) trossos = [x.etiqueta];
+      var tots = [];
+      trossos.forEach(function (n) { quins(n).forEach(function (a) { tots.push(a); }); });
+      if (!tots.length) return;
+      // El text és de tots els que hi surten. Si no n'hi ha valor, es
+      // guarda l'etiqueta: un informe EAP sense text igual vol dir que en té.
+      var text = String(x.valor || '').trim() || _fitxaEtiq_(x.etiqueta);
+      tots.forEach(function (a) { per(a.uid)[par[0]].push(text); });
+    });
+  });
+
+  // (b) Trastorns, PI i adaptacions: l'etiqueta és el camp, el valor la llista
+  [['asp', f.trastorns], ['pi', f.pi], ['am', f.am]].forEach(function (par) {
+    par[1].forEach(function (x) {
+      var etiq = _fitxaEtiq_(x.etiqueta);
+      var noms = _fitxaNoms_(x.valor);
+      if (!noms.length) return;
+      var tots = [];
+      noms.forEach(function (n) { quins(n).forEach(function (a) { tots.push(a); }); });
+      if (!tots.length) return;
+      // ⚠ Si la casella parla d'un sol nen, se'n guarda tot el text; si en
+      // parla de diversos, només l'etiqueta. Si no, a cada nen li penjaríem
+      // l'explicació dels altres.
+      var uid1 = {};
+      tots.forEach(function (a) { uid1[a.uid] = 1; });
+      var solUn = Object.keys(uid1).length === 1;
+      var textLlarg = String(x.valor || '').trim();
+      var teExplicacio = textLlarg.length > (noms.join(' ').length + 4);
+      tots.forEach(function (a) {
+        per(a.uid)[par[0]].push(solUn && teExplicacio ? etiq + ': ' + textLlarg : etiq);
+      });
+    });
+  });
+
+  var fora = {};
+  Object.keys(acc).forEach(function (uid) {
+    fora[uid] = {
+      obs: _fitxaJunta_(acc[uid].obs),
+      pi:  _fitxaJunta_(acc[uid].pi),
+      am:  _fitxaJunta_(acc[uid].am),
+      asp: _fitxaJunta_(acc[uid].asp),
+      eap: _fitxaJunta_(acc[uid].eap),
+    };
+  });
+  return fora;
+}
+
+/* ============================================================
+   PORTAR-HO AL FULL
+   ------------------------------------------------------------
+   Amb prova=true no escriu res: només diu què faria, camp per
+   camp. És com s'ha de mirar SEMPRE abans de deixar-ho anar.
+   ============================================================ */
+function fitxesAplica(ss, prova) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var doc;
+  try { doc = _fitxesTotes_(); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut obrir el document de fitxes: ' + e.message }; }
+  if (!Object.keys(doc.perGrup).length) {
+    return { ok: false, error: 'No he sabut aparellar cap fitxa amb cap grup: no toco res.' };
+  }
+
+  var lock = LockService.getScriptLock(), tinc = false;
+  try { lock.waitLock(120000); tinc = true; }
+  catch (e) { return { ok: false, error: 'Hi ha una altra feina en marxa.' }; }
+
+  try {
+    var total = { alumnes: 0, camps: 0, iguals: 0 };
+    var perGrup = [], canvis = [];
+
+    Object.keys(doc.perGrup).forEach(function (g) {
+      var sh = gss.getSheetByName(g);
+      if (!sh) return;
+      var lr = sh.getLastRow();
+      if (lr < 2) return;
+
+      var alumnes = _fitxaAlumnes_(gss, g);
+      if (!alumnes.length) return;
+      var prep = _quiPrepara_(alumnes);
+      var alies = _aliesLlegeix_(gss, g);
+      var diu = _fitxaPerAlumne_(doc.perGrup[g], prep, alies);
+
+      // Una sola lectura de tot el bloc, i una sola escriptura per columna
+      var d = sh.getRange(2, 1, lr - 1, COL_UID).getValues();
+      var c = { grup: g, alumnes: 0, camps: 0, iguals: 0 };
+      var toca = {};   // columna → {fila: valor}
+
+      d.forEach(function (fila, i) {
+        var uid = String(fila[COL_UID - 1] || '').trim();
+        if (!uid || !diu[uid]) return;
+        var teCanvi = false;
+        Object.keys(FITXA_COL).forEach(function (camp) {
+          var nou = diu[uid][camp];
+          if (!nou) return;                       // el document no en diu res: no s'hi toca
+          var col = FITXA_COL[camp];
+          var vell = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
+          if (vell === nou) { c.iguals++; return; }
+          if (!toca[col]) toca[col] = {};
+          toca[col][i + 2] = nou;
+          c.camps++; teCanvi = true;
+          if (canvis.length < 40) {
+            canvis.push({ grup: g, alumne: fila[0] + ' ' + fila[1], camp: camp,
+                          abans: vell.slice(0, 60), ara: String(nou).slice(0, 60) });
+          }
+        });
+        if (teCanvi) c.alumnes++;
+      });
+
+      if (!prova) {
+        Object.keys(toca).forEach(function (col) {
+          Object.keys(toca[col]).forEach(function (fila) {
+            sh.getRange(Number(fila), Number(col)).setValue(toca[col][fila]);
+          });
+        });
+      }
+      total.alumnes += c.alumnes; total.camps += c.camps; total.iguals += c.iguals;
+      perGrup.push(c);
+    });
+
+    if (!prova) sheetSetJSON(gss, '_AppData', 'fitxes_aplicat', JSON.stringify({
+      quan: Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'), total: total }));
+
+    return { ok: true, prova: !!prova, total: total, grups: perGrup, mostra: canvis };
+  } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
+}
+
+/* Mira què faria, sense tocar res. */
+function provaAplicarFitxes() { return _fitxesAplicaTxt_(true); }
+/* I ara sí. */
+function aplicaFitxesDEBO() { return _fitxesAplicaTxt_(false); }
+
+function _fitxesAplicaTxt_(prova) {
+  var r = fitxesAplica(SpreadsheetApp.getActiveSpreadsheet(), prova);
+  if (!r.ok) { Logger.log('ERROR: ' + r.error); return r; }
+  var l = [];
+  l.push(prova ? 'AIXO ES EL QUE FARIA (no he tocat res)' : 'FET');
+  l.push('======================================');
+  l.push('Alumnes amb alguna cosa a canviar: ' + r.total.alumnes);
+  l.push('Caselles a escriure ............... ' + r.total.camps);
+  l.push('Caselles que ja estaven bé ........ ' + r.total.iguals);
+  l.push('');
+  r.grups.forEach(function (g) {
+    if (g.camps || g.alumnes) l.push('  ' + g.grup + ' — ' + g.camps + ' caselles, ' + g.alumnes + ' alumnes');
+  });
+  if (r.mostra.length) {
+    l.push('');
+    l.push('MOSTRA (les ' + r.mostra.length + ' primeres):');
+    r.mostra.forEach(function (m) {
+      l.push('  ' + m.grup + ' · ' + m.alumne + ' · ' + m.camp);
+      if (m.abans) l.push('      abans: ' + m.abans);
+      l.push('      ara:   ' + m.ara);
+    });
   }
   var txt = l.join('\n');
   Logger.log(txt);
