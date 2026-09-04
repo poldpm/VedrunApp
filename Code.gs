@@ -4088,7 +4088,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v172';
+var BACKEND_VERSIO = 'v173';
 
 var MAX_CELA = 45000;
 
@@ -7052,22 +7052,21 @@ function _fitxaPerAlumne_(f, prep, alies) {
     else if (e.indexOf("familia") === 0) { on = "asp"; }
     if (!on) return;
 
-    var noms = _fitxaNoms_(x.valor);
-    if (!noms.length) return;
-    var tots = [];
-    noms.forEach(function (n) { quins(n).forEach(function (a) { tots.push(a); }); });
-    if (!tots.length) return;
-    var uids = {};
-    tots.forEach(function (a) { uids[a.uid] = 1; });
-    var text = String(x.valor || "").trim();
-    // Igual que abans: el text sencer només si parla d un sol nen i de
-    // ningú més. Si no, la marca i prou.
-    var sol = Object.keys(uids).length === 1 && !_parlaDAltres_(text, prep, uids);
-    tots.forEach(function (a) {
-      if (!ambText) { per(a.uid)[on].push("Sí"); return; }
-      per(a.uid)[on].push(sol && text.length > noms.join(" ").length + 4
-                          ? _fitxaEtiq_(x.camp) + ": " + text
-                          : _fitxaEtiq_(x.camp));
+    // Cada tros de la casella parla d un nen (o d uns quants) i diu una
+    // cosa DIFERENT de cadascun. Sense això, a tots els arribava el rètol
+    // del camp i prou: "Intoleràncies, al·lèrgies..." no diu quina.
+    var trossos = _fitxaGrupTrossos_(x.valor);
+    if (!trossos.length) return;
+    var etiqCamp = _fitxaEtiq_(x.camp);
+    trossos.forEach(function (t) {
+      var qui = [];
+      t.noms.forEach(function (n) { quins(n).forEach(function (a) { qui.push(a); }); });
+      if (!qui.length) return;
+      var txt = String(t.text || "").replace(/^[s.,;]*[iy][s.,;]*$/, "").trim();
+      qui.forEach(function (a) {
+        if (!ambText) { per(a.uid)[on].push("Sí"); return; }
+        per(a.uid)[on].push(txt ? txt : etiqCamp);
+      });
     });
   });
 
@@ -7479,4 +7478,82 @@ function _fitxesNetejaTxt_(prova) {
   var txt = l.join('\n');
   Logger.log(txt);
   return txt;
+}
+
+/* ============================================================
+   QUÈ DIU LA CASELLA DE GRUP DE CADA NEN
+   ------------------------------------------------------------
+   Les caselles de la secció "Altres" no són una llista pelada:
+   diuen una cosa DIFERENT de cada criatura. I segueixen dos
+   patrons, sempre els mateixos:
+
+     "condició: noms"
+        No xarxes: Dídac, Antoni, Juliet. No Revistes: Sami, Pau.
+        Al·lèrgic peix: Leo No porc: Mohamed, Badr i Sami.
+
+     "nom (què li passa)"
+        Gursehaj (només mare), Aran (família molt pendent),
+        Sofia (mare pendent)
+
+   Sense això, a cada nen li arribava el RÈTOL del camp
+   ("Intoleràncies, al·lèrgies...") i prou, que no diu res: sembla
+   que en tingui una però no diu quina.
+   ============================================================ */
+function _fitxaGrupTrossos_(valor) {
+  var v = String(valor == null ? '' : valor).trim();
+  if (!v || v === '-') return [];
+
+  // ── Patró 1: "condició: noms". El text que queda darrere dels noms
+  //    d'un tros és la condició del tros següent.
+  if (v.indexOf(':') >= 0) {
+    var parts = v.split(':');
+    var fora = [], cond = parts[0].trim();
+    for (var i = 1; i < parts.length; i++) {
+      var tros = parts[i];
+      // Els noms van al davant; el que ve després és la condició següent.
+      var noms = _fitxaNoms_(tros);
+      if (noms.length && cond) fora.push({ noms: noms, text: _fitxaNetejaCond_(cond) });
+      // La condició següent: el que queda del tros després dels noms
+      var resta = tros;
+      noms.forEach(function (n) { resta = resta.split(n).join(' '); });
+      resta = resta.replace(/^[\s,;.i]+/, '').split(/\.\s*/).pop().trim();
+      cond = resta || cond;
+    }
+    if (fora.length) return fora;
+  }
+
+  // ── Patró 2: "nom (què li passa)", separats per comes que NO siguin
+  //    dins d'un parèntesi.
+  var trossos = [], actual = '', nivell = 0;
+  for (var k = 0; k < v.length; k++) {
+    var c = v.charAt(k);
+    if (c === '(') nivell++;
+    if (c === ')') nivell = Math.max(0, nivell - 1);
+    if ((c === ',' || c === '.') && nivell === 0) { trossos.push(actual); actual = ''; continue; }
+    actual += c;
+  }
+  trossos.push(actual);
+
+  var out = [];
+  trossos.forEach(function (t) {
+    t = t.trim();
+    if (!t) return;
+    var noms = _fitxaNoms_(t);
+    if (!noms.length) return;
+    // El que li passa: el parèntesi, o el que queda després del nom.
+    var m = /\(([^)]*)\)/.exec(t);
+    var text = m ? m[1].trim() : '';
+    if (!text) {
+      var resta = t;
+      noms.forEach(function (n) { resta = resta.split(n).join(' '); });
+      text = resta.replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
+    }
+    out.push({ noms: noms, text: text });
+  });
+  return out;
+}
+
+/* Treu de la condició el que hi hagi quedat penjat del tros anterior. */
+function _fitxaNetejaCond_(s) {
+  return String(s || '').replace(/^[\s,;.]+|[\s,;.]+$/g, '').replace(/\s+/g, ' ').trim();
 }
