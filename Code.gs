@@ -3965,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v164';
+var BACKEND_VERSIO = 'v165';
 
 var MAX_CELA = 45000;
 
@@ -6515,6 +6515,29 @@ function posaAlies(grup, etiqueta, qui) {
   var txt = 'Fet: a ' + grup + ', "' + etiqueta + '" vol dir ' +
             r.alumne.nom + ' ' + r.alumne.cognoms + '.' +
             '\nTorna a executar provaFitxes() per veure com queda.';
+  Logger.log(txt);
+  return txt;
+}
+
+/* Per veure què hi ha guardat. Si posaAlies() sembla que no ha fet res,
+   això ho diu de seguida. */
+function veureAlies(grup) {
+  var gss = getGrupsSpreadsheet(SpreadsheetApp.getActiveSpreadsheet());
+  if (!gss) return 'No s ha pogut obrir el full de grups compartit';
+  var l = [];
+  GRUPS_PRIMARIA.forEach(function (g) {
+    if (grup && g !== grup) return;
+    var m = _aliesLlegeix_(gss, g);
+    var claus = Object.keys(m);
+    if (!claus.length) return;
+    var alumnes = _fitxaAlumnes_(gss, g);
+    claus.forEach(function (k) {
+      var qui = alumnes.filter(function (a) { return a.uid === m[k]; })[0];
+      l.push('  ' + g + ' · "' + k + '" → ' +
+             (qui ? qui.nom + ' ' + qui.cognoms : 'CODI QUE JA NO HI ES (' + m[k] + ')'));
+    });
+  });
+  var txt = l.length ? 'ALIES GUARDATS\n' + l.join('\n') : 'No hi ha cap alies guardat.';
   Logger.log(txt);
   return txt;
 }
