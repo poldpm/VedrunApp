@@ -3965,7 +3965,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v156';
+var BACKEND_VERSIO = 'v158';
 
 var MAX_CELA = 45000;
 
@@ -5965,4 +5965,427 @@ function ordenaGrupsDEBO() {
   var r = grupsOrdenaTots(SpreadsheetApp.getActiveSpreadsheet(), false);
   Logger.log(JSON.stringify(r, null, 2));
   return r;
+}
+
+/* ============================================================
+   DE QUIN NEN PARLA AQUESTA CASELLA?
+   ------------------------------------------------------------
+   El document de fitxes de grup de l'escola anomena les criatures
+   com se'ls crida a classe, no com consten a la llista oficial:
+
+     · "Lilly"  és l'Adesuwa LILLY Alile      (el segon nom)
+     · "Zion"   és l'Imadeyunuagbon ZION ...  (el segon nom)
+     · "Bouba"  és en Boubacar-Sidy Balde     (escurçat)
+     · "Arlet P" desfà l'empat amb l'altra Arlet del grup
+     · "Arnar B" és l'Arnau, amb una lletra picada de més
+
+   Buscar per la columna "Nom" fallaria en 71 de 143 files.
+
+   ⚠ LA REGLA D'OR: si no està CLAR de qui es parla, no s'endevina.
+   Una assignació equivocada aquí no és un número mal posat: és el
+   PI d'una criatura a la fitxa d'una altra. Val més deixar-ho
+   sense assignar i que surti a la llista de dubtes.
+   ============================================================ */
+
+/* Trosseja un nom en paraules comparables, sense accents ni guions.
+   "Boubacar-Sidy" → ["boubacar","sidy"] */
+function _mots_(s) {
+  return String(s == null ? '' : s)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    .split(' ').filter(function (m) { return m.length > 0; });
+}
+
+/* Les paraules que no ajuden a distingir ningú. */
+var MOTS_BUITS = { 'de': 1, 'del': 1, 'dels': 1, 'la': 1, 'el': 1, 'i': 1, 'y': 1, 'da': 1, 'dos': 1 };
+
+function _motsUtils_(s) {
+  return _mots_(s).filter(function (m) { return !MOTS_BUITS[m]; });
+}
+
+/* Prepara la llista d'un grup per poder-hi buscar. */
+function _quiPrepara_(alumnes) {
+  return alumnes.map(function (a) {
+    var noms = _motsUtils_(a.nom || a.nomPila);
+    var cogs = _motsUtils_(a.cognoms || a.cognom);
+    return { ref: a, noms: noms, cogs: cogs, tots: noms.concat(cogs) };
+  });
+}
+
+/* Qui és "etiqueta" dins d'aquest grup?
+   Torna { alumne } si n'hi ha UN de sol, o { dubte: '...' } si no.
+   MAI torna un alumne si n'hi podria haver dos. */
+function _qui_(preparats, etiqueta, alies) {
+  var mots = _motsUtils_(etiqueta);
+  if (!mots.length) return { dubte: 'buit' };
+
+  // 0) Un àlies que ja s'ha resolt abans i algú ha confirmat.
+  var clauAlies = mots.join(' ');
+  if (alies && alies[clauAlies]) {
+    var trobat = null;
+    preparats.forEach(function (p) { if (p.ref.uid === alies[clauAlies]) trobat = p.ref; });
+    if (trobat) return { alumne: trobat, com: 'alies' };
+  }
+
+  // 1) Totes les paraules de l'etiqueta són del nom o del cognom.
+  //    Cobreix "Kai Molist", "Miquel Genís" i també "Lilly" tota sola.
+  var quadren = preparats.filter(function (p) {
+    return mots.every(function (m) { return p.tots.indexOf(m) >= 0; });
+  });
+  if (quadren.length === 1) return { alumne: quadren[0].ref, com: 'exacte' };
+  if (quadren.length > 1) {
+    return { dubte: 'n\'hi ha ' + quadren.length + ' que hi encaixen: ' +
+                    quadren.map(function (p) { return p.ref.nom + ' ' + p.ref.cognoms; }).join(' / ') };
+  }
+
+  // 2) "Arlet P": nom sencer + inicial del cognom.
+  //    Es mira PRIMER la inicial del PRIMER cognom, que és com ho
+  //    escriu tothom. Si es miressin tots els cognoms alhora, l'Arlet
+  //    Muntal PARRAMON també quadraria amb "Arlet P" i no en podríem
+  //    triar cap. El nom s'admet amb una lletra picada ("Arnar B").
+  if (mots.length === 2 && mots[1].length === 1) {
+    var elNom = function (p) {
+      return p.noms.indexOf(mots[0]) >= 0 ||
+             (mots[0].length >= 5 && p.noms.some(function (n) { return _distancia1_(mots[0], n); }));
+    };
+    var primerCognom = preparats.filter(function (p) {
+      return elNom(p) && p.cogs.length && p.cogs[0].charAt(0) === mots[1];
+    });
+    if (primerCognom.length === 1) return { alumne: primerCognom[0].ref, com: 'inicial' };
+
+    var qualsevolCognom = preparats.filter(function (p) {
+      return elNom(p) && p.cogs.some(function (c) { return c.charAt(0) === mots[1]; });
+    });
+    if (qualsevolCognom.length === 1) return { alumne: qualsevolCognom[0].ref, com: 'inicial' };
+    if (primerCognom.length > 1 || qualsevolCognom.length > 1) {
+      return { dubte: 'la inicial no desfà l\'empat' };
+    }
+  }
+
+  // 3) Escurçat: "Bouba" per "Boubacar", "Fatou" per "Fatoumata".
+  //    Només amb 4 lletres o més (amb menys, "Mar" valdria per Maria,
+  //    Marc i Mariona) i només si n'hi ha UN de sol.
+  if (mots.length === 1 && mots[0].length >= 4) {
+    var comenca = preparats.filter(function (p) {
+      return p.tots.some(function (t) { return t.indexOf(mots[0]) === 0; });
+    });
+    if (comenca.length === 1) return { alumne: comenca[0].ref, com: 'escurçat' };
+    if (comenca.length > 1) {
+      return { dubte: 'l\'escurçat encaixa amb ' + comenca.length + ': ' +
+                      comenca.map(function (p) { return p.ref.nom + ' ' + p.ref.cognoms; }).join(' / ') };
+    }
+  }
+
+  // 4) Una lletra picada: "Arnar" per "Arnau", "Caycedo" per "Caicedo".
+  //    Distància 1 sobre una paraula prou llarga, i només si n'hi ha un.
+  if (mots.length <= 2) {
+    var aprop = preparats.filter(function (p) {
+      return mots.every(function (m) {
+        return p.tots.some(function (t) { return t === m || (m.length >= 5 && _distancia1_(m, t)); });
+      });
+    });
+    if (aprop.length === 1) return { alumne: aprop[0].ref, com: 'quasi' };
+  }
+
+  return { dubte: 'no trobo ningú que s\'hi assembli' };
+}
+
+/* Dues paraules que es diferencien en una sola lletra (canviada,
+   posada o treta). No és una distància d'edició completa: no cal. */
+function _distancia1_(a, b) {
+  if (a === b) return true;
+  var la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > 1) return false;
+  if (la === lb) {
+    var dif = 0;
+    for (var i = 0; i < la; i++) if (a.charAt(i) !== b.charAt(i)) { dif++; if (dif > 1) return false; }
+    return dif === 1;
+  }
+  var llarg = la > lb ? a : b, curt = la > lb ? b : a;
+  for (var j = 0, k = 0, saltat = false; j < llarg.length; j++) {
+    if (llarg.charAt(j) === curt.charAt(k)) { k++; }
+    else { if (saltat) return false; saltat = true; }
+  }
+  return true;
+}
+
+/* ============================================================
+   LES FITXES DE GRUP DE L'ESCOLA
+   ------------------------------------------------------------
+   El document on les mestres apunten els aspectes de cada alumne.
+   NO és una taula: són 18 fitxes, i cada fitxa guarda la
+   informació al revés del que necessita l'app —
+
+     camp → llista de noms      ("PI Català: Yasmin, Àlex i Rayan")
+     i l'app vol
+     alumne → camps
+
+   O sigui que s'ha d'invertir. I abans d'invertir res, s'ha de
+   saber de quin nen parla cada casella, que és la feina de
+   _qui_() aquí sobre.
+
+   ⚠ Res d'aquí no es llegeix per POSICIÓ. El grup surt de la
+   casella "Grup Classe:", no del nom ni de l'ordre de la
+   pestanya; i les seccions, del text de l'etiqueta. Si l'escola
+   mou una pestanya o hi insereix una columna, ha de seguir
+   funcionant.
+   ============================================================ */
+
+var FITXES_ID = '1muxIeGoux6wG4gMZ7Xus58ULG-99Wsb0H3yONzCHKUo';
+
+function _fnorm_(s) {
+  return String(s == null ? '' : s)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/* Les etiquetes que obren una secció. */
+var FITXA_SECCIONS = {
+  'trastorns': 'trastorns',
+  'informes eap': 'eap',
+  'informes eap (nese + nee)': 'eap',
+  'pi': 'pi',
+  'adaptacions': 'am',
+  'altres observacions': 'obs',
+  'observacions': 'obs',
+  'altres': 'grup',
+};
+
+/* Llegeix UNA fitxa. Torna null si aquella pestanya no n'és una. */
+function _fitxaLlegeix_(sh) {
+  var d;
+  try { d = sh.getDataRange().getValues(); } catch (e) { return null; }
+  if (!d || !d.length) return null;
+
+  // 1) Trobar "Grup Classe:" — d'aquí surt el grup I la columna de les etiquetes
+  var fila = -1, colEtiq = -1, grup = '';
+  for (var i = 0; i < d.length && fila < 0; i++) {
+    for (var j = 0; j < d[i].length; j++) {
+      if (_fnorm_(d[i][j]).indexOf('grup classe') === 0) {
+        fila = i; colEtiq = j;
+        for (var k = j + 1; k < d[i].length; k++) {
+          if (String(d[i][k] || '').trim()) { grup = String(d[i][k]).trim(); break; }
+        }
+        break;
+      }
+    }
+  }
+  if (!grup) return null;
+
+  var f = { grup: grup, pestanya: sh.getName(), tutor: '', descripcio: '',
+            trastorns: [], eap: [], pi: [], am: [], obs: [], grupCamps: [] };
+  var seccio = '';
+
+  for (var r = fila + 1; r < d.length; r++) {
+    var etiq = String(d[r][colEtiq] == null ? '' : d[r][colEtiq]).trim();
+    // Les cel·les combinades deixen l'etiqueta buida i el text a la dreta
+    var val = '';
+    for (var c = colEtiq + 1; c < d[r].length; c++) {
+      var t = String(d[r][c] == null ? '' : d[r][c]).trim();
+      if (t && val.indexOf(t) < 0) val += (val ? ' ' : '') + t;
+    }
+    var brut = _fnorm_(etiq).replace(/^\[merged\]\s*/, '').trim();
+    // El document mateix ho distingeix: les CAPÇALERES de secció van sense
+    // dos punts ("TRASTORNS", "PI", "Adaptacions") i els CAMPS en porten
+    // ("TEA:", "Català:"). Cal, perquè "Altres" obre una secció i "Altres:"
+    // és un camp de les adaptacions — i si es confonguessin, les
+    // adaptacions d'un grup acabarien comptades com a dades de grup.
+    var teDosPunts = /:\s*$/.test(brut);
+    var e = brut.replace(/:$/, '').trim();
+    if (!etiq && !val) continue;
+
+    if (e.indexOf('tutor') === 0) { f.tutor = val; continue; }
+    if (e.indexOf('breu descripcio') === 0) { f.descripcio = val; continue; }
+
+    // Una capçalera de secció. Pot portar text a la dreta i no ser cap dada:
+    // "TRASTORNS | Carpeta PI 3r" és un recordatori per a la mestra, no un nen.
+    var nova = teDosPunts ? null : FITXA_SECCIONS[e];
+    if (nova) { seccio = nova; continue; }
+    if (!teDosPunts && e.indexOf('altres observacions') === 0) { seccio = 'obs'; continue; }
+    if (!teDosPunts && e.indexOf('observacions') === 0 && !val) { seccio = 'obs'; continue; }
+    if (e === 'aula d acollida' || e === 'suport biblioteca escola' ||
+        e === 'suport tsae' || e === 'biblioteca (beet) candidats') {
+      f.grupCamps.push({ camp: etiq, valor: val }); continue;
+    }
+
+    if (!val && !etiq) continue;
+    var entrada = { etiqueta: etiq, valor: val, fila: r + 1 };
+
+    if (seccio === 'trastorns') f.trastorns.push(entrada);
+    else if (seccio === 'eap')  f.eap.push(entrada);
+    else if (seccio === 'pi')   f.pi.push(entrada);
+    else if (seccio === 'am')   f.am.push(entrada);
+    else if (seccio === 'obs')  f.obs.push(entrada);
+    else if (seccio === 'grup') f.grupCamps.push({ camp: etiq, valor: val });
+  }
+  return f;
+}
+
+/* Totes les fitxes, aparellades amb els grups de l'app pel que diu
+   la casella "Grup Classe:", no per com es digui la pestanya. */
+function _fitxesTotes_() {
+  var doc = SpreadsheetApp.openById(FITXES_ID);
+  var perGrup = {}, sense = [];
+  doc.getSheets().forEach(function (sh) {
+    var f = _fitxaLlegeix_(sh);
+    if (!f) { sense.push(sh.getName()); return; }
+    var clau = null;
+    GRUPS_PRIMARIA.forEach(function (g) { if (_nomClau_(g, '') === _nomClau_(f.grup, '')) clau = g; });
+    if (clau) perGrup[clau] = f; else sense.push(sh.getName() + ' (diu "' + f.grup + '")');
+  });
+  return { perGrup: perGrup, sense: sense };
+}
+
+/* D'una casella com "Yasmin, Àlex, Rayan i Lexian" en surten quatre
+   candidats. D'una com "Olivia- Cal fer valoració. Hi ha algun
+   retard..." en surt un i prou, perquè la resta és text.
+
+   Es talla pel primer signe de puntuació: el que hi ha després és
+   explicació, no un altre nom. Val més trobar-ne pocs i segurs que
+   no pas molts i dubtosos. */
+function _fitxaNoms_(valor) {
+  var v = String(valor == null ? '' : valor).trim();
+  if (!v || v === '-') return [];
+
+  // El guionet separa NOMES amb espais als dos costats ("Lilly - Francis").
+  // Entre lletres forma part del nom: en Boubacar-Sidy no s'ha de partir.
+  var trossos = v.split(/\s*[,;/|\n]\s*|\s+[-–—]\s+|\s+i\s+|\s+y\s+/);
+  var fora = [];
+  trossos.forEach(function (t, k) {
+    // Un guionet enganxat al nom i seguit d'espai ("Olivia- Cal fer...")
+    // tambe talla; entre lletres, no.
+    var cap = String(t).replace(/-(?![A-Za-zÀ-ÿ])/g, ' | ');
+    cap = cap.split(/[(.:|!?¡¿]/)[0].trim();
+    cap = cap.replace(/^["'«»\s]+|["'«»\s]+$/g, '');
+    if (!cap) return;
+
+    // Els noms van en majúscula i el que ve després, no. De "Mohamed nivell
+    // I5" en surt "Mohamed"; de "molt mal comportament", res.
+    var mots = cap.split(/\s+/);
+    var bons = [];
+    for (var i = 0; i < mots.length; i++) {
+      var m = mots[i].replace(/^[^A-Za-zÀ-ÿ0-9]+|[^A-Za-zÀ-ÿ0-9]+$/g, '');
+      if (!m || !/^[A-ZÀ-ÖØ-Þ]/.test(m) || /\d/.test(m)) break;
+      bons.push(m);
+    }
+    if (!bons.length || bons.length > 4) return;
+
+    // Un tros que despres del nom continua amb prosa NOMES val si es el
+    // primer. "Mohamed Ahidar - Nouvingut des del 3 de desembre" te el nom
+    // al davant; el que ve despres del guionet es l'explicacio, no un altre
+    // nen. Sense aixo, cada data i cada aclariment es prenia per un alumne.
+    if (k > 0 && bons.length < mots.length) return;
+
+    fora.push(bons.join(' '));
+  });
+  return fora;
+}
+
+/* Els alumnes d'un grup, tal com els té l'app, llestos per buscar-hi. */
+function _fitxaAlumnes_(gss, grup) {
+  var sh = gss.getSheetByName(grup);
+  if (!sh) return [];
+  var lr = sh.getLastRow();
+  if (lr < 2) return [];
+  var d = sh.getRange(2, 1, lr - 1, COL_UID).getValues();
+  var out = [];
+  d.forEach(function (f) {
+    var nom = String(f[0] || '').trim(), cog = String(f[1] || '').trim();
+    if (!nom && !cog) return;
+    out.push({ nom: nom, cognoms: cog, uid: String(f[COL_UID - 1] || '').trim() });
+  });
+  return out;
+}
+
+/* ============================================================
+   QUÈ EN SABRÍEM TREURE, D'AQUEST DOCUMENT?
+   ------------------------------------------------------------
+   Abans d'escriure res enlloc: llegeix les 18 fitxes, mira de
+   quin nen parla cada casella i explica quantes en sap i quantes
+   no. Les que no, les diu una per una perquè es puguin arreglar.
+
+   NO escriu res. És per mirar.
+   ============================================================ */
+function fitxesInforme(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var doc;
+  try { doc = _fitxesTotes_(); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut obrir el document de fitxes: ' + e.message }; }
+
+  var tot = { grups: 0, caselles: 0, resoltes: 0, dubtes: 0 };
+  var perGrup = [], dubtes = [];
+
+  Object.keys(doc.perGrup).forEach(function (g) {
+    var f = doc.perGrup[g];
+    var alumnes = _fitxaAlumnes_(gss, g);
+    if (!alumnes.length) {
+      dubtes.push({ grup: g, on: '(tot)', text: '', per: 'aquest grup no té cap alumne al full "Grups"' });
+      return;
+    }
+    var prep = _quiPrepara_(alumnes);
+    var c = { grup: g, tutor: f.tutor, caselles: 0, resoltes: 0, dubtes: 0 };
+
+    // (a) On l'ETIQUETA és el nen: observacions i informes EAP
+    [['observació', f.obs], ['informe EAP', f.eap]].forEach(function (par) {
+      par[1].forEach(function (x) {
+        if (!x.etiqueta || _fnorm_(x.etiqueta) === 'nom alumne/a') return;
+        c.caselles++;
+        var r = _qui_(prep, x.etiqueta);
+        if (r.alumne) c.resoltes++;
+        else { c.dubtes++; dubtes.push({ grup: g, on: par[0], text: x.etiqueta, per: r.dubte }); }
+      });
+    });
+
+    // (b) On el VALOR és una llista de nens: trastorns, PI i adaptacions
+    [['trastorn', f.trastorns], ['PI', f.pi], ['adaptació', f.am]].forEach(function (par) {
+      par[1].forEach(function (x) {
+        _fitxaNoms_(x.valor).forEach(function (nom) {
+          c.caselles++;
+          var r = _qui_(prep, nom);
+          if (r.alumne) c.resoltes++;
+          else { c.dubtes++; dubtes.push({ grup: g, on: par[0] + ' · ' + x.etiqueta, text: nom, per: r.dubte }); }
+        });
+      });
+    });
+
+    tot.grups++; tot.caselles += c.caselles; tot.resoltes += c.resoltes; tot.dubtes += c.dubtes;
+    perGrup.push(c);
+  });
+
+  return { ok: true, total: tot, grups: perGrup,
+           pestanyesSenseGrup: doc.sense,
+           dubtes: dubtes };
+}
+
+/* Per executar des de l'editor. NO escriu res: només mira i explica. */
+function provaFitxes() {
+  var r = fitxesInforme(SpreadsheetApp.getActiveSpreadsheet());
+  if (!r.ok) { Logger.log('ERROR: ' + r.error); return r; }
+  var l = [];
+  l.push('QUE EN SABEM TREURE, DEL DOCUMENT DE FITXES');
+  l.push('===========================================');
+  l.push('Grups llegits: ' + r.total.grups + ' de ' + GRUPS_PRIMARIA.length);
+  if (r.pestanyesSenseGrup.length) l.push('Pestanyes que no he sabut aparellar: ' + r.pestanyesSenseGrup.join(', '));
+  l.push('');
+  l.push('Caselles amb nom de nen: ' + r.total.caselles);
+  l.push('  · se de quin nen parlen ...... ' + r.total.resoltes +
+         (r.total.caselles ? '  (' + Math.round(r.total.resoltes * 100 / r.total.caselles) + '%)' : ''));
+  l.push('  · NO ho se .................... ' + r.total.dubtes);
+  l.push('');
+  l.push('PER GRUP');
+  r.grups.forEach(function (g) {
+    l.push('  ' + g.grup + ' — ' + g.resoltes + '/' + g.caselles +
+           (g.dubtes ? '   (' + g.dubtes + ' per mirar)' : ''));
+  });
+  if (r.dubtes.length) {
+    l.push('');
+    l.push('EL QUE NO SE (i que per tant NO tocaria):');
+    r.dubtes.forEach(function (d) {
+      l.push('  ' + d.grup + ' · ' + d.on + ' · "' + d.text + '" → ' + d.per);
+    });
+  }
+  var txt = l.join('\n');
+  Logger.log(txt);
+  return txt;
 }

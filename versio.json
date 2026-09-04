@@ -1,8 +1,8 @@
 {
-  "versio": "v157",
+  "versio": "v158",
   "data": "2026-09-04",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "L avís de servidor endarrerit ja no surt quan el canvi és només de pantalla: només quan de debò cal tornar a desplegar."
+    "Feina interna: l app ja sap llegir el document de fitxes de grup de l escola. Encara no en fa res; el pas següent és omplir sola la fitxa de cada alumne."
   ]
 }
