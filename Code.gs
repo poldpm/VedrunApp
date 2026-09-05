@@ -4106,7 +4106,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v201';
+var BACKEND_VERSIO = 'v203';
 
 var MAX_CELA = 45000;
 
@@ -7266,7 +7266,7 @@ function _fitxaPerAlumne_(f, prep, alies) {
 
 /* Un resum de tot el que diu el document. Ha de canviar si canvia
    qualsevol cosa que acabi a la fitxa d'un alumne. */
-function _fitxesEmpremta_(doc) {
+function _fitxesEmpremta_(doc, gss) {
   var trossos = [];
   Object.keys(doc.perGrup).sort().forEach(function (g) {
     var f = doc.perGrup[g];
@@ -7277,6 +7277,32 @@ function _fitxesEmpremta_(doc) {
       });
     });
   });
+  /* ⚠⚠ LA VERSIÓ DEL CODI TAMBÉ COMPTA, I AIXÒ ÉS EL MÉS IMPORTANT D'AQUÍ.
+
+     Fins al 5/9/2026 l'empremta era NOMÉS del document. Vol dir que, si el
+     document no canviava, els fulls no es tornaven a escriure MAI —i per
+     tant cap arranjament del lector no hi arribava. En Pol obria una fitxa,
+     hi trobava una errada que jo ja havia arreglat feia estona, i amb raó
+     deia «UN ERROR MÉS DELS MOLTÍSSIMS QUE PORTEM... JA HI TORNEM A SER».
+     L'errada no era del lector: era que ningú no havia tornat a passar-lo.
+
+     A la fitxa de l'Alana Sofia del 2n C hi havia el que és de la Gala
+     Elizalde. Amb el codi d'ara la lectura és correcta; el full guardava una
+     resta d'una versió d'abans, i res no l'havia de treure.
+
+     Posant-hi la versió del codi, enganxar una biblioteca nova torna a
+     passar-ho tot UNA vegada, i els arranjaments arriben sols.
+
+     I els àlies també: dir de qui és un nom canvia el que s'ha d'escriure
+     tant com canviar-ho al document. */
+  trossos.push('@codi=' + BACKEND_VERSIO);
+  try {
+    if (gss) Object.keys(doc.perGrup).sort().forEach(function (g) {
+      var a = _aliesLlegeix_(gss, g);
+      Object.keys(a).sort().forEach(function (k) { trossos.push('@alies ' + g + ' ' + k + '=' + a[k]); });
+    });
+  } catch (e) {}
+
   return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, trossos.join('\n'), Utilities.Charset.UTF_8)
     .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
 }
@@ -7293,7 +7319,7 @@ function fitxesAplicaSiCal(ss) {
     return { ok: false, error: 'No he sabut aparellar cap fitxa amb cap grup: no toco res.' };
   }
 
-  var ara = _fitxesEmpremta_(doc);
+  var ara = _fitxesEmpremta_(doc, gss);
   var abans = null;
   try { abans = sheetGetJSON(gss, '_AppData', 'fitxes_empremta') || null; } catch (e) {}
 

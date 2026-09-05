@@ -471,13 +471,51 @@ async function _fitxaDesaAra() {
   } finally { _fitxaDesant = false; }
 }
 
+/* EL GÈNERE VA AL FULL DE GRUPS, COM TOTA LA RESTA DE LA FITXA.
+
+   En Pol, 5/9/2026: «entrar el gènere dels nens i el desat automàtic no
+   funciona bé, alguns els desa de cop, altres tarda molt, d'altres ni els
+   desa… i pel que veig no s'està guardant al full de grups».
+
+   Tenia raó i eren tres coses alhora, totes del mateix camí:
+
+   · anava per `saveStudents()`, que escriu la llista del full PERSONAL de la
+     mestra i no toca la columna Gènere del full de grups compartit. O sigui
+     que al full de grups no hi arribava mai;
+   · `saveStudents()` fa DUES crides al servidor (la llista i la còpia al
+     registre) per a un canvi d'una casella: d'aquí que de vegades es desés
+     de seguida i de vegades trigués;
+   · i l'error se'l menjava un `catch` buit, o sigui que el rètol deia
+     «Desat ✓» encara que no s'hagués desat res.
+
+   Ara va pel mateix camí que la resta de la fitxa —una sola escriptura al
+   full de grups, la mateixa que fa el botó de la llista— i si falla, es
+   diu. */
+async function _desaGenereAlGrup(id, genere) {
+  const grup = (typeof _tutoriaGrup !== 'undefined' && _tutoriaGrup) ? _tutoriaGrup : grupActual();
+  const st = students.filter(function (x) { return x.id === id; })[0];
+  const rowId = (personal[id] && personal[id].rowId) || (st && st.rowId) || id;
+  if (!grup) { await saveStudents(true); return; }   // sense grup (mestra sense tutoria)
+  const r = await appsScriptPost({ action: 'saveGrupGenere', grup: grup, rowId: rowId, genere: genere });
+  if (!r || !r.ok) throw new Error((r && r.error) || 'no s\'ha pogut desar el gènere');
+}
+
 async function savePersonalDrawer(noTanquis) {
   const id    = currentPersonalStudentId;
-  // El gènere es desa amb la llista d alumnes, no amb les dades del full.
   const gSel = document.getElementById("pGenere");
   if (gSel) {
     const st = students.filter(function (x) { return x.id === id; })[0];
-    if (st && st.genere !== gSel.value) { st.genere = gSel.value; try { await saveStudents(noTanquis); } catch (e) {} }
+    if (st && st.genere !== gSel.value) {
+      st.genere = gSel.value;
+      /* També a la còpia de la llista del grup: si no, el primer cop que es
+         torni a pintar la pantalla hi tornaria a sortir el d'abans. */
+      if (typeof _tutoriaAlumnes !== 'undefined' && _tutoriaAlumnes) {
+        const ta = _tutoriaAlumnes.filter(function (x) { return x.id === id; })[0];
+        if (ta) ta.genere = st.genere;
+      }
+      if (config.scriptUrl) await _desaGenereAlGrup(id, st.genere);
+      _saveMainToCache();
+    }
   }
   const dades = {
     mare:      document.getElementById('pMare').value.trim(),
