@@ -93,7 +93,7 @@ function showPage(pageId, _fromPop) {
   // s'ha de tornar a posar la llista de la tutoria abans de pintar-les.
   // (A l'app dels especialistes això no fa res: no hi ha tutoria, i el grup
   // el tria ella amb el selector de dalt.)
-  if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); if (typeof _dirRenderGrupPicker === 'function') _dirRenderGrupPicker(); renderAlumnesList(); }
+  if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); if (typeof _dirRenderGrupPicker === 'function') _dirRenderGrupPicker(); renderAlumnesList(); if (typeof dubtesMira === 'function') dubtesMira(); }
   if (pageId === 'registres')    { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('registres'); _dirAvisRegistres(); renderRegistre(); }
   if (pageId === 'observacions') { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('observacions'); _dirAvisObservacions(); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
   if (pageId === 'home')         renderHome();
@@ -6142,3 +6142,178 @@ function _avisaBackendVell(versioServidor) {
    i `aplicaFitxesDEBO()` per als alumnes que no se sap qui són. I des de la
    v183 tot plegat ja es fa sol cada quart d'hora, o sigui que ni ell hi ha
    d'anar gairebé mai. */
+
+/* ============================================================
+   EL QUE EL LECTOR NO HA ENTÈS — ho valida el tutor del grup
+   ------------------------------------------------------------
+   En Pol, 5/9/2026: «si dues hores després encara estàs trobant errors, no
+   creus que hauríem de buscar una altra manera més fiable?». Sí. El camí de
+   fer el lector més llest no s'acaba mai —el document és prosa de divuit
+   mestres—, i el defecte de debò no era que s'equivoqués: era que
+   s'equivocava EN SILENCI.
+
+   Ara, el que no entén no ho escriu a la fitxa de ningú i ho deixa aquí,
+   a la pàgina d'Alumnes, perquè ho miri el TUTOR d'aquell grup: és qui
+   coneix aquells nens i qui ho pot dir en dos segons. En Pol no ha de ser
+   el coll d'ampolla de divuit grups.
+
+   N'hi ha de dues menes:
+   · «no sé qui és aquest nom» — es resol aquí mateix triant l'alumne, i
+     queda dit per sempre i per a tothom.
+   · «no sé què vol dir aquesta casella» — això no ho pot arreglar l'app:
+     el que toca és escriure-ho més clar al document. Es pot amagar quan
+     ja s'ha mirat.
+   ============================================================ */
+
+let _dubtes = [];
+const DUBTES_AMAGATS = 'dubtes_amagats';
+
+function _dubtesAmagats() {
+  try { return JSON.parse(localStorage.getItem(DUBTES_AMAGATS) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+function _dubtesAmaga(clau) {
+  const d = _dubtesAmagats();
+  d[clau] = 1;
+  try { localStorage.setItem(DUBTES_AMAGATS, JSON.stringify(d)); } catch (e) {}
+}
+function _dubteClau(d) {
+  return (d.grup || '') + '|' + (d.mena || 'nom') + '|' + (d.etiqueta || '') + '|' + (d.text || '');
+}
+
+/* Qui ho ha de validar. El tutor d'aquell grup —i la direcció, que pot mirar
+   qualsevol grup—, però no els especialistes: no són els responsables de la
+   fitxa d'aquells nens i no els toca decidir de qui parla el document. */
+function _dubtesEmToca() {
+  return !(typeof esEspecialista === 'function' && esEspecialista());
+}
+
+/* Es demana en obrir Alumnes, no en carregar l'app: és una crida al servidor
+   i no ha de costar-la tothom cada matí. */
+async function dubtesMira() {
+  const avis = document.getElementById('dubtesAvis');
+  if (!avis) return;
+  const grup = grupActual();
+  if (!grup || !config.scriptUrl || !_dubtesEmToca()) { avis.style.display = 'none'; return; }
+  try {
+    const r = await appsScriptPost({ action: 'fitxesDubtes', grup: grup });
+    if (!r || !r.ok) { avis.style.display = 'none'; return; }
+    const amagats = _dubtesAmagats();
+    _dubtes = (r.dubtes || []).filter(d => !amagats[_dubteClau(d)]);
+  } catch (e) { avis.style.display = 'none'; return; }
+  _dubtesPintaAvis();
+}
+
+function _dubtesPintaAvis() {
+  const avis = document.getElementById('dubtesAvis');
+  const txt = document.getElementById('dubtesAvisText');
+  if (!avis || !txt) return;
+  const n = _dubtes.length;
+  avis.style.display = n ? 'flex' : 'none';
+  txt.innerHTML = n === 1
+    ? 'Hi ha <strong>una cosa</strong> del document que no he sabut col·locar.'
+    : 'Hi ha <strong>' + n + ' coses</strong> del document que no he sabut col·locar.';
+}
+
+function obreDubtes() {
+  _dubtesRender();
+  document.getElementById('dubtesOverlay').classList.add('open');
+}
+function tancaDubtes() {
+  document.getElementById('dubtesOverlay').classList.remove('open');
+  _dubtesPintaAvis();
+}
+
+function _dubtesRender() {
+  const cont = document.getElementById('dubtesLlista');
+  const sub = document.getElementById('dubtesSub');
+  if (!cont) return;
+  if (sub) sub.textContent = grupActual() || '';
+  if (!_dubtes.length) {
+    cont.innerHTML = '<p class="modal-hint">Ara mateix no n\'hi ha cap: tot el que diu el ' +
+                     'document sobre aquest grup és a les fitxes.</p>';
+    return;
+  }
+  cont.innerHTML = _dubtes.map((d, i) => {
+    if (d.mena === 'casella') {
+      /* Aquesta no la pot arreglar l'app: el rètol del document no es
+         correspon amb cap apartat de la fitxa. El que toca és escriure-ho
+         d'una altra manera al document. */
+      return '<article class="dubte">' +
+        '<h3 class="dubte-titol">' + escapeHtml(d.etiqueta) + '</h3>' +
+        '<p class="dubte-text">' + escapeHtml(d.text) + '</p>' +
+        '<p class="dubte-motiu">No sé a quin apartat de la fitxa va, i per això no l\'he ' +
+        'posat a ningú. Si és important, escriu-ho al document dins d\'un apartat que ' +
+        'l\'app ja conegui (per exemple «Família» o «Intoleràncies»), o digues-ho a en Pol.</p>' +
+        '<div class="dubte-botons">' +
+          '<button type="button" class="btn btn-secondary btn-sm" onclick="dubteAmaga(' + i + ')">Ja ho he mirat</button>' +
+        '</div>' +
+      '</article>';
+    }
+    /* Un desplegable amb TOTS els nens del grup, i els que s'hi assemblen a
+       dalt de tot. Amb només els candidats no n'hi havia prou: quan al
+       document hi ha un nom mal escrit —i n'hi ha— no s'assembla a ningú i
+       la mestra es quedava mirant un dubte que no podia resoldre. Ella sap
+       de qui parla encara que l'app no ho endevini. */
+    const cands = (d.candidats || []);
+    const uidsCand = {};
+    cands.forEach(c => { uidsCand[c.uid] = 1; });
+    const resta = (typeof students !== 'undefined' ? students : [])
+      .filter(s => s.uid && !uidsCand[s.uid]);
+    const opcio = s => '<option value="' + escapeHtml(s.uid) + '">' +
+      escapeHtml(((s.nomPila || s.nom || '') + ' ' + (s.cognom || s.cognoms || '')).trim()) + '</option>';
+    return '<article class="dubte">' +
+      '<h3 class="dubte-titol">' + escapeHtml(d.etiqueta) + '</h3>' +
+      '<p class="dubte-motiu">Ho diu el document a: ' + escapeHtml((d.on || []).join(', ')) +
+        '. No sé de quin alumne parla' + (d.motiu ? ' (' + escapeHtml(d.motiu) + ')' : '') +
+        ', i per això aquesta informació ara no és a la fitxa de ningú.</p>' +
+      '<div class="dubte-botons">' +
+        '<select class="modal-input dubte-select" id="dubteSel_' + i + '">' +
+          (cands.length ? '<optgroup label="S\'hi assemblen">' + cands.map(opcio).join('') + '</optgroup>' : '') +
+          (resta.length ? '<optgroup label="La resta del grup">' + resta.map(opcio).join('') + '</optgroup>' : '') +
+        '</select>' +
+        '<button type="button" class="btn btn-primary btn-sm" onclick="dubteEsAquest(' + i + ')">És aquest</button>' +
+        '<button type="button" class="btn btn-secondary btn-sm" onclick="dubteAmaga(' + i + ')">No ho sé</button>' +
+      '</div>' +
+    '</article>';
+  }).join('');
+}
+
+function dubteAmaga(i) {
+  const d = _dubtes[i];
+  if (!d) return;
+  _dubtesAmaga(_dubteClau(d));
+  _dubtes.splice(i, 1);
+  _dubtesRender();
+  _dubtesPintaAvis();
+}
+
+async function dubteEsAquest(i) {
+  const d = _dubtes[i];
+  if (!d) return;
+  const sel = document.getElementById('dubteSel_' + i);
+  const uid = sel && sel.value;
+  if (!uid) return;
+  try {
+    const r = await esperaVisual(appsScriptPost({
+      action: 'fitxesPosaAlies', grup: d.grup, etiqueta: d.etiqueta, uid: uid,
+    }), 'Posant-ho a la seva fitxa…');
+    if (!r || !r.ok) throw new Error((r && r.error) || 'no s\'ha pogut desar');
+    _dubtes.splice(i, 1);
+    _dubtesRender();
+    _dubtesPintaAvis();
+    /* El servidor ja ha aplicat aquell grup: només falta tornar a demanar els
+       alumnes perquè la fitxa que obri tot seguit ja ho digui. Si no, ho
+       hauria desat bé i a la pantalla no s'hi veuria res: sembla que falli. */
+    try {
+      const a = await appsScriptGet({ action: 'getGrupAlumnes', grup: d.grup });
+      if (a && a.ok && a.alumnes && typeof _aplicaTutoriaAlumnes === 'function') {
+        _aplicaTutoriaAlumnes(a.alumnes);
+        if (typeof renderAlumnesList === 'function') renderAlumnesList();
+      }
+    } catch (e) {}
+    showToast('Fet: ara és a la fitxa de ' + (r.alumne || 'l\'alumne'), 'success');
+  } catch (e) {
+    showToast('No s\'ha pogut desar: ' + (e.message || ''), 'error');
+  }
+}

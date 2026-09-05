@@ -5053,3 +5053,60 @@ body.app-ocupada { cursor: progress; }
 .alumnes-compte {
   margin: 0 0 14px; font-size: 12.5px; color: var(--text-sub);
 }
+
+/* ============================================================
+   EL QUE EL LECTOR NO HA SABUT COL·LOCAR
+   ------------------------------------------------------------
+   Un avís que ha de cridar l'atenció just el necessari: hi ha
+   informació del document que ara no és a cap fitxa, i això és
+   una cosa que val la pena mirar-se —però no és una alarma, i
+   la mestra ha d'obrir Alumnes cada dia sense sentir que li
+   criden. Per això: el color de la casa, prim, i sense fons
+   vermell.
+   ============================================================ */
+.dubtes-avis {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 14px; padding: 10px 12px;
+  background: var(--surface-tint);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--crimson);
+  border-radius: var(--r-sm);
+}
+.dubtes-avis svg { width: 17px; height: 17px; color: var(--crimson); flex: none; }
+.dubtes-avis-text {
+  flex: 1; min-width: 0;
+  font-size: 12.5px; color: var(--text-sub); line-height: 1.45;
+}
+.dubtes-avis-text strong { color: var(--text-main); font-weight: 650; }
+.dubtes-avis .btn { flex: none; }
+
+.dubte {
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface-tint);
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.dubte:last-child { margin-bottom: 0; }
+.dubte-titol {
+  margin: 0 0 4px; font-size: 14.5px; font-weight: 650; color: var(--text-main);
+}
+/* El text tal com surt al document: es veu que és una citació, no cosa nostra. */
+.dubte-text {
+  margin: 0 0 6px; font-size: 13px; color: var(--text-main);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 7px 10px; line-height: 1.5;
+}
+.dubte-motiu {
+  margin: 0; font-size: 12px; color: var(--text-sub); line-height: 1.5;
+}
+.dubte-botons {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px;
+}
+.dubte-select { margin: 0; flex: 1 1 200px; min-width: 0; }
+
+@media (max-width: 560px) {
+  /* Al mòbil el botó no ha de quedar escanyat al costat del text. */
+  .dubtes-avis { flex-wrap: wrap; }
+  .dubtes-avis-text { flex: 1 1 100%; order: 2; }
+  .dubtes-avis .btn { order: 3; margin-left: auto; }
+  .dubte-botons .btn { flex: 1 1 auto; }
+}

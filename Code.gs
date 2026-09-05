@@ -2245,7 +2245,7 @@ function handleRequest(e) {
       case 'grupsSincronitza':       result = grupsSincronitza(ss, !!(body && body.prova)); break;
       case 'fitxesAraSiCal':       result = fitxesAplicaSiCal(ss); break;
       case 'grupsSyncEstat':         result = grupsSyncEstat(ss); break;
-      case 'fitxesDubtes':           result = fitxesDubtes(ss); break;
+      case 'fitxesDubtes':           result = fitxesDubtes(ss, body && body.grup); break;
       case 'fitxesPosaAlies':        result = fitxesPosaAlies(ss, body && body.grup, body && body.etiqueta, body && body.uid); break;
       case 'fitxesAplica':           result = fitxesAplica(ss, !!(body && body.prova)); break;
       case 'grupsAfegeixColumnes':   result = grupsAfegeixColumnes(ss); break;
@@ -4106,7 +4106,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v197';
+var BACKEND_VERSIO = 'v198';
 
 var MAX_CELA = 45000;
 
@@ -7066,6 +7066,22 @@ function _fitxaNetejaMatis_(s) {
     .trim();
 }
 
+/* Un símbol repetit tantes vegades com noms hi ha ("❌ ❌ ❌") vol dir un per
+   cap, no tres per a cadascun. Passa als Drets d'imatge, on la mestra escriu
+   la creu al costat de cada nom i, en llegir-ho, les creus s'ajunten.
+
+   Només amb símbols: "molt molt bé" no s'ha de convertir en "molt bé".      */
+function _fitxaSimbolRepetit_(txt) {
+  var t = String(txt || '').trim();
+  if (!t) return t;
+  var trossos = t.split(/\s+/);
+  if (trossos.length < 2) return t;
+  var primer = trossos[0];
+  if (/[A-Za-zÀ-ÿ0-9]/.test(primer)) return t;
+  for (var i = 1; i < trossos.length; i++) if (trossos[i] !== primer) return t;
+  return primer;
+}
+
 function _fitxaPerAlumne_(f, prep, alies) {
   var acc = {};
   function per(uid) {
@@ -7191,7 +7207,9 @@ function _fitxaPerAlumne_(f, prep, alies) {
       var qui = [];
       t.noms.forEach(function (n) { quins(n).forEach(function (a) { qui.push(a); }); });
       if (!qui.length) return;
-      var txt = String(t.text || "").replace(/^[s.,;]*[iy][s.,;]*$/, "").trim();
+      /* «❌ ❌ ❌» a una casella de tres noms vol dir una creu per cap. */
+      var txt = _fitxaSimbolRepetit_(
+        String(t.text || "").replace(/^[s.,;]*[iy][s.,;]*$/, "").trim());
       /* ⚠ Hi ha rètols que son una CATEGORIA i el text sol no s'enten:
          "bona relacio" a la fitxa d'una nena no vol dir res. Amb aquests
          s'hi posa el retol al davant —"Pares separats: bona relacio"— que
@@ -7199,7 +7217,11 @@ function _fitxaPerAlumne_(f, prep, alies) {
          i "Familia (pares separats, relacio amb l'escola...): mare
          conflictiva" seria illegible. Trobat el 5/9/2026 mirant com quedava
          la fitxa de la Gala, no el codi. */
-      var calRetol = /^(monoparental|pares separats)/.test(e);
+      /* «alumnes biblioteca» hi entra pel mateix motiu: allà la mestra hi
+         escriu matisos («li aniria bé, però el curs passat no va complir»)
+         que sols no diuen de què parlen, i que sense el rètol semblarien una
+         nota qualsevol en comptes del que són: que aquella nena NO hi va. */
+      var calRetol = /^(monoparental|pares separats|alumnes biblioteca)/.test(e);
       qui.forEach(function (a) {
         if (!ambText) { per(a.uid)[on].push("Sí"); return; }
         if (txt && calRetol) { per(a.uid)[on].push(etiqCamp + ': ' + txt); return; }
@@ -7293,7 +7315,7 @@ function fitxesAplicaSiCal(ss) {
   return r;
 }
 
-function fitxesAplica(ss, prova) {
+function fitxesAplica(ss, prova, nomesGrup) {
   var gss = getGrupsSpreadsheet(ss);
   if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
   var doc;
@@ -7312,6 +7334,10 @@ function fitxesAplica(ss, prova) {
     var perGrup = [], canvis = [];
 
     Object.keys(doc.perGrup).forEach(function (g) {
+      /* Amb grup, només aquell. Ho fa servir la mestra quan resol un dubte des
+         d'Alumnes: ha de veure el resultat de seguida, i repassar els divuit
+         grups per a un sol nen seria fer-la esperar mig minut per res. */
+      if (nomesGrup && g !== nomesGrup) return;
       var sh = gss.getSheetByName(g);
       if (!sh) return;
       var lr = sh.getLastRow();
@@ -7520,7 +7546,34 @@ function _quiCandidats_(preparats, etiqueta) {
 }
 
 /* La llista de dubtes que una persona pot resoldre. */
-function fitxesDubtes(ss) {
+/* Els rètols de la secció "Altres" que el lector sap col·locar. Si un dia
+   n'apareix un de nou, no es perd en silenci: va a la llista del tutor.
+
+   En Pol, 5/9/2026, després de dues hores trobant errors un per un: «si dues
+   hores després encara estàs trobant errors, no creus que hauríem de buscar
+   una altra manera més fiable?». Té raó: fer el lector més llest no s'acaba
+   mai, perquè el document és prosa de divuit mestres. El defecte de debò no
+   és que s'equivoqui, és que s'equivocava EN SILENCI —"Monoparentals" i
+   "Pares separats" del 1r A es van ignorar durant dies i cinc alumnes es van
+   quedar sense la seva situació familiar sense que res ho digués. */
+function _fitxaRetolConegut_(camp) {
+  var e = _fnorm_(_fitxaEtiq_(camp));
+  return e.indexOf('drets d imatge') === 0 || e.indexOf('emvic') === 0 ||
+         e.indexOf('intoler') === 0 || e.indexOf('al lerg') === 0 ||
+         e.indexOf('relacio entre iguals') === 0 || e.indexOf('familia') === 0 ||
+         e.indexOf('monoparental') === 0 || e.indexOf('pares separats') === 0 ||
+         e.indexOf('alumnes biblioteca') === 0 ||
+         _fitxaRetolAPosta_(camp);
+}
+
+/* Els que s'ignoren A POSTA i que, per tant, no són cap dubte: no són dades
+   de cap alumne i no han d'anar a la fitxa de ningú. */
+function _fitxaRetolAPosta_(camp) {
+  var e = _fnorm_(_fitxaEtiq_(camp));
+  return e.indexOf('pagament porteria') === 0 || e.indexOf('pares delegats') === 0;
+}
+
+function fitxesDubtes(ss, nomesGrup) {
   var gss = getGrupsSpreadsheet(ss);
   if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
   var doc;
@@ -7529,6 +7582,9 @@ function fitxesDubtes(ss) {
 
   var fora = [], vistos = {};
   Object.keys(doc.perGrup).forEach(function (g) {
+    /* Amb grup: només els d'aquell grup. És el que demana l'app d'una
+       tutora, que no ha de veure els dubtes de tota l'escola. */
+    if (nomesGrup && g !== nomesGrup) return;
     var alumnes = _fitxaAlumnes_(gss, g);
     if (!alumnes.length) return;
     var prep = _quiPrepara_(alumnes);
@@ -7561,6 +7617,18 @@ function fitxesDubtes(ss) {
         _fitxaNoms_(x.valor).forEach(function (n) { mira(par[0] + ' · ' + _fitxaEtiq_(x.etiqueta), n); });
       });
     });
+
+    /* L'ALTRA MENA DE DUBTE: una casella amb un rètol que el lector no sap
+       col·locar. Abans s'ignorava sencera i no ho deia ningú —és el que va
+       passar amb "Monoparentals" i "Pares separats" del 1r A. */
+    (f.grupCamps || []).forEach(function (x) {
+      if (!x.valor || !String(x.valor).trim()) return;
+      if (_fitxaRetolConegut_(x.camp)) return;
+      fora.push({ grup: g, mena: 'casella', etiqueta: _fitxaEtiq_(x.camp),
+                  text: String(x.valor).trim(), on: ['secció «Altres»'],
+                  candidats: [], teCandidats: false,
+                  motiu: 'no sé a quin apartat de la fitxa va' });
+    });
   });
 
   // Primer els que es poden resoldre clicant
@@ -7579,7 +7647,13 @@ function fitxesPosaAlies(ss, grup, etiqueta, uid) {
   var mapa = _aliesLlegeix_(gss, grup);
   mapa[_motsUtils_(etiqueta).join(' ')] = uid;
   _aliesDesa_(gss, grup, mapa);
-  return { ok: true, grup: grup, etiqueta: etiqueta, alumne: qui.nom + ' ' + qui.cognoms };
+  /* I s'aplica AQUELL grup de seguida. Si s'esperés la passada del quart
+     d'hora, la mestra diria de qui es tracta, obriria la fitxa del nen i no
+     hi trobaria res —i pensaria que no ha funcionat. */
+  var posat = null;
+  try { var r = fitxesAplica(ss, false, grup); if (r && r.ok) posat = r; } catch (e) {}
+  return { ok: true, grup: grup, etiqueta: etiqueta,
+           alumne: qui.nom + ' ' + qui.cognoms, aplicat: !!posat };
 }
 
 /* ============================================================
