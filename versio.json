@@ -1,8 +1,8 @@
 {
-  "versio": "v196",
+  "versio": "v197",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Ara tambe s importen els apartats «Monoparentals», «Pares separats» i «Alumnes biblioteca» del document: hi havia alumnes que es quedaven sense la seva situacio familiar."
+    "Ara tambe s importen els apartats «Monoparentals» i «Pares separats» del document, amb el retol al davant perque s entengui: «Pares separats: bona relacio»."
   ]
 }

@@ -4106,7 +4106,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v196';
+var BACKEND_VERSIO = 'v197';
 
 var MAX_CELA = 45000;
 
@@ -7192,8 +7192,17 @@ function _fitxaPerAlumne_(f, prep, alies) {
       t.noms.forEach(function (n) { quins(n).forEach(function (a) { qui.push(a); }); });
       if (!qui.length) return;
       var txt = String(t.text || "").replace(/^[s.,;]*[iy][s.,;]*$/, "").trim();
+      /* ⚠ Hi ha rètols que son una CATEGORIA i el text sol no s'enten:
+         "bona relacio" a la fitxa d'una nena no vol dir res. Amb aquests
+         s'hi posa el retol al davant —"Pares separats: bona relacio"— que
+         es el que li dona sentit. Amb els altres no: "No carn" ja s'enten,
+         i "Familia (pares separats, relacio amb l'escola...): mare
+         conflictiva" seria illegible. Trobat el 5/9/2026 mirant com quedava
+         la fitxa de la Gala, no el codi. */
+      var calRetol = /^(monoparental|pares separats)/.test(e);
       qui.forEach(function (a) {
         if (!ambText) { per(a.uid)[on].push("Sí"); return; }
+        if (txt && calRetol) { per(a.uid)[on].push(etiqCamp + ': ' + txt); return; }
         per(a.uid)[on].push(txt ? txt : etiqCamp);
       });
     });
