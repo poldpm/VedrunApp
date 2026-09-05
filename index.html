@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v183">
+  <link rel="stylesheet" href="css/main.css?v=v184">
 </head>
 <body>
 
@@ -1971,41 +1971,12 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div id="diagGrupsResult" class="modal-hint" style="margin-top:8px"></div>
         </details>
 
-        <!-- Portar les llistes de l'escola al full "Grups". Es fa sola, però
-             el botó hi és per quan no es vol esperar. -->
-        <details class="cfg-block" id="cfgLlistesBlock" ontoggle="if(this.open) llistesEstat()">
-          <summary>Llistes d'alumnes de l'escola</summary>
-          <p class="modal-hint">
-            Els alumnes del full <strong>«Llistat alumnes per grup»</strong> es porten al full
-            <strong>«Grups»</strong>, que és el que llegeix l'app. <strong>Es fa sol</strong>;
-            això és per no haver d'esperar. Només afegeix els que falten i els ordena per cognom:
-            <strong>no esborra ningú</strong>.
-          </p>
-          <div id="llistesEstat" class="modal-hint" style="margin-bottom:8px"></div>
-          <div class="cfg-btn-row">
-            <button class="btn btn-secondary btn-sm" onclick="llistesSync(true)">Veure què faria</button>
-            <button class="btn btn-primary btn-sm" onclick="llistesSync(false)">Portar-les ara</button>
-          </div>
-          <div id="llistesResult" class="modal-hint" style="margin-top:8px"></div>
-        </details>
-
-        <!-- Els dubtes del document de fitxes: alumnes que l'app no sap qui són
-             perquè al document hi surten pel nom de pila i n'hi ha dos que hi
-             encaixen. Ho ha de dir una persona, i es diu UN COP. -->
-        <details class="cfg-block" id="cfgDubtesBlock" ontoggle="if(this.open) dubtesCarrega()">
-          <summary>Alumnes que l'app no sap qui són</summary>
-          <p class="modal-hint">
-            Al document de fitxes de grup, alguns alumnes hi surten pel nom de pila.
-            Quan al grup n'hi ha <strong>dos que es diuen igual</strong>, l'app
-            <strong>no n'endevina cap</strong>: les seves dades es queden sense posar
-            fins que algú digui de qui es tracta. Es diu un cop i queda dit per sempre.
-          </p>
-          <div class="cfg-btn-row">
-            <button class="btn btn-secondary btn-sm" onclick="dubtesCarrega()">Veure els dubtes</button>
-            <button class="btn btn-secondary btn-sm" onclick="refrescaAlumnes()">Tornar a llegir els alumnes del full</button>
-          </div>
-          <div id="dubtesResult" class="modal-hint" style="margin-top:8px"></div>
-        </details>
+        <!-- ⚠ Les llistes de l'escola i els alumnes que l'app no sap qui són
+             NO surten aquí. Són coses del desenvolupador i es fan des de
+             l'Apps Script (provaSincronitzacio, aplicaFitxesDEBO, veureAlies,
+             posaAlies). En Pol, 5/9/2026: «són coses que només he de poder
+             tocar jo com a desenvolupador des de l'script». A més, la
+             sincronització ja es fa sola cada quart d'hora. -->
 
         <!-- Camps ocults necessaris per a funcions internes -->
         <div style="display:none">
@@ -2186,32 +2157,32 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v183"></script>
-  <script defer src="js/pdfhorari.js?v=v183"></script>
-  <script defer src="js/millores.js?v=v183"></script>
-  <script defer src="js/rol.js?v=v183"></script>
-  <script defer src="js/config.local.js?v=v183"></script>
-  <script defer src="js/app.js?v=v183"></script>
-  <script defer src="js/notes.js?v=v183"></script>
-  <script defer src="js/seients.js?v=v183"></script>
-  <script defer src="js/perfil.js?v=v183"></script>
-  <script defer src="js/grupview.js?v=v183"></script>
-  <script defer src="js/postits.js?v=v183"></script>
-  <script defer src="js/horari.js?v=v183"></script>
-  <script defer src="js/vedrunu.js?v=v183"></script>
-  <script defer src="js/gwrite.js?v=v183"></script>
-  <script defer src="js/rubriques.js?v=v183"></script>
-  <script defer src="js/docents.js?v=v183"></script>
-  <script defer src="js/coordinacio.js?v=v183"></script>
-  <script defer src="js/regdocents.js?v=v183"></script>
-  <script defer src="js/segentrevistes.js?v=v183"></script>
-  <script defer src="js/entrevistes.js?v=v183"></script>
-  <script defer src="js/notescomp.js?v=v183"></script>
-  <script defer src="js/reunions.js?v=v183"></script>
-  <script defer src="js/versio.js?v=v183"></script>
+  <script defer src="js/espera.js?v=v184"></script>
+  <script defer src="js/pdfhorari.js?v=v184"></script>
+  <script defer src="js/millores.js?v=v184"></script>
+  <script defer src="js/rol.js?v=v184"></script>
+  <script defer src="js/config.local.js?v=v184"></script>
+  <script defer src="js/app.js?v=v184"></script>
+  <script defer src="js/notes.js?v=v184"></script>
+  <script defer src="js/seients.js?v=v184"></script>
+  <script defer src="js/perfil.js?v=v184"></script>
+  <script defer src="js/grupview.js?v=v184"></script>
+  <script defer src="js/postits.js?v=v184"></script>
+  <script defer src="js/horari.js?v=v184"></script>
+  <script defer src="js/vedrunu.js?v=v184"></script>
+  <script defer src="js/gwrite.js?v=v184"></script>
+  <script defer src="js/rubriques.js?v=v184"></script>
+  <script defer src="js/docents.js?v=v184"></script>
+  <script defer src="js/coordinacio.js?v=v184"></script>
+  <script defer src="js/regdocents.js?v=v184"></script>
+  <script defer src="js/segentrevistes.js?v=v184"></script>
+  <script defer src="js/entrevistes.js?v=v184"></script>
+  <script defer src="js/notescomp.js?v=v184"></script>
+  <script defer src="js/reunions.js?v=v184"></script>
+  <script defer src="js/versio.js?v=v184"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v183"></script>
+  <script defer src="js/personal.js?v=v184"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
