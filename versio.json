@@ -1,8 +1,10 @@
 {
-  "versio": "v199",
+  "versio": "v201",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: el boto «Mirar-ho» de l avis de coses del document no obria res."
+    "Arreglat: el desplegable per dir de quin alumne parla el document sortia buit.",
+    "Ara diu de quin document parla («Aspectes generals»), amb l enllaç per obrir-lo alla mateix.",
+    "Si el nom es d un nen que ara es en una altra classe, t ho diu: «La Zoraida ara es a 2n A». El que toca es passar-lo al seu grup al document."
   ]
 }

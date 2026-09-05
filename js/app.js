@@ -6144,7 +6144,7 @@ function _avisaBackendVell(versioServidor) {
    d'anar gairebé mai. */
 
 /* ============================================================
-   EL QUE EL LECTOR NO HA ENTÈS — ho valida el tutor del grup
+   EL QUE EL LECTOR NO HA ENTÈS DEL DOCUMENT «ASPECTES GENERALS»
    ------------------------------------------------------------
    En Pol, 5/9/2026: «si dues hores després encara estàs trobant errors, no
    creus que hauríem de buscar una altra manera més fiable?». Sí. El camí de
@@ -6154,15 +6154,18 @@ function _avisaBackendVell(versioServidor) {
 
    Ara, el que no entén no ho escriu a la fitxa de ningú i ho deixa aquí,
    a la pàgina d'Alumnes, perquè ho miri el TUTOR d'aquell grup: és qui
-   coneix aquells nens i qui ho pot dir en dos segons. En Pol no ha de ser
-   el coll d'ampolla de divuit grups.
+   coneix aquells nens i qui ho pot dir en dos segons.
 
    N'hi ha de dues menes:
-   · «no sé qui és aquest nom» — es resol aquí mateix triant l'alumne, i
-     queda dit per sempre i per a tothom.
-   · «no sé què vol dir aquesta casella» — això no ho pot arreglar l'app:
-     el que toca és escriure-ho més clar al document. Es pot amagar quan
-     ja s'ha mirat.
+   · «no sé qui és aquest nom» — o bé és un nen del grup escrit d'una altra
+     manera (es tria i queda dit per sempre), o bé és un nen que ja no hi és
+     i el que toca és treure'l del document;
+   · «no sé què vol dir aquesta casella» — això tampoc no ho arregla l'app:
+     s'ha d'escriure al document dins d'un apartat que ja conegui.
+
+   ⚠ En tots dos casos el remei de debò és el DOCUMENT, no l'app. Per això
+   cada targeta hi porta l'enllaç: si no, la mestra arregla aquí una cosa
+   que demà tornarà a sortir.
    ============================================================ */
 
 let _dubtes = [];
@@ -6181,11 +6184,45 @@ function _dubteClau(d) {
   return (d.grup || '') + '|' + (d.mena || 'nom') + '|' + (d.etiqueta || '') + '|' + (d.text || '');
 }
 
+/* L'adreça del document surt del botó que ja hi ha a Alumnes, no d'una
+   còpia aquí: si algun dia el document canvia de lloc, es canvia en un sol
+   lloc i tot hi apunta igual. */
+function _dubtesDocUrl() {
+  const a = document.getElementById('docAspectes');
+  const u = a && (a.getAttribute && a.getAttribute('href'));
+  return u || '';
+}
+function _dubtesDocEnllac(text) {
+  const u = _dubtesDocUrl();
+  return u ? '<a href="' + u + '" target="_blank" rel="noopener">' + text + '</a>'
+           : '<strong>' + text + '</strong>';
+}
+
 /* Qui ho ha de validar. El tutor d'aquell grup —i la direcció, que pot mirar
    qualsevol grup—, però no els especialistes: no són els responsables de la
    fitxa d'aquells nens i no els toca decidir de qui parla el document. */
 function _dubtesEmToca() {
   return !(typeof esEspecialista === 'function' && esEspecialista());
+}
+
+/* Els alumnes del grup TAL COM ARRIBEN DEL SERVIDOR, amb el seu codi.
+   ⚠ NO serveix la llista `students`: aquella només porta id, nom i gènere
+   —`_aplicaTutoriaAlumnes` es queda amb això i llença la resta—, i sense
+   codi el desplegable sortia BUIT. En Pol: «obro el desplegable que surt i
+   no mostra res». La prova no ho va veure perquè li vaig posar el codi a mà
+   als alumnes de mentida: la prova s'assemblava al codi, no a l'app. */
+function _dubtesAlumnesDelGrup() {
+  if (typeof _tutoriaAlumnes !== 'undefined' && _tutoriaAlumnes && _tutoriaAlumnes.length) {
+    return _tutoriaAlumnes
+      .map(a => ({ uid: a.uid || a.rowId, nom: ((a.nomPila || a.nom || '') + ' ' +
+                                                (a.cognom || a.cognoms || '')).trim() }))
+      .filter(a => a.uid && a.nom);
+  }
+  /* Reserva: el codi també viatja com a `rowId` dins de `personal`. */
+  return (typeof students !== 'undefined' ? students : [])
+    .map(s => ({ uid: (typeof personal !== 'undefined' && personal[s.id] &&
+                       personal[s.id].rowId) || '', nom: s.nom || '' }))
+    .filter(a => a.uid && a.nom);
 }
 
 /* Es demana en obrir Alumnes, no en carregar l'app: és una crida al servidor
@@ -6210,9 +6247,8 @@ function _dubtesPintaAvis() {
   if (!avis || !txt) return;
   const n = _dubtes.length;
   avis.style.display = n ? 'flex' : 'none';
-  txt.innerHTML = n === 1
-    ? 'Hi ha <strong>una cosa</strong> del document que no he sabut col·locar.'
-    : 'Hi ha <strong>' + n + ' coses</strong> del document que no he sabut col·locar.';
+  txt.innerHTML = (n === 1 ? 'Hi ha <strong>una cosa</strong>' : 'Hi ha <strong>' + n + ' coses</strong>') +
+    ' del document «Aspectes generals» que no he sabut col·locar.';
 }
 
 function obreDubtes() {
@@ -6234,17 +6270,18 @@ function _dubtesRender() {
                      'document sobre aquest grup és a les fitxes.</p>';
     return;
   }
+  const delGrup = _dubtesAlumnesDelGrup();
   cont.innerHTML = _dubtes.map((d, i) => {
     if (d.mena === 'casella') {
       /* Aquesta no la pot arreglar l'app: el rètol del document no es
-         correspon amb cap apartat de la fitxa. El que toca és escriure-ho
-         d'una altra manera al document. */
+         correspon amb cap apartat de la fitxa. */
       return '<article class="dubte">' +
         '<h3 class="dubte-titol">' + escapeHtml(d.etiqueta) + '</h3>' +
         '<p class="dubte-text">' + escapeHtml(d.text) + '</p>' +
         '<p class="dubte-motiu">No sé a quin apartat de la fitxa va, i per això no l\'he ' +
-        'posat a ningú. Si és important, escriu-ho al document dins d\'un apartat que ' +
-        'l\'app ja conegui (per exemple «Família» o «Intoleràncies»), o digues-ho a en Pol.</p>' +
+        'posat a ningú. Si és important, escriu-ho a ' +
+        _dubtesDocEnllac('Aspectes generals') + ' dins d\'un apartat que l\'app ja conegui ' +
+        '(per exemple «Família» o «Intoleràncies»), o digues-ho a en Pol.</p>' +
         '<div class="dubte-botons">' +
           '<button type="button" class="btn btn-secondary btn-sm" onclick="dubteAmaga(' + i + ')">Ja ho he mirat</button>' +
         '</div>' +
@@ -6253,28 +6290,44 @@ function _dubtesRender() {
     /* Un desplegable amb TOTS els nens del grup, i els que s'hi assemblen a
        dalt de tot. Amb només els candidats no n'hi havia prou: quan al
        document hi ha un nom mal escrit —i n'hi ha— no s'assembla a ningú i
-       la mestra es quedava mirant un dubte que no podia resoldre. Ella sap
-       de qui parla encara que l'app no ho endevini. */
-    const cands = (d.candidats || []);
-    const uidsCand = {};
-    cands.forEach(c => { uidsCand[c.uid] = 1; });
-    const resta = (typeof students !== 'undefined' ? students : [])
-      .filter(s => s.uid && !uidsCand[s.uid]);
-    const opcio = s => '<option value="' + escapeHtml(s.uid) + '">' +
-      escapeHtml(((s.nomPila || s.nom || '') + ' ' + (s.cognom || s.cognoms || '')).trim()) + '</option>';
+       la mestra es quedava mirant un dubte que no podia resoldre. */
+    const cands = (d.candidats || []).filter(c => c.uid);
+    const dins = {};
+    cands.forEach(c => { dins[c.uid] = 1; });
+    const resta = delGrup.filter(a => !dins[a.uid]);
+    const opcio = a => '<option value="' + escapeHtml(a.uid) + '">' + escapeHtml(a.nom) + '</option>';
+    const llista = (cands.length ? '<optgroup label="S\'hi assemblen">' +
+                     cands.map(c => opcio({ uid: c.uid, nom: (c.nom + ' ' + (c.cognoms || '')).trim() })).join('') +
+                     '</optgroup>' : '') +
+                   (resta.length ? '<optgroup label="' + (cands.length ? 'La resta del grup' : 'Alumnes del grup') +
+                     '">' + resta.map(opcio).join('') + '</optgroup>' : '');
     return '<article class="dubte">' +
       '<h3 class="dubte-titol">' + escapeHtml(d.etiqueta) + '</h3>' +
-      '<p class="dubte-motiu">Ho diu el document a: ' + escapeHtml((d.on || []).join(', ')) +
-        '. No sé de quin alumne parla' + (d.motiu ? ' (' + escapeHtml(d.motiu) + ')' : '') +
-        ', i per això aquesta informació ara no és a la fitxa de ningú.</p>' +
-      '<div class="dubte-botons">' +
-        '<select class="modal-input dubte-select" id="dubteSel_' + i + '">' +
-          (cands.length ? '<optgroup label="S\'hi assemblen">' + cands.map(opcio).join('') + '</optgroup>' : '') +
-          (resta.length ? '<optgroup label="La resta del grup">' + resta.map(opcio).join('') + '</optgroup>' : '') +
-        '</select>' +
-        '<button type="button" class="btn btn-primary btn-sm" onclick="dubteEsAquest(' + i + ')">És aquest</button>' +
-        '<button type="button" class="btn btn-secondary btn-sm" onclick="dubteAmaga(' + i + ')">No ho sé</button>' +
-      '</div>' +
+      '<p class="dubte-motiu">Ho diu ' + _dubtesDocEnllac('Aspectes generals') + ' a: ' +
+        escapeHtml((d.on || []).join(', ')) + '. No sé de quin alumne parla' +
+        (d.motiu ? ' (' + escapeHtml(d.motiu) + ')' : '') +
+        ', i per això ara no és a la fitxa de ningú.</p>' +
+      /* El cas que en Pol va trobar de seguida: un nom que no és cap nen
+         d'aquesta classe. Si el servidor ha vist a quin grup és ara, es diu:
+         és la diferència entre una targeta sense sortida i una que ja et
+         dóna la resposta. */
+      (d.araEs
+        ? '<p class="dubte-motiu"><strong>' + escapeHtml(d.araEs.nom) + ' ara és a ' +
+          escapeHtml(d.araEs.grup) + '.</strong> No triïs ningú: passa\'l al seu grup a ' +
+          _dubtesDocEnllac('Aspectes generals') + ' i deixarà de sortir d\'aquí.</p>'
+        : '<p class="dubte-motiu"><strong>Si aquest nen ja no és a ' +
+          escapeHtml(grupActual() || 'la classe') + '</strong>, no triïs ningú: ' +
+          'treu-lo de ' + _dubtesDocEnllac('Aspectes generals') + ' i deixarà de sortir. ' +
+          'Si hi és però al document està escrit d\'una altra manera, tria\'l aquí.</p>') +
+      (llista
+        ? '<div class="dubte-botons">' +
+            '<select class="modal-input dubte-select" id="dubteSel_' + i + '">' + llista + '</select>' +
+            '<button type="button" class="btn btn-primary btn-sm" onclick="dubteEsAquest(' + i + ')">És aquest</button>' +
+            '<button type="button" class="btn btn-secondary btn-sm" onclick="dubteAmaga(' + i + ')">Ja ho he mirat</button>' +
+          '</div>'
+        : '<div class="dubte-botons">' +
+            '<button type="button" class="btn btn-secondary btn-sm" onclick="dubteAmaga(' + i + ')">Ja ho he mirat</button>' +
+          '</div>') +
     '</article>';
   }).join('');
 }

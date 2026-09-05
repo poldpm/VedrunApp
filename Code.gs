@@ -4106,7 +4106,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v198';
+var BACKEND_VERSIO = 'v201';
 
 var MAX_CELA = 45000;
 
@@ -7630,6 +7630,41 @@ function fitxesDubtes(ss, nomesGrup) {
                   motiu: 'no sé a quin apartat de la fitxa va' });
     });
   });
+
+  /* ON ÉS ARA, AQUEST NEN?
+     En Pol, 5/9/2026: «l'única cosa que em diu que no ha sabut col·locar és
+     d'un nen que no hi és a la llista... ha marxat... això no pot passar».
+     Té raó que una targeta sense sortida no serveix de res. Ara, abans de
+     donar-ho per perdut, es miren els altres grups: gairebé sempre el nen no
+     ha marxat de l'escola, ha canviat de classe, i llavors el que toca no és
+     triar ningú aquí sinó moure'l al document.
+
+     Els grups són els que el mateix document coneix: no cal endevinar quins
+     fulls són de grup i quins no.
+
+     Es fa NOMÉS si hi ha algun nom sense resoldre. Si no, serien divuit
+     lectures de full per no res, cada vegada que s'obre Alumnes. */
+  var senseNingu = fora.filter(function (d) { return d.mena !== 'casella' && !d.teCandidats; });
+  if (senseNingu.length) {
+    var altres = [];
+    Object.keys(doc.perGrup).forEach(function (g2) {
+      if (nomesGrup && g2 === nomesGrup) return;
+      var a2 = _fitxaAlumnes_(gss, g2);
+      if (a2.length) altres.push({ grup: g2, prep: _quiPrepara_(a2) });
+    });
+    senseNingu.forEach(function (d) {
+      var on = [];
+      altres.forEach(function (x) {
+        if (x.grup === d.grup) return;
+        var r = _qui_(x.prep, d.etiqueta, {});
+        var qui = r.alumne || (r.alumnes && r.alumnes.length === 1 ? r.alumnes[0] : null);
+        if (qui) on.push({ grup: x.grup, nom: (qui.nom + ' ' + (qui.cognoms || '')).trim() });
+      });
+      /* Només si n'hi ha UN: si el nom surt a dos grups, dir-ne un seria
+         jugar-se-la, i aquí precisament el que no volem és endevinar. */
+      if (on.length === 1) d.araEs = on[0];
+    });
+  }
 
   // Primer els que es poden resoldre clicant
   fora.sort(function (a, b) { return (b.teCandidats ? 1 : 0) - (a.teCandidats ? 1 : 0); });
