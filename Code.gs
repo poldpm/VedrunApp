@@ -4166,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v205';
+var BACKEND_VERSIO = 'v207';
 
 var MAX_CELA = 45000;
 
@@ -6637,7 +6637,7 @@ var FITXA_NO_NOMS = {
    logopeda, el CSMIJ, l'Espai Viu). Si es busqués un nom enmig d'una
    frase, un dia n'hi hauria un que coincidiria amb el d'un nen i li
    penjaríem el PI d'un altre. Per això només es mira el començament. */
-function _fitxaNoms_(valor) {
+function _fitxaNoms_(valor, esNom) {
   var v = String(valor == null ? '' : valor).trim();
   if (!v || v === '-') return [];
 
@@ -6660,13 +6660,54 @@ function _fitxaNoms_(valor) {
   var fora = [];
   v.split('/').forEach(function (tros) {
     tros.split(':').forEach(function (banda) {
-      _fitxaNomsBanda_(banda).forEach(function (n) { if (fora.indexOf(n) < 0) fora.push(n); });
+      _fitxaNomsBanda_(banda, esNom).forEach(function (n) { if (fora.indexOf(n) < 0) fora.push(n); });
     });
   });
   return fora;
 }
 
-function _fitxaNomsBanda_(v) {
+/* LES FRASES D'UNA CASELLA QUE PORTEN NOMS.
+
+   La primera frase sempre compta. De les altres, depèn —i les dues coses
+   passen de debò al document:
+
+     "Shaira, Rim i Mohamed. Gio i Dina se'ls hi ofereix, però les famílies
+      ho rebutgen."
+        → la segona frase parla de qui NO en rep. Llegint-la, a la Dina li
+          escrivíem «Suport biblioteca» quan el document diu el contrari.
+
+     "Marco Zinola (bloqueig emocional), nivell lector molt baix. Bavneet
+      Kaur (dificultats comunicatives). Fajr El Asri (punt fort en
+      l'expressió oral)."
+        → aquí cada frase és UN NEN MÉS. Quedant-nos amb la primera, tres
+          alumnes del 4t C es quedaven sense el seu PI. El repàs del
+          6/9/2026 ho va trobar.
+
+   La diferència no és la puntuació: és si la frase COMENÇA per un nen
+   d'aquell grup. «Gio i Dina se'ls hi ofereix…» també comença per noms…
+   però la frase sencera diu que no en reben, i per això la regla és més
+   estreta: la frase ha de començar per un nen I no per una llista de nens
+   seguida d'un verb. En la pràctica: es mira el primer tros fins a la
+   primera coma o parèntesi, i ha de ser un alumne del grup i prou.
+
+   Sense saber qui són els alumnes del grup (`esNom`), es fa el de sempre:
+   només la primera frase. Val més quedar-se curt que inventar.            */
+function _fitxaFrasesUtils_(v, esNom) {
+  var frases = String(v == null ? '' : v).split(/\.(?:\s|$)/);
+  var fora = [frases[0] || ''];
+  if (typeof esNom !== 'function') return fora;
+  for (var i = 1; i < frases.length; i++) {
+    var f = String(frases[i] || '').trim();
+    if (!f) continue;
+    /* El primer tros, fins a la primera coma, parèntesi o dos punts. */
+    var cap = f.split(/[(,;:]/)[0].trim();
+    if (!cap || cap.split(/\s+/).length > 4) continue;
+    if (esNom(cap)) fora.push(frases[i]);
+  }
+  return fora;
+}
+
+function _fitxaNomsBanda_(v, esNom) {
   /* Dos talls, i no fan la mateixa feina.
 
      El GUIONET amb espais ("Mohamed Ahidar - Nouvingut des del 3 de
@@ -6694,7 +6735,8 @@ function _fitxaNomsBanda_(v) {
      noms. Els noms que vénen després d'uns dos punts sí que compten,
      i aquells ja s'han separat abans en bandes. */
   var fora = [];
-  String(v).split(/\.(?:\s|$)/)[0].split(/\s+[-–—]\s+/).forEach(function (part, kPart) {
+  _fitxaFrasesUtils_(v, esNom).forEach(function (frase) {
+  frase.split(/\s+[-–—]\s+/).forEach(function (part, kPart) {
     part.split(/\s*[,;/|\n]\s*|\s+i\s+|\s+y\s+/).forEach(function (t, kTros) {
       // Un guionet enganxat al nom i seguit d'espai ("Olivia- Cal fer...")
       // també talla; entre lletres, no.
@@ -6736,6 +6778,7 @@ function _fitxaNomsBanda_(v) {
 
       if (fora.indexOf(bons.join(' ')) < 0) fora.push(bons.join(' '));
     });
+  });
   });
   return fora;
 }
@@ -7053,6 +7096,14 @@ var FITXA_COL_NOM = {
   trastorns: 'trastorns', acollida: 'acollida', drets: 'drets', emvic: 'emvic',
 };
 
+/* Els rètols de la secció «Altres» que, tots sols i sense cap text al
+   darrere, ja diuen alguna cosa de l'alumne: veure'ls a la seva fitxa
+   s'entén. Els que no hi són —«Família», «Relació entre iguals»— són el
+   títol d'un apartat i no volen dir res escrits a la fitxa d'un nen. */
+function _fitxaRetolSol_(e) {
+  return /^(drets d imatge|emvic|intoler|al lerg|alumnes biblioteca|monoparental|pares separats)/.test(e);
+}
+
 /* L'etiqueta d'una casella, neta: "TEA:" → "TEA", "[merged] Català:" → "Català" */
 function _fitxaEtiq_(e) {
   return String(e || '').replace(/^\[merged\]\s*/i, '').replace(/\s*:\s*$/, '').trim();
@@ -7165,10 +7216,40 @@ function _fitxaPerAlumne_(f, prep, alies) {
     if (r.alumnes) return r.alumnes;
     return [];
   }
+  /* «Aquest tros de text és un alumne d'aquest grup?». Serveix per decidir
+     si una frase que ve després d'un punt porta MÉS NOMS o és un
+     aclariment sobre els d'abans. */
+  function esAlumneDaqui(txt) { return quins(txt).length > 0; }
+
+  /* Quan el rètol és la PLANTILLA i el nom va dins del text.
+
+     Al 2n B i al 6è C, els informes de l'EAP estan escrits així: a
+     l'esquerra hi ha el text de plantilla «Nom alumne/a» —que ningú no ha
+     canviat— i el nom va davant dels dos punts:
+
+       Nom alumne/a | Sami: certificat de discapacitat. TEA de grau 3…
+
+     Sense això, aquells informes no arribaven a ningú, i són justament els
+     que més importen. Torna { nom, text } o null.                          */
+  function _plantilla_(x) {
+    var e = _fnorm_(x.etiqueta || '');
+    if (e && e !== 'nom alumne/a' && e !== 'nom alumne') return null;
+    var v = String(x.valor || '').trim();
+    var m = /^([^:]{2,40}):\s*([\s\S]+)$/.exec(v);
+    if (!m) return null;
+    var cands = quins(m[1].trim());
+    if (cands.length !== 1) return null;      // si no en resol UN, no s'endevina
+    return { nom: m[1].trim(), text: m[2].trim() };
+  }
 
   // (a) Observacions i informes EAP: l'etiqueta és el nen, el valor el text
   [['asp', f.obs], ['eap', f.eap]].forEach(function (par) {
     par[1].forEach(function (x) {
+      var pl = _plantilla_(x);
+      if (pl) {
+        quins(pl.nom).forEach(function (a) { per(a.uid)[par[0]].push(pl.text); });
+        return;
+      }
       if (!x.etiqueta || _fnorm_(x.etiqueta) === 'nom alumne/a') return;
       if (!/[A-Za-zÀ-ÿ]/.test(x.etiqueta)) return;
       var trossos = x.etiqueta.split(/\s+i\s+|\s*,\s*/).map(function (s) { return s.trim(); })
@@ -7192,7 +7273,7 @@ function _fitxaPerAlumne_(f, prep, alies) {
   [['trastorns', f.trastorns], ['pi', f.pi], ['am', f.am], ['acollida', f.acollida]].forEach(function (par) {
     par[1].forEach(function (x) {
       var etiq = _fitxaEtiq_(x.etiqueta);
-      var noms = _fitxaNoms_(x.valor);
+      var noms = _fitxaNoms_(x.valor, esAlumneDaqui);
       if (!noms.length) return;
       var tots = [];
       noms.forEach(function (n) { quins(n).forEach(function (a) { tots.push(a); }); });
@@ -7292,9 +7373,28 @@ function _fitxaPerAlumne_(f, prep, alies) {
          que sols no diuen de què parlen, i que sense el rètol semblarien una
          nota qualsevol en comptes del que són: que aquella nena NO hi va. */
       var calRetol = /^(monoparental|pares separats|alumnes biblioteca)/.test(e);
+      /* Els rètols que, tots sols, ja diuen alguna cosa del nen. La resta
+         són títols d'apartat i no s'escriuen mai sense text. */
       qui.forEach(function (a) {
-        if (!ambText) { per(a.uid)[on].push("Sí"); return; }
+        /* Les caselles que només són una marca (EMVic) es guarden com a «Sí».
+           Però si d'aquell nen se n'ha dit alguna cosa —«En Nico el curs 26-27
+           no anirà a EM»— val el que se n'ha dit: marcar-lo com que hi va és
+           dir el contrari del que diu el document. */
+        if (!ambText) { per(a.uid)[on].push(txt ? txt : 'Sí'); return; }
         if (txt && calRetol) { per(a.uid)[on].push(etiqCamp + ': ' + txt); return; }
+        /* ⚠ SENSE TEXT, EL RÈTOL NOMÉS VAL SI DIU ALGUNA COSA D'ELL.
+
+           «Alumnes biblioteca» o «Intoleràncies» a la fitxa d'un nen ja
+           expliquen per si sols què hi fa el seu nom. «Relació entre iguals»
+           o «Família», no: són el TÍTOL d'un apartat. El repàs del 6/9/2026
+           va trobar nou fitxes del 3r B amb «Relació entre iguals» escrit
+           com si fos una dada de l'alumne, i catorze del 3r C amb un bocí de
+           frase que havia quedat solt.
+
+           Val més que hi falti: escriure el títol d'un apartat a la fitxa
+           d'un nen no li diu res a ningú, i ocupa el lloc del que sí que
+           importava. */
+        if (!txt && !_fitxaRetolSol_(e)) return;
         per(a.uid)[on].push(txt ? txt : etiqCamp);
       });
     });
@@ -8438,9 +8538,97 @@ function _fitxesNetejaTxt_(prova) {
    Per saber quina de les dues es, es MIRA si el que hi ha davant dels dos
    punts es un alumne d'aquell grup. Aixo no es pot endevinar pel text —hi
    ha condicions que semblen noms i noms que semblen condicions—, o sigui
-   que qui crida ha de passar `esNom`.
+   que qui crida ha de passar `esNom`.                            */
 
-   `esNom(text)` -> cert si aquell text es un alumne del grup.               */
+/* DE QUI ÉS CADA PARÈNTESI.
+
+   El repàs del 6/9/2026 va trobar que la secció «Altres» es llegia malament
+   de tres maneres, i les tres escrivien una cosa per una altra:
+
+     "Agnès i Eric (només fotos a la plataforma) i Queralt (NI a la
+      plataforma)"
+        → la Queralt s'enduia el matís dels altres dos. A la seva fitxa hi
+          deia que se li poden fer fotos quan el document diu que no.
+
+     "…els de l'Aina Graboleda (reunions junts) Arià Casals, té dues mares"
+        → «reunions junts» anava a l'Arià, que és el nom de DARRERE.
+
+     "Nico, Jana, Maurici (En Nico el curs 26-27 no anirà a EM)"
+        → el parèntesi es llençava i en Nico quedava marcat com que hi va.
+
+   Les regles, que surten de com escriu la gent i no de cap teoria:
+
+   · Un parèntesi és del que té JUST AL DAVANT. Si aquells noms van units
+     per una «i» («Agnès i Eric»), és de tots dos; si hi ha una coma pel
+     mig («Candid, Francesca»), només de l'últim.
+   · Si DINS del parèntesi hi ha el nom d'un alumne del grup, el parèntesi
+     parla d'ELL, no de la llista de davant —i aleshores ell surt de la
+     llista, perquè el que se'n diu sovint és justament que no hi va.
+   · El que queda darrere de l'últim parèntesi és un tros més.               */
+function _fitxaTrossosParens_(v, sapQuiEs) {
+  /* «Agnès i Eric (…) i Queralt (…)»: el tros de davant del segon parèntesi
+     és « i Queralt», i aquella «i» del principi s'enganxa al nom i el fa
+     perdre. Es treu abans de llegir-hi res. */
+  function neteja(t) {
+    return String(t == null ? '' : t).replace(/^[\s,;.]+/, '').replace(/^(i|y)\s+/i, '');
+  }
+  var out = [], i = 0;
+  function afegeix(noms, text) {
+    if (noms && noms.length) out.push({ noms: noms, text: String(text || '').trim() });
+  }
+  while (true) {
+    var obre = v.indexOf('(', i);
+    if (obre < 0) break;
+    var tanca = v.indexOf(')', obre);
+    if (tanca < 0) break;
+    var abans = v.slice(i, obre);
+    var dins = v.slice(obre + 1, tanca).trim();
+    i = tanca + 1;
+
+    /* La tirallonga que toca el parèntesi: des de l'última coma o punt i
+       coma fins aquí. La resta de noms d'abans van sense text. */
+    var tall = Math.max(abans.lastIndexOf(','), abans.lastIndexOf(';'));
+    var previs = tall >= 0 ? abans.slice(0, tall) : '';
+    var run = tall >= 0 ? abans.slice(tall + 1) : abans;
+
+    var nomsDins = _fitxaNoms_(dins, sapQuiEs).filter(sapQuiEs);
+    var nomsRun = _fitxaNoms_(neteja(run), sapQuiEs);
+    /* Si el tros de davant és prosa —«…només hi ha els de l'Aina Graboleda
+       (reunions junts)»— el nom hi és al FINAL, no al principi, i el lector
+       de llistes no el veu. `_fitxaTallaNomFinal_` és justament per a això. */
+    if (!nomsRun.length) {
+      var final = _fitxaTallaNomFinal_(run, sapQuiEs);
+      if (final && final.nom) nomsRun = [final.nom];
+    }
+    var nomsPrevis = _fitxaNoms_(neteja(previs), sapQuiEs);
+
+    if (nomsDins.length) {
+      /* El parèntesi parla d'algú del grup: és seu, i surt de la llista. */
+      var fora = {};
+      nomsDins.forEach(function (n) { fora[_fnorm_(n)] = 1; });
+      afegeix(nomsDins, dins);
+      afegeix(nomsPrevis.concat(nomsRun).filter(function (n) { return !fora[_fnorm_(n)]; }), '');
+    } else {
+      afegeix(nomsRun, dins);
+      afegeix(nomsPrevis, '');
+    }
+  }
+  /* I el que queda al final, sense cap parèntesi. */
+  var resta = v.slice(i);
+  if (resta.trim()) {
+    var noms = _fitxaNoms_(resta, sapQuiEs);
+    if (noms.length) {
+      var text = resta;
+      noms.forEach(function (n) { text = text.split(n).join(' '); });
+      text = text.replace(/[()]/g, '').replace(/^[\s,;.i]+|[\s,;.]+$/g, '').replace(/\s+/g, ' ').trim();
+      afegeix(noms, text);
+    }
+  }
+  return out;
+}
+
+/* Torna [{ noms, text }] d'una casella de la secció «Altres».
+   `esNom(text)` -> cert si aquell text és un alumne del grup.              */
 function _fitxaGrupTrossos_(valor, esNom) {
   var v = String(valor == null ? '' : valor).trim();
   if (!v || v === '-' || /^cap$/i.test(v)) return [];
@@ -8451,34 +8639,25 @@ function _fitxaGrupTrossos_(valor, esNom) {
     if (fora.length) return fora;
   }
 
-  /* ── Sense dos punts: "nom (que li passa)", separats per comes, punts o
-     BARRES. La barra hi va perque el document la fa servir i sense ella
-     tota la fila era un sol tros: "Iria (en proces) / Valentina (ou cru)"
-     donava "en proces" a totes dues. */
-  var trossos = [], actual = '', nivell = 0;
-  for (var k = 0; k < v.length; k++) {
-    var c = v.charAt(k);
-    if (c === '(') nivell++;
-    if (c === ')') nivell = Math.max(0, nivell - 1);
-    if ((c === ',' || c === '.' || c === '/') && nivell === 0) { trossos.push(actual); actual = ''; continue; }
-    actual += c;
+  /* Amb parèntesis, cadascun és d'algú: veure `_fitxaTrossosParens_`. */
+  if (v.indexOf('(') >= 0) {
+    var amb = _fitxaTrossosParens_(v, sapQuiEs);
+    if (amb.length) return amb;
   }
-  trossos.push(actual);
 
+  /* ── Sense dos punts ni parèntesis: una llista, separada per comes,
+     punts o BARRES. La barra hi va perquè el document la fa servir i sense
+     ella tota la fila era un sol tros. */
+  var trossos = v.split(/[,./]/);
   var out = [];
   trossos.forEach(function (t) {
     t = t.trim();
     if (!t) return;
-    var noms = _fitxaNoms_(t);
+    var noms = _fitxaNoms_(t, sapQuiEs);
     if (!noms.length) return;
-    var m = /\(([^)]*)\)/.exec(t);
-    var text = m ? m[1].trim() : '';
-    if (!text) {
-      var resta = t;
-      noms.forEach(function (n) { resta = resta.split(n).join(' '); });
-      text = resta.replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
-    }
-    out.push({ noms: noms, text: text });
+    var resta = t;
+    noms.forEach(function (n) { resta = resta.split(n).join(' '); });
+    out.push({ noms: noms, text: resta.replace(/\s+/g, ' ').trim() });
   });
   return out;
 }
