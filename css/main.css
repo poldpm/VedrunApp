@@ -4912,3 +4912,51 @@ body.app-ocupada { cursor: progress; }
 }
 .personal-desat.ok  { color: #1B7A3D; }
 .personal-desat.mal { color: var(--crimson); }
+
+/* ============================================================
+   LES NOTES QUE SÓN LLISTES  (js/postits.js)
+   ------------------------------------------------------------
+   Van DINS del post-it de sempre: mateix paper, mateix color, mateixa
+   ombra. Aquí només es defineix com es veuen les línies, i prou —canviar
+   res més del post-it seria tocar l'única cosa que en Pol va demanar que
+   no es toqués.
+   ============================================================ */
+.pt-llista { flex: 1; margin: 2px 0 4px; }
+
+.pt-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 3px 0; cursor: pointer;
+  font-size: 13.5px; line-height: 1.4; color: #4a4a4a;
+}
+.pt-item input[type="checkbox"] {
+  margin: 2px 0 0; width: 15px; height: 15px; flex-shrink: 0;
+  accent-color: #4a4a4a;   /* el granat de l'app no lliga amb el paper de colors */
+  cursor: pointer;
+}
+/* Fet: ratllat I més fluix. Només amb el color, qui no el distingeixi no
+   sabria què està fet i què no. */
+.pt-item.fet span { text-decoration: line-through; opacity: 0.5; }
+.pt-item:hover span { color: #1a1a1a; }
+
+.pt-compte {
+  margin-top: 6px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: rgba(0,0,0,0.38);
+}
+.pt-compte.tot { color: #1B7A3D; }
+
+/* La llista mentre s'edita la nota */
+.pt-items-edit { margin-bottom: 8px; }
+.pt-items-edit:empty { display: none; }
+.pt-item-edit {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; margin-bottom: 5px;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: var(--r-sm); font-size: 13px;
+}
+.pt-item-edit span { flex: 1; word-break: break-word; }
+.pt-item-treu {
+  background: none; border: none; cursor: pointer; padding: 0 2px;
+  font-size: 17px; line-height: 1; color: var(--text-muted);
+}
+.pt-item-treu:hover { color: var(--crimson); }

@@ -41,6 +41,92 @@ async function _postitsLoadFromSheets() {
   } catch(e) { /* silenciós: ja tenim el cache */ }
 }
 
+/* ============================================================
+   LES NOTES TAMBÉ PODEN SER LLISTES
+   ------------------------------------------------------------
+   En Pol, 5/9/2026: «m'agrada tot tal com està, el format dels post-its és
+   un toc guai… però vull fer que es puguin crear checklists ràpides: coses
+   a fer, idees».
+
+   No és cap eina nova ni cap tipus de nota a part: una nota pot tenir
+   `items`, i llavors es veu com una llista. Manté el color, el pin
+   d'important, el recordatori, l'ordre i el poder-la arrossegar —tot el que
+   ja li agrada—, i qui no en vulgui no en veu ni rastre.
+
+   Es marquen DES DEL TAULELL. Haver d'obrir la nota per dir «això ja està
+   fet» seria tres clics per a una cosa que se'n mereix un, i llavors ningú
+   no les marcaria i la llista mentiria.
+
+   Estructura d'un item: { t: 'el text', fet: false }
+   ============================================================ */
+
+/* Els items mentre s'edita la nota (encara no desats). */
+let _postitItems = [];
+
+function _postitRenderItemsEdit() {
+  const cont = document.getElementById('postitItemsEdit');
+  if (!cont) return;
+  if (!_postitItems.length) { cont.innerHTML = ''; return; }
+  cont.innerHTML = _postitItems.map(function (it, i) {
+    return '<div class="pt-item-edit">' +
+      '<span>' + escapeHtml(it.t) + '</span>' +
+      '<button type="button" class="pt-item-treu" onclick="_postitTreuItem(' + i + ')" ' +
+        'aria-label="Treure ' + escapeHtml(it.t) + '">&times;</button>' +
+    '</div>';
+  }).join('');
+}
+
+function _postitAfegeixItem() {
+  const camp = document.getElementById('postitItemNou');
+  if (!camp) return;
+  const t = (camp.value || '').trim();
+  if (!t) return;
+  _postitItems.push({ t: t, fet: false });
+  camp.value = '';
+  /* El focus es queda: així se'n poden escriure sis seguides sense tocar
+     el ratolí, que és tota la gràcia d'una llista ràpida. */
+  camp.focus();
+  _postitRenderItemsEdit();
+}
+
+function _postitTreuItem(i) {
+  _postitItems.splice(i, 1);
+  _postitRenderItemsEdit();
+}
+
+/* La llista, tal com es veu al taulell. */
+function _postitItemsHtml(p) {
+  const items = (p.items || []).filter(function (it) { return it && it.t; });
+  if (!items.length) return '';
+  const fets = items.filter(function (it) { return it.fet; }).length;
+  return '<div class="pt-llista">' +
+    items.map(function (it, i) {
+      return '<label class="pt-item' + (it.fet ? ' fet' : '') + '">' +
+        '<input type="checkbox"' + (it.fet ? ' checked' : '') +
+          ' onchange="postitMarca(\'' + p.id + '\',' + i + ')">' +
+        '<span>' + escapeHtml(it.t) + '</span>' +
+      '</label>';
+    }).join('') +
+    /* El compte va amb NÚMEROS i no amb cap barra de color: dins d'un
+       post-it de colors, una barra més seria soroll. */
+    '<div class="pt-compte' + (fets === items.length ? ' tot' : '') + '">' +
+      (fets === items.length ? 'Fet ✓' : fets + ' de ' + items.length) +
+    '</div>' +
+  '</div>';
+}
+
+/* Marcar des del taulell. Es desa sol i de seguida: si calgués desar-ho a
+   mà, la llista no diria la veritat i deixaria de servir. */
+let _postitMarcaTemps = null;
+function postitMarca(id, i) {
+  const p = _postits.find(function (x) { return x.id === id; });
+  if (!p || !p.items || !p.items[i]) return;
+  p.items[i].fet = !p.items[i].fet;
+  renderPostits();
+  if (_postitMarcaTemps) clearTimeout(_postitMarcaTemps);
+  _postitMarcaTemps = setTimeout(function () { _postitMarcaTemps = null; _postitsPersist(); }, 600);
+}
+
 // Renderitza tots els post-its al taulell
 function renderPostits() {
   const board = document.getElementById('postitsBoard');
@@ -73,7 +159,8 @@ function renderPostits() {
       ondragend="_postitDragEnd(event)">
       ${p.important ? '<div class="postit-pin" title="Important">📌</div>' : ''}
       ${p.titol ? `<div class="postit-titol">${escapeHtml(p.titol)}</div>` : ''}
-      <div class="postit-text">${escapeHtml(p.text || '')}</div>
+      ${p.text ? `<div class="postit-text">${escapeHtml(p.text)}</div>` : ''}
+      ${_postitItemsHtml(p)}
       ${recordatori}
       <div class="postit-data">${data}</div>
       <div class="postit-actions">
@@ -126,6 +213,10 @@ function postitNou() {
   document.getElementById('postitText').value = '';
   document.getElementById('postitData').value = '';
   document.getElementById('postitImportant').checked = false;
+  _postitItems = [];
+  const nou = document.getElementById('postitItemNou');
+  if (nou) nou.value = '';
+  _postitRenderItemsEdit();
   _renderPostitColorSel();
   document.getElementById('postitOverlay').classList.add('open');
   setTimeout(() => document.getElementById('postitText').focus(), 50);
@@ -142,6 +233,11 @@ function postitEditar(id) {
   document.getElementById('postitText').value = p.text || '';
   document.getElementById('postitData').value = p.data || '';
   document.getElementById('postitImportant').checked = !!p.important;
+  /* Còpia: si s'edita i es cancel·la, la nota no s'ha de quedar tocada. */
+  _postitItems = (p.items || []).map(function (it) { return { t: it.t, fet: !!it.fet }; });
+  const nouI = document.getElementById('postitItemNou');
+  if (nouI) nouI.value = '';
+  _postitRenderItemsEdit();
   _renderPostitColorSel();
   document.getElementById('postitOverlay').classList.add('open');
 }
@@ -173,18 +269,23 @@ async function postitDesar() {
   const text = document.getElementById('postitText').value.trim();
   const data = document.getElementById('postitData').value || '';
   const important = document.getElementById('postitImportant').checked;
-  if (!titol && !text) { showToast('Escriu alguna cosa al post-it', 'error'); return; }
+  /* Una nota amb només llista és perfectament vàlida: «coses a fer» i sis
+     línies, sense cap text. */
+  const pendent = (document.getElementById('postitItemNou') || {}).value || '';
+  if (pendent.trim()) { _postitAfegeixItem(); }   // no perdis el que estava escrivint
+  const items = _postitItems.filter(function (it) { return it && it.t; });
+  if (!titol && !text && !items.length) { showToast('Escriu alguna cosa al post-it', 'error'); return; }
 
   if (_postitEditId) {
     // Editar
     const p = _postits.find(x => x.id === _postitEditId);
-    if (p) { p.titol = titol; p.text = text; p.color = _postitColor; p.data = data; p.important = important; p.ts = p.ts || Date.now(); }
+    if (p) { p.titol = titol; p.text = text; p.color = _postitColor; p.data = data; p.important = important; p.items = items; p.ts = p.ts || Date.now(); }
   } else {
     // Nou: l'ordre és el més baix (apareix primer entre els de la seva categoria)
     const minOrdre = _postits.length ? Math.min(..._postits.map(p => p.ordre || 0)) : 0;
     _postits.push({
       id: 'pt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-      titol, text, color: _postitColor, data, important,
+      titol, text, color: _postitColor, data, important, items,
       ordre: minOrdre - 1, ts: Date.now(),
     });
   }

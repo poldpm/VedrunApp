@@ -1,9 +1,10 @@
 {
-  "versio": "v188",
+  "versio": "v189",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A la fitxa d un alumne, el genere i les condicions del lloc a l aula es guarden SOLS quan els canvies. Ja no hi ha boto de Guardar ni cal baixar fins a baix.",
-    "Al peu de la finestra hi diu «Desant…» i despres «Desat ✓». Pots tancar-la de seguida: si quedava res per desar, es desa igual."
+    "Les notes tambe poden ser LLISTES: coses a fer, idees… Escrius una cosa, prems Enter, i ja pots escriure la seguent.",
+    "Les marques des del taulell mateix, sense obrir la nota, i es desa sol. A sota hi tens el compte («2 de 5») i un «Fet ✓» quan estan totes.",
+    "Els post-its de sempre no canvien gens: si no hi poses cap linia, son exactament els d abans."
   ]
 }

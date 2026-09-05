@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v188">
+  <link rel="stylesheet" href="css/main.css?v=v189">
 </head>
 <body>
 
@@ -884,6 +884,14 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="modal-field">
             <div class="modal-label">Nota</div>
             <textarea class="modal-textarea" id="postitText" rows="5" placeholder="Escriu la teva idea o recordatori…"></textarea>
+          </div>
+          <div class="modal-field">
+            <div class="modal-label">Llista (opcional)</div>
+            <div id="postitItemsEdit" class="pt-items-edit"></div>
+            <input class="modal-input" id="postitItemNou" type="text" maxlength="120"
+                   placeholder="Escriu una cosa i prem Enter"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();_postitAfegeixItem();}">
+            <div class="modal-hint">Per a coses a fer, idees… Cada línia es podrà marcar des del taulell, sense obrir la nota.</div>
           </div>
           <div class="modal-field">
             <div class="modal-label">Color</div>
@@ -2158,32 +2166,32 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v188"></script>
-  <script defer src="js/pdfhorari.js?v=v188"></script>
-  <script defer src="js/millores.js?v=v188"></script>
-  <script defer src="js/rol.js?v=v188"></script>
-  <script defer src="js/config.local.js?v=v188"></script>
-  <script defer src="js/app.js?v=v188"></script>
-  <script defer src="js/notes.js?v=v188"></script>
-  <script defer src="js/seients.js?v=v188"></script>
-  <script defer src="js/perfil.js?v=v188"></script>
-  <script defer src="js/grupview.js?v=v188"></script>
-  <script defer src="js/postits.js?v=v188"></script>
-  <script defer src="js/horari.js?v=v188"></script>
-  <script defer src="js/vedrunu.js?v=v188"></script>
-  <script defer src="js/gwrite.js?v=v188"></script>
-  <script defer src="js/rubriques.js?v=v188"></script>
-  <script defer src="js/docents.js?v=v188"></script>
-  <script defer src="js/coordinacio.js?v=v188"></script>
-  <script defer src="js/regdocents.js?v=v188"></script>
-  <script defer src="js/segentrevistes.js?v=v188"></script>
-  <script defer src="js/entrevistes.js?v=v188"></script>
-  <script defer src="js/notescomp.js?v=v188"></script>
-  <script defer src="js/reunions.js?v=v188"></script>
-  <script defer src="js/versio.js?v=v188"></script>
+  <script defer src="js/espera.js?v=v189"></script>
+  <script defer src="js/pdfhorari.js?v=v189"></script>
+  <script defer src="js/millores.js?v=v189"></script>
+  <script defer src="js/rol.js?v=v189"></script>
+  <script defer src="js/config.local.js?v=v189"></script>
+  <script defer src="js/app.js?v=v189"></script>
+  <script defer src="js/notes.js?v=v189"></script>
+  <script defer src="js/seients.js?v=v189"></script>
+  <script defer src="js/perfil.js?v=v189"></script>
+  <script defer src="js/grupview.js?v=v189"></script>
+  <script defer src="js/postits.js?v=v189"></script>
+  <script defer src="js/horari.js?v=v189"></script>
+  <script defer src="js/vedrunu.js?v=v189"></script>
+  <script defer src="js/gwrite.js?v=v189"></script>
+  <script defer src="js/rubriques.js?v=v189"></script>
+  <script defer src="js/docents.js?v=v189"></script>
+  <script defer src="js/coordinacio.js?v=v189"></script>
+  <script defer src="js/regdocents.js?v=v189"></script>
+  <script defer src="js/segentrevistes.js?v=v189"></script>
+  <script defer src="js/entrevistes.js?v=v189"></script>
+  <script defer src="js/notescomp.js?v=v189"></script>
+  <script defer src="js/reunions.js?v=v189"></script>
+  <script defer src="js/versio.js?v=v189"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v188"></script>
+  <script defer src="js/personal.js?v=v189"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
