@@ -329,6 +329,25 @@ function _perfilUpdateNav() {
 async function perfilSave() {
   _perfil.nom = (document.getElementById('perfilNom')?.value || '').trim();
   _perfil.cognom = (document.getElementById('perfilCognom')?.value || '').trim();
+
+  /* Nom I cognom, tots dos. En Pol, 5/9/2026: hi ha mestres que es diuen
+     igual de nom, i el nom del perfil és el que ell veu quan algú demana una
+     actualització o quan es comparteix una nota amb el tutor. Amb només el
+     nom de pila no sap de qui és, i no ho pot saber de cap altra manera.
+     Es demana en desar i no en escriure: corregir algú a mitja paraula
+     mentre teclegen és nosa, no ajuda. */
+  if (!_perfil.nom || !_perfil.cognom) {
+    const quin = !_perfil.nom ? 'perfilNom' : 'perfilCognom';
+    showToast(!_perfil.nom ? 'Posa-hi el teu nom' : 'Posa-hi el teu cognom: hi ha mestres que es diuen igual', 'error');
+    const camp = document.getElementById(quin);
+    if (camp) { camp.classList.add('camp-cal'); camp.focus(); }
+    return;
+  }
+  ['perfilNom', 'perfilCognom'].forEach(id => {
+    const c = document.getElementById(id);
+    if (c) c.classList.remove('camp-cal');
+  });
+
   if (_perfilSenseTutoria()) {
     const ambAssig = Object.keys(_perfil.classes || {}).filter(g => (_perfil.classes[g] || []).length);
     const ambAltres = Object.keys(_perfil.altres || {}).filter(c => (_perfil.altres[c] || []).length);

@@ -4894,3 +4894,10 @@ body.app-ocupada { cursor: progress; }
 }
 .millores-buit p { margin: 0 0 8px; }
 .millores-buit p:last-child { margin-bottom: 0; }
+
+/* Un camp que calia i s'ha deixat buit. Va amb marc I amb el missatge del
+   toast: només el color no el veuria qui no el distingeixi. */
+.camp-cal {
+  border-color: var(--crimson) !important;
+  box-shadow: 0 0 0 3px rgba(192,30,75,0.12);
+}

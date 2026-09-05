@@ -1,8 +1,8 @@
 {
-  "versio": "v186",
+  "versio": "v187",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Quan demanes una actualitzacio, ara hi va el teu nom I el teu cognom, els del teu perfil. Hi ha mestres que es diuen igual de nom."
+    "El perfil ja no es desa sense cognom. Es a posta: hi ha mestres que es diuen igual, i el teu nom es el que veuen les altres quan comparteixes una nota o demanes una actualitzacio."
   ]
 }
