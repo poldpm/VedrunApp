@@ -4823,3 +4823,58 @@ body.app-ocupada { cursor: progress; }
   text-underline-offset: 2px;
 }
 .pdfh-taula tr.pdfh-pati th, .pdfh-taula tr.pdfh-pati td { opacity: 0.5; }
+
+/* ============================================================
+   POSSIBLES ACTUALITZACIONS  (js/millores.js)
+   ------------------------------------------------------------
+   El botó de l'inici ha de convidar sense competir amb les eines del dia:
+   les targetes de dalt són el que la mestra fa servir cada matí, i això
+   és una cosa que mirarà de tant en tant.
+   ============================================================ */
+.home-millores {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; margin-top: 12px; padding: 14px 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--crimson);
+  border-radius: var(--r-md);
+  text-align: left; cursor: pointer;
+  font: inherit; color: var(--text-main);
+  position: relative;
+  transition: border-color var(--ease), box-shadow var(--ease), transform 0.16s ease-out;
+}
+.home-millores:hover { border-color: var(--border-strong); box-shadow: 0 4px 16px rgba(26,16,20,0.07); }
+.home-millores:active { transform: scale(0.995); }
+.home-millores svg { width: 22px; height: 22px; flex-shrink: 0; color: var(--crimson); }
+.home-millores-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.home-millores-text strong { font-size: 14px; font-weight: 700; }
+.home-millores-text span { font-size: 12.5px; color: var(--text-sub); line-height: 1.45; }
+.home-millores-badge { position: static; margin-left: auto; flex-shrink: 0; }
+
+/* Cada millora de la llista */
+.millora {
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 15px 16px; margin-bottom: 12px;
+  background: var(--surface-tint);
+}
+.millora.demanada { background: var(--surface); opacity: 0.75; }
+.millora-titol { margin: 0 0 5px; font-size: 15px; font-weight: 700; color: var(--text-main); }
+/* La frase «ras i curt»: és l'única cosa que llegirà molta gent, o sigui
+   que és la que ha de llegir-se bé, no el títol. */
+.millora-ras { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-main); }
+.millora-qui { margin: 6px 0 0; font-size: 11.5px; color: var(--text-muted); }
+.millora-mes {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);
+  font-size: 13px; line-height: 1.6; color: var(--text-sub);
+}
+.millora-mes p { margin: 0 0 8px; }
+.millora-mes p:last-child { margin-bottom: 0; }
+.millora-botons { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+.millora-feta { font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
+
+.millores-buit {
+  border: 1px dashed var(--border-strong); border-radius: var(--r-md);
+  padding: 22px 20px; text-align: center; color: var(--text-sub);
+  font-size: 13.5px; line-height: 1.6;
+}
+.millores-buit p { margin: 0 0 8px; }
+.millores-buit p:last-child { margin-bottom: 0; }

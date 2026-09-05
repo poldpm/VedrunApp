@@ -2193,6 +2193,7 @@ function handleRequest(e) {
       case 'getPersonal':          result = getPersonal(ss, (body&&body.studentId)||p.studentId); break;
       case 'getAllPersonal':       result = getAllPersonal(ss); break;
       case 'savePersonal':         result = savePersonal(ss, body.studentId, body.dades); break;
+      case 'demanaMillora':        result = demanaMillora(body.millora, body.titol, body.qui, body.nota); break;
       case 'syncAlumnesARegistre': result = syncAlumnesARegistre(ss, body.alumnes, body.grup); break;
       case 'getRegistre':          result = getRegistre(ss, (body&&body.grup)||p.grup); break;
       case 'addRegistreItem':      result = addRegistreItem(ss, body.item, body.alumnes, body.grup); break;
@@ -4104,7 +4105,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v180';
+var BACKEND_VERSIO = 'v181';
 
 var MAX_CELA = 45000;
 
@@ -7664,4 +7665,70 @@ function _fitxaGrupTrossos_(valor) {
 /* Treu de la condició el que hi hagi quedat penjat del tros anterior. */
 function _fitxaNetejaCond_(s) {
   return String(s || '').replace(/^[\s,;.]+|[\s,;.]+$/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/* ============================================================
+   POSSIBLES ACTUALITZACIONS — «Jo la vull!»
+   ------------------------------------------------------------
+   La mestra veu una llista de millores que ja funcionen a l'app d'algu
+   altre i en demana una. Aixo li envia un correu a en Pol dient QUI la
+   demana i QUINA, perque ell pugui anar a la conversa d'aquella mestra i
+   fer-la-hi.
+
+   Qui la demana surt de DUES bandes i les dues hi van:
+     · el nom del seu perfil (el que ella hi ha escrit),
+     · i el correu del compte que executa l'script, que es el seu de debo.
+   El primer pot estar mal escrit o buit; el segon no menteix.
+
+   ⚠ L'adreca no es cap credencial: es el correu de feina d'en Pol i surt a
+   tot arreu. Es deixa aqui perque si visques a les propietats de l'script
+   caldria posar-la a ma a cada instal.lacio i el dia que algu se n'oblides,
+   la peticio no arribaria enlloc i ningu no ho sabria. Si algun dia s'ha de
+   canviar sense tocar el codi, posa CORREU_MILLORES a les propietats.
+   ============================================================ */
+var CORREU_MILLORES = 'poldelpozo@escorialvic.cat';
+
+function _milloraCorreu_() {
+  try {
+    var p = PropertiesService.getScriptProperties().getProperty('CORREU_MILLORES');
+    if (p && p.indexOf('@') !== -1) return p.trim();
+  } catch (e) {}
+  return CORREU_MILLORES;
+}
+
+function demanaMillora(millora, titol, qui, nota) {
+  var id = String(millora || '').trim();
+  if (!id) return { ok: false, error: 'No se quina millora es' };
+
+  var correuSeu = '';
+  try { correuSeu = Session.getActiveUser().getEmail() || ''; } catch (e) {}
+
+  var nom = String(qui || '').trim();
+  var quiEs = nom || correuSeu || 'algu sense nom al perfil';
+
+  var cos = [
+    nom ? ('Nom del perfil: ' + nom) : 'El perfil no te nom posat.',
+    correuSeu ? ('Compte: ' + correuSeu) : '',
+    '',
+    'Demana: ' + (String(titol || '').trim() || id),
+    'Codi de la millora: ' + id,
+    '',
+    String(nota || '').trim() ? ('Hi ha afegit:\n' + String(nota).trim()) : 'No hi ha afegit res mes.',
+    '',
+    '---',
+    'Enviat des de l\'app de gestio de curs.',
+  ].filter(function (l) { return l !== ''; }).join('\n');
+
+  try {
+    MailApp.sendEmail({
+      to: _milloraCorreu_(),
+      subject: 'Vull aquesta actualitzacio: ' + (String(titol || '').trim() || id) + ' (' + quiEs + ')',
+      body: cos,
+      name: 'App de gestio de curs',
+      replyTo: correuSeu || undefined,
+    });
+  } catch (e) {
+    return { ok: false, error: 'No s\'ha pogut enviar el correu: ' + e.message };
+  }
+  return { ok: true, a: _milloraCorreu_(), qui: quiEs };
 }

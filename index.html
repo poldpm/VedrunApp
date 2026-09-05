@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v179">
+  <link rel="stylesheet" href="css/main.css?v=v181">
 </head>
 <body>
 
@@ -197,6 +197,16 @@
         </div>
       </div>
 
+      <!-- POSSIBLES ACTUALITZACIONS -->
+      <button type="button" class="home-millores" onclick="obreMillores()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 2l2.4 5.6L20 9l-4.4 3.7L17 19l-5-3-5 3 1.4-6.3L4 9l5.6-1.4z"/></svg>
+        <span class="home-millores-text">
+          <strong>Possibles actualitzacions</strong>
+          <span>Coses que altres mestres ja fan servir. Si te'n serveix cap, demana-la.</span>
+        </span>
+        <span class="home-badge home-millores-badge" id="homeMilloresBadge" style="display:none"></span>
+      </button>
+
 
       <!-- BLOC AVUI + SETMANA -->
       <div class="home-top-grid" style="margin-top:12px">
@@ -329,6 +339,54 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="closeImportHorari()">Cancel·lar</button>
           <button class="btn btn-primary" onclick="aplicarImportHorari()">Omplir horari</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- POSSIBLES ACTUALITZACIONS -->
+    <div class="modal-overlay" id="milloresOverlay" onclick="if(event.target===this)tancaMillores()">
+      <div class="modal" style="width:min(680px, calc(100vw - 32px))">
+        <div class="modal-header">
+          <div>
+            <div class="modal-header-title">Possibles actualitzacions</div>
+            <div class="modal-header-sub">Coses que ja funcionen a l'app d'algú altre</div>
+          </div>
+          <button class="modal-close" onclick="tancaMillores()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-hint" style="margin:0 0 14px">
+            Llegeix-les amb calma. Si te'n serveix alguna, clica <strong>«Jo la vull!»</strong>
+            i li arribarà a en Pol amb el teu nom. No es fa res fins que ell t'ho prepari.
+          </p>
+          <div id="milloresLlista"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="tancaMillores()">Tancar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEMANAR-NE UNA -->
+    <div class="modal-overlay" id="milloraConfirmaOverlay" onclick="if(event.target===this)tancaMilloraConfirma()">
+      <div class="modal" style="width:min(480px, calc(100vw - 32px))">
+        <div class="modal-header">
+          <div>
+            <div class="modal-header-title">Demanar-la</div>
+            <div class="modal-header-sub" id="milloraConfirmaQue">—</div>
+          </div>
+          <button class="modal-close" onclick="tancaMilloraConfirma()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <label class="modal-label" for="milloraNota">Vols dir-li res més? (opcional)</label>
+            <textarea class="modal-textarea" id="milloraNota" rows="3" placeholder="Ex: si pot ser abans de les entrevistes de desembre, millor."></textarea>
+            <div class="modal-hint">S'enviarà un correu a en Pol amb el teu nom i què demanes. Res més.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="tancaMilloraConfirma()">Cancel·lar</button>
+          <button class="btn btn-primary" onclick="milloraEnvia()">Enviar-li</button>
         </div>
       </div>
     </div>
@@ -2128,31 +2186,32 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v179"></script>
-  <script defer src="js/pdfhorari.js?v=v179"></script>
-  <script defer src="js/rol.js?v=v179"></script>
-  <script defer src="js/config.local.js?v=v179"></script>
-  <script defer src="js/app.js?v=v179"></script>
-  <script defer src="js/notes.js?v=v179"></script>
-  <script defer src="js/seients.js?v=v179"></script>
-  <script defer src="js/perfil.js?v=v179"></script>
-  <script defer src="js/grupview.js?v=v179"></script>
-  <script defer src="js/postits.js?v=v179"></script>
-  <script defer src="js/horari.js?v=v179"></script>
-  <script defer src="js/vedrunu.js?v=v179"></script>
-  <script defer src="js/gwrite.js?v=v179"></script>
-  <script defer src="js/rubriques.js?v=v179"></script>
-  <script defer src="js/docents.js?v=v179"></script>
-  <script defer src="js/coordinacio.js?v=v179"></script>
-  <script defer src="js/regdocents.js?v=v179"></script>
-  <script defer src="js/segentrevistes.js?v=v179"></script>
-  <script defer src="js/entrevistes.js?v=v179"></script>
-  <script defer src="js/notescomp.js?v=v179"></script>
-  <script defer src="js/reunions.js?v=v179"></script>
-  <script defer src="js/versio.js?v=v179"></script>
+  <script defer src="js/espera.js?v=v181"></script>
+  <script defer src="js/pdfhorari.js?v=v181"></script>
+  <script defer src="js/millores.js?v=v181"></script>
+  <script defer src="js/rol.js?v=v181"></script>
+  <script defer src="js/config.local.js?v=v181"></script>
+  <script defer src="js/app.js?v=v181"></script>
+  <script defer src="js/notes.js?v=v181"></script>
+  <script defer src="js/seients.js?v=v181"></script>
+  <script defer src="js/perfil.js?v=v181"></script>
+  <script defer src="js/grupview.js?v=v181"></script>
+  <script defer src="js/postits.js?v=v181"></script>
+  <script defer src="js/horari.js?v=v181"></script>
+  <script defer src="js/vedrunu.js?v=v181"></script>
+  <script defer src="js/gwrite.js?v=v181"></script>
+  <script defer src="js/rubriques.js?v=v181"></script>
+  <script defer src="js/docents.js?v=v181"></script>
+  <script defer src="js/coordinacio.js?v=v181"></script>
+  <script defer src="js/regdocents.js?v=v181"></script>
+  <script defer src="js/segentrevistes.js?v=v181"></script>
+  <script defer src="js/entrevistes.js?v=v181"></script>
+  <script defer src="js/notescomp.js?v=v181"></script>
+  <script defer src="js/reunions.js?v=v181"></script>
+  <script defer src="js/versio.js?v=v181"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v179"></script>
+  <script defer src="js/personal.js?v=v181"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
