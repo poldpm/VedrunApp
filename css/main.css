@@ -5047,3 +5047,9 @@ body.app-ocupada { cursor: progress; }
   .arrencada-barra span { animation: none; width: 100%; opacity: 0.55; }
   .arrencada { transition: none; }
 }
+
+/* El compte d'alumnes, sota els botons dels documents. Discret: és un
+   resum, no un titular —el titular ja és «Alumnes» amb el número al costat. */
+.alumnes-compte {
+  margin: 0 0 14px; font-size: 12.5px; color: var(--text-sub);
+}

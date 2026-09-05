@@ -1349,10 +1349,32 @@ function _pintaEstatBuitAlumnes(el) {
   if (p) p.innerHTML = '<strong>' + m.titol + '</strong><br>' + m.text;
 }
 
+/* Quants alumnes hi ha i de quin gènere, sota els botons dels documents.
+   ⚠ Els que no tenen gènere posat també es diuen: si no, els números no
+   sumarien el total i qui ho miri es pensarà que l'app compta malament.
+   És, a més, la manera de veure que en falta algun per triar. */
+function _alumnesCompteText() {
+  const total = students.length;
+  if (!total) return '';
+  const nens = students.filter(s => s.genere === 'm').length;
+  const nenes = students.filter(s => s.genere === 'f').length;
+  const sense = total - nens - nenes;
+  let t = total + (total === 1 ? ' alumne' : ' alumnes') + ' · ' +
+          nens + (nens === 1 ? ' nen' : ' nens') + ' i ' +
+          nenes + (nenes === 1 ? ' nena' : ' nenes');
+  if (sense) t += ' · ' + sense + (sense === 1 ? ' sense gènere' : ' sense gènere');
+  return t;
+}
+
 function renderAlumnesList() {
   const container = document.getElementById('alumnesList');
   container.querySelectorAll('.alumne-card').forEach(el => el.remove());
   const empty = document.getElementById('alumnesEmpty');
+  const compte = document.getElementById('alumnesCompte');
+  if (compte) {
+    compte.textContent = _alumnesCompteText();
+    compte.style.display = students.length ? '' : 'none';
+  }
   if (!students.length) { _pintaEstatBuitAlumnes(empty); empty.style.display = 'block'; return; }
   empty.style.display = 'none';
 
