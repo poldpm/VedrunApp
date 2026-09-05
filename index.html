@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v189">
+  <link rel="stylesheet" href="css/main.css?v=v190">
 </head>
 <body>
 
@@ -28,6 +28,22 @@
   <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="Obrir menú">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
   </button>
+
+<!-- LA PANTALLA D'ARRENCADA
+       És la primera cosa que veu qualsevol cada matí, i per això és a
+       l'HTML i no la pinta el JS: ha de ser-hi des del primer instant,
+       abans que carregui res. Se'n va sola quan l'app ja té les dades. -->
+  <div class="arrencada" id="arrencada">
+    <div class="arrencada-caixa">
+      <img class="arrencada-logo" src="img/logo-horitzontal.png" alt="Vedruna Escorial Vic">
+      <p class="arrencada-curs">Curs 2026 · 2027</p>
+      <div class="arrencada-barra" role="progressbar" aria-label="Carregant"><span></span></div>
+      <p class="arrencada-estat" id="arrencadaEstat" role="status" aria-live="polite">Posant-ho tot al dia…</p>
+      <button type="button" class="arrencada-surt" id="arrencadaSurt" onclick="_arrencadaFora(true)" hidden>
+        Entrar igualment
+      </button>
+    </div>
+  </div>
 
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
@@ -2166,32 +2182,32 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v189"></script>
-  <script defer src="js/pdfhorari.js?v=v189"></script>
-  <script defer src="js/millores.js?v=v189"></script>
-  <script defer src="js/rol.js?v=v189"></script>
-  <script defer src="js/config.local.js?v=v189"></script>
-  <script defer src="js/app.js?v=v189"></script>
-  <script defer src="js/notes.js?v=v189"></script>
-  <script defer src="js/seients.js?v=v189"></script>
-  <script defer src="js/perfil.js?v=v189"></script>
-  <script defer src="js/grupview.js?v=v189"></script>
-  <script defer src="js/postits.js?v=v189"></script>
-  <script defer src="js/horari.js?v=v189"></script>
-  <script defer src="js/vedrunu.js?v=v189"></script>
-  <script defer src="js/gwrite.js?v=v189"></script>
-  <script defer src="js/rubriques.js?v=v189"></script>
-  <script defer src="js/docents.js?v=v189"></script>
-  <script defer src="js/coordinacio.js?v=v189"></script>
-  <script defer src="js/regdocents.js?v=v189"></script>
-  <script defer src="js/segentrevistes.js?v=v189"></script>
-  <script defer src="js/entrevistes.js?v=v189"></script>
-  <script defer src="js/notescomp.js?v=v189"></script>
-  <script defer src="js/reunions.js?v=v189"></script>
-  <script defer src="js/versio.js?v=v189"></script>
+  <script defer src="js/espera.js?v=v190"></script>
+  <script defer src="js/pdfhorari.js?v=v190"></script>
+  <script defer src="js/millores.js?v=v190"></script>
+  <script defer src="js/rol.js?v=v190"></script>
+  <script defer src="js/config.local.js?v=v190"></script>
+  <script defer src="js/app.js?v=v190"></script>
+  <script defer src="js/notes.js?v=v190"></script>
+  <script defer src="js/seients.js?v=v190"></script>
+  <script defer src="js/perfil.js?v=v190"></script>
+  <script defer src="js/grupview.js?v=v190"></script>
+  <script defer src="js/postits.js?v=v190"></script>
+  <script defer src="js/horari.js?v=v190"></script>
+  <script defer src="js/vedrunu.js?v=v190"></script>
+  <script defer src="js/gwrite.js?v=v190"></script>
+  <script defer src="js/rubriques.js?v=v190"></script>
+  <script defer src="js/docents.js?v=v190"></script>
+  <script defer src="js/coordinacio.js?v=v190"></script>
+  <script defer src="js/regdocents.js?v=v190"></script>
+  <script defer src="js/segentrevistes.js?v=v190"></script>
+  <script defer src="js/entrevistes.js?v=v190"></script>
+  <script defer src="js/notescomp.js?v=v190"></script>
+  <script defer src="js/reunions.js?v=v190"></script>
+  <script defer src="js/versio.js?v=v190"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v189"></script>
+  <script defer src="js/personal.js?v=v190"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

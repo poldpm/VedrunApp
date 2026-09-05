@@ -1046,8 +1046,63 @@ function _saveMainToCache() {
   } catch(e) {}
 }
 
+/* ============================================================
+   LA PANTALLA D'ARRENCADA
+   ------------------------------------------------------------
+   En Pol, 5/9/2026: «a mi mateix em costa haver-me d'esperar i també
+   identificar quan ha acabat de pensar». Surt SEMPRE en obrir l'app, tant
+   si hi ha dades guardades com si no: mentre hi és, l'app no s'ha de poder
+   tocar, i quan se'n va vol dir que ja està.
+
+   Se n'ha d'anar sí o sí. Una pantalla que es queda enganxada deixa l'app
+   inservible i l'única sortida seria tancar-la, o sigui que hi ha dues
+   xarxes: als 6 segons apareix un botó per entrar igualment, i als 20 se'n
+   va sola. Val més entrar amb dades velles que no poder entrar.
+   ============================================================ */
+
+let _arrencadaFeta = false;
+let _arrencadaBoto = null;
+let _arrencadaMort = null;
+
+function _arrencadaEstat(txt) {
+  const e = document.getElementById('arrencadaEstat');
+  if (e && txt) e.textContent = txt;
+}
+
+function _arrencadaFora(aPols) {
+  if (_arrencadaFeta) return;
+  _arrencadaFeta = true;
+  if (_arrencadaBoto) { clearTimeout(_arrencadaBoto); _arrencadaBoto = null; }
+  if (_arrencadaMort) { clearTimeout(_arrencadaMort); _arrencadaMort = null; }
+  const el = document.getElementById('arrencada');
+  if (!el) return;
+  if (!aPols) _arrencadaEstat('Ja està');
+  el.classList.add('fora');
+  /* Es treu del tot: si es quedés, encara que no es vegi, taparia els clics
+     i l'app semblaria morta. */
+  setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 500);
+}
+
+function _arrencadaComenca() {
+  const el = document.getElementById('arrencada');
+  if (!el) return;
+  _arrencadaBoto = setTimeout(() => {
+    _arrencadaEstat('El servidor de Google està trigant més del compte…');
+    const b = document.getElementById('arrencadaSurt');
+    if (b) b.hidden = false;
+  }, 6000);
+  _arrencadaMort = setTimeout(() => _arrencadaFora(true), 20000);
+}
+
 async function loadAll() {
-  if (!config.scriptUrl) { updateSync('', 'No configurat'); return; }
+  _arrencadaComenca();
+  if (!config.scriptUrl) {
+    /* Encara no està connectada: no hi ha res a esperar i seria una pantalla
+       negra per sempre. Que entri i vegi el «Pas 1». */
+    updateSync('', 'No configurat');
+    _arrencadaFora(true);
+    return;
+  }
 
   // 1) PINTA IMMEDIATAMENT des del cache local (l'app es veu plena a l'instant)
   /* I d'aquí surt si l'arrencada s'ha de tapar o no. Si el cache ha pintat,
@@ -1056,14 +1111,20 @@ async function loadAll() {
      nou, o just després d'una versió nova— tot són pantalles buides: la mestra
      obriria apartats i els trobaria sense res, que és exactament el que fa
      pensar que l'app està espatllada. Llavors sí que s'espera. */
-  const _hiHaviaDades = _loadMainFromCache();
-  if (_hiHaviaDades) {
-    document.getElementById('setupBanner').style.display = 'none';
-    _paintAllViews();
-    updateSync('syncing', 'Actualitzant…');
-  } else {
-    updateSync('syncing', 'Sincronitzant…');
-  }
+  /* ⚠ Amb xarxa pròpia: si el que hi ha guardat al navegador està tocat i
+     pintar-ho peta, això passa ABANS del try de la connexió i l'error se
+     n'aniria amunt sense que ningú el reculli —amb la pantalla d'arrencada
+     al davant per sempre i l'app inservible. Val més arrencar sense el que
+     hi havia guardat que no arrencar. */
+  let _hiHaviaDades = false;
+  try {
+    _hiHaviaDades = _loadMainFromCache();
+    if (_hiHaviaDades) {
+      document.getElementById('setupBanner').style.display = 'none';
+      _paintAllViews();
+    }
+  } catch (e) { _hiHaviaDades = false; }
+  updateSync('syncing', _hiHaviaDades ? 'Actualitzant…' : 'Sincronitzant…');
 
   // 2) UNA SOLA CRIDA que ho porta TOT (bootstrap): dades principals, planning,
   //    tasques, calendari, assoliments, perfil, IDs dels fulls i alumnes del
@@ -1074,20 +1135,23 @@ async function loadAll() {
     /* Arrencada amb l'app buida: es tapa. Ningú no ha clicat res —o sigui que
        el vel no sortiria sol— però és el moment en què més fàcil és pensar que
        està espatllada, perquè tot es veu buit. */
-    if (!_hiHaviaDades && typeof esperaVisual === 'function') {
-      _peticio = esperaVisual(_peticio, 'Carregant les teves dades…');
-    }
+    /* Res de vel: ja hi ha la pantalla d'arrencada al davant, que fa la
+       mateixa feina i millor. Un vel damunt d'un altre només enfosquiria
+       el logo. */
+    _arrencadaEstat(_hiHaviaDades ? 'Posant-ho tot al dia…' : 'Carregant les teves dades…');
     const boot = await _peticio;
 
     // Error d'autorització: el token no coincideix
     if (boot && boot._authError) {
       updateSync('error', 'No autoritzat');
+      _arrencadaFora(true);
       _mostraErrorConnexio('auth');
       return;
     }
     // Error de xarxa: no s'ha pogut arribar al servidor
     if (boot && boot._networkError) {
       updateSync('error', 'Sense connexió');
+      _arrencadaFora(true);
       if (!students.length) _mostraErrorConnexio('network');
       return;
     }
@@ -1096,6 +1160,7 @@ async function loadAll() {
     } else {
       // Resposta rebuda però amb error del backend
       updateSync('error', 'Error');
+      _arrencadaFora(true);
       if (!students.length) _mostraErrorConnexio('backend', boot && boot.error);
       return;
     }
@@ -1104,6 +1169,10 @@ async function loadAll() {
     updateSync('ok', 'Sincronitzat'); updateStatSync();
     document.getElementById('setupBanner').style.display = 'none';
     _paintAllViews();
+    /* Ja hi ha les dades i la pantalla està pintada: fora l'arrencada. Aquí
+       i no abans —el que ha de dir la pantalla és «ja pots mirar», no «ja
+       he demanat les dades». */
+    _arrencadaFora();
 
     // A l'app de direcció el bootstrap no porta cap grup (no en tenen de
     // tutoria): es torna a obrir el que miraven l'últim cop.
@@ -1140,6 +1209,10 @@ async function loadAll() {
     _startBackgroundRefresh();
   } catch (e) {
     updateSync('error', 'Sense connexió');
+    /* ⚠ Passi el que passi, l'arrencada se'n va. Si petés aquí i es quedés,
+       l'app seria una pantalla granada i prou, i l'única sortida seria
+       tancar-la. */
+    _arrencadaFora(true);
     // Si tenim cache, no mostrem error agressiu (l'app ja funciona offline)
     if (!students.length) _mostraErrorConnexio('network', e && e.message);
   }

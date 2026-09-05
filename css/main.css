@@ -4960,3 +4960,90 @@ body.app-ocupada { cursor: progress; }
   font-size: 17px; line-height: 1; color: var(--text-muted);
 }
 .pt-item-treu:hover { color: var(--crimson); }
+
+/* ============================================================
+   LA PANTALLA D'ARRENCADA
+   ------------------------------------------------------------
+   En Pol, 5/9/2026: «quan obris l'app, mentre es carrega, hi ha d'haver-hi
+   una primera capa que enfosqueixi l'app i que no permeti tocar res… a mi
+   mateix em costa identificar quan ha acabat de pensar». I: «al ser la
+   pàgina de càrrega principal, que estigui una mica més treballada; que no
+   sigui el rectangle blanc i prou».
+
+   Per això no és el vel de les altres esperes: és una pantalla sencera amb
+   el granat de l'escola i el logo. És la primera cosa que veu una mestra
+   cada matí i ha de semblar l'app, no un avís del navegador.
+
+   ⚠ El logo és la marca de l'escola: s'hi posa tal com és, sense filtres ni
+   colors a sobre ni retallar-lo.
+   ============================================================ */
+.arrencada {
+  position: fixed; inset: 0; z-index: 950;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--garnet-deep);
+  /* Un punt de llum al darrere del logo perquè el fons no sigui una taca
+     plana. Molt fluix: ha de fer bonic, no cridar. */
+  background-image: radial-gradient(120% 90% at 50% 32%, rgba(192,30,75,0.38) 0%, transparent 62%);
+  opacity: 1; transition: opacity 0.45s ease-out;
+}
+.arrencada.fora { opacity: 0; pointer-events: none; }
+
+.arrencada-caixa {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0 28px; text-align: center;
+  max-width: 420px; width: 100%;
+}
+.arrencada-logo {
+  width: min(280px, 72vw); height: auto; display: block;
+  /* El mateix que fa el menú des de sempre: el logo porta fons blanc i, per
+     poder-lo posar sobre el granat, es passa a blanc sencer. No se'n canvia
+     la forma ni les proporcions —és la marca de l'escola. */
+  filter: brightness(0) invert(1);
+  /* Entra pujant una mica. Una sola vegada i curta: això es veu cada matí. */
+  animation: arrencadaEntra 0.6s cubic-bezier(0.23,1,0.32,1) both;
+}
+.arrencada-curs {
+  margin: 14px 0 0; font-size: 11.5px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(255,255,255,0.42);
+  animation: arrencadaEntra 0.6s cubic-bezier(0.23,1,0.32,1) 0.08s both;
+}
+.arrencada-barra {
+  margin-top: 30px; width: min(240px, 60vw); height: 3px;
+  background: rgba(255,255,255,0.13); border-radius: 999px; overflow: hidden;
+  animation: arrencadaEntra 0.6s cubic-bezier(0.23,1,0.32,1) 0.16s both;
+}
+/* Sense percentatge: no sabem quant trigarà el servidor de Google, i una
+   barra que menteix és pitjor que una que només diu «hi sóc». */
+.arrencada-barra span {
+  display: block; width: 40%; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  animation: arrencadaFil 1.25s ease-in-out infinite;
+}
+.arrencada-estat {
+  margin: 16px 0 0; font-size: 13px; color: rgba(255,255,255,0.62);
+  min-height: 19px;
+  animation: arrencadaEntra 0.6s cubic-bezier(0.23,1,0.32,1) 0.24s both;
+}
+.arrencada-surt {
+  margin-top: 18px; padding: 8px 18px;
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 999px; color: #fff; font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background var(--ease);
+}
+.arrencada-surt:hover { background: rgba(255,255,255,0.2); }
+
+@keyframes arrencadaEntra {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes arrencadaFil {
+  from { transform: translateX(-120%); }
+  to   { transform: translateX(340%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrencada-logo, .arrencada-curs, .arrencada-barra, .arrencada-estat { animation: none; }
+  .arrencada-barra span { animation: none; width: 100%; opacity: 0.55; }
+  .arrencada { transition: none; }
+}
