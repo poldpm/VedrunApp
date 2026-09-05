@@ -1,8 +1,9 @@
 {
-  "versio": "v187",
+  "versio": "v188",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El perfil ja no es desa sense cognom. Es a posta: hi ha mestres que es diuen igual, i el teu nom es el que veuen les altres quan comparteixes una nota o demanes una actualitzacio."
+    "A la fitxa d un alumne, el genere i les condicions del lloc a l aula es guarden SOLS quan els canvies. Ja no hi ha boto de Guardar ni cal baixar fins a baix.",
+    "Al peu de la finestra hi diu «Desant…» i despres «Desat ✓». Pots tancar-la de seguida: si quedava res per desar, es desa igual."
   ]
 }

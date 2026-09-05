@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v187">
+  <link rel="stylesheet" href="css/main.css?v=v188">
 </head>
 <body>
 
@@ -1729,7 +1729,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="personal-section-label">Aquest alumne</div>
         <div class="personal-field">
           <label class="form-label" for="pGenere">Gènere</label>
-          <select class="modal-input" id="pGenere" style="width:100%">
+          <select class="modal-input" id="pGenere" style="width:100%" onchange="_fitxaCanviada()">
             <option value="m">Nen</option>
             <option value="f">Nena</option>
           </select>
@@ -1785,9 +1785,9 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="personal-field" style="margin-top:20px">
           <label class="form-label">Condicions per als llocs de l'aula</label>
           <div class="seient-cond-grid">
-            <label class="seient-cond-check"><input type="checkbox" id="pSeatMestre"><span>A prop de la taula del mestre</span></label>
-            <label class="seient-cond-check"><input type="checkbox" id="pSeatPorta"><span>Lluny de la porta</span></label>
-            <label class="seient-cond-check"><input type="checkbox" id="pSeatFinestra"><span>Lluny de les finestres</span></label>
+            <label class="seient-cond-check"><input type="checkbox" id="pSeatMestre" onchange="_fitxaCanviada()"><span>A prop de la taula del mestre</span></label>
+            <label class="seient-cond-check"><input type="checkbox" id="pSeatPorta" onchange="_fitxaCanviada()"><span>Lluny de la porta</span></label>
+            <label class="seient-cond-check"><input type="checkbox" id="pSeatFinestra" onchange="_fitxaCanviada()"><span>Lluny de les finestres</span></label>
             <label class="seient-cond-check"><input type="checkbox" id="pSeatFixat" onchange="_toggleSeatFixat()"><span>Sempre al mateix lloc</span></label>
           </div>
           <div class="modal-hint" id="pSeatFixatHint" style="display:none;margin-top:6px">Fixa aquest alumne a la seva posició actual del plànol. Assigna-li el lloc a l'eina de distribució d'aula i quedarà bloquejat.</div>
@@ -1812,8 +1812,8 @@ Català, Matemàtiques, Anglès, Medi, Català
         </div>
       </div>
       <div class="panel-footer">
-        <span class="panel-footer-info">El gènere i els llocs de l'aula es guarden aquí; la resta, als documents de l'escola</span>
-        <button class="btn btn-primary" onclick="savePersonalDrawer()">Guardar</button>
+        <span class="panel-footer-info">El gènere i els llocs de l'aula es guarden sols; la resta, als documents de l'escola</span>
+        <span class="personal-desat" id="personalDesatEstat" role="status" aria-live="polite"></span>
       </div>
     </div>
   </div>
@@ -2158,32 +2158,32 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v187"></script>
-  <script defer src="js/pdfhorari.js?v=v187"></script>
-  <script defer src="js/millores.js?v=v187"></script>
-  <script defer src="js/rol.js?v=v187"></script>
-  <script defer src="js/config.local.js?v=v187"></script>
-  <script defer src="js/app.js?v=v187"></script>
-  <script defer src="js/notes.js?v=v187"></script>
-  <script defer src="js/seients.js?v=v187"></script>
-  <script defer src="js/perfil.js?v=v187"></script>
-  <script defer src="js/grupview.js?v=v187"></script>
-  <script defer src="js/postits.js?v=v187"></script>
-  <script defer src="js/horari.js?v=v187"></script>
-  <script defer src="js/vedrunu.js?v=v187"></script>
-  <script defer src="js/gwrite.js?v=v187"></script>
-  <script defer src="js/rubriques.js?v=v187"></script>
-  <script defer src="js/docents.js?v=v187"></script>
-  <script defer src="js/coordinacio.js?v=v187"></script>
-  <script defer src="js/regdocents.js?v=v187"></script>
-  <script defer src="js/segentrevistes.js?v=v187"></script>
-  <script defer src="js/entrevistes.js?v=v187"></script>
-  <script defer src="js/notescomp.js?v=v187"></script>
-  <script defer src="js/reunions.js?v=v187"></script>
-  <script defer src="js/versio.js?v=v187"></script>
+  <script defer src="js/espera.js?v=v188"></script>
+  <script defer src="js/pdfhorari.js?v=v188"></script>
+  <script defer src="js/millores.js?v=v188"></script>
+  <script defer src="js/rol.js?v=v188"></script>
+  <script defer src="js/config.local.js?v=v188"></script>
+  <script defer src="js/app.js?v=v188"></script>
+  <script defer src="js/notes.js?v=v188"></script>
+  <script defer src="js/seients.js?v=v188"></script>
+  <script defer src="js/perfil.js?v=v188"></script>
+  <script defer src="js/grupview.js?v=v188"></script>
+  <script defer src="js/postits.js?v=v188"></script>
+  <script defer src="js/horari.js?v=v188"></script>
+  <script defer src="js/vedrunu.js?v=v188"></script>
+  <script defer src="js/gwrite.js?v=v188"></script>
+  <script defer src="js/rubriques.js?v=v188"></script>
+  <script defer src="js/docents.js?v=v188"></script>
+  <script defer src="js/coordinacio.js?v=v188"></script>
+  <script defer src="js/regdocents.js?v=v188"></script>
+  <script defer src="js/segentrevistes.js?v=v188"></script>
+  <script defer src="js/entrevistes.js?v=v188"></script>
+  <script defer src="js/notescomp.js?v=v188"></script>
+  <script defer src="js/reunions.js?v=v188"></script>
+  <script defer src="js/versio.js?v=v188"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v187"></script>
+  <script defer src="js/personal.js?v=v188"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

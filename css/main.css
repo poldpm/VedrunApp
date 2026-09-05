@@ -4901,3 +4901,14 @@ body.app-ocupada { cursor: progress; }
   border-color: var(--crimson) !important;
   box-shadow: 0 0 0 3px rgba(192,30,75,0.12);
 }
+
+/* «Desant… / Desat ✓» al peu de la fitxa de l'alumne. Ocupa el lloc del
+   botó de Guardar que hi havia: la fitxa es desa sola i un botó de Guardar
+   faria pensar que sense clicar-lo no s'ha desat res. */
+.personal-desat {
+  font-size: 12.5px; font-weight: 600; color: var(--text-muted);
+  white-space: nowrap; padding-left: 12px;
+  transition: color var(--ease);
+}
+.personal-desat.ok  { color: #1B7A3D; }
+.personal-desat.mal { color: var(--crimson); }

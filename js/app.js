@@ -308,6 +308,7 @@ function _toggleSeatFixat() {
   const checked = document.getElementById('pSeatFixat').checked;
   const hint = document.getElementById('pSeatFixatHint');
   if (hint) hint.style.display = checked ? 'block' : 'none';
+  _fitxaCanviada();
 }
 
 // Companys amb qui l'alumne actual no pot seure (llista d'ids)
@@ -341,11 +342,13 @@ function _afegirIncompatible() {
   if (isNaN(id)) return;
   if (!_seatIncompatibles.includes(id)) _seatIncompatibles.push(id);
   _renderIncompatibles();
+  _fitxaCanviada();
 }
 
 function _treureIncompatible(id) {
   _seatIncompatibles = _seatIncompatibles.filter(x => x !== id);
   _renderIncompatibles();
+  _fitxaCanviada();
 }
 
 // Assignatures per a PI/AM segons el curs de l'alumne que s'està editant.
@@ -385,6 +388,10 @@ function _togglePIAMAssig(tipus, assig) {
   _renderPIAMAssigs(tipus);
 }
 function closePersonalDrawer() {
+  /* ⚠ Si quedava una desada per sortir, es fa ARA. És literalment el que li
+     va passar a en Pol: canviar el gènere i tancar de seguida. Mig segon de
+     marge i s'hauria perdut. */
+  if (_fitxaDesaTemps) { clearTimeout(_fitxaDesaTemps); _fitxaDesaTemps = null; _fitxaDesaAra(); }
   document.getElementById('personalOverlay').classList.remove('open');
   document.body.style.overflow = '';
   currentPersonalStudentId = null;
@@ -411,13 +418,66 @@ async function _esborraDesDelCalaix() {
   await deleteStudent(id);
 }
 
-async function savePersonalDrawer() {
+/* ============================================================
+   LA FITXA DE L'ALUMNE ES DESA SOLA
+   ------------------------------------------------------------
+   En Pol, 5/9/2026: «canviava el gènere i tancava la finestra pensant que
+   es guardava sol». I és el que qualsevol farà: de tota la fitxa només
+   se'n poden tocar quatre coses —el gènere i les condicions del lloc—, la
+   resta és de només mirar, i baixar fins al final a buscar un botó per a
+   una casella que has clicat a dalt no se li acut a ningú.
+
+   Per això no hi ha botó: es desa sol i es diu que s'ha desat. Un botó de
+   Guardar en una pantalla que es desa sola és pitjor que no tenir-ne, perquè
+   qui el vegi pensarà que sense clicar-lo no s'ha desat res.
+
+   S'espera mig segon abans d'enviar: marcar tres caselles seguides és una
+   sola desada, no tres. I en tancar es desa el que quedi pendent, que és
+   exactament el que li va passar a ell.
+   ============================================================ */
+
+let _fitxaDesaTemps = null;
+let _fitxaDesant = false;
+
+function _fitxaEstat(text, mena) {
+  const el = document.getElementById('personalDesatEstat');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'personal-desat' + (mena ? ' ' + mena : '');
+}
+
+/* Ho crida qualsevol de les coses que es poden tocar. */
+function _fitxaCanviada() {
+  if (currentPersonalStudentId === null) return;
+  _fitxaEstat('Desant…');
+  if (_fitxaDesaTemps) clearTimeout(_fitxaDesaTemps);
+  _fitxaDesaTemps = setTimeout(function () { _fitxaDesaTemps = null; _fitxaDesaAra(); }, 500);
+}
+
+async function _fitxaDesaAra() {
+  if (currentPersonalStudentId === null) return;
+  if (_fitxaDesant) { _fitxaCanviada(); return; }   // ja n'hi ha una en marxa
+  _fitxaDesant = true;
+  try {
+    await savePersonalDrawer(true);                 // true = no tanquis la finestra
+    /* Sense connexió, el canvi es queda al navegador i prou. Dir «Desat ✓»
+       seria mentir-li: quan obrís l'app en un altre lloc no hi seria. */
+    _fitxaEstat(config.scriptUrl ? 'Desat ✓' : 'Desat només en aquest ordinador',
+                config.scriptUrl ? 'ok' : 'mal');
+  } catch (e) {
+    /* Si no s'ha pogut desar s'ha de veure AQUÍ i quedar-s'hi: un toast que
+       marxa sol, en una pantalla que es desa sola, no el llegirà ningú. */
+    _fitxaEstat('No s\'ha pogut desar', 'mal');
+  } finally { _fitxaDesant = false; }
+}
+
+async function savePersonalDrawer(noTanquis) {
   const id    = currentPersonalStudentId;
   // El gènere es desa amb la llista d alumnes, no amb les dades del full.
   const gSel = document.getElementById("pGenere");
   if (gSel) {
     const st = students.filter(function (x) { return x.id === id; })[0];
-    if (st && st.genere !== gSel.value) { st.genere = gSel.value; try { await saveStudents(); } catch (e) {} }
+    if (st && st.genere !== gSel.value) { st.genere = gSel.value; try { await saveStudents(noTanquis); } catch (e) {} }
   }
   const dades = {
     mare:      document.getElementById('pMare').value.trim(),
@@ -445,8 +505,8 @@ async function savePersonalDrawer() {
   dades.rowId = prev.rowId;
   dades.dataNaix = prev.dataNaix;
   personal[id] = dades;
-  // Tanca la finestra i torna a la pàgina de gestió d'alumnes
-  closePersonalDrawer();
+  // Tanca la finestra… si no s'està desant sol (llavors ha de quedar oberta)
+  if (!noTanquis) closePersonalDrawer();
   // Refresca fitxa si és oberta
   if (currentFitxaStudentId === id) renderFitxa(id);
   renderAlumnesList();
@@ -464,8 +524,14 @@ async function savePersonalDrawer() {
         r = await appsScriptPost({ action: 'savePersonal', studentId: rowId, dades });
       }
       if (!r.ok) throw new Error(r.error);
-      showToast('Dades guardades', 'success');
-    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+      if (!noTanquis) showToast('Dades guardades', 'success');
+    } catch (e) {
+      /* Quan es desa sol, l'error el diu el rètol de la mateixa fitxa i qui
+         crida se n'ha d'assabentar; el toast només val quan hi ha hagut un
+         clic al darrere. */
+      if (noTanquis) throw e;
+      showToast('Error: ' + e.message, 'error');
+    }
   }
 }
 
@@ -1760,7 +1826,10 @@ async function deleteStudent(id) {
   if (!document.getElementById('page-alumnes').classList.contains('page-hidden')) renderAlumnesList();
   if (!document.getElementById('page-observacions').classList.contains('page-hidden')) renderObsGrid();
 }
-async function saveStudents() {
+/* `callat` = no facis sortir el toast. Serveix per a la fitxa de l'alumne,
+   que ja diu ella mateixa que ha desat: dues confirmacions per a un canvi
+   són soroll, i el toast tapa justament el rètol que ho diu. */
+async function saveStudents(callat) {
   if (!config.scriptUrl) return;
   updateSync('syncing', 'Guardant…');
   try {
@@ -1768,7 +1837,7 @@ async function saveStudents() {
     if (!r.ok) throw new Error(r.error);
     await appsScriptPost({ action: 'syncAlumnesARegistre', alumnes: students });
     updateSync('ok', 'Sincronitzat'); updateStatSync();
-    showToast('Canvis guardats', 'success');
+    if (!callat) showToast('Canvis guardats', 'success');
   } catch (e) { updateSync('error', 'Error'); showToast('Error: ' + e.message, 'error'); }
 }
 async function syncStudents() {
