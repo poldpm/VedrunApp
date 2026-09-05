@@ -1,8 +1,10 @@
 {
-  "versio": "v205",
+  "versio": "v206",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: dels contactes de la familia nomes en llegia el primer curs. El full de secretaria te una pestanya per curs i ara es llegeixen totes."
+    "Arreglat: en obrir la fitxa d un alumne ja hi deia «Desant…» i, un quart de segon despres, l app escrivia al full sense que ninguu hagues tocat res.",
+    "El genere i les condicions de seient es desen en SEGON PLA: tries, tanques i ja esta. Ja no et tapa la pantalla.",
+    "Si algun cop no s ha pogut desar i ja has tancat la finestra, ara t ho diu."
   ]
 }

@@ -217,6 +217,12 @@ function closePanel() {
    DRAWER DADES PERSONALS
    ============================================================ */
 async function openPersonalDrawer(studentId) {
+  /* ⚠ El rètol de què ha passat s'ha de netejar SEMPRE en obrir. En Pol,
+     5/9/2026: «quan obres el full de dades, ja comença amb el missatge
+     desant». Hi quedava el de l'última vegada, i llavors no vol dir res:
+     ni quan diu que desa ni quan diu que ja està. */
+  if (_fitxaDesaTemps) { clearTimeout(_fitxaDesaTemps); _fitxaDesaTemps = null; }
+  _fitxaEstat('');
   currentPersonalStudentId = studentId;
   const s = students.find(x => x.id === studentId);
   document.getElementById('personalDrawerName').textContent = s ? s.nom : '—';
@@ -238,6 +244,10 @@ let _piAssigs = [];  // assignatures marcades amb PI
 let _amAssigs = [];  // assignatures marcades amb AM
 
 function fillPersonalForm(d) {
+  _omplintFitxa = true;
+  try { _fillPersonalForm(d); } finally { _omplintFitxa = false; }
+}
+function _fillPersonalForm(d) {
   // El gènere: l'única dada de l'alumne que es tria aquí. La resta ve dels
   // documents de l'escola i només es mostra.
   var g = document.getElementById('pGenere');
@@ -450,17 +460,35 @@ function _fitxaEstat(text, mena) {
   el.className = 'personal-desat' + (mena ? ' ' + mena : '');
 }
 
+/* MENTRE S'OMPLE EL FORMULARI, RES NO COMPTA COM UN CANVI.
+
+   En Pol, 5/9/2026: «quan obres el full de dades, ja comença amb el missatge
+   desant». No era només el rètol: `fillPersonalForm()` crida
+   `_toggleSeatFixat()` per ensenyar o amagar un avís, i aquell cridava
+   `_fitxaCanviada()`. O sigui que OBRIR la fitxa d'un alumne ja la marcava
+   com a canviada i, un quart de segon després, l'app escrivia al full
+   compartit sense que ningú hagués tocat res.
+
+   Es posa la marca aquí i no al `_toggleSeatFixat` a posta: així també val
+   per a qualsevol altra cosa que un dia s'afegeixi a omplir el formulari. */
+let _omplintFitxa = false;
+
 /* Ho crida qualsevol de les coses que es poden tocar. */
 function _fitxaCanviada() {
+  if (_omplintFitxa) return;
   if (currentPersonalStudentId === null) return;
   _fitxaEstat('Desant…');
   if (_fitxaDesaTemps) clearTimeout(_fitxaDesaTemps);
-  _fitxaDesaTemps = setTimeout(function () { _fitxaDesaTemps = null; _fitxaDesaAra(); }, 500);
+  /* Prou curt perquè sembli immediat i prou llarg perquè marcar tres
+     caselles seguides sigui una sola desada i no tres. */
+  _fitxaDesaTemps = setTimeout(function () { _fitxaDesaTemps = null; _fitxaDesaAra(); }, 250);
 }
 
 async function _fitxaDesaAra() {
   if (currentPersonalStudentId === null) return;
   if (_fitxaDesant) { _fitxaCanviada(); return; }   // ja n'hi ha una en marxa
+  const _st = students.filter(function (x) { return x.id === currentPersonalStudentId; })[0];
+  const _nom = _st ? _st.nom : '';
   _fitxaDesant = true;
   try {
     await savePersonalDrawer(true);                 // true = no tanquis la finestra
@@ -472,6 +500,15 @@ async function _fitxaDesaAra() {
     /* Si no s'ha pogut desar s'ha de veure AQUÍ i quedar-s'hi: un toast que
        marxa sol, en una pantalla que es desa sola, no el llegirà ningú. */
     _fitxaEstat('No s\'ha pogut desar', 'mal');
+    /* ...però si ja ha tancat la finestra, aquell rètol no el veurà mai. Com
+       que ara es desa en segon pla, la resposta pot arribar amb el calaix
+       tancat: llavors sí que s'ha de cridar. Callar seria el pitjor: hauria
+       tancat convençuda que ja estava. */
+    const _obert = document.getElementById('personalOverlay');
+    if ((!_obert || !_obert.classList.contains('open')) && typeof showToast === 'function') {
+      showToast('No s\'ha pogut desar el canvi de ' + (_nom || 'l\'alumne') +
+                '. Torna a obrir la seva fitxa.', 'error');
+    }
   } finally { _fitxaDesant = false; }
 }
 
@@ -991,7 +1028,11 @@ function _ambSenyalDEspera(fer, text) {
 }
 
 async function _appsScriptGetXarxa(params, _retry = true) {
-  return _ambSenyalDEspera(() => _appsScriptGetFetch(params, _retry), 'Carregant…');
+  /* `getPersonal` es demana just en obrir el calaix d'un alumne: el calaix
+     ja és a la pantalla i tapar-l'hi amb un vel seria estrany. */
+  const _sensVel = params && params.action === 'getPersonal';
+  return _ambSenyalDEspera(() => _appsScriptGetFetch(params, _retry),
+                           _sensVel ? false : 'Carregant…');
 }
 
 async function _appsScriptGetFetch(params, _retry = true) {
@@ -1048,12 +1089,27 @@ const _POST_NOMES_LLEGEIX = {
    de grup buidaria el guardat i tornar enrere tornaria a esperar. */
 const _POST_NO_TOCA_LECTURES = new Set(['saveProfile']);
 
+/* ESCRIURE EN SEGON PLA, SENSE TAPAR LA PANTALLA.
+
+   En Pol, 5/9/2026: «vull que sigui tan immediat com: obro full de dades,
+   trio nena, tanco i ja s'ha desat. Si cal que ho desi en segon pla, però
+   que sigui així... és com ho farà tothom perquè així és com funcionen
+   totes les apps». I té raó: la fitxa es desa sola, i una pantalla que es
+   desa sola no pot posar-te una paret al davant cada cop que toques una
+   casella —encara menys DESPRÉS d'haver-la tancat.
+
+   Aquestes escriptures segueixen sortint a la ratlla de dalt (es veu que
+   hi ha feina) i el rètol del peu de la fitxa diu com ha anat. El vel, no. */
+const _POST_SENSE_VEL = new Set(['saveGrupGenere', 'saveGrupPersonal', 'savePersonal']);
+
 async function appsScriptPost(body, _retry = true) {
   const accio = body && body.action;
   const nomesLlegeix = Object.prototype.hasOwnProperty.call(_POST_NOMES_LLEGEIX, accio);
   // Acabem d'escriure: el que teníem guardat pot haver quedat vell.
   if (!nomesLlegeix && !_POST_NO_TOCA_LECTURES.has(accio)) _oblidaLectures();
-  const text = nomesLlegeix ? _POST_NOMES_LLEGEIX[accio] : 'Desant…';
+  const text = nomesLlegeix ? _POST_NOMES_LLEGEIX[accio]
+             : _POST_SENSE_VEL.has(accio) ? false
+             : 'Desant…';
   return _ambSenyalDEspera(() => _appsScriptPostFetch(body, _retry), text);
 }
 
