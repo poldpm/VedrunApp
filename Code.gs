@@ -4166,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v204';
+var BACKEND_VERSIO = 'v205';
 
 var MAX_CELA = 45000;
 
@@ -7635,8 +7635,14 @@ function provaFullContactes() {
     var doc = _contactesTots_(ss);
     var grups = Object.keys(doc.perGrup);
     var t = 'Full de contactes: ' + id + '\n' +
+            'Pestanyes llegides: ' + doc.pestanyes + '\n' +
             'Grups trobats: ' + grups.length + ' (' + grups.join(', ') + ')\n' +
-            'Alumnes: ' + doc.files;
+            'Alumnes: ' + doc.files +
+            (doc.resum.length ? '\nPestanyes ignorades (son un resum): ' + doc.resum.join(', ') : '') +
+            (doc.repetits.length
+              ? '\n\nGRUPS QUE SURTEN MES D UNA VEGADA (val la primera, la resta s ignora):\n  ' +
+                doc.repetits.join('\n  ')
+              : '');
     Logger.log(t); return t;
   } catch (e) {
     var e2 = 'NO he pogut llegir el full de contactes (' + id + '): ' + e.message;
@@ -7890,6 +7896,19 @@ var CONTACTES_CAP = {
    més, entrarà sola. */
 function _contacteEsTelefon_(cap) { return /^tel/.test(_fnorm_(cap)); }
 
+/* La pestanya de resum, la que es diu «de 1r a 6è», NO es llegeix. En Pol,
+   5/9/2026: «l'última pestanya que es diu de 1r a 6è, ignora-la». Hi ha una
+   còpia dels alumnes que ja són a les pestanyes de cada curs, i comptar-los
+   dues vegades faria que cap fila no s'aparellés amb ningú —perquè
+   n'encaixarien dos— i grups sencers es quedessin sense contactes.
+
+   Es mira pel NOM i no per ser l'última: el dia que la moguin de lloc o
+   n'afegeixin una altra al darrere, això seguiria valent. */
+function _contacteEsPestanyaResum_(nom) {
+  var n = _fnorm_(nom);
+  return n.indexOf('1r') >= 0 && n.indexOf('6') >= 0;
+}
+
 /* Del nom llarg del full de la secretaria al nom curt de l'app:
    "Primer de Primària-A" → "1r A". */
 var CONTACTES_CURSOS = { primer: '1r', segon: '2n', tercer: '3r',
@@ -7945,58 +7964,80 @@ function _resolContactesId(ss) {
 }
 
 /* Llegeix el full sencer. Torna { perGrup: { '1r A': [fila…] } }.
-   ⚠ NOMÉS la primera pestanya: al full d'ara n'hi ha una segona amb una
-   còpia de 1r i 2n que es talla a mitges. Agafar-les totes dues duplicaria
-   la meitat dels alumnes. */
+
+   ⚠ TOTES LES PESTANYES, no la primera. El full de la secretaria en té UNA
+   PER CURS —1r, 2n, 3r…— i llegint-ne només una en sortien 3 grups i 63
+   alumnes en comptes de 18 i 432. Ho vaig deduir de l'exportació, que me les
+   aplana totes en un sol text, i no ho vaig comprovar; en Pol ho va veure a
+   la primera executant provaFullContactes().
+
+   I si un grup surt a DUES pestanyes (al full d'ara n'hi ha una amb una còpia
+   de 1r i 2n), val la primera i la segona s'ignora sencera. Sumar-les
+   duplicaria cada alumne, i llavors cap fila no s'aparellaria amb ningú
+   —perquè n'encaixarien dos— i tot el grup es quedaria sense contactes. */
 function _contactesTots_(ss) {
   var id = _resolContactesId(ss);
   if (!id) throw new Error('Falta l\'ID del full de contactes (CONTACTES_ID).');
-  var sh = SpreadsheetApp.openById(id).getSheets()[0];
-  var lr = sh.getLastRow(), lc = sh.getLastColumn();
-  if (lr < 2) return { perGrup: {}, files: 0 };
-  var d = sh.getRange(1, 1, lr, lc).getValues();
+  var perGrup = {}, files = 0, pestanyes = 0, repetits = [], resum = [];
 
-  /* La capçalera pot no ser a la primera fila: al full d'ara hi ha dues
-     files buides al davant. Es busca la que porta "Nom 1". */
-  var capFila = -1;
-  for (var i = 0; i < Math.min(d.length, 10); i++) {
-    if (d[i].some(function (c) { return _fnorm_(c) === _fnorm_('Nom 1'); })) { capFila = i; break; }
-  }
-  if (capFila < 0) throw new Error('No trobo la capçalera del full de contactes (hi busco "Nom 1").');
+  SpreadsheetApp.openById(id).getSheets().forEach(function (sh) {
+    if (_contacteEsPestanyaResum_(sh.getName())) { resum.push(sh.getName()); return; }
+    var lr = sh.getLastRow(), lc = sh.getLastColumn();
+    if (lr < 2 || lc < 2) return;
+    var d = sh.getRange(1, 1, lr, lc).getValues();
 
-  var cap = d[capFila], on = {}, tels = [];
-  cap.forEach(function (c, j) {
-    var k = _fnorm_(c);
-    if (!k) return;
-    if (_contacteEsTelefon_(c)) { tels.push(j); return; }
-    Object.keys(CONTACTES_CAP).forEach(function (nom) {
-      if (on[nom] === undefined && k === _fnorm_(CONTACTES_CAP[nom])) on[nom] = j;
+    /* La capçalera pot no ser a la primera fila: al full d'ara hi ha dues
+       files buides al davant. Es busca la que porta "Nom 1". */
+    var capFila = -1;
+    for (var i = 0; i < Math.min(d.length, 10); i++) {
+      if (d[i].some(function (c) { return _fnorm_(c) === _fnorm_('Nom 1'); })) { capFila = i; break; }
+    }
+    if (capFila < 0) return;   // una pestanya que no és de contactes: es deixa estar
+    pestanyes++;
+
+    var cap = d[capFila], on = {}, tels = [];
+    cap.forEach(function (c, j) {
+      var k = _fnorm_(c);
+      if (!k) return;
+      if (_contacteEsTelefon_(c)) { tels.push(j); return; }
+      Object.keys(CONTACTES_CAP).forEach(function (nom) {
+        if (on[nom] === undefined && k === _fnorm_(CONTACTES_CAP[nom])) on[nom] = j;
+      });
     });
-  });
-  ['nom', 'cognom1', 'nom1', 'correu1'].forEach(function (k) {
-    if (on[k] === undefined) throw new Error('Al full de contactes hi falta la columna "' + CONTACTES_CAP[k] + '".');
+    ['nom', 'cognom1', 'nom1', 'correu1'].forEach(function (k) {
+      if (on[k] === undefined) {
+        throw new Error('A la pestanya "' + sh.getName() + '" del full de contactes hi falta la columna "' +
+                        CONTACTES_CAP[k] + '".');
+      }
+    });
+
+    var grup = null;
+    for (var r = capFila + 1; r < d.length; r++) {
+      var f = d[r];
+      var possible = _contacteGrup_(f[0]);
+      if (possible) {
+        if (perGrup[possible]) { grup = null; repetits.push(possible + ' (a "' + sh.getName() + '")'); }
+        else { grup = possible; perGrup[grup] = []; }
+        continue;
+      }
+      if (!grup) continue;
+      var nom = String(f[on.nom] || '').trim();
+      var cog = _contacteQui_(f[on.cognom1], on.cognom2 !== undefined ? f[on.cognom2] : '');
+      if (!nom && !cog) continue;
+      perGrup[grup].push({
+        nom: nom, cognoms: cog,
+        tutor1: _contacteQui_(f[on.nom1], on.cognoms1 !== undefined ? f[on.cognoms1] : ''),
+        correu1: String(f[on.correu1] || '').trim(),
+        tutor2: on.nom2 === undefined ? '' : _contacteQui_(f[on.nom2], on.cognoms2 !== undefined ? f[on.cognoms2] : ''),
+        correu2: on.correu2 === undefined ? '' : String(f[on.correu2] || '').trim(),
+        telefons: _contacteTelefons_(tels.map(function (j) { return f[j]; })),
+      });
+      files++;
+    }
   });
 
-  var perGrup = {}, grup = null, files = 0;
-  for (var r = capFila + 1; r < d.length; r++) {
-    var f = d[r];
-    var possible = _contacteGrup_(f[0]);
-    if (possible) { grup = possible; if (!perGrup[grup]) perGrup[grup] = []; continue; }
-    if (!grup) continue;
-    var nom = String(f[on.nom] || '').trim();
-    var cog = _contacteQui_(f[on.cognom1], on.cognom2 !== undefined ? f[on.cognom2] : '');
-    if (!nom && !cog) continue;
-    perGrup[grup].push({
-      nom: nom, cognoms: cog,
-      tutor1: _contacteQui_(f[on.nom1], on.cognoms1 !== undefined ? f[on.cognoms1] : ''),
-      correu1: String(f[on.correu1] || '').trim(),
-      tutor2: on.nom2 === undefined ? '' : _contacteQui_(f[on.nom2], on.cognoms2 !== undefined ? f[on.cognoms2] : ''),
-      correu2: on.correu2 === undefined ? '' : String(f[on.correu2] || '').trim(),
-      telefons: _contacteTelefons_(tels.map(function (j) { return f[j]; })),
-    });
-    files++;
-  }
-  return { perGrup: perGrup, files: files };
+  if (!pestanyes) throw new Error('No trobo la capçalera del full de contactes a cap pestanya (hi busco "Nom 1").');
+  return { perGrup: perGrup, files: files, pestanyes: pestanyes, repetits: repetits, resum: resum };
 }
 
 /* De qui és aquesta fila de contactes, dins d'un grup.

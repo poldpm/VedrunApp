@@ -1,10 +1,8 @@
 {
-  "versio": "v204",
+  "versio": "v205",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Els contactes de la familia ara son TUTOR 1 i TUTOR 2 amb els seus correus, i no «mare» i «pare».",
-    "A la fitxa hi ha tots els telefons de la familia, l un al costat de l altre.",
-    "Surten del full «Dades de contacte alumnes» de secretaria i s actualitzen sols cada quart d hora. No s editen des de l app: si un telefon no es bo, s arregla al full de secretaria."
+    "Arreglat: dels contactes de la familia nomes en llegia el primer curs. El full de secretaria te una pestanya per curs i ara es llegeixen totes."
   ]
 }
