@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v198">
+  <link rel="stylesheet" href="css/main.css?v=v199">
 </head>
 <body>
 
@@ -214,29 +214,6 @@
       </div>
 
   
-    <!-- EL QUE EL LECTOR NO HA ENTÈS DEL DOCUMENT -->
-    <div class="modal-overlay" id="dubtesOverlay" onclick="if(event.target===this)tancaDubtes()">
-      <div class="modal" style="width:min(680px, calc(100vw - 32px))">
-        <div class="modal-header">
-          <div>
-            <div class="modal-header-title">Coses del document que no he sabut col·locar</div>
-            <div class="modal-header-sub" id="dubtesSub">—</div>
-          </div>
-          <button class="modal-close" onclick="tancaDubtes()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-        </div>
-        <div class="modal-body">
-          <p class="modal-hint" style="margin:0 0 14px">
-            Quan no estic segur de qui és una cosa del document, <strong>no la poso a la fitxa
-            de ningú</strong> i te la deixo aquí. Val més que hi falti a que surti al nen
-            equivocat.
-          </p>
-          <div id="dubtesLlista"></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="tancaDubtes()">Tancar</button>
-        </div>
-      </div>
-    </div>
 
     <!-- POSSIBLES ACTUALITZACIONS -->
       <button type="button" class="home-millores" onclick="obreMillores()">
@@ -324,6 +301,30 @@
           <table class="horari-grid" id="horariGrid"></table>
         </div>
         <p class="modal-hint" style="margin-top:12px">Clica una casella per assignar-hi una matèria. Les matèries que posis aquí es crearan automàticament a l'app.</p>
+      </div>
+    </div>
+
+    <!-- EL QUE EL LECTOR NO HA ENTÈS DEL DOCUMENT -->
+    <div class="modal-overlay" id="dubtesOverlay" onclick="if(event.target===this)tancaDubtes()">
+      <div class="modal" style="width:min(680px, calc(100vw - 32px))">
+        <div class="modal-header">
+          <div>
+            <div class="modal-header-title">Coses del document que no he sabut col·locar</div>
+            <div class="modal-header-sub" id="dubtesSub">—</div>
+          </div>
+          <button class="modal-close" onclick="tancaDubtes()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-hint" style="margin:0 0 14px">
+            Quan no estic segur de qui és una cosa del document, <strong>no la poso a la fitxa
+            de ningú</strong> i te la deixo aquí. Val més que hi falti a que surti al nen
+            equivocat.
+          </p>
+          <div id="dubtesLlista"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="tancaDubtes()">Tancar</button>
+        </div>
       </div>
     </div>
 
@@ -2218,32 +2219,32 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v198"></script>
-  <script defer src="js/pdfhorari.js?v=v198"></script>
-  <script defer src="js/millores.js?v=v198"></script>
-  <script defer src="js/rol.js?v=v198"></script>
-  <script defer src="js/config.local.js?v=v198"></script>
-  <script defer src="js/app.js?v=v198"></script>
-  <script defer src="js/notes.js?v=v198"></script>
-  <script defer src="js/seients.js?v=v198"></script>
-  <script defer src="js/perfil.js?v=v198"></script>
-  <script defer src="js/grupview.js?v=v198"></script>
-  <script defer src="js/postits.js?v=v198"></script>
-  <script defer src="js/horari.js?v=v198"></script>
-  <script defer src="js/vedrunu.js?v=v198"></script>
-  <script defer src="js/gwrite.js?v=v198"></script>
-  <script defer src="js/rubriques.js?v=v198"></script>
-  <script defer src="js/docents.js?v=v198"></script>
-  <script defer src="js/coordinacio.js?v=v198"></script>
-  <script defer src="js/regdocents.js?v=v198"></script>
-  <script defer src="js/segentrevistes.js?v=v198"></script>
-  <script defer src="js/entrevistes.js?v=v198"></script>
-  <script defer src="js/notescomp.js?v=v198"></script>
-  <script defer src="js/reunions.js?v=v198"></script>
-  <script defer src="js/versio.js?v=v198"></script>
+  <script defer src="js/espera.js?v=v199"></script>
+  <script defer src="js/pdfhorari.js?v=v199"></script>
+  <script defer src="js/millores.js?v=v199"></script>
+  <script defer src="js/rol.js?v=v199"></script>
+  <script defer src="js/config.local.js?v=v199"></script>
+  <script defer src="js/app.js?v=v199"></script>
+  <script defer src="js/notes.js?v=v199"></script>
+  <script defer src="js/seients.js?v=v199"></script>
+  <script defer src="js/perfil.js?v=v199"></script>
+  <script defer src="js/grupview.js?v=v199"></script>
+  <script defer src="js/postits.js?v=v199"></script>
+  <script defer src="js/horari.js?v=v199"></script>
+  <script defer src="js/vedrunu.js?v=v199"></script>
+  <script defer src="js/gwrite.js?v=v199"></script>
+  <script defer src="js/rubriques.js?v=v199"></script>
+  <script defer src="js/docents.js?v=v199"></script>
+  <script defer src="js/coordinacio.js?v=v199"></script>
+  <script defer src="js/regdocents.js?v=v199"></script>
+  <script defer src="js/segentrevistes.js?v=v199"></script>
+  <script defer src="js/entrevistes.js?v=v199"></script>
+  <script defer src="js/notescomp.js?v=v199"></script>
+  <script defer src="js/reunions.js?v=v199"></script>
+  <script defer src="js/versio.js?v=v199"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v198"></script>
+  <script defer src="js/personal.js?v=v199"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

@@ -1,11 +1,8 @@
 {
-  "versio": "v198",
+  "versio": "v199",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Quan l app no sap segur de quin nen parla una cosa del document, ja no la posa a la fitxa de ningu: t ho deixa apuntat a Alumnes, amb un avis que diu quantes coses hi ha. Des d alla tries de quin alumne es i li arriba de seguida.",
-    "Si al document hi ha un apartat que l app no sap on col.locar, tambe t ho diu en comptes de passar-hi de llarg en silenci.",
-    "Qui te un pero apuntat al costat del seu nom ja no queda marcat com si res: a la seva fitxa hi surt el que diu el document sencer.",
-    "Tres creus seguides per a tres nens ja son una creu per cap, no tres per a cadascun."
+    "Arreglat: el boto «Mirar-ho» de l avis de coses del document no obria res."
   ]
 }
