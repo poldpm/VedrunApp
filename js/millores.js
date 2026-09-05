@@ -33,6 +33,8 @@
          'Com es fa servir…',
        ],
        data: '2026-09-05',           // quan va entrar a la llista
+       rols: ['tutor', 'direccio'],  // opcional: a qui s'ofereix.
+                                     //   Si no hi és, la veu tothom.
      }
 
    Escriu `ras` i `mes` com a un mestre amb poc temps: què aconsegueix i on
@@ -52,8 +54,32 @@
    ============================================================ */
 
 const MILLORES = [
-  /* Encara no n'hi ha cap. La primera que hi entri, aquí sota. */
+  {
+    id: 'incidencies-familia',
+    titol: 'Avisar la família d\'una incidència',
+    ras: 'Escrius en dues línies què ha passat i el correu per a la família surt redactat, a punt de revisar i enviar.',
+    mes: [
+      'A cada targeta d\'alumne hi ha un botó nou, un cercle vermell amb una exclamació. El cliques i s\'obre una finestra per escriure què ha passat.',
+      'Abans d\'obrir res veus com quedarà el correu sencer i a qui s\'enviarà: hi posa totes les adreces que hi hagi a la fitxa de l\'alumne.',
+      'El text diu «el vostre fill» o «la vostra filla» segons el gènere de la fitxa. Si el missatge de sèrie no t\'agrada, el pots canviar des de la mateixa finestra i es queda canviat.',
+      'No s\'envia sol: s\'obre el Gmail amb el correu escrit i l\'envies tu. A la fitxa de l\'alumne hi queda el compte de les que li has comunicat, amb la data i el que hi vas escriure.',
+    ],
+    data: '2026-09-05',
+    rols: ['tutor', 'direccio'],
+  },
 ];
+
+/* A qui s'ofereix cada millora. Sense `rols`, a tothom.
+   ⚠ Això no és cap secret ni cap permís: és per no ensenyar a una mestra
+   una cosa que a la seva app no tindria sentit. Una especialista no té
+   tutoria ni és qui escriu a les famílies, i oferir-li «avisar la família»
+   només seria fer-li demanar una cosa que després no li serviria. */
+function _milloraEsMeva(m) {
+  if (!m.rols || !m.rols.length) return true;
+  const meu = (typeof APP_ROL !== 'undefined' && APP_ROL) ? APP_ROL : 'tutor';
+  return m.rols.indexOf(meu) !== -1;
+}
+function _milloresMeves() { return MILLORES.filter(_milloraEsMeva); }
 
 /* Les que ja s'han demanat des d'aquest ordinador. Només serveix per no
    demanar dues vegades el mateix sense adonar-se'n; qui mana és el correu
@@ -89,14 +115,14 @@ function _milloresMarca(id) {
 function _milloresMarcaVistes() {
   const v = _milloresVistes();
   const avui = new Date().toISOString().slice(0, 10);
-  MILLORES.forEach(m => { if (!v[m.id]) v[m.id] = avui; });
+  _milloresMeves().forEach(m => { if (!v[m.id]) v[m.id] = avui; });
   _milloresDesa(MILLORES_VISTES, v);
 }
 
 /* Quantes són NOVES per a ella: ni vistes ni demanades. */
 function milloresNoves() {
   const d = _milloresDemanades(), v = _milloresVistes();
-  return MILLORES.filter(m => !d[m.id] && !v[m.id]).length;
+  return _milloresMeves().filter(m => !d[m.id] && !v[m.id]).length;
 }
 
 /* Al botó de l'inici, l'estrella es converteix en el número quan n'hi ha de
@@ -130,7 +156,8 @@ function tancaMillores() {
 function _milloresRender() {
   const cont = document.getElementById('milloresLlista');
   if (!cont) return;
-  if (!MILLORES.length) {
+  const meves = _milloresMeves();
+  if (!meves.length) {
     /* L'estat buit ha de dir què hi haurà i com hi arriba, no un «no hi ha
        res»: si no, sembla una pantalla espatllada. */
     cont.innerHTML =
@@ -146,7 +173,7 @@ function _milloresRender() {
   }
   const demanades = _milloresDemanades();
   const vistes = _milloresVistes();
-  cont.innerHTML = MILLORES.map(m => {
+  cont.innerHTML = meves.map(m => {
     const ja = demanades[m.id];
     const nova = !ja && !vistes[m.id];
     return '' +
@@ -195,7 +222,7 @@ function milloraMes(id) {
 let _milloraDemanant = null;
 
 function milloraVull(id) {
-  const m = MILLORES.filter(x => x.id === id)[0];
+  const m = _milloresMeves().filter(x => x.id === id)[0];
   if (!m) return;
   _milloraDemanant = m;
   document.getElementById('milloraConfirmaQue').textContent = m.titol;

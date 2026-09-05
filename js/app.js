@@ -2064,6 +2064,12 @@ function grupTutoria() {
 }
 
 function updateHomeCounters() {
+  /* El número de «Possibles actualitzacions». ⚠ S'ha de pintar AQUÍ, en
+     pintar l'inici: abans només es feia en tancar la llista, i per llavors
+     ja valia zero —o sigui que el número no s'hauria vist mai i l'avís no
+     hauria servit de res. */
+  if (typeof _milloresPintaBotoInici === 'function') _milloresPintaBotoInici();
+
   // Comptador a la pàgina d'alumnes
   const panelCount = document.getElementById('panelCount');
   if (panelCount) panelCount.textContent = students.length + ' alumne' + (students.length !== 1 ? 's' : '') + _sufixGrup();

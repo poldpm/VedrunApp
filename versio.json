@@ -1,9 +1,9 @@
 {
-  "versio": "v184",
+  "versio": "v185",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El document d aspectes generals del grup ara arriba SOL a les fitxes dels alumnes, cada quart d hora, igual que les llistes. Abans, canviar-hi una cosa no arribava fins que algu ho aplicava a ma.",
-    "De Configuracio han marxat «Llistes d alumnes de l escola» i «Alumnes que l app no sap qui son»: ja no cal tocar-ho, es fa sol. Si algun dia veus que no s actualitza o que a un alumne li falten dades, avisa en Pol."
+    "Primera actualitzacio a «Possibles actualitzacions»: avisar la familia d una incidencia. Escrius en dues linies que ha passat i el correu surt redactat, a punt de revisar i enviar.",
+    "Cada actualitzacio pot ser nomes per a segons quins rols: aquesta es per a tutors i direccio."
   ]
 }

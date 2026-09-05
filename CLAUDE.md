@@ -213,6 +213,7 @@ després** (ell copia i enganxa; qualsevol cosa de més li fa feina):
         'No toca res del que hi ha escrit: només els colors.',
       ],
       data: '2026-09-05',
+      rols: ['tutor', 'direccio'],   // OPCIONAL. Si no hi és, la veu tothom.
     },
 
     === COM ESTÀ FETA (MILLORES.md) ===
@@ -241,6 +242,10 @@ mestra amb poc temps):
   llista ni enlloc. Ho va dir en Pol el 5/9/2026: «no ho vull. Només
   l'actualització».
 - `data`: la d'avui.
+- `rols`: **només si la millora no té sentit per a tothom.** Els valors són
+  `tutor`, `especialista` i `direccio`. Una especialista no té tutoria ni és
+  qui escriu a les famílies: oferir-li segons què només seria fer-li demanar
+  una cosa que després no li serviria. Si serveix a tots, no hi posis res.
 - La part de **com està feta** és per a qui l'hagi de fer, no per a la
   mestra: allà sí que hi van els fitxers, el perquè i els paranys. Escriu-la
   pensant que qui la llegirà no ha vist mai aquesta conversa.
