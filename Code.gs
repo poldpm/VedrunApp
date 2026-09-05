@@ -4106,7 +4106,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v195';
+var BACKEND_VERSIO = 'v196';
 
 var MAX_CELA = 45000;
 
@@ -7153,13 +7153,26 @@ function _fitxaPerAlumne_(f, prep, alies) {
        Família, pares separats → aspectes conductuals
        Pagament porteria       → NO. És cosa de secretaria, no de la fitxa. */
   (f.grupCamps || []).forEach(function (x) {
-    var e = _fnorm_(x.camp);
+    /* ⚠ `_fitxaEtiq_` PRIMER. Quan al document la casella del rètol està
+       combinada amb la del costat, el rètol arriba com a "[merged] Família
+       (…)" i cap d'aquestes comparacions no hi quadrava: nou caselles de
+       família i de relació entre iguals no entraven a l'app i ningú no ho
+       sabia, perquè no hi ha res que es queixi d'una casella que s'ignora.
+       Trobat el 5/9/2026 comparant el document amb el full un per un. */
+    var e = _fnorm_(_fitxaEtiq_(x.camp));
     var on = null, ambText = true;
     if (e.indexOf("drets d imatge") === 0) { on = "drets"; }
     else if (e.indexOf("emvic") === 0) { on = "emvic"; ambText = false; }
     else if (e.indexOf("intoler") === 0 || e.indexOf("al lerg") === 0) { on = "obs"; }
     else if (e.indexOf("relacio entre iguals") === 0) { on = "asp"; }
     else if (e.indexOf("familia") === 0) { on = "asp"; }
+    /* Rètols que només fa servir un grup, però que diuen coses de família
+       igual que els altres. Si no hi són, aquells alumnes es queden sense. */
+    else if (e.indexOf("monoparental") === 0) { on = "asp"; }
+    else if (e.indexOf("pares separats") === 0) { on = "asp"; }
+    /* I aquest és un SUPORT, no una cosa de família: va amb les
+       adaptacions, com "Suport biblioteca". */
+    else if (e.indexOf("alumnes biblioteca") === 0) { on = "am"; }
     if (!on) return;
 
     // Cada tros de la casella parla d un nen (o d uns quants) i diu una
