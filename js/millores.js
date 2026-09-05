@@ -33,9 +33,6 @@
          'Com es fa servir…',
        ],
        data: '2026-09-05',           // quan va entrar a la llista
-       com: [                        // ⚠ AIXÒ NO ES VEU A L'APP
-         'Quins fitxers toca i com està feta…',
-       ],
      }
 
    Escriu `ras` i `mes` com a un mestre amb poc temps: què aconsegueix i on
@@ -46,11 +43,12 @@
    vull. Només l'actualització». Una llista d'idees no ha de ser una llista
    de qui demana coses.
 
-   ⚠ El `com` és per a QUI L'HAGI DE FER, no per a la mestra: no surt enlloc
-   de l'app. Serveix perquè, quan algú digui «fes-me la del color verd», qui
-   ho faci sàpiga com estava feta i no se l'hagi d'inventar una altra vegada
-   —que és com dues mestres acaben amb la mateixa cosa feta diferent. Hi ha
-   d'anar: quins fitxers es toquen, com funciona per dins, i què va costar.
+   ⚠ COM ESTÀ FETA cada millora NO va aquí: va a `MILLORES.md`. Aquest
+   fitxer se'l baixa el navegador de cada mestra i no hi ha de portar coses
+   que ella no veurà mai. La recepta tècnica és per a qui l'hagi de fer:
+   quan algú digui «fes-me la del color verd», qui ho faci obre el
+   `MILLORES.md`, hi troba com estava feta i no se l'ha d'inventar una altra
+   vegada —que és com dues mestres acaben amb la mateixa cosa feta diferent.
    ============================================================ */
 
 const MILLORES = [

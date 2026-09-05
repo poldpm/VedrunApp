@@ -185,6 +185,70 @@ Busca handlers sense efecte: atributs `on*` buits o que només fan
 pinta com a clicable i no fa res és pitjor que no tenir-lo: la mestra clica,
 no passa res, i deixa de fiar-se de l'app.
 
+## Passar una millora a «Possibles actualitzacions»
+
+Quan en Pol digui, **a la conversa d'una mestra**, alguna cosa com:
+
+> «fes-me tot el que necessito per a poder passar-ho a possibles
+> actualitzacions», «prepara-m'ho per compartir-ho», «passa-ho al catàleg»
+
+vol dir: **la cosa que acabem de fer en aquesta app pot servir a més gent.**
+Prepara-l'hi **un sol bloc per copiar i enganxar**, i res més. Ell el porta a
+la conversa de la mare i des d'allà arriba a totes les mestres.
+
+No preguntis de quina millora es tracta si només n'hi ha una de candidata:
+és el que s'acaba de fer en aquesta conversa. Si n'hi ha diverses, pregunta
+quina.
+
+**Escriu EXACTAMENT això, en un sol bloc de codi, sense res abans ni
+després** (ell copia i enganxa; qualsevol cosa de més li fa feina):
+
+    === PER A LA LLISTA (js/millores.js) ===
+    {
+      id: 'color-verd',
+      titol: 'L\'app en verd',
+      ras: 'Canvia el granat de tota l\'app per un verd.',
+      mes: [
+        'Es tria des de Configuració i es pot tornar enrere quan vulguis.',
+        'No toca res del que hi ha escrit: només els colors.',
+      ],
+      data: '2026-09-05',
+    },
+
+    === COM ESTÀ FETA (MILLORES.md) ===
+    ## `color-verd` — L'app en verd
+
+    **Què fa:** una frase.
+
+    **Fitxers:** quins es toquen i què s'hi fa a cadascun.
+
+    **Com funciona:** l'explicació de debò.
+
+    **Paranys:** el que va costar de trobar.
+
+    **Depèn de:** només pantalla / cal `Code.gs` (enganxar la biblioteca) /
+    cal un permís nou al `appsscript.json`.
+
+**Les regles del text de dalt** (la meitat de la llista la llegirà una
+mestra amb poc temps):
+
+- `id`: en minúscules i amb guions, i **que no canviï mai**. És el que
+  identifica la petició al correu i el que recorda si algú ja l'ha demanada.
+- `ras`: **UNA frase**, ras i curt, del que aconsegueix. És l'única cosa que
+  llegirà molta gent. Res de noms de fitxers ni de funcions.
+- `mes`: tres o quatre línies com a molt: què fa i on es clica.
+- ⚠ **NO hi posis MAI el nom de la mestra** que ho va demanar, ni a la
+  llista ni enlloc. Ho va dir en Pol el 5/9/2026: «no ho vull. Només
+  l'actualització».
+- `data`: la d'avui.
+- La part de **com està feta** és per a qui l'hagi de fer, no per a la
+  mestra: allà sí que hi van els fitxers, el perquè i els paranys. Escriu-la
+  pensant que qui la llegirà no ha vist mai aquesta conversa.
+
+**Si la millora toca el `Code.gs`**, digues-ho al «Depèn de»: vol dir que qui
+la demani també haurà d'enganxar la biblioteca, i en Pol ho ha de saber abans
+d'oferir-la.
+
 ## Estil de treball preferit
 - Canvis incrementals i provats. Explica el que fas i per què.
 - Prioritza velocitat i simplicitat d'ús: els mestres tenen poc temps.
