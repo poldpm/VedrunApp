@@ -1,10 +1,10 @@
 {
-  "versio": "v182",
+  "versio": "v183",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A «Possibles actualitzacions», al boto de l inici hi surt quantes n hi ha de NOVES. Quan les has llegides o demanades, el numero desapareix.",
-    "Les que encara no has obert surten marcades com a «Nova».",
-    "Les explicacions ja no diuen qui les va demanar: es una llista d idees, no de qui demana coses."
+    "El document d aspectes generals del grup ara arriba SOL a les fitxes dels alumnes. Abans, canviar-hi una cosa no arribava a l app fins que algu ho aplicava a ma.",
+    "Es mira cada quart d hora, igual que les llistes. Si treus un nen de l aula d acollida al document, al cap d una estona ja no hi sortira.",
+    "I el boto de Configuracio → «Portar-les ara» tambe ho fa al moment, si no vols esperar."
   ]
 }

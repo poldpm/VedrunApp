@@ -6089,6 +6089,14 @@ async function llistesSync(prova) {
   if (out) out.innerHTML = prova ? 'Mirant…' : 'Portant-les…';
   try {
     const r = await appsScriptPost({ action: 'grupsSincronitza', prova: !!prova });
+    /* Portar les llistes i deixar les fitxes velles seria mig arreglar-ho:
+       en Pol va treure uns alumnes de l'aula d'acollida al document, el full
+       es va actualitzar i l'app seguia dient que hi anaven. Si es fa a mà,
+       es fa tot. En la prova no s'aplica res: només es mira. */
+    let rf = null;
+    if (!prova && r && r.ok) {
+      try { rf = await appsScriptPost({ action: 'fitxesAraSiCal' }); } catch (e) {}
+    }
     if (!r || !r.ok) {
       if (out) out.innerHTML = '<span style="color:#B71C1C">' +
         escapeHtml((r && r.error) || 'No s\'ha pogut fer') + '</span>';
@@ -6110,6 +6118,20 @@ async function llistesSync(prova) {
         '</li>').join('') + '</ul>';
     } else {
       h += '<br>Tot ja estava al dia.';
+    }
+    /* I què ha passat amb les fitxes, que és l'altra meitat de la feina. */
+    if (rf) {
+      if (!rf.ok) {
+        h += '<br><span style="color:#B71C1C">Les fitxes no s\'han pogut actualitzar: ' +
+             escapeHtml(rf.error || '') + '</span>';
+      } else if (rf.calia === false) {
+        h += '<br>Les fitxes dels alumnes ja estaven al dia.';
+      } else {
+        const tf = rf.total || {};
+        h += '<br><strong>Fitxes dels alumnes:</strong> ' + (tf.camps || 0) +
+             ' dada' + (tf.camps === 1 ? '' : 'es') + ' actualitzada' + (tf.camps === 1 ? '' : 'es') +
+             ' de ' + (tf.alumnes || 0) + ' alumne' + (tf.alumnes === 1 ? '' : 's') + '.';
+      }
     }
     if ((r.senseParella || []).length) {
       h += '<br><span style="color:#7C4A03">No he trobat la pestanya de: ' +

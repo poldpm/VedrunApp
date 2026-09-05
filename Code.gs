@@ -2243,6 +2243,7 @@ function handleRequest(e) {
       case 'loadProfile':            result = loadProfile(ss); break;
       case 'setupGrups':             result = setupGrups(getGrupsSpreadsheet(ss) || ss); break;
       case 'grupsSincronitza':       result = grupsSincronitza(ss, !!(body && body.prova)); break;
+      case 'fitxesAraSiCal':       result = fitxesAplicaSiCal(ss); break;
       case 'grupsSyncEstat':         result = grupsSyncEstat(ss); break;
       case 'fitxesDubtes':           result = fitxesDubtes(ss); break;
       case 'fitxesPosaAlies':        result = fitxesPosaAlies(ss, body && body.grup, body && body.etiqueta, body && body.uid); break;
@@ -4105,7 +4106,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v181';
+var BACKEND_VERSIO = 'v183';
 
 var MAX_CELA = 45000;
 
@@ -5438,9 +5439,31 @@ function grupsSincronitzaAuto() {
   try {
     var permis = PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES');
     if (String(permis || '').toLowerCase() !== 'si') return;
-    var r = grupsSincronitzaSiCal(SpreadsheetApp.getActiveSpreadsheet());
-    if (r && r.ok && r.calia === false) return;         // no ha canviat res: ni ho apuntem
-    Logger.log('grupsSincronitzaAuto: ' + JSON.stringify(r && r.total ? r.total : r));
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    /* ⚠ Les dues feines van en try SEPARATS. Són independents —una porta les
+       llistes de l'escola i l'altra el document d'aspectes generals— i si
+       comparteixen el try, el dia que la primera peti (el full de l'escola
+       reanomenat, per exemple) la segona deixaria de fer-se en silenci i
+       ningú no ho relacionaria. */
+    try {
+      var r = grupsSincronitzaSiCal(ss);
+      if (!(r && r.ok && r.calia === false)) {
+        Logger.log('grupsSincronitzaAuto (llistes): ' + JSON.stringify(r && r.total ? r.total : r));
+      }
+    } catch (e) { Logger.log('grupsSincronitzaAuto (llistes) ha petat: ' + e.message); }
+
+    /* Les FITXES s'han de mirar SEMPRE, encara que les llistes no hagin
+       canviat: el document d'aspectes generals es toca sense que hi entri
+       ni surti cap alumne —treure un nen de l'aula d'acollida, per
+       exemple— i abans això no arribava a l'app fins que algú executava
+       aplicaFitxesDEBO() a mà. */
+    try {
+      var f = fitxesAplicaSiCal(ss);
+      if (!(f && f.ok && f.calia === false)) {
+        Logger.log('grupsSincronitzaAuto (fitxes): ' + JSON.stringify(f && f.total ? f.total : f));
+      }
+    } catch (e) { Logger.log('grupsSincronitzaAuto (fitxes) ha petat: ' + e.message); }
   } catch (e) { Logger.log('grupsSincronitzaAuto ha petat: ' + e.message); }
 }
 
@@ -7106,6 +7129,77 @@ function _fitxaPerAlumne_(f, prep, alies) {
    Amb prova=true no escriu res: només diu què faria, camp per
    camp. És com s'ha de mirar SEMPRE abans de deixar-ho anar.
    ============================================================ */
+/* ============================================================
+   LES FITXES TAMBE S'ACTUALITZEN SOLES
+   ------------------------------------------------------------
+   En Pol, 5/9/2026: «he esborrat els nens d'aula d'acollida de 2n C perque
+   no es real, i segueix marcats... quan els fulls queden actualitzats,
+   l'app, tambe!!!». I tenia raó: la sincronitzacio de cada quart d'hora
+   portava les LLISTES de l'escola, pero el pas del document de fitxes a les
+   dades de cada alumne nomes es feia quan algu executava aplicaFitxesDEBO()
+   a ma. O sigui que corregir el document no arribava enlloc.
+
+   Per que no s'aplica sempre i prou: llegir el document, aparellar tots els
+   noms i escriure als 18 grups son mig minut llarg. Fer-ho cada quart
+   d'hora sense que hagi canviat res seria cremar la quota de l'script per
+   no res, i el dia que faci falta de debo no quedaria marge.
+
+   Per aixo una EMPREMTA, igual que amb les llistes: es llegeix el document
+   (que s'ha de llegir igualment), se'n fa un resum curt, i si es el mateix
+   d'abans no es toca res. Si ha canviat una lletra, s'aplica.
+   ============================================================ */
+
+/* Un resum de tot el que diu el document. Ha de canviar si canvia
+   qualsevol cosa que acabi a la fitxa d'un alumne. */
+function _fitxesEmpremta_(doc) {
+  var trossos = [];
+  Object.keys(doc.perGrup).sort().forEach(function (g) {
+    var f = doc.perGrup[g];
+    trossos.push('#' + g);
+    ['obs', 'eap', 'pi', 'am', 'trastorns', 'acollida', 'grupCamps'].forEach(function (k) {
+      (f[k] || []).forEach(function (x) {
+        trossos.push(k + ':' + String(x.etiqueta || x.camp || '') + '=' + String(x.valor || ''));
+      });
+    });
+  });
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, trossos.join('\n'), Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+/* Aplica les fitxes NOMES si el document ha canviat des de l'ultima vegada. */
+function fitxesAplicaSiCal(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+
+  var doc;
+  try { doc = _fitxesTotes_(); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut obrir el document de fitxes: ' + e.message }; }
+  if (!Object.keys(doc.perGrup).length) {
+    return { ok: false, error: 'No he sabut aparellar cap fitxa amb cap grup: no toco res.' };
+  }
+
+  var ara = _fitxesEmpremta_(doc);
+  var abans = null;
+  try { abans = sheetGetJSON(gss, '_AppData', 'fitxes_empremta') || null; } catch (e) {}
+
+  /* Sempre s'apunta quan s'ha mirat, hagi canviat o no: si nomes es desés
+     en canviar, una data vella voldria dir dues coses (fa estona que no
+     canvia / fa estona que no es mira) i no es podria distingir. */
+  try {
+    sheetSetJSON(gss, '_AppData', 'fitxes_mirat',
+                 Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'));
+  } catch (e) {}
+
+  if (abans === ara) return { ok: true, calia: false, empremta: ara };
+
+  var r = fitxesAplica(ss, false);
+  if (r && r.ok) {
+    try { sheetSetJSON(gss, '_AppData', 'fitxes_empremta', ara); } catch (e) {}
+  }
+  if (r) { r.calia = true; r.empremta = ara; }
+  return r;
+}
+
 function fitxesAplica(ss, prova) {
   var gss = getGrupsSpreadsheet(ss);
   if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
