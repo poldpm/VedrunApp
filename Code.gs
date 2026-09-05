@@ -4106,7 +4106,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v183';
+var BACKEND_VERSIO = 'v195';
 
 var MAX_CELA = 45000;
 
@@ -6577,9 +6577,21 @@ function _fitxaNoms_(valor) {
   // Els noms tant poden anar abans dels dos punts ("Sami: certificat de
   // discapacitat") com després ("Comencem fent adaptacions...: Manel,
   // Johan"). Es miren totes dues bandes: la que és prosa no dóna res.
+  /* ⚠ Primer les BARRES, i cada tros es mira sencer. El document les fa
+     servir per llistar gent, i sovint darrere d'una frase acabada en punt:
+
+       "TEL: Cristofer (possible TEL) cal fer el seguiment amb la Mercè…,
+             encara no tenen el diagnòstic. / Alan Chudyga"
+
+     Com que només es mira la primera frase de cada tros —la regla que evita
+     que a una nena li pengin un text que diu que la família ho va
+     rebutjar—, l'Alan quedava fora i perdia el seu TEL. Es va veure el
+     5/9/2026 quan el full va passar a ser un mirall del document. */
   var fora = [];
-  v.split(':').forEach(function (banda) {
-    _fitxaNomsBanda_(banda).forEach(function (n) { if (fora.indexOf(n) < 0) fora.push(n); });
+  v.split('/').forEach(function (tros) {
+    tros.split(':').forEach(function (banda) {
+      _fitxaNomsBanda_(banda).forEach(function (n) { if (fora.indexOf(n) < 0) fora.push(n); });
+    });
   });
   return fora;
 }
@@ -7013,6 +7025,47 @@ function _parlaDAltres_(text, prep, uidsSeus) {
   return altri;
 }
 
+/* Els noms que van DINS d'un parèntesi amb un matís.
+
+   Al 6è A el document diu:
+
+     Dislèxia: "Ernest Roquer, Valery Molina (però estan al límit: Cai Yuste
+                i Jeyssel Avilez)"
+
+   L'Ernest i la Valery tenen dislèxia; en Cai i la Jeyssel «estan al
+   límit», que vol dir que NO en tenen el diagnòstic. Posar-los-la pelada
+   seria dir una cosa que no és, i no posar-los res, amagar-la. En Pol,
+   5/9/2026, va triar que hi surti amb el matís: «Dislèxia (estan al límit)».
+
+   Torna [{ matis, noms }] de cada parèntesi que porti dos punts a dins. Els
+   parèntesis sense dos punts —"(lleu)", "(possible TEL)"— no compten: allà
+   no hi ha cap llista de noms, és una explicació del que hi ha davant.       */
+function _fitxaMatisos_(valor) {
+  var v = String(valor == null ? '' : valor);
+  var fora = [];
+  var re = /\(([^)]*)\)/g;
+  var m;
+  while ((m = re.exec(v)) !== null) {
+    var dins = m[1];
+    var i = dins.indexOf(':');
+    if (i < 0) continue;
+    var matis = _fitxaNetejaMatis_(dins.slice(0, i));
+    var noms = _fitxaNoms_(dins.slice(i + 1));
+    if (matis && noms.length) fora.push({ matis: matis, noms: noms });
+  }
+  return fora;
+}
+
+/* "però estan al límit" → "estan al límit". Es treuen les conjuncions del
+   davant i prou: la resta són les paraules de la mestra i no s'hi toca. */
+function _fitxaNetejaMatis_(s) {
+  return String(s || '')
+    .replace(/^[\s,;.]+/, '')
+    .replace(/^(pero|però|tot i que|encara que|i|tot i aixo|tot i això)\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function _fitxaPerAlumne_(f, prep, alies) {
   var acc = {};
   function per(uid) {
@@ -7072,7 +7125,19 @@ function _fitxaPerAlumne_(f, prep, alies) {
       // resol només l'Arnau —la Nour va després d'un punt— i, sense això,
       // a la fitxa de l'Arnau hi acabava el que és de la Nour.
       var dAltri = solUn && _parlaDAltres_(textLlarg, prep, uid1);
+
+      /* Qui va dins d'un parèntesi amb matís s'endú l'etiqueta AMB el
+         matís: "Dislèxia (estan al límit)". Dir-la pelada seria dir una
+         cosa que no és. */
+      var ambMatis = {};
+      _fitxaMatisos_(x.valor).forEach(function (p) {
+        p.noms.forEach(function (n) {
+          quins(n).forEach(function (a) { ambMatis[a.uid] = p.matis; });
+        });
+      });
+
       tots.forEach(function (a) {
+        if (ambMatis[a.uid]) { per(a.uid)[par[0]].push(etiq + ' (' + ambMatis[a.uid] + ')'); return; }
         per(a.uid)[par[0]].push(solUn && teExplicacio && !dAltri ? etiq + ': ' + textLlarg : etiq);
       });
     });
@@ -7100,7 +7165,13 @@ function _fitxaPerAlumne_(f, prep, alies) {
     // Cada tros de la casella parla d un nen (o d uns quants) i diu una
     // cosa DIFERENT de cadascun. Sense això, a tots els arribava el rètol
     // del camp i prou: "Intoleràncies, al·lèrgies..." no diu quina.
-    var trossos = _fitxaGrupTrossos_(x.valor);
+    /* Li passem com es mira si un text es un alumne d'aquest grup: es
+       l'unica manera de distingir "No carn: Ghofrane" de "Grethel: al.lergia
+       a la pinya", que estan escrits igual i volen dir el contrari. */
+    var trossos = _fitxaGrupTrossos_(x.valor, function (txt) {
+      var r = _qui_(prep, txt, alies);
+      return !!(r && (r.alumne || (r.alumnes && r.alumnes.length)));
+    });
     if (!trossos.length) return;
     var etiqCamp = _fitxaEtiq_(x.camp);
     trossos.forEach(function (t) {
@@ -7243,59 +7314,57 @@ function fitxesAplica(ss, prova) {
       var c = { grup: g, alumnes: 0, camps: 0, iguals: 0 };
       var toca = {};   // columna → {fila: valor}
 
-      // Què hi vam escriure l'última vegada. Serveix per treure el que el
-      // document ha deixat de dir: si una mestra esborra un nom d'una
-      // llista, aquella dada ha de marxar de la fitxa. Si no, una
-      // correcció al document no arribaria mai i el full es quedaria amb
-      // coses que ja no són certes.
-      var escritesAbans = {};
-      try {
-        var rawE = sheetGetJSON(gss, '_AppData', 'fitxes_camps_' + g);
-        if (rawE) escritesAbans = JSON.parse(rawE) || {};
-      } catch (e) {}
+      /* ⚠⚠ EL FULL ÉS UN MIRALL DEL DOCUMENT, NO UN CALAIX QUE S'HI VA
+         AFEGINT. Aquesta és la decisió que ho arregla d'arrel.
+
+         Fins al 5/9/2026 només s'escrivia el que el document deia i només
+         s'esborrava «el que recordàvem haver escrit nosaltres». Sona
+         prudent i és el contrari: cada versió del codi hi deixava restes, i
+         la següent no les podia treure perquè no en tenia constància. En
+         Pol va obrir una fitxa i hi havia «No carn» a tres nenes quan el
+         document només ho diu d'una, i a una altra li havia desaparegut el
+         seu text. Cap de les dues coses les havia escrit el codi d'aquell
+         moment: eren pòsits de versions anteriors.
+
+         Ara cada camp de fitxa s'escriu SEMPRE amb el que digui el
+         document, i es deixa BUIT si el document no en diu res. O sigui
+         que el full no pot acumular res: passi el que passi, després
+         d'aplicar-lo diu exactament el que diu el document.
+
+         Es pot fer perquè aquestes nou columnes són NOSTRES: des de la
+         v177 l'app no les deixa escriure (a la fitxa només es miren) i
+         surten totes del document. Les altres columnes del full —el
+         gènere, les condicions de seient, els contactes— no es toquen.
+
+         I abans d'escriure es desa una còpia del que hi havia (més avall):
+         si algun dia això s'endugués res que no tocava, es pot recuperar. */
+      /* Es guarda constància del que hi escrivim. Amb el mirall ja no fa
+         falta per decidir res —s'escriu tot—, però el repàs
+         (`provaNetejarFitxes`) l'usa per saber què és nostre. */
       var escritesAra = {};
 
       d.forEach(function (fila, i) {
         var uid = String(fila[cols.uid - 1] || '').trim();
         if (!uid) return;
-
-        // Primer, el que hem de TREURE: ho vam escriure nosaltres, el
-        // document ja no ho diu, i ningú no ho ha tocat des de llavors.
-        var abans = escritesAbans[uid] || {};
-        Object.keys(abans).forEach(function (camp) {
-          if (diu[uid] && diu[uid][camp]) return;      // el document encara en parla
-          var col = cols[FITXA_COL_NOM[camp]];
-          if (!col) return;
-          var ara = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
-          if (!ara) return;
-          // ⚠ Només si segueix sent el que hi vam posar NOSALTRES. Si una
-          // mestra ho ha canviat, allò és seu i no s'hi toca.
-          if (_hashCurt_(ara) !== abans[camp]) return;
-          if (!toca[col]) toca[col] = {};
-          toca[col][i + 2] = '';
-          c.camps++;
-          if (canvis.length < 40) {
-            canvis.push({ grup: g, alumne: fila[0] + ' ' + fila[1], camp: camp + ' (TREURE)',
-                          abans: ara.slice(0, 60), ara: '' });
-          }
-        });
-
-        if (!diu[uid]) return;
+        var meu = diu[uid] || {};
         var teCanvi = false;
+
         FITXA_CAMPS.forEach(function (camp) {
-          var nou = diu[uid][camp];
-          if (!nou) return;                       // el document no en diu res: no s'hi toca
-          if (!escritesAra[uid]) escritesAra[uid] = {};
-          escritesAra[uid][camp] = _hashCurt_(nou);
           var col = cols[FITXA_COL_NOM[camp]];
-          if (!col) return;      // aquesta columna encara no existeix al full
+          if (!col) return;                    // la columna encara no hi és
+          var nou = meu[camp] || '';           // el document, o RES
+          if (nou) {
+            if (!escritesAra[uid]) escritesAra[uid] = {};
+            escritesAra[uid][camp] = _hashCurt_(nou);
+          }
           var vell = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
-          if (vell === nou) { c.iguals++; return; }
+          if (vell === nou) { if (nou) c.iguals++; return; }
           if (!toca[col]) toca[col] = {};
           toca[col][i + 2] = nou;
           c.camps++; teCanvi = true;
           if (canvis.length < 40) {
-            canvis.push({ grup: g, alumne: fila[0] + ' ' + fila[1], camp: camp,
+            canvis.push({ grup: g, alumne: fila[0] + ' ' + fila[1],
+                          camp: camp + (nou ? '' : ' (TREURE)'),
                           abans: vell.slice(0, 60), ara: String(nou).slice(0, 60) });
           }
         });
@@ -7702,37 +7771,46 @@ function _fitxesNetejaTxt_(prova) {
    ("Intoleràncies, al·lèrgies...") i prou, que no diu res: sembla
    que en tingui una però no diu quina.
    ============================================================ */
-function _fitxaGrupTrossos_(valor) {
-  var v = String(valor == null ? '' : valor).trim();
-  if (!v || v === '-') return [];
+/* Parteix una casella de la secció "Altres" en trossos {noms, text}.
 
-  // ── Patró 1: "condició: noms". El text que queda darrere dels noms
-  //    d'un tros és la condició del tros següent.
+   ⚠ EL DOCUMENT ESCRIU DE DUES MANERES OPOSADES, i confondre-les vol dir
+   penjar a un nen el que és d'un altre. En Pol ho va trobar el 5/9/2026
+   obrint la primera fitxa que va mirar:
+
+     "No porc: Seyf, Raed  No carn: Ghofrane"      → CONDICIO: noms
+     "Malang Balde: Convulsions febrils  Grethel: Al.lergica a la pinya"
+                                                    → NOM: condicio
+
+   Fins ara nomes s'entenia la primera. Amb la segona, el codi es pensava
+   que el nom era la condicio i li penjava al vei: la Grethel va acabar amb
+   "Malang Balde" com a informacio medica.
+
+   Per saber quina de les dues es, es MIRA si el que hi ha davant dels dos
+   punts es un alumne d'aquell grup. Aixo no es pot endevinar pel text —hi
+   ha condicions que semblen noms i noms que semblen condicions—, o sigui
+   que qui crida ha de passar `esNom`.
+
+   `esNom(text)` -> cert si aquell text es un alumne del grup.               */
+function _fitxaGrupTrossos_(valor, esNom) {
+  var v = String(valor == null ? '' : valor).trim();
+  if (!v || v === '-' || /^cap$/i.test(v)) return [];
+  var sapQuiEs = (typeof esNom === 'function') ? esNom : function () { return false; };
+
   if (v.indexOf(':') >= 0) {
-    var parts = v.split(':');
-    var fora = [], cond = parts[0].trim();
-    for (var i = 1; i < parts.length; i++) {
-      var tros = parts[i];
-      // Els noms van al davant; el que ve després és la condició següent.
-      var noms = _fitxaNoms_(tros);
-      if (noms.length && cond) fora.push({ noms: noms, text: _fitxaNetejaCond_(cond) });
-      // La condició següent: el que queda del tros després dels noms
-      var resta = tros;
-      noms.forEach(function (n) { resta = resta.split(n).join(' '); });
-      resta = resta.replace(/^[\s,;.i]+/, '').split(/\.\s*/).pop().trim();
-      cond = resta || cond;
-    }
+    var fora = _fitxaTrossosDosPunts_(v, sapQuiEs);
     if (fora.length) return fora;
   }
 
-  // ── Patró 2: "nom (què li passa)", separats per comes que NO siguin
-  //    dins d'un parèntesi.
+  /* ── Sense dos punts: "nom (que li passa)", separats per comes, punts o
+     BARRES. La barra hi va perque el document la fa servir i sense ella
+     tota la fila era un sol tros: "Iria (en proces) / Valentina (ou cru)"
+     donava "en proces" a totes dues. */
   var trossos = [], actual = '', nivell = 0;
   for (var k = 0; k < v.length; k++) {
     var c = v.charAt(k);
     if (c === '(') nivell++;
     if (c === ')') nivell = Math.max(0, nivell - 1);
-    if ((c === ',' || c === '.') && nivell === 0) { trossos.push(actual); actual = ''; continue; }
+    if ((c === ',' || c === '.' || c === '/') && nivell === 0) { trossos.push(actual); actual = ''; continue; }
     actual += c;
   }
   trossos.push(actual);
@@ -7743,7 +7821,6 @@ function _fitxaGrupTrossos_(valor) {
     if (!t) return;
     var noms = _fitxaNoms_(t);
     if (!noms.length) return;
-    // El que li passa: el parèntesi, o el que queda després del nom.
     var m = /\(([^)]*)\)/.exec(t);
     var text = m ? m[1].trim() : '';
     if (!text) {
@@ -7754,6 +7831,114 @@ function _fitxaGrupTrossos_(valor) {
     out.push({ noms: noms, text: text });
   });
   return out;
+}
+
+/* La part dels dos punts, que és on hi havia el mal.
+
+   ⚠ NO es pot decidir mirant el text. El 5/9/2026 es va provar de mirar si
+   el que hi ha davant dels dos punts és un alumne, i al 2n B hi ha una
+   Juliet PARÉS: «Pares separats: Aday, Leo» es va llegir com si «Pares»
+   fos el seu cognom, i li va donar el text de dos companys.
+
+   O sigui que es proven LES DUES lectures i es guanya la que fa quadrar
+   més alumnes. És una manera humil de decidir-ho, i és la que aguanta: si
+   el document diu «Pares separats: Aday, Leo. Família monoparental: Dídac»,
+   llegir-ho com a condició dona tres alumnes i llegir-ho com a nom en dona
+   un; si diu «Bruna Sala: Convulsions Nora Vidal: Al·lèrgia», és al revés.
+   En cas d'empat mana «condició: noms», que és la forma més corrent.       */
+function _fitxaTrossosDosPunts_(v, esNom) {
+  var comCond = _fitxaLlegeixCondNoms_(v);
+  var comNom = _fitxaLlegeixNomCond_(v, esNom);
+  return (_fitxaQuantsResolen_(comNom, esNom) > _fitxaQuantsResolen_(comCond, esNom))
+    ? comNom : comCond;
+}
+
+/* Quants alumnes DIFERENTS fa quadrar una lectura. Els trossos sense text
+   no compten: dir el nom d'un nen sense dir-ne res no és informació. */
+function _fitxaQuantsResolen_(trossos, esNom) {
+  var vistos = {};
+  (trossos || []).forEach(function (t) {
+    if (!t || !t.text) return;
+    (t.noms || []).forEach(function (n) {
+      var net = _fitxaNetejaCond_(n);
+      if (net && esNom(net)) vistos[net.toLowerCase()] = 1;
+    });
+  });
+  return Object.keys(vistos).length;
+}
+
+/* "CONDICIO: noms  CONDICIO: noms …" */
+function _fitxaLlegeixCondNoms_(v) {
+  var parts = v.split(':');
+  var fora = [], cond = _fitxaNetejaCond_(parts[0]);
+  for (var j = 1; j < parts.length; j++) {
+    var t2 = parts[j];
+    var noms = _fitxaNoms_(t2);
+    if (noms.length && cond) fora.push({ noms: noms, text: _fitxaNetejaCond_(cond) });
+    var resta = t2;
+    noms.forEach(function (n) { resta = resta.split(n).join(' '); });
+    resta = resta.replace(/^[\s,;.i]+/, '').split(/\.\s*/).pop().trim();
+    cond = resta || cond;
+  }
+  return fora;
+}
+
+/* "NOM: condicio  NOM: condicio …". El nom de cada parella és al FINAL del
+   tros anterior; la condició, tot el que queda al davant. */
+function _fitxaLlegeixNomCond_(v, esNom) {
+  var parts = v.split(':');
+  var fora = [], clau = _fitxaNetejaCond_(parts[0]);
+  for (var i = 1; i < parts.length; i++) {
+    var tros = parts[i], seguent = '';
+    if (i < parts.length - 1) {
+      var tall = _fitxaTallaNomFinal_(tros, esNom);
+      tros = tall.abans;
+      seguent = tall.nom;
+    }
+    var text = _fitxaNetejaCond_(tros);
+    if (clau && text) fora.push({ noms: [clau], text: text });
+    clau = seguent;
+  }
+  return fora;
+}
+
+/* Es aquest text un alumne? Es prova sencer i, si no, les seves ultimes
+   paraules: al document hi ha "Malang Balde" pero tambe nomes "Grethel". */
+function _fitxaMiraSiEsNom_(text, esNom) {
+  var net = _fitxaNetejaCond_(text);
+  if (!net) return false;
+  var mots = net.split(/\s+/);
+  if (mots.length > 3) return false;          // una frase no es un nom
+  return !!esNom(net);
+}
+
+/* Talla el nom que hi ha al FINAL d'un tros. Torna { abans, nom }. */
+function _fitxaTallaNomFinal_(tros, esNom) {
+  var mots = String(tros || '').trim().split(/\s+/).filter(function (m) { return m; });
+  if (!mots.length) return { abans: '', nom: '' };
+
+  /* ⚠ Un nom son paraules en MAJUSCULA, i per aixo la cua s'atura a la
+     primera que no ho es. Sense aquesta regla, el resolutor —que perdona
+     molt— s'empassava "febrils Nora Vidal" com si fos un nom i la condicio
+     de la companya es quedava en "Convulsions". Al document els noms
+     sempre van en majuscula; les condicions, no. */
+  var maxim = 0;
+  for (var p = 1; p <= 3 && p <= mots.length; p++) {
+    var mot = mots[mots.length - p];
+    if (!/^[A-ZÀ-ÖØ-Þ]/.test(mot)) break;
+    maxim = p;
+  }
+
+  /* Del mes llarg al mes curt: "Nora Vidal" ha de guanyar "Vidal". */
+  for (var n = maxim; n >= 1; n--) {
+    var cua = _fitxaNetejaCond_(mots.slice(mots.length - n).join(' '));
+    if (cua && esNom(cua)) {
+      return { abans: mots.slice(0, mots.length - n).join(' '), nom: cua };
+    }
+  }
+  /* Cap alumne al final: es queda l'ultima paraula com a clau i ja
+     s'ignorara sola si no resol. */
+  return { abans: mots.slice(0, mots.length - 1).join(' '), nom: mots[mots.length - 1] || '' };
 }
 
 /* Treu de la condició el que hi hagi quedat penjat del tros anterior. */
