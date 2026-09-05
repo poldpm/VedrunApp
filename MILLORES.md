@@ -43,8 +43,11 @@ una altra vegada.
 
 **Paranys:** el que va costar de trobar. Aquesta part és la que més val.
 
-**Depèn de:** si cal el `Code.gs` (i per tant enganxar la biblioteca), si
-demana cap permís nou al `appsscript.json`, o si és només de pantalla.
+**Depèn de:** `només pantalla`, `també Code.gs` o `toca el projecte de la
+mestra`. Compte amb l'últim: amb la biblioteca, un canvi de `Code.gs` NO
+obliga la mestra a fer res —en Pol enganxa la biblioteca un cop i arriba a
+totes. Només cal tocar el seu projecte si hi ha una funció nova d'editor, un
+disparador nou o un permís nou al `appsscript.json`.
 
 -->
 

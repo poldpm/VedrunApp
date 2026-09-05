@@ -226,8 +226,8 @@ després** (ell copia i enganxa; qualsevol cosa de més li fa feina):
 
     **Paranys:** el que va costar de trobar.
 
-    **Depèn de:** només pantalla / cal `Code.gs` (enganxar la biblioteca) /
-    cal un permís nou al `appsscript.json`.
+    **Depèn de:** només pantalla / també `Code.gs` / toca el projecte de la
+    mestra (i per què).
 
 **Les regles del text de dalt** (la meitat de la llista la llegirà una
 mestra amb poc temps):
@@ -245,9 +245,27 @@ mestra amb poc temps):
   mestra: allà sí que hi van els fitxers, el perquè i els paranys. Escriu-la
   pensant que qui la llegirà no ha vist mai aquesta conversa.
 
-**Si la millora toca el `Code.gs`**, digues-ho al «Depèn de»: vol dir que qui
-la demani també haurà d'enganxar la biblioteca, i en Pol ho ha de saber abans
-d'oferir-la.
+**El «Depèn de» vol dir això, i no altra cosa** (en Pol, 5/9/2026: «si tenim
+la biblioteca general i la resta són ponts cap a aquesta, qui la demani no
+haurà d'enganxar res»; té raó):
+
+- **Només pantalla** — la mestra no fa res: li arriba amb l'avís de versió
+  nova de l'app.
+- **També `Code.gs`** — la mestra TAMPOC no fa res. En Pol enganxa la
+  biblioteca **un sol cop** i arriba a totes alhora. Les accions noves que
+  demana el navegador hi passen soles: el pont té `doGet` i `doPost` i ho
+  delega tot.
+- **Toca el projecte de la mestra** — l'únic cas en què ella (o en Pol al
+  seu ordinador) ha d'enganxar alguna cosa. Passa NOMÉS per tres motius, i
+  s'ha de dir quin:
+  1. una **funció nova d'editor**, de les que s'executen des de l'Apps
+     Script: el pont no la té i li cal una línia nova;
+  2. un **disparador nou**: Google crida una funció DEL SEU projecte, o
+     sigui que ha de ser al pont;
+  3. un **permís nou** al `appsscript.json`.
+
+Si no és cap d'aquests tres, no diguis que ha d'enganxar res: la faries anar
+a l'Apps Script per no res.
 
 ## Estil de treball preferit
 - Canvis incrementals i provats. Explica el que fas i per què.
