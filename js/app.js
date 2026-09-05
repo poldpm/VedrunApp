@@ -938,7 +938,12 @@ function _ambSenyalDEspera(fer, text) {
     try { return await fer(); }
     finally { if (typeof _ocupatSurt === 'function') _ocupatSurt(); }
   })();
-  if (typeof _veniaDUnClic === 'function' && typeof esperaVisual === 'function' && _veniaDUnClic()) {
+  /* Amb `text === false` no es tapa la pantalla: només la ratlla de dalt.
+     És per a les crides que van SOTA el que la mestra està fent —anar a
+     buscar què no s'ha sabut col·locar en obrir Alumnes, per exemple—, on
+     el vel només seria una paret al davant d'una llista que ja hi és. */
+  if (text !== false && typeof _veniaDUnClic === 'function' &&
+      typeof esperaVisual === 'function' && _veniaDUnClic()) {
     p = esperaVisual(p, text);
   }
   return p;
@@ -971,6 +976,31 @@ async function _appsScriptGetFetch(params, _retry = true) {
     return { ok: false, error: (e && e.message) || 'Error de connexió', _networkError: true };
   } finally { clearTimeout(timeout); }
 }
+/* QUÈ HI DIU MENTRE ESPERA, I PER QUÈ IMPORTA.
+
+   En Pol, 5/9/2026: «comprova que els missatges de carregant surten quan
+   realment s'està carregant i el de desant quan realment s'està desant...
+   quan obro alumnes em surt el missatge de desant».
+
+   Tenia raó, i el motiu era una drecera meva: tot el que va per POST deia
+   «Desant…», escrivís o no. Hi ha coses que van per POST només perquè la
+   pregunta és massa llarga per a una adreça —demanar què no s'ha sabut
+   col·locar, calcular una previsualització de reunions, preguntar a
+   l'assistent— i cap d'elles no desa res. Dir «Desant…» mentre només
+   llegeixes no és un detall: la mestra creu que ha tocat alguna cosa que no
+   ha tocat, i el dia que de debò desi no s'ho creurà.
+
+   Aquestes accions, a més, NO han de llençar el que tenim guardat de les
+   lectures: no han canviat res, i buidar-ho fa que la propera pantalla
+   torni a esperar per no res. */
+const _POST_NOMES_LLEGEIX = {
+  /* `false` = ratlla de dalt i prou, sense tapar la pantalla: es demana en
+     obrir Alumnes, i la llista d'alumnes ja s'hi veu. */
+  fitxesDubtes:    false,
+  reunionsPreview: 'Mirant quines hores queden lliures…',
+  gemini:          'Pensant…',
+};
+
 /* Escriptures que NO toquen res del que llegim dels fulls compartits: no cal
    llençar el guardat. `saveProfile` és el cas que importa —desar quin grup
    estàs mirant no canvia cap llista d'alumnes— i si no fos aquí, cada canvi
@@ -978,9 +1008,12 @@ async function _appsScriptGetFetch(params, _retry = true) {
 const _POST_NO_TOCA_LECTURES = new Set(['saveProfile']);
 
 async function appsScriptPost(body, _retry = true) {
+  const accio = body && body.action;
+  const nomesLlegeix = Object.prototype.hasOwnProperty.call(_POST_NOMES_LLEGEIX, accio);
   // Acabem d'escriure: el que teníem guardat pot haver quedat vell.
-  if (!_POST_NO_TOCA_LECTURES.has(body && body.action)) _oblidaLectures();
-  return _ambSenyalDEspera(() => _appsScriptPostFetch(body, _retry), 'Desant…');
+  if (!nomesLlegeix && !_POST_NO_TOCA_LECTURES.has(accio)) _oblidaLectures();
+  const text = nomesLlegeix ? _POST_NOMES_LLEGEIX[accio] : 'Desant…';
+  return _ambSenyalDEspera(() => _appsScriptPostFetch(body, _retry), text);
 }
 
 async function _appsScriptPostFetch(body, _retry = true) {
@@ -6303,8 +6336,10 @@ function _dubtesRender() {
                      '">' + resta.map(opcio).join('') + '</optgroup>' : '');
     return '<article class="dubte">' +
       '<h3 class="dubte-titol">' + escapeHtml(d.etiqueta) + '</h3>' +
-      '<p class="dubte-motiu">Ho diu ' + _dubtesDocEnllac('Aspectes generals') + ' a: ' +
-        escapeHtml((d.on || []).join(', ')) + '. No sé de quin alumne parla' +
+      /* Sense dir d'on surt: el títol de la finestra ja diu de quin document
+         parlem, i repetir-ho a cada targeta només allargava la frase. */
+      '<p class="dubte-motiu">Surt a: ' + escapeHtml((d.on || []).join(', ')) +
+        '. No sé de quin alumne parla' +
         (d.motiu ? ' (' + escapeHtml(d.motiu) + ')' : '') +
         ', i per això ara no és a la fitxa de ningú.</p>' +
       /* El cas que en Pol va trobar de seguida: un nom que no és cap nen

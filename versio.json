@@ -1,10 +1,8 @@
 {
-  "versio": "v201",
+  "versio": "v202",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: el desplegable per dir de quin alumne parla el document sortia buit.",
-    "Ara diu de quin document parla («Aspectes generals»), amb l enllaç per obrir-lo alla mateix.",
-    "Si el nom es d un nen que ara es en una altra classe, t ho diu: «La Zoraida ara es a 2n A». El que toca es passar-lo al seu grup al document."
+    "Arreglat: en obrir Alumnes sortia «Desant…» quan no s estava desant res. Ara cada avis diu el que passa de debo, i el que va per sota ja no tapa la pantalla."
   ]
 }
