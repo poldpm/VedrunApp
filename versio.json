@@ -1,13 +1,11 @@
 {
-  "versio": "v178",
+  "versio": "v179",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "En obrir l app, si encara no hi ha res per ensenyar (el primer cop o despres d una actualitzacio), s espera a tenir les dades en comptes de deixar-te entrar a apartats buits.",
-    "El avis de dalt de la fitxa de l alumne ara es una nota petita i discreta: deia el mateix pero cridava massa.",
-    "Ara es veu quan l app esta carregant: una ratlla fina a dalt quan treballa sola, i la pantalla enfosquida amb una rodona quan has clicat una cosa i s ha d anar a buscar.",
-    "Mentre carrega no es pot clicar, a posta: clicar mes vegades el mateix boto no ho fa anar mes rapid, el fa anar mes lent.",
-    "Va mes rapid: no torna a demanar el que acaba de demanar, i les coses que abans es demanaven una darrere l altra ara es demanen alhora. Tornar a un grup que acabes de mirar es immediat.",
-    "Arreglat: el calaix de dades de l alumne sortia al mig de la pantalla; va al costat, com sempre."
+    "L horari s omple sol amb el PDF de l escola: Horari → «Omplir-lo amb el PDF». Ja no cal escriure dia per dia i franja per franja.",
+    "Pots adjuntar el PDF de tota l escola: busca la teva pagina pel nom, i si no l encerta la tries d una llista.",
+    "Abans d omplir res veus la setmana sencera tal com quedara, i el que canvia el que ja tenies surt en groc.",
+    "El PDF no surt del teu ordinador: es llegeix aqui mateix, o sigui que va instantani i funciona sense connexio."
   ]
 }

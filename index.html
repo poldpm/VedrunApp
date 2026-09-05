@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v178">
+  <link rel="stylesheet" href="css/main.css?v=v179">
 </head>
 <body>
 
@@ -264,6 +264,7 @@
             <p class="hero-tagline" style="margin:4px 0 0">La teva plantilla setmanal. En aplicar-la, omple el planning de tot el curs.</p>
           </div>
           <div class="horari-header-actions">
+            <button class="btn btn-ghost btn-sm" onclick="obrePdfHorari()">Omplir-lo amb el PDF</button>
             <button class="btn btn-ghost btn-sm" onclick="obreImportHorari()">Importar ràpid</button>
             <button class="btn btn-primary btn-sm" onclick="aplicarHorariAlPlanning()">Aplicar al planning</button>
           </div>
@@ -328,6 +329,33 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="closeImportHorari()">Cancel·lar</button>
           <button class="btn btn-primary" onclick="aplicarImportHorari()">Omplir horari</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMPORTAR L'HORARI DES DEL PDF DE L'ESCOLA -->
+    <div class="modal-overlay" id="pdfHorariOverlay" onclick="if(event.target===this)tancaPdfHorari()">
+      <div class="modal" style="width:min(780px, calc(100vw - 32px))">
+        <div class="modal-header">
+          <div>
+            <div class="modal-header-title">L'horari, des del PDF de l'escola</div>
+            <div class="modal-header-sub">Adjunta'l i s'omple sol</div>
+          </div>
+          <button class="modal-close" onclick="tancaPdfHorari()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field" id="pdfHorariTria">
+            <label class="modal-label" for="pdfHorariFitxer">El PDF dels horaris</label>
+            <input class="form-input" type="file" id="pdfHorariFitxer" accept="application/pdf,.pdf" onchange="_pdfHorariObre(this.files[0])">
+            <div class="modal-hint">És el que passa la direcció a principi de curs. Pots adjuntar-hi el de tota l'escola: buscaré la teva pàgina. No surt d'aquest ordinador.</div>
+          </div>
+
+          <div id="pdfHorariQui" style="display:none"></div>
+          <div id="pdfHorariPrevi"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="tancaPdfHorari()">Cancel·lar</button>
+          <button class="btn btn-primary" id="pdfHorariBtn" onclick="_pdfHorariAplica()" disabled>Omplir l'horari</button>
         </div>
       </div>
     </div>
@@ -2100,30 +2128,31 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v178"></script>
-  <script defer src="js/rol.js?v=v178"></script>
-  <script defer src="js/config.local.js?v=v178"></script>
-  <script defer src="js/app.js?v=v178"></script>
-  <script defer src="js/notes.js?v=v178"></script>
-  <script defer src="js/seients.js?v=v178"></script>
-  <script defer src="js/perfil.js?v=v178"></script>
-  <script defer src="js/grupview.js?v=v178"></script>
-  <script defer src="js/postits.js?v=v178"></script>
-  <script defer src="js/horari.js?v=v178"></script>
-  <script defer src="js/vedrunu.js?v=v178"></script>
-  <script defer src="js/gwrite.js?v=v178"></script>
-  <script defer src="js/rubriques.js?v=v178"></script>
-  <script defer src="js/docents.js?v=v178"></script>
-  <script defer src="js/coordinacio.js?v=v178"></script>
-  <script defer src="js/regdocents.js?v=v178"></script>
-  <script defer src="js/segentrevistes.js?v=v178"></script>
-  <script defer src="js/entrevistes.js?v=v178"></script>
-  <script defer src="js/notescomp.js?v=v178"></script>
-  <script defer src="js/reunions.js?v=v178"></script>
-  <script defer src="js/versio.js?v=v178"></script>
+  <script defer src="js/espera.js?v=v179"></script>
+  <script defer src="js/pdfhorari.js?v=v179"></script>
+  <script defer src="js/rol.js?v=v179"></script>
+  <script defer src="js/config.local.js?v=v179"></script>
+  <script defer src="js/app.js?v=v179"></script>
+  <script defer src="js/notes.js?v=v179"></script>
+  <script defer src="js/seients.js?v=v179"></script>
+  <script defer src="js/perfil.js?v=v179"></script>
+  <script defer src="js/grupview.js?v=v179"></script>
+  <script defer src="js/postits.js?v=v179"></script>
+  <script defer src="js/horari.js?v=v179"></script>
+  <script defer src="js/vedrunu.js?v=v179"></script>
+  <script defer src="js/gwrite.js?v=v179"></script>
+  <script defer src="js/rubriques.js?v=v179"></script>
+  <script defer src="js/docents.js?v=v179"></script>
+  <script defer src="js/coordinacio.js?v=v179"></script>
+  <script defer src="js/regdocents.js?v=v179"></script>
+  <script defer src="js/segentrevistes.js?v=v179"></script>
+  <script defer src="js/entrevistes.js?v=v179"></script>
+  <script defer src="js/notescomp.js?v=v179"></script>
+  <script defer src="js/reunions.js?v=v179"></script>
+  <script defer src="js/versio.js?v=v179"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v178"></script>
+  <script defer src="js/personal.js?v=v179"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

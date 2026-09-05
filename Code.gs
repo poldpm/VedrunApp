@@ -4104,7 +4104,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v178';
+var BACKEND_VERSIO = 'v180';
 
 var MAX_CELA = 45000;
 
@@ -7428,7 +7428,8 @@ function fitxesNeteja(ss, prova) {
   catch (e) { return { ok: false, error: 'Hi ha una altra feina en marxa.' }; }
 
   try {
-    var total = 0, sobren = [];
+    var total = 0, sobren = [], perCamp = {}, copies = 0;
+    var deixats = 0, deixo = [];
     Object.keys(doc.perGrup).forEach(function (g) {
       var sh = gss.getSheetByName(g);
       if (!sh) return;
@@ -7442,6 +7443,13 @@ function fitxesNeteja(ss, prova) {
       var cols = _colsDe_(sh);
       var d = sh.getRange(2, 1, lr - 1, cols._ample).getValues();
       var treure = [];
+      /* El que hi vam escriure nosaltres, per codi d'alumne. Es el que
+         separa "aixo ho hem posat nosaltres" de "aixo ja hi era". */
+      var escritesAbans = {};
+      try {
+        var rawN = sheetGetJSON(gss, '_AppData', 'fitxes_camps_' + g);
+        if (rawN) escritesAbans = JSON.parse(rawN) || {};
+      } catch (e) {}
       d.forEach(function (fila, i) {
         var uid = String(fila[cols.uid - 1] || '').trim();
         if (!uid) return;
@@ -7451,10 +7459,59 @@ function fitxesNeteja(ss, prova) {
           var ara = String(fila[col - 1] == null ? '' : fila[col - 1]).trim();
           if (!ara) return;
           if (diu[uid] && diu[uid][camp]) return;      // el document en parla: es queda
+          /* ⚠ El que decideix si es pot treure amb els ulls tancats: que el
+             MATEIX text ja hi sigui en una altra columna d'aquest alumne.
+             Llavors no es perd res —només es desfà una còpia—, i és el cas
+             de les 106 fitxes del 5/9/2026: les observacions es van escriure
+             a la columna mèdica abans que en Pol digués que van a aspectes
+             específics, i van quedar a totes dues. Les que NO són còpia s'han
+             de mirar una per una, que és el que costa de veure en una llista
+             llarga i el que fa que algú acabi esborrant una nota d'algú. */
+          var copiaDe = '';
+          FITXA_CAMPS.forEach(function (altre) {
+            if (copiaDe || altre === camp) return;
+            var c2 = cols[FITXA_COL_NOM[altre]];
+            if (!c2) return;
+            var altreTxt = String(fila[c2 - 1] == null ? '' : fila[c2 - 1]).trim();
+            /* No cal que sigui igual lletra per lletra: n'hi ha prou que el
+               text ja hi sigui SENCER a l'altra columna. El 5/9/2026, 25 de
+               les còpies no es van veure per una coma o un espai de més
+               ("arribar mig curs" dins de "arribar mig curs · només mare"). */
+            if (altreTxt && (altreTxt === ara || _fnorm_(altreTxt).indexOf(_fnorm_(ara)) !== -1)) {
+              copiaDe = altre;
+            }
+          });
+
+          /* ⚠⚠ I AQUÍ ES DECIDEIX SI ES POT TREURE.
+             Que el document no en parli NO vol dir que ho haguem escrit
+             nosaltres. Al full compartit hi ha coses que no vénen de cap
+             fitxa —les al·lèrgies i les intoleràncies hi són, i les porta
+             l'escola—, i esborrar-les seria el pitjor que pot fer aquesta
+             eina. El 5/9/2026 estava a punt de fer-ho amb 11 alumnes: "No
+             porc", "Al·lèrgic peix", "⚠ Gluten ⚠", "al·lèrgia PLV"…
+
+             O sigui que només es treu si se sap del cert que és nostre:
+               · o és una còpia del que l'alumne ja té en una altra columna
+                 (no es perd res: el text es queda on toca),
+               · o en tenim constància d'haver-lo escrit i ningú no l'ha
+                 tocat des de llavors.
+             La resta es deixa i s'informa. Si algun dia s'ha de treure, es
+             treu a mà, mirant-lo. */
+          var nostre = _hashCurt_(ara) === (escritesAbans[uid] || {})[camp];
+          if (!copiaDe && !nostre) {
+            deixats++;
+            if (deixo.length < 60) {
+              deixo.push({ grup: g, alumne: fila[0] + ' ' + fila[1], camp: camp, text: ara.slice(0, 70) });
+            }
+            return;
+          }
           treure.push({ fila: i + 2, col: col });
           total++;
-          if (sobren.length < 60) {
-            sobren.push({ grup: g, alumne: fila[0] + ' ' + fila[1], camp: camp, text: ara.slice(0, 70) });
+          perCamp[camp] = (perCamp[camp] || 0) + 1;
+          if (copiaDe) copies++;
+          if (sobren.length < 150) {
+            sobren.push({ grup: g, alumne: fila[0] + ' ' + fila[1], camp: camp,
+                          copiaDe: copiaDe, text: ara.slice(0, 70) });
           }
         });
       });
@@ -7473,7 +7530,9 @@ function fitxesNeteja(ss, prova) {
         treure.forEach(function (t) { sh.getRange(t.fila, t.col).setValue(''); });
       }
     });
-    return { ok: true, prova: !!prova, total: total, sobren: sobren };
+    return { ok: true, prova: !!prova, total: total, sobren: sobren,
+             perCamp: perCamp, copies: copies,
+             deixats: deixats, deixo: deixo };
   } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
 }
 
@@ -7487,12 +7546,40 @@ function _fitxesNetejaTxt_(prova) {
   l.push(prova ? 'AIXO TREURIA (no he tocat res)' : 'TRET');
   l.push('==============================');
   l.push('Caselles que el document no diu: ' + r.total);
+  var noms = { obs: 'Observacio important', pi: 'PI', am: 'AM', asp: 'Aspectes especifics',
+               eap: 'Informe EAP', trastorns: 'Trastorns', acollida: 'Aula d acollida',
+               drets: 'Drets d imatge', emvic: 'EMVic' };
+  Object.keys(r.perCamp || {}).forEach(function (k) {
+    l.push('   · ' + (noms[k] || k) + ': ' + r.perCamp[k]);
+  });
   l.push('');
-  l.push('⚠ MIRA-TE-LES UNA PER UNA. Si alguna la va escriure una mestra a');
-  l.push('   ma, NO l executis: digue-m ho i ho faig d una altra manera.');
+  /* Les que són còpia d'una altra columna del mateix alumne no fan perdre
+     res: el text es queda on toca. Les altres desapareixen, i aquestes són
+     les que s'han de mirar. Dir-ho separat és el que fa que una llista de
+     150 línies es pugui decidir sense llegir-les totes. */
+  l.push('D aquestes, ' + (r.copies || 0) + ' son una COPIA del mateix text que');
+  l.push('l alumne ja te en una altra columna: treure-la no perd res.');
+  l.push('La resta les vam escriure nosaltres i ningu no les ha tocat.');
+  l.push('');
+  l.push('NO ES TOCA res que no sigui una d aquestes dues coses.');
+  l.push('');
+  if (r.deixats) {
+    l.push('DEIXO ESTAR ' + r.deixats + ' caselles: el document no en parla, pero');
+    l.push('tampoc les hem escrit nosaltres (les al lergies, per exemple, les');
+    l.push('porta l escola). Si alguna s ha de treure, treu-la a ma.');
+    l.push('');
+    r.deixo.forEach(function (s) {
+      l.push('  · ' + s.grup + ' · ' + s.alumne + ' · ' + s.camp + ': ' + s.text);
+    });
+    if (r.deixats > r.deixo.length) l.push('  ... i ' + (r.deixats - r.deixo.length) + ' mes');
+    l.push('');
+  }
+  l.push('AIXO SI QUE ES TREU:');
   l.push('');
   r.sobren.forEach(function (s) {
-    l.push('  ' + s.grup + ' · ' + s.alumne + ' · ' + s.camp);
+    l.push('  ' + s.grup + ' · ' + s.alumne + ' · ' + s.camp +
+           (s.copiaDe ? '   [COPIA, ja el te a ' + (noms[s.copiaDe] || s.copiaDe) + ']'
+                      : '   [el vam escriure nosaltres]'));
     l.push('      ' + s.text);
   });
   if (r.total > r.sobren.length) l.push('  ... i ' + (r.total - r.sobren.length) + ' mes');

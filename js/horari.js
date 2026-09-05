@@ -381,3 +381,142 @@ async function _horariCreaAssignatures() {
     try { await appsScriptPost({ action: 'saveHorariAssigs', assigs }); } catch(e) {}
   }
 }
+
+/* ============================================================
+   OMPLIR L'HORARI AMB EL PDF DE L'ESCOLA
+   ------------------------------------------------------------
+   El lector és a js/pdfhorari.js i treballa aquí mateix, al navegador:
+   el PDF no puja enlloc. Aquí només hi ha el que veu la mestra —triar
+   la seva pàgina, veure com queda i decidir— perquè omplir l'horari
+   d'algú altre per equivocació seria pitjor que escriure'l a mà.
+   ============================================================ */
+
+let _pdfHorariPagines = [];
+let _pdfHorariTriada  = -1;
+
+function obrePdfHorari() {
+  _pdfHorariPagines = []; _pdfHorariTriada = -1;
+  const f = document.getElementById('pdfHorariFitxer'); if (f) f.value = '';
+  document.getElementById('pdfHorariQui').style.display = 'none';
+  document.getElementById('pdfHorariQui').innerHTML = '';
+  document.getElementById('pdfHorariPrevi').innerHTML = '';
+  document.getElementById('pdfHorariBtn').disabled = true;
+  document.getElementById('pdfHorariOverlay').classList.add('open');
+}
+function tancaPdfHorari() {
+  document.getElementById('pdfHorariOverlay').classList.remove('open');
+}
+
+/* Del nom del perfil al del PDF: "Pol del Pozo" ha de trobar
+   "POL DEL POZO MURGOU" encara que hi falti el segon cognom. */
+function _pdfHorariSembla(nomPdf, nomMeu) {
+  const net = s => String(s || '').toLowerCase()
+    .normalize('NFD').replace(new RegExp('[\u0300-\u036f]', 'g'), '')
+    .replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const a = net(nomPdf).split(' ').filter(x => x.length > 2);
+  const b = net(nomMeu).split(' ').filter(x => x.length > 2);
+  if (!a.length || !b.length) return 0;
+  let encerts = 0;
+  b.forEach(p => { if (a.indexOf(p) !== -1) encerts++; });
+  return encerts / b.length;
+}
+
+async function _pdfHorariObre(fitxer) {
+  if (!fitxer) return;
+  const previ = document.getElementById('pdfHorariPrevi');
+  previ.innerHTML = '<p class="modal-hint">Llegint el PDF…</p>';
+  document.getElementById('pdfHorariBtn').disabled = true;
+  try {
+    const dades = await fitxer.arrayBuffer();
+    const r = await esperaVisual(pdfHorariLlegeix(dades), 'Llegint l\'horari…');
+    _pdfHorariPagines = r.pagines;
+  } catch (e) {
+    previ.innerHTML = '<p class="modal-hint" style="color:var(--crimson)">' +
+      escapeHtml(e.message || 'No he pogut llegir el PDF') + '</p>';
+    return;
+  }
+
+  /* Quina pàgina és la seva. Si el fitxer en porta una, aquella; si en
+     porta moltes, la que s'assembli al nom del perfil. Mai se'n tria una
+     "a l'atzar": val més preguntar-ho que omplir-li l'horari d'una altra. */
+  const meu = (typeof _perfil !== 'undefined' && _perfil && _perfil.nom) ? _perfil.nom : '';
+  let millor = -1, punts = 0;
+  _pdfHorariPagines.forEach((p, i) => {
+    const s = _pdfHorariSembla(p.nom, meu);
+    if (s > punts) { punts = s; millor = i; }
+  });
+  _pdfHorariTriada = (_pdfHorariPagines.length === 1) ? 0 : (punts >= 0.5 ? millor : -1);
+  _pdfHorariRenderQui();
+  _pdfHorariRenderPrevi();
+}
+
+function _pdfHorariRenderQui() {
+  const cont = document.getElementById('pdfHorariQui');
+  if (_pdfHorariPagines.length < 2) { cont.style.display = 'none'; return; }
+  cont.style.display = 'block';
+  cont.innerHTML =
+    '<label class="modal-label" for="pdfHorariSel">Quin horari és el teu?</label>' +
+    '<select class="modal-input" id="pdfHorariSel" onchange="_pdfHorariTria(this.value)">' +
+      (_pdfHorariTriada === -1 ? '<option value="-1">Tria\'l…</option>' : '') +
+      _pdfHorariPagines.map((p, i) =>
+        '<option value="' + i + '"' + (i === _pdfHorariTriada ? ' selected' : '') + '>' +
+        escapeHtml(p.nom || '(sense nom)') + (p.tutoria ? ' · ' + escapeHtml(p.tutoria) : '') +
+        '</option>').join('') +
+    '</select>' +
+    '<div class="modal-hint">' + _pdfHorariPagines.length + ' horaris al PDF' +
+    (_pdfHorariTriada >= 0 ? '. He triat el teu pel nom; canvia\'l si no toca.' : '') + '</div>';
+}
+
+function _pdfHorariTria(i) {
+  _pdfHorariTriada = parseInt(i, 10);
+  _pdfHorariRenderPrevi();
+}
+
+function _pdfHorariRenderPrevi() {
+  const previ = document.getElementById('pdfHorariPrevi');
+  const btn = document.getElementById('pdfHorariBtn');
+  if (_pdfHorariTriada < 0 || !_pdfHorariPagines[_pdfHorariTriada]) {
+    previ.innerHTML = '<p class="modal-hint">Tria de qui és l\'horari per veure com quedarà.</p>';
+    btn.disabled = true;
+    return;
+  }
+  const g = _pdfHorariPagines[_pdfHorariTriada];
+  const dies = PLAN_DIES;
+  const n = Object.keys(g.cel).length;
+  /* Es veu SENCER abans de tocar res: és l'única manera que la mestra
+     s'adoni que ha triat la pàgina d'una altra. */
+  let html = '<div class="pdfh-taula-wrap"><table class="pdfh-taula"><thead><tr><th></th>' +
+    dies.map(d => '<th>' + d.nom + '</th>').join('') + '</tr></thead><tbody>';
+  PLAN_FRANGES.forEach(f => {
+    const pati = (f.id === HORARI_FRANJA_PATI);
+    html += '<tr class="' + (pati ? 'pdfh-pati' : '') + '"><th>' + f.hora.split('–')[0].trim() + '</th>' +
+      dies.map(d => {
+        const v = g.cel[d.id + '_' + f.id] || '';
+        const ara = _horari[d.id + '_' + f.id] || '';
+        const canvia = v && ara && v !== ara;
+        return '<td class="' + (v ? 'te' : '') + (canvia ? ' canvia' : '') + '">' +
+               (v ? escapeHtml(v) : '') + '</td>';
+      }).join('') + '</tr>';
+  });
+  html += '</tbody></table></div>';
+
+  const trepitja = Object.keys(g.cel).filter(k => _horari[k] && _horari[k] !== g.cel[k]).length;
+  html += '<p class="modal-hint" style="margin-top:10px"><strong>' + n + '</strong> caselles' +
+    (trepitja ? '. <strong>' + trepitja + '</strong> canvien el que ja tens (en groc); la resta s\'afegeixen.'
+              : '. No es canvia res del que ja tens.') +
+    ' El que tinguis en una casella que el PDF deixa buida, es queda.</p>';
+  previ.innerHTML = html;
+  btn.disabled = false;
+}
+
+function _pdfHorariAplica() {
+  const g = _pdfHorariPagines[_pdfHorariTriada];
+  if (!g) return;
+  const n = Object.keys(g.cel).length;
+  if (!n) { showToast('Aquest horari no té cap casella', 'error'); return; }
+  _horari = Object.assign({}, _horari, g.cel);
+  tancaPdfHorari();
+  renderHorari();
+  _horariPersist();
+  showToast(n + ' caselles omplertes ✓', 'success');
+}
