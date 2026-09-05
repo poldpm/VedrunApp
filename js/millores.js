@@ -242,7 +242,12 @@ async function milloraEnvia() {
     return;
   }
   const nota = (document.getElementById('milloraNota').value || '').trim();
-  const qui = (typeof _perfil !== 'undefined' && _perfil && _perfil.nom) ? _perfil.nom : '';
+  /* Nom I COGNOM. En Pol, 5/9/2026: «hi ha mestres que tenen el mateix
+     nom». Els dos camps ja són al perfil per separat; el que faltava era
+     enviar-los tots dos. */
+  const p = (typeof _perfil !== 'undefined' && _perfil) ? _perfil : {};
+  const qui = [(p.nom || '').trim(), (p.cognom || '').trim()]
+    .filter(function (x) { return x; }).join(' ');
   try {
     const r = await appsScriptPost({
       action: 'demanaMillora',

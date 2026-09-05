@@ -1,9 +1,8 @@
 {
-  "versio": "v185",
+  "versio": "v186",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Primera actualitzacio a «Possibles actualitzacions»: avisar la familia d una incidencia. Escrius en dues linies que ha passat i el correu surt redactat, a punt de revisar i enviar.",
-    "Cada actualitzacio pot ser nomes per a segons quins rols: aquesta es per a tutors i direccio."
+    "Quan demanes una actualitzacio, ara hi va el teu nom I el teu cognom, els del teu perfil. Hi ha mestres que es diuen igual de nom."
   ]
 }
