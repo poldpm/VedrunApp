@@ -1,10 +1,10 @@
 {
-  "versio": "v181",
+  "versio": "v182",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A l inici hi ha «Possibles actualitzacions»: coses que ja funcionen a l app d alguna companya, explicades curt.",
-    "Si te n serveix cap, clica «Jo la vull!» i li arriba a en Pol amb el teu nom. No canvia res de la teva app: ell t ho prepara.",
-    "I si tens una idea que no hi es, digue la hi: si pot servir a mes gent, l explicara alla i la podra demanar tothom."
+    "A «Possibles actualitzacions», al boto de l inici hi surt quantes n hi ha de NOVES. Quan les has llegides o demanades, el numero desapareix.",
+    "Les que encara no has obert surten marcades com a «Nova».",
+    "Les explicacions ja no diuen qui les va demanar: es una llista d idees, no de qui demana coses."
   ]
 }

@@ -32,11 +32,25 @@
          'Què fa…',
          'Com es fa servir…',
        ],
-       qui: 'Una mestra de 3r',      // opcional, i sense cognoms
-       data: '2026-09-05',           // quan es va afegir a la llista
+       data: '2026-09-05',           // quan va entrar a la llista
+       com: [                        // ⚠ AIXÒ NO ES VEU A L'APP
+         'Quins fitxers toca i com està feta…',
+       ],
      }
 
-   Escriu-ho com a un mestre amb poc temps: què aconsegueix i on ho clica.
+   Escriu `ras` i `mes` com a un mestre amb poc temps: què aconsegueix i on
+   ho clica. Res de noms de fitxers ni de funcions.
+
+   ⚠ NO s'hi posa MAI qui la va demanar. En Pol, 5/9/2026: «a l'explicació
+   surt el nom del mestre que ha demanat primer aquella actualització. No ho
+   vull. Només l'actualització». Una llista d'idees no ha de ser una llista
+   de qui demana coses.
+
+   ⚠ El `com` és per a QUI L'HAGI DE FER, no per a la mestra: no surt enlloc
+   de l'app. Serveix perquè, quan algú digui «fes-me la del color verd», qui
+   ho faci sàpiga com estava feta i no se l'hagi d'inventar una altra vegada
+   —que és com dues mestres acaben amb la mateixa cosa feta diferent. Hi ha
+   d'anar: quins fitxers es toquen, com funciona per dins, i què va costar.
    ============================================================ */
 
 const MILLORES = [
@@ -48,29 +62,57 @@ const MILLORES = [
    que li arriba a en Pol. */
 const MILLORES_CLAU = 'millores_demanades';
 
-function _milloresDemanades() {
-  try { return JSON.parse(localStorage.getItem(MILLORES_CLAU) || '{}') || {}; }
+/* I les que ja ha vist. En Pol, 5/9/2026: «si les actualitzacions que hi ha
+   dins ja les ha demanades o llegides, no ha de sortir cap número d'alerta
+   de nova actualització». O sigui que el número és de les que són NOVES per
+   a ella, no de les que hi ha. Un avís que no marxa mai deixa de ser un
+   avís i la gent deixa de mirar-lo. */
+const MILLORES_VISTES = 'millores_vistes';
+
+function _milloresLlegeix(clau) {
+  try { return JSON.parse(localStorage.getItem(clau) || '{}') || {}; }
   catch (e) { return {}; }
 }
+function _milloresDesa(clau, d) {
+  try { localStorage.setItem(clau, JSON.stringify(d)); } catch (e) {}
+}
+function _milloresDemanades() { return _milloresLlegeix(MILLORES_CLAU); }
+function _milloresVistes()    { return _milloresLlegeix(MILLORES_VISTES); }
+
 function _milloresMarca(id) {
   const d = _milloresDemanades();
   d[id] = new Date().toISOString().slice(0, 10);
-  try { localStorage.setItem(MILLORES_CLAU, JSON.stringify(d)); } catch (e) {}
+  _milloresDesa(MILLORES_CLAU, d);
 }
 
-/* Quantes n'hi ha que aquesta mestra encara no ha demanat. Va al rètol del
-   botó de la pàgina d'inici. */
-function milloresPendents() {
-  const d = _milloresDemanades();
-  return MILLORES.filter(m => !d[m.id]).length;
+/* Obrir la llista ja és haver-les llegides: a partir d'aquí deixen de ser
+   noves. Es marquen les que hi ha ARA, no totes per sempre, perquè la que
+   s'hi afegeixi demà torni a avisar. */
+function _milloresMarcaVistes() {
+  const v = _milloresVistes();
+  const avui = new Date().toISOString().slice(0, 10);
+  MILLORES.forEach(m => { if (!v[m.id]) v[m.id] = avui; });
+  _milloresDesa(MILLORES_VISTES, v);
 }
 
+/* Quantes són NOVES per a ella: ni vistes ni demanades. */
+function milloresNoves() {
+  const d = _milloresDemanades(), v = _milloresVistes();
+  return MILLORES.filter(m => !d[m.id] && !v[m.id]).length;
+}
+
+/* Al botó de l'inici, l'estrella es converteix en el número quan n'hi ha de
+   noves, i torna a ser estrella quan ja no en queda cap. */
 function _milloresPintaBotoInici() {
-  const b = document.getElementById('homeMilloresBadge');
-  if (!b) return;
-  const n = milloresPendents();
-  b.style.display = n ? 'inline-flex' : 'none';
-  b.textContent = n;
+  const n = milloresNoves();
+  const estrella = document.getElementById('homeMilloresEstrella');
+  const compte = document.getElementById('homeMilloresCompte');
+  if (estrella) estrella.style.display = n ? 'none' : '';
+  if (compte) {
+    compte.style.display = n ? 'flex' : 'none';
+    compte.textContent = String(n);
+    compte.setAttribute('aria-label', n === 1 ? '1 actualització nova' : n + ' actualitzacions noves');
+  }
 }
 
 /* ---------- La finestra ---------- */
@@ -78,6 +120,9 @@ function _milloresPintaBotoInici() {
 function obreMillores() {
   _milloresRender();
   document.getElementById('milloresOverlay').classList.add('open');
+  /* Marcar-les DESPRÉS de pintar-les: així encara es poden ensenyar com a
+     noves aquesta vegada, i la propera ja no ho seran. */
+  _milloresMarcaVistes();
 }
 function tancaMillores() {
   document.getElementById('milloresOverlay').classList.remove('open');
@@ -102,18 +147,15 @@ function _milloresRender() {
     return;
   }
   const demanades = _milloresDemanades();
+  const vistes = _milloresVistes();
   cont.innerHTML = MILLORES.map(m => {
     const ja = demanades[m.id];
+    const nova = !ja && !vistes[m.id];
     return '' +
-      '<article class="millora' + (ja ? ' demanada' : '') + '">' +
-        '<h3 class="millora-titol">' + escapeHtml(m.titol) + '</h3>' +
+      '<article class="millora' + (ja ? ' demanada' : '') + (nova ? ' nova' : '') + '">' +
+        '<h3 class="millora-titol">' + escapeHtml(m.titol) +
+          (nova ? '<span class="millora-nova">Nova</span>' : '') + '</h3>' +
         '<p class="millora-ras">' + escapeHtml(m.ras) + '</p>' +
-        (m.qui || m.data ?
-          '<p class="millora-qui">' +
-            (m.qui ? 'Demanada per ' + escapeHtml(m.qui) : '') +
-            (m.qui && m.data ? ' · ' : '') +
-            (m.data ? escapeHtml(_milloresData(m.data)) : '') +
-          '</p>' : '') +
         '<div class="millora-mes" id="milloraMes_' + m.id + '" hidden>' +
           (m.mes || []).map(p => '<p>' + escapeHtml(p) + '</p>').join('') +
         '</div>' +

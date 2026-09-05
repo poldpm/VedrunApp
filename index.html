@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v181">
+  <link rel="stylesheet" href="css/main.css?v=v182">
 </head>
 <body>
 
@@ -199,12 +199,12 @@
 
       <!-- POSSIBLES ACTUALITZACIONS -->
       <button type="button" class="home-millores" onclick="obreMillores()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 2l2.4 5.6L20 9l-4.4 3.7L17 19l-5-3-5 3 1.4-6.3L4 9l5.6-1.4z"/></svg>
+        <svg id="homeMilloresEstrella" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 2l2.4 5.6L20 9l-4.4 3.7L17 19l-5-3-5 3 1.4-6.3L4 9l5.6-1.4z"/></svg>
+        <span class="home-millores-compte" id="homeMilloresCompte" style="display:none" role="status"></span>
         <span class="home-millores-text">
           <strong>Possibles actualitzacions</strong>
           <span>Coses que altres mestres ja fan servir. Si te'n serveix cap, demana-la.</span>
         </span>
-        <span class="home-badge home-millores-badge" id="homeMilloresBadge" style="display:none"></span>
       </button>
 
 
@@ -2186,32 +2186,32 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v181"></script>
-  <script defer src="js/pdfhorari.js?v=v181"></script>
-  <script defer src="js/millores.js?v=v181"></script>
-  <script defer src="js/rol.js?v=v181"></script>
-  <script defer src="js/config.local.js?v=v181"></script>
-  <script defer src="js/app.js?v=v181"></script>
-  <script defer src="js/notes.js?v=v181"></script>
-  <script defer src="js/seients.js?v=v181"></script>
-  <script defer src="js/perfil.js?v=v181"></script>
-  <script defer src="js/grupview.js?v=v181"></script>
-  <script defer src="js/postits.js?v=v181"></script>
-  <script defer src="js/horari.js?v=v181"></script>
-  <script defer src="js/vedrunu.js?v=v181"></script>
-  <script defer src="js/gwrite.js?v=v181"></script>
-  <script defer src="js/rubriques.js?v=v181"></script>
-  <script defer src="js/docents.js?v=v181"></script>
-  <script defer src="js/coordinacio.js?v=v181"></script>
-  <script defer src="js/regdocents.js?v=v181"></script>
-  <script defer src="js/segentrevistes.js?v=v181"></script>
-  <script defer src="js/entrevistes.js?v=v181"></script>
-  <script defer src="js/notescomp.js?v=v181"></script>
-  <script defer src="js/reunions.js?v=v181"></script>
-  <script defer src="js/versio.js?v=v181"></script>
+  <script defer src="js/espera.js?v=v182"></script>
+  <script defer src="js/pdfhorari.js?v=v182"></script>
+  <script defer src="js/millores.js?v=v182"></script>
+  <script defer src="js/rol.js?v=v182"></script>
+  <script defer src="js/config.local.js?v=v182"></script>
+  <script defer src="js/app.js?v=v182"></script>
+  <script defer src="js/notes.js?v=v182"></script>
+  <script defer src="js/seients.js?v=v182"></script>
+  <script defer src="js/perfil.js?v=v182"></script>
+  <script defer src="js/grupview.js?v=v182"></script>
+  <script defer src="js/postits.js?v=v182"></script>
+  <script defer src="js/horari.js?v=v182"></script>
+  <script defer src="js/vedrunu.js?v=v182"></script>
+  <script defer src="js/gwrite.js?v=v182"></script>
+  <script defer src="js/rubriques.js?v=v182"></script>
+  <script defer src="js/docents.js?v=v182"></script>
+  <script defer src="js/coordinacio.js?v=v182"></script>
+  <script defer src="js/regdocents.js?v=v182"></script>
+  <script defer src="js/segentrevistes.js?v=v182"></script>
+  <script defer src="js/entrevistes.js?v=v182"></script>
+  <script defer src="js/notescomp.js?v=v182"></script>
+  <script defer src="js/reunions.js?v=v182"></script>
+  <script defer src="js/versio.js?v=v182"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v181"></script>
+  <script defer src="js/personal.js?v=v182"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
