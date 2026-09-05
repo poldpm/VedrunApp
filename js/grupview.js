@@ -120,7 +120,7 @@ function _grupviewRenderCards() {
       <div class="grupview-avatar">${_grupviewInitials(a.nom)}</div>
       <div class="grupview-nom">${escapeHtml(a.nom)}</div>
       <div class="grupview-actions">
-        <button class="grupview-btn ${(a.mare||a.pare||a.emailMare||a.emailPare||a.obs||a.especific)?'active':''}"
+        <button class="grupview-btn ${(a.tutor1||a.correu1||a.tutor2||a.correu2||a.telefons||a.obs||a.especific)?'active':''}"
           onclick="_grupviewShowFitxa(${idx})" title="Veure fitxa i informació">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Fitxa
@@ -191,10 +191,11 @@ function _grupviewRenderFitxa(a) {
   // 0) Dades de contacte i família
   const contacte = [];
   if (a.dataNaix) contacte.push(['Data de naixement', a.dataNaix]);
-  if (a.mare) contacte.push(['Mare', a.mare]);
-  if (a.pare) contacte.push(['Pare', a.pare]);
-  if (a.emailMare) contacte.push(['Email mare', a.emailMare]);
-  if (a.emailPare) contacte.push(['Email pare', a.emailPare]);
+  if (a.tutor1) contacte.push(['Tutor/a 1', a.tutor1]);
+  if (a.correu1) contacte.push(['Correu', a.correu1]);
+  if (a.tutor2) contacte.push(['Tutor/a 2', a.tutor2]);
+  if (a.correu2) contacte.push(['Correu', a.correu2]);
+  if (a.telefons) contacte.push(['Telèfons', a.telefons]);
   if (contacte.length) {
     html += `<div class="gvf-block gvf-contacte">
       <div class="gvf-block-title">Dades de contacte</div>

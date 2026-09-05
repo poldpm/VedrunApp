@@ -1,9 +1,10 @@
 {
-  "versio": "v203",
+  "versio": "v204",
   "data": "2026-09-05",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: canviar el genere d un alumne des de la seva fitxa NO s estava desant al full de grups compartit. Ara si, i si algun cop no es pot desar, t ho diu en comptes de dir «Desat ✓».",
-    "Arreglat de fons: fins ara, si el document d Aspectes generals no canviava, els arranjaments de la lectura no arribaven mai a les fitxes. Ara una versio nova torna a passar el document una vegada, i les errades ja arreglades desapareixen soles."
+    "Els contactes de la familia ara son TUTOR 1 i TUTOR 2 amb els seus correus, i no «mare» i «pare».",
+    "A la fitxa hi ha tots els telefons de la familia, l un al costat de l altre.",
+    "Surten del full «Dades de contacte alumnes» de secretaria i s actualitzen sols cada quart d hora. No s editen des de l app: si un telefon no es bo, s arregla al full de secretaria."
   ]
 }

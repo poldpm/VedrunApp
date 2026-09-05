@@ -481,7 +481,8 @@ function _aplicaTutoriaAlumnes(alumnes) {
   personal = {};
   alumnes.forEach(function(a) {
     personal[a.id] = {
-      mare: a.mare, pare: a.pare, emailMare: a.emailMare, emailPare: a.emailPare,
+      tutor1: a.tutor1, correu1: a.correu1, tutor2: a.tutor2, correu2: a.correu2,
+      telefons: a.telefons,
       obs: a.obs, pi: a.pi, am: a.am, especific: a.especific, eap: a.eap, seient: a.seient,
       // ⚠ Les columnes noves han de passar per aquí. El servidor les enviava i
       // la fitxa les sabia pintar, però aquest pas del mig no les copiava: a
@@ -685,7 +686,7 @@ function _aplicaGrupStudents(alumnes) {
   students = alumnes.map(a => ({ id: a.id, nom: a.nom, genere: a.genere }));
   personal = {};
   alumnes.forEach(a => {
-    personal[a.id] = { mare:a.mare, pare:a.pare, emailMare:a.emailMare, emailPare:a.emailPare,
+    personal[a.id] = { tutor1:a.tutor1, correu1:a.correu1, tutor2:a.tutor2, correu2:a.correu2, telefons:a.telefons,
       obs:a.obs, pi:a.pi, am:a.am, especific:a.especific, eap:a.eap, seient:a.seient, dataNaix:a.dataNaix, rowId:a.rowId,
       grupOrigen:a.grupOrigen || null };
   });
@@ -740,7 +741,7 @@ function _restoreTutoriaStudents() {
   students = _tutoriaAlumnes.map(a => ({ id:a.id, nom:a.nom, genere:a.genere }));
   personal = {};
   _tutoriaAlumnes.forEach(a => {
-    personal[a.id] = { mare:a.mare, pare:a.pare, emailMare:a.emailMare, emailPare:a.emailPare,
+    personal[a.id] = { tutor1:a.tutor1, correu1:a.correu1, tutor2:a.tutor2, correu2:a.correu2, telefons:a.telefons,
       obs:a.obs, pi:a.pi, am:a.am, especific:a.especific, eap:a.eap, seient:a.seient, dataNaix:a.dataNaix, rowId:a.rowId };
   });
   _grupStudentsCarregat = grup ? (grup + '|') : null;

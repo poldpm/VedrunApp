@@ -121,8 +121,9 @@ function _vedrunuBuildContext() {
     return {
       nom: s.nom,
       genere: s.genere,
-      mare: pd.mare || null, pare: pd.pare || null,
-      emailMare: pd.emailMare || null, emailPare: pd.emailPare || null,
+      tutor1: pd.tutor1 || null, correu1: pd.correu1 || null,
+      tutor2: pd.tutor2 || null, correu2: pd.correu2 || null,
+      telefons: pd.telefons || null,
       medic: pd.obs || null,
       pi: pd.pi ? pd.pi.replace(/\|/g, ', ') : null,
       am: pd.am ? pd.am.replace(/\|/g, ', ') : null,

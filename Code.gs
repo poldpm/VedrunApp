@@ -1914,6 +1914,7 @@ function configuraCredencials() {
 var FULLS_COMPARTITS = {
   get grups()  { return _prop('GRUPS_ID'); },
   get desdob() { return _prop('DESDOB_ID'); },
+  get contactes() { return _prop('CONTACTES_ID'); },
 };
 function _appToken()  { return _prop('APP_TOKEN'); }
 function _geminiKey() { return _prop('GEMINI_KEY'); }
@@ -1941,13 +1942,23 @@ const GRUPS_PRIMARIA = [
 // Capçaleres del full de grup (les 9 primeres venen del teu full de Grups;
 // les 3 últimes són camps propis de l'app).
 const GRUP_HEADERS = [
-  'Nom','Cognom','Data naixement','Nom mare','Nom pare','Email mare','Email pare',
+  /* ⚠ Les quatre de la família van canviar el 5/9/2026. Abans eren «Nom mare ·
+     Nom pare · Email mare · Email pare»; ara l'escola parla de TUTOR 1 i TUTOR
+     2, que no sempre són la mare i el pare. Es reaprofiten les MATEIXES
+     columnes perquè res més del full no es mogui de lloc. */
+  'Nom','Cognom','Data naixement','Tutor 1','Correu 1','Tutor 2','Correu 2',
   'Observació important','Gènere','PI','AM','Aspectes específics','Informe EAP','Condicions seient',
   'Id',   // ⚠ NO TOCAR: veure "L'IDENTIFICADOR PERMANENT" més avall
   // Aquestes van DESPRÉS de l'Id a posta: així el COL_UID no es mou i el
   // codi de cada alumne segueix on era. La posició, de tota manera, ja no
   // decideix res: cada columna es busca pel NOM de la capçalera.
-  'Trastorns','Aula d\'acollida','Drets d\'imatge','EMVic'
+  'Trastorns','Aula d\'acollida','Drets d\'imatge','EMVic',
+  /* Tots els telèfons de la família, l'un al costat de l'altre. En Pol,
+     5/9/2026: «com que no tots els nens tenen la mateixa quantitat de números
+     apuntats, jo els posaria un al costat de l'altre, sense apuntar de qui
+     són i ja està, menys feina». Al full de la secretaria van repartits en
+     set columnes que ni tan sols diuen sempre de qui són. */
+  'Telèfons'
 ];
 const COL_UID = 15;   // columna O
 
@@ -1971,6 +1982,14 @@ function _colsDe_(sh) {
   // Si el full és vell i encara no té una columna, es diu que no hi és.
   function on(nom) { return m[_fnorm_(nom)] || 0; }
   return {
+    /* Les quatre de la família. Els números de reserva són els de sempre
+       (D–G): en un full que encara digui «Nom mare» hi són igualment, i
+       `grupsAfegeixColumnes` ja s'encarrega de reanomenar-les. */
+    tutor1:  on('Tutor 1')  || 4,
+    correu1: on('Correu 1') || 5,
+    tutor2:  on('Tutor 2')  || 6,
+    correu2: on('Correu 2') || 7,
+    telefons: on('Telèfons'),
     obs: on('Observació important') || 8,
     pi: on('PI') || 10,
     am: on('AM') || 11,
@@ -2010,6 +2029,28 @@ function grupsAfegeixColumnes(ss) {
     var lc = Math.max(sh.getLastColumn(), GRUP_HEADERS.length);
     var cap = sh.getRange(1, 1, 1, lc).getValues()[0];
     var canvis = [];
+
+    /* 0) LES DE LA FAMÍLIA, REANOMENADES.
+       Fins al 5/9/2026 les columnes D–G es deien «Nom mare · Nom pare ·
+       Email mare · Email pare». L'escola ja no ho diu així: són TUTOR 1 i
+       TUTOR 2. Es reaprofiten les mateixes columnes perquè res més del full
+       no es mogui, però la capçalera s'ha de canviar; si no, `_colsDe_`
+       buscaria «Tutor 1» i no el trobaria enlloc.
+
+       ⚠ Aquí NOMÉS es canvia el RÈTOL. El que hi ha escrit a sota (els noms
+       de la mare i el pare) el reescriurà la propera passada del full de
+       contactes, que és un mirall. */
+    var REBATEIG = { 'Nom mare': 'Tutor 1', 'Nom pare': 'Correu 1',
+                     'Email mare': 'Tutor 2', 'Email pare': 'Correu 2' };
+    Object.keys(REBATEIG).forEach(function (vell) {
+      for (var v = 0; v < Math.min(cap.length, 7); v++) {
+        if (_fnorm_(cap[v]) !== _fnorm_(vell)) continue;
+        sh.getRange(1, v + 1).setValue(REBATEIG[vell])
+          .setFontWeight('bold').setBackground('#FBEAED').setFontColor('#7A1E2E');
+        cap[v] = REBATEIG[vell];
+        canvis.push('«' + vell + '» ara es diu «' + REBATEIG[vell] + '»');
+      }
+    });
 
     // 1) Les capçaleres canòniques, al seu lloc de sempre.
     for (var i = 0; i < GRUP_HEADERS.length && i < 15; i++) {
@@ -2246,6 +2287,7 @@ function handleRequest(e) {
       case 'fitxesAraSiCal':       result = fitxesAplicaSiCal(ss); break;
       case 'grupsSyncEstat':         result = grupsSyncEstat(ss); break;
       case 'fitxesDubtes':           result = fitxesDubtes(ss, body && body.grup); break;
+      case 'contactesAplica':        result = contactesAplica(ss, !!(body && body.prova), body && body.grup); break;
       case 'fitxesPosaAlies':        result = fitxesPosaAlies(ss, body && body.grup, body && body.etiqueta, body && body.uid); break;
       case 'fitxesAplica':           result = fitxesAplica(ss, !!(body && body.prova)); break;
       case 'grupsAfegeixColumnes':   result = grupsAfegeixColumnes(ss); break;
@@ -2508,8 +2550,15 @@ function getGrupAlumnes(ss, grup) {
       cognom: cognom,
       dataNaix: dataNaix,
       genere: g === 'f' ? 'f' : 'm',
-      mare: r[3]||'', pare: r[4]||'',
-      emailMare: r[5]||'', emailPare: r[6]||'',
+      /* Els contactes de la família. Es llegeixen PEL NOM de la columna:
+         des del 5/9/2026 les de la família es diuen Tutor 1 / Correu 1 /
+         Tutor 2 / Correu 2, i llegir-les per número voldria dir que un full
+         encara sense reanomenar donés el pare al lloc del correu. */
+      tutor1:  (cols.tutor1  ? r[cols.tutor1  - 1] : '') || '',
+      correu1: (cols.correu1 ? r[cols.correu1 - 1] : '') || '',
+      tutor2:  (cols.tutor2  ? r[cols.tutor2  - 1] : '') || '',
+      correu2: (cols.correu2 ? r[cols.correu2 - 1] : '') || '',
+      telefons: (cols.telefons ? r[cols.telefons - 1] : '') || '',
       obs: r[7]||'',
       pi: r[9]||'', am: r[10]||'', especific: r[11]||'', eap: r[12]||'',
       // Les columnes noves. Es busquen PEL NOM de la capçalera, o sigui
@@ -2544,8 +2593,12 @@ function saveGrupPersonal(ss, grup, rowId, d) {
   if (!sh) return { ok:false, error:'Grup no trobat: ' + grup };
   var row = _filaDeClau_(ss, grup, rowId);
   if (row < 2) return { ok:false, error:'No trobo aquest alumne al grup ' + grup };
-  // Cols D-H: mare, pare, emailMare, emailPare, obs (índexs 4-8)
-  sh.getRange(row, 4, 1, 5).setValues([[d.mare||'', d.pare||'', d.emailMare||'', d.emailPare||'', d.obs||'']]);
+  /* ⚠ Els contactes de la família (Tutor 1 / Correu 1 / Tutor 2 / Correu 2 /
+     Telèfons) NO s'escriuen des d'aquí. Surten del full de la secretaria i
+     s'hi actualitzen sols; si l'app hi escrivís, la propera passada els
+     tornaria a posar com són al full i la mestra veuria desaparèixer el que
+     hagués escrit. A la fitxa només es miren. */
+  sh.getRange(row, (_colsDe_(sh).obs) || 8).setValue(d.obs || '');
   // Cols J-L: PI, AM, específic (índexs 10-12) — no toquem I (gènere)
   sh.getRange(row, 10, 1, 3).setValues([[d.pi||'', d.am||'', d.especific||'']]);
   // Col M: Informe EAP (índex 13)
@@ -3003,10 +3056,14 @@ function getAllPersonal(ss) {
     result.push({
       id:    idx,
       rowId: i+2,
-      mare:      row[1]||'',
-      pare:      row[2]||'',
-      emailMare: row[3]||'',
-      emailPare: row[4]||'',
+      /* Aquest full vell tenia mare/pare a B i C i els correus a D i E.
+         Es tradueix als noms nous perquè la pantalla no en sàpiga res del
+         d'abans: la mare passa a ser el tutor 1 i el pare el tutor 2. */
+      tutor1:    row[1]||'',
+      correu1:   row[3]||'',
+      tutor2:    row[2]||'',
+      correu2:   row[4]||'',
+      telefons:  '',
       obs:       row[5]||'',
       pi:        row[7]||'',
       am:        row[8]||'',
@@ -3025,10 +3082,11 @@ function getPersonal(ss, rowId) {
   var lc   = Math.max(sh.getLastColumn(), 10);
   var vals = sh.getRange(row, 1, 1, lc).getValues()[0];
   return { ok:true, dades:{
-    mare:      vals[1]||'',
-    pare:      vals[2]||'',
-    emailMare: vals[3]||'',
-    emailPare: vals[4]||'',
+    tutor1:    vals[1]||'',
+    correu1:   vals[3]||'',
+    tutor2:    vals[2]||'',
+    correu2:   vals[4]||'',
+    telefons:  '',
     obs:       vals[5]||'',
     pi:        vals[7]||'',   // col H: assignatures amb PI (o buit)
     am:        vals[8]||'',   // col I: assignatures amb AM (o buit)
@@ -3040,8 +3098,10 @@ function savePersonal(ss, rowId, d) {
   // rowId és el número de fila real al full Alumnes (2, 3, 4...)
   var row = parseInt(rowId);
   if (isNaN(row) || row < 2) return { ok:false, error:'Fila invalida: '+rowId };
-  // Col B-F: dades de contacte i obs
-  sh.getRange(row, 2, 1, 5).setValues([[d.mare||'',d.pare||'',d.emailMare||'',d.emailPare||'',d.obs||'']]);
+  /* ⚠ NOMÉS l'observació. Els contactes de la família ja no s'escriuen des
+     de l'app: si s'hi escrivissin, el calaix (que ara els ensenya buits
+     perquè no els edita) els esborraria a la primera desada. */
+  sh.getRange(row, 6).setValue(d.obs || '');
   // Col H-J: PI, AM, aspectes específics (no toquem la G = gènere)
   sh.getRange(row, 8, 1, 3).setValues([[d.pi||'', d.am||'', d.especific||'']]);
   return { ok:true };
@@ -4106,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v203';
+var BACKEND_VERSIO = 'v204';
 
 var MAX_CELA = 45000;
 
@@ -5464,6 +5524,16 @@ function grupsSincronitzaAuto() {
         Logger.log('grupsSincronitzaAuto (fitxes): ' + JSON.stringify(f && f.total ? f.total : f));
       }
     } catch (e) { Logger.log('grupsSincronitzaAuto (fitxes) ha petat: ' + e.message); }
+
+    /* I ELS CONTACTES DE LA FAMÍLIA, del full de la secretaria. Try a part,
+       com les altres dues: són tres feines independents i el dia que una
+       peti, les altres han de continuar. */
+    try {
+      var k = contactesAplicaSiCal(ss);
+      if (!(k && k.ok && k.calia === false)) {
+        Logger.log('grupsSincronitzaAuto (contactes): ' + JSON.stringify(k && k.total ? k.total : k));
+      }
+    } catch (e) { Logger.log('grupsSincronitzaAuto (contactes) ha petat: ' + e.message); }
   } catch (e) { Logger.log('grupsSincronitzaAuto ha petat: ' + e.message); }
 }
 
@@ -7506,6 +7576,75 @@ function afegeixColumnesDEBO() {
   return txt;
 }
 
+/* ============================================================
+   ELS CONTACTES, DES DE L'EDITOR
+   ------------------------------------------------------------
+   provaContactes()      — diu què faria, sense tocar res. SEMPRE primer.
+   aplicaContactesDEBO() — ho fa.
+   ============================================================ */
+function provaContactes() { return _contactesTxt_(true); }
+function aplicaContactesDEBO() { return _contactesTxt_(false); }
+
+function _contactesTxt_(prova) {
+  var r = contactesAplica(SpreadsheetApp.getActiveSpreadsheet(), prova);
+  if (!r.ok) { Logger.log('ERROR: ' + r.error); return r; }
+  var l = [];
+  l.push(prova ? 'AIXO ES EL QUE FARIA (no he tocat res)' : 'FET');
+  l.push('======================================');
+  l.push('Alumnes amb alguna cosa a canviar: ' + r.total.alumnes);
+  l.push('Caselles a escriure ............... ' + r.total.camps);
+  l.push('Caselles que ja estaven be ........ ' + r.total.iguals);
+  l.push('');
+  r.perGrup.forEach(function (g) {
+    if (g.error) { l.push(g.grup + ': ' + g.error); return; }
+    if (g.alumnes) l.push(g.grup + ': ' + g.alumnes + ' alumnes, ' + g.camps + ' caselles');
+  });
+  /* Les dues llistes que expliquen tot el que no ha quadrat. Han de sortir
+     SEMPRE: si es callessin, "0 caselles" en un grup voldria dir dues coses
+     (tot al dia / no he sabut aparellar ningu) i no es podria distingir. */
+  if (r.senseParella.length) {
+    l.push('');
+    l.push('DEL FULL DE CONTACTES, NO SE DE QUIN ALUMNE SON (' + r.senseParella.length + '):');
+    r.senseParella.forEach(function (x) { l.push('  ' + x.grup + ' · ' + x.qui + ' (' + x.motiu + ')'); });
+    l.push('  → o han marxat, o al full de la secretaria estan en un altre grup.');
+  }
+  if (r.sensContactes.length) {
+    l.push('');
+    l.push('ALUMNES SENSE FILA AL FULL DE CONTACTES (' + r.sensContactes.length + '):');
+    r.sensContactes.forEach(function (x) { l.push('  ' + x); });
+    l.push('  → es queden amb els contactes buits fins que la secretaria els hi posi.');
+  }
+  var txt = l.join('\n');
+  Logger.log(txt);
+  return txt;
+}
+
+/* Diu quin full de contactes s'esta mirant i si es pot obrir. Val mes
+   descobrir aqui que l'ID no hi es que no pas a la tercera passada muda de
+   la sincronitzacio. */
+function provaFullContactes() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var id = _resolContactesId(ss);
+  if (!id) {
+    var txt = 'NO hi ha cap full de contactes configurat.\n' +
+              'Posa la propietat CONTACTES_ID a Configuracio del projecte → Propietats del script,\n' +
+              'amb l ID del full "Dades de contacte alumnes".';
+    Logger.log(txt); return txt;
+  }
+  try {
+    var doc = _contactesTots_(ss);
+    var grups = Object.keys(doc.perGrup);
+    var t = 'Full de contactes: ' + id + '\n' +
+            'Grups trobats: ' + grups.length + ' (' + grups.join(', ') + ')\n' +
+            'Alumnes: ' + doc.files;
+    Logger.log(t); return t;
+  } catch (e) {
+    var e2 = 'NO he pogut llegir el full de contactes (' + id + '): ' + e.message;
+    Logger.log(e2); return e2;
+  }
+}
+
+
 function provaAplicarFitxes() { return _fitxesAplicaTxt_(true); }
 /* I ara sí. */
 function aplicaFitxesDEBO() { return _fitxesAplicaTxt_(false); }
@@ -7715,6 +7854,319 @@ function fitxesPosaAlies(ss, grup, etiqueta, uid) {
   try { var r = fitxesAplica(ss, false, grup); if (r && r.ok) posat = r; } catch (e) {}
   return { ok: true, grup: grup, etiqueta: etiqueta,
            alumne: qui.nom + ' ' + qui.cognoms, aplicat: !!posat };
+}
+
+
+/* ============================================================
+   ELS CONTACTES DE LA FAMÍLIA
+   ------------------------------------------------------------
+   El full de la secretaria («Dades de contacte alumnes») és la font: allà
+   s'hi escriu i d'allà surt. L'app no els edita mai, igual que no edita el
+   PI ni les al·lèrgies.
+
+   Ja no hi ha «mare» i «pare»: hi ha TUTOR 1 i TUTOR 2, que no sempre són
+   això. En Pol, 5/9/2026: «fins ara teníem nom mare, nom pare, correu mare,
+   correu pare... ja no serà així».
+
+   Els TELÈFONS van tots junts en una casella, l'un al costat de l'altre,
+   sense dir de qui són. També és decisió d'ell, i és la bona: al full de la
+   secretaria van repartits en set columnes («Telèfon 1 1», «Telèfon 2 2»,
+   «Telèfon 3 1»…) que ni tan sols diuen sempre de qui és cada número, i
+   cada nen en té una quantitat diferent —de cap a set.
+
+   ⚠ MIRALL, com les fitxes: el que digui el full de contactes és el que hi
+   ha; el que no hi digui, queda BUIT. Així no s'hi acumulen restes.
+   ============================================================ */
+
+/* Les columnes del full de la secretaria, pel nom de la capçalera. */
+var CONTACTES_CAP = {
+  cognom1: 'Primer cognom', cognom2: 'Segon cognom', nom: 'Nom',
+  nom1: 'Nom 1', cognoms1: 'Cognoms 1', correu1: 'Correu electrònic 1',
+  nom2: 'Nom 2', cognoms2: 'Cognoms 2', correu2: 'Correu electrònic 2',
+};
+/* Tot el que sigui un telèfon: la capçalera comença per "Telèfon". No es
+   miren d'un en un a posta —al full n'hi ha set columnes amb noms que no
+   segueixen cap patró fiable— i el dia que la secretaria n'hi afegeixi una
+   més, entrarà sola. */
+function _contacteEsTelefon_(cap) { return /^tel/.test(_fnorm_(cap)); }
+
+/* Del nom llarg del full de la secretaria al nom curt de l'app:
+   "Primer de Primària-A" → "1r A". */
+var CONTACTES_CURSOS = { primer: '1r', segon: '2n', tercer: '3r',
+                         quart: '4t', cinque: '5è', sise: '6è' };
+function _contacteGrup_(txt) {
+  var m = String(txt || '').match(/^(\S+)\s+de\s+Prim[aà]ria\s*-\s*([ABC])\s*$/i);
+  if (!m) return null;
+  var curs = CONTACTES_CURSOS[_fnorm_(m[1])];
+  return curs ? curs + ' ' + m[2].toUpperCase() : null;
+}
+
+/* Un telèfon tal com ha de quedar a la fitxa.
+   · fora el "34-" del davant (804 dels 1.008 números el porten i no diu res);
+   · el TEXT que hi ha apuntat es queda: "654126515 mare", "611309742 Àvia",
+     "938836990 FEINA MARE", "938891199 (Ext 1803/1806)". És informació que
+     ha escrit algú a posta, i treure-la seria perdre saber de qui és el
+     número de la feina o de l'àvia.
+   Torna '' si a la casella no hi ha cap número (n'hi ha dues amb un tros de
+   correu enganxat). */
+function _contacteTelefon_(v) {
+  var t = String(v == null ? '' : v).trim();
+  if (!t) return '';
+  if (!/\d{6}/.test(t.replace(/[\s.\-]/g, ''))) return '';   // no hi ha cap número
+  t = t.replace(/^\+?34[\s.\-]+/, '');
+  return t.replace(/\s+/g, ' ').trim();
+}
+
+/* Els telèfons d'una fila, de costat i sense repetir-ne cap.
+   57 alumnes tenen el mateix número a dues columnes del full de la
+   secretaria; a la fitxa hi sortiria dues vegades i no vol dir res. */
+function _contacteTelefons_(valors) {
+  var fora = [], vistos = {};
+  (valors || []).forEach(function (v) {
+    var t = _contacteTelefon_(v);
+    if (!t) return;
+    var nu = t.replace(/[^0-9]/g, '');
+    if (!nu || vistos[nu]) return;
+    vistos[nu] = 1;
+    fora.push(t);
+  });
+  return fora.join(' · ');
+}
+
+/* "Faouzia" + "Bakhti Laaguid" → "Faouzia Bakhti Laaguid" */
+function _contacteQui_(nom, cognoms) {
+  return (String(nom || '').trim() + ' ' + String(cognoms || '').trim()).replace(/\s+/g, ' ').trim();
+}
+
+function _resolContactesId(ss) {
+  var propi = sheetGetJSON(ss, '_AppData', 'contactes_sheet_id');
+  if (propi && propi.toString().trim()) return propi.toString().trim();
+  return (FULLS_COMPARTITS.contactes || '').toString().trim();
+}
+
+/* Llegeix el full sencer. Torna { perGrup: { '1r A': [fila…] } }.
+   ⚠ NOMÉS la primera pestanya: al full d'ara n'hi ha una segona amb una
+   còpia de 1r i 2n que es talla a mitges. Agafar-les totes dues duplicaria
+   la meitat dels alumnes. */
+function _contactesTots_(ss) {
+  var id = _resolContactesId(ss);
+  if (!id) throw new Error('Falta l\'ID del full de contactes (CONTACTES_ID).');
+  var sh = SpreadsheetApp.openById(id).getSheets()[0];
+  var lr = sh.getLastRow(), lc = sh.getLastColumn();
+  if (lr < 2) return { perGrup: {}, files: 0 };
+  var d = sh.getRange(1, 1, lr, lc).getValues();
+
+  /* La capçalera pot no ser a la primera fila: al full d'ara hi ha dues
+     files buides al davant. Es busca la que porta "Nom 1". */
+  var capFila = -1;
+  for (var i = 0; i < Math.min(d.length, 10); i++) {
+    if (d[i].some(function (c) { return _fnorm_(c) === _fnorm_('Nom 1'); })) { capFila = i; break; }
+  }
+  if (capFila < 0) throw new Error('No trobo la capçalera del full de contactes (hi busco "Nom 1").');
+
+  var cap = d[capFila], on = {}, tels = [];
+  cap.forEach(function (c, j) {
+    var k = _fnorm_(c);
+    if (!k) return;
+    if (_contacteEsTelefon_(c)) { tels.push(j); return; }
+    Object.keys(CONTACTES_CAP).forEach(function (nom) {
+      if (on[nom] === undefined && k === _fnorm_(CONTACTES_CAP[nom])) on[nom] = j;
+    });
+  });
+  ['nom', 'cognom1', 'nom1', 'correu1'].forEach(function (k) {
+    if (on[k] === undefined) throw new Error('Al full de contactes hi falta la columna "' + CONTACTES_CAP[k] + '".');
+  });
+
+  var perGrup = {}, grup = null, files = 0;
+  for (var r = capFila + 1; r < d.length; r++) {
+    var f = d[r];
+    var possible = _contacteGrup_(f[0]);
+    if (possible) { grup = possible; if (!perGrup[grup]) perGrup[grup] = []; continue; }
+    if (!grup) continue;
+    var nom = String(f[on.nom] || '').trim();
+    var cog = _contacteQui_(f[on.cognom1], on.cognom2 !== undefined ? f[on.cognom2] : '');
+    if (!nom && !cog) continue;
+    perGrup[grup].push({
+      nom: nom, cognoms: cog,
+      tutor1: _contacteQui_(f[on.nom1], on.cognoms1 !== undefined ? f[on.cognoms1] : ''),
+      correu1: String(f[on.correu1] || '').trim(),
+      tutor2: on.nom2 === undefined ? '' : _contacteQui_(f[on.nom2], on.cognoms2 !== undefined ? f[on.cognoms2] : ''),
+      correu2: on.correu2 === undefined ? '' : String(f[on.correu2] || '').trim(),
+      telefons: _contacteTelefons_(tels.map(function (j) { return f[j]; })),
+    });
+    files++;
+  }
+  return { perGrup: perGrup, files: files };
+}
+
+/* De qui és aquesta fila de contactes, dins d'un grup.
+   Aparella pels MOTS del nom sencer, sense accents ni majúscules: tots els
+   mots del nom més curt han de ser a l'altre, i compten com a iguals els que
+   només es diferencien en una lletra.
+
+   Amb les 432 files de debò del curs 2026-27 això n'aparella 431 d'un a un,
+   cap ambigua. Els set que el full de la secretaria escriu diferent hi
+   entren sols: "Aliou / Alilou Kande", "Sajda El Asri Hakim / Sajda El
+   Asri", "Eypril Yamilet / Yamilet Eypril Tapia Choque"… El que queda és la
+   Carina Cortes Galvez de 4t A, que ja no és al grup. */
+function _contacteEncaixa_(a, b) {
+  var A = _motsUtils_(a), B = _motsUtils_(b);
+  if (!A.length || !B.length) return false;
+  var curt = A.length <= B.length ? A : B, llarg = A.length <= B.length ? B : A;
+  return curt.every(function (m) {
+    return llarg.some(function (t) {
+      return m === t || (m.length >= 4 && _distancia1_(m, t));
+    });
+  });
+}
+
+/* ============================================================
+   PORTAR-HO AL FULL DE GRUPS
+   ------------------------------------------------------------
+   Amb prova=true no escriu res: només diu què faria.
+   ============================================================ */
+function contactesAplica(ss, prova, nomesGrup) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var doc;
+  try { doc = _contactesTots_(ss); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut llegir el full de contactes: ' + e.message }; }
+  if (!Object.keys(doc.perGrup).length) {
+    return { ok: false, error: 'No he sabut trobar cap grup al full de contactes: no toco res.' };
+  }
+
+  var lock = LockService.getScriptLock(), tinc = false;
+  try { lock.waitLock(60000); tinc = true; }
+  catch (e) { return { ok: false, error: 'Hi ha una altra feina en marxa.' }; }
+
+  try {
+    var total = { alumnes: 0, camps: 0, iguals: 0 }, perGrup = [], senseParella = [], sensContactes = [];
+
+    Object.keys(doc.perGrup).forEach(function (g) {
+      if (nomesGrup && g !== nomesGrup) return;
+      var sh = gss.getSheetByName(g);
+      if (!sh) return;
+      var lr = sh.getLastRow();
+      if (lr < 2) return;
+      var cols = _colsDe_(sh);
+      if (!cols.telefons) {
+        perGrup.push({ grup: g, error: 'falta la columna Telèfons: executa afegeixColumnesDEBO()' });
+        return;
+      }
+      var d = sh.getRange(2, 1, lr - 1, cols._ample).getValues();
+      var alumnes = [];
+      d.forEach(function (f, i) {
+        var nom = String(f[0] || '').trim(), cog = String(f[1] || '').trim();
+        if (!nom && !cog) return;
+        alumnes.push({ i: i, nom: nom, cognoms: cog, sencer: nom + ' ' + cog });
+      });
+
+      /* Cada fila de contactes, a un alumne i només un. Si n'encaixen dos
+         —no ha passat mai amb les dades de debò, però podria— no se
+         n'escull cap: val més que hi falti a que vagi al nen equivocat. */
+      var seu = {};
+      doc.perGrup[g].forEach(function (c) {
+        var toca = alumnes.filter(function (a) {
+          return _contacteEncaixa_(c.nom + ' ' + c.cognoms, a.sencer);
+        });
+        if (toca.length !== 1) { senseParella.push({ grup: g, qui: c.nom + ' ' + c.cognoms,
+                                                     motiu: toca.length ? 'n\'encaixen ' + toca.length : 'no és al grup' }); return; }
+        seu[toca[0].i] = c;
+      });
+
+      var c = { grup: g, alumnes: 0, camps: 0, iguals: 0 };
+      var toca = {};
+      [['tutor1', cols.tutor1], ['correu1', cols.correu1], ['tutor2', cols.tutor2],
+       ['correu2', cols.correu2], ['telefons', cols.telefons]].forEach(function (par) {
+        toca[par[1]] = {};
+      });
+
+      alumnes.forEach(function (a) {
+        var meu = seu[a.i] || {};
+        if (!seu[a.i]) sensContactes.push(g + ' · ' + a.sencer);
+        var canviat = false;
+        [['tutor1', cols.tutor1], ['correu1', cols.correu1], ['tutor2', cols.tutor2],
+         ['correu2', cols.correu2], ['telefons', cols.telefons]].forEach(function (par) {
+          var nou = meu[par[0]] || '';
+          var vell = String(d[a.i][par[1] - 1] == null ? '' : d[a.i][par[1] - 1]).trim();
+          if (vell === nou) { if (nou) c.iguals++; return; }
+          toca[par[1]][a.i + 2] = nou;
+          c.camps++; canviat = true;
+        });
+        if (canviat) c.alumnes++;
+      });
+
+      if (!prova) {
+        Object.keys(toca).forEach(function (col) {
+          var files = Object.keys(toca[col]);
+          if (!files.length) return;
+          files.forEach(function (fila) {
+            sh.getRange(Number(fila), Number(col)).setValue(toca[col][fila]);
+          });
+        });
+      }
+      total.alumnes += c.alumnes; total.camps += c.camps; total.iguals += c.iguals;
+      perGrup.push(c);
+    });
+
+    if (!prova) SpreadsheetApp.flush();
+    return { ok: true, prova: !!prova, total: total, perGrup: perGrup,
+             senseParella: senseParella, sensContactes: sensContactes };
+  } finally { if (tinc) lock.releaseLock(); }
+}
+
+/* L'empremta del full de contactes. Com la de les fitxes, hi entra la
+   versió del codi: si no, un arranjament de la lectura no arribaria mai a
+   les fitxes mentre la secretaria no toqués el full. */
+function _contactesEmpremta_(doc) {
+  var trossos = ['@codi=' + BACKEND_VERSIO];
+  Object.keys(doc.perGrup).sort().forEach(function (g) {
+    trossos.push('#' + g);
+    doc.perGrup[g].forEach(function (c) {
+      trossos.push([c.nom, c.cognoms, c.tutor1, c.correu1, c.tutor2, c.correu2, c.telefons].join('|'));
+    });
+  });
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, trossos.join('\n'), Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+/* ============================================================
+   ES MIRA SOL, CADA QUART D'HORA
+   ------------------------------------------------------------
+   Va amb la sincronització que ja hi ha (`grupsSincronitzaAuto`), com les
+   llistes i les fitxes. Per això no cal cap disparador nou i cap mestra no
+   ha de tocar res del seu projecte de l'Apps Script.
+
+   Cada passada només LLEGEIX el full de la secretaria i compara l'empremta
+   amb la d'abans; només escriu quan hi ha hagut un canvi de debò.
+   ============================================================ */
+function contactesAplicaSiCal(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var doc;
+  try { doc = _contactesTots_(ss); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut llegir el full de contactes: ' + e.message }; }
+  if (!Object.keys(doc.perGrup).length) {
+    return { ok: false, error: 'No he sabut trobar cap grup al full de contactes: no toco res.' };
+  }
+  var ara = _contactesEmpremta_(doc), abans = null;
+  try { abans = sheetGetJSON(gss, '_AppData', 'contactes_empremta') || null; } catch (e) {}
+  try {
+    sheetSetJSON(gss, '_AppData', 'contactes_mirat',
+                 Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'));
+  } catch (e) {}
+  if (abans === ara) return { ok: true, calia: false, empremta: ara };
+
+  /* Abans d'escriure res, que les columnes hi siguin. La primera vegada, al
+     full encara hi diu «Nom mare» i no hi ha cap columna de telèfons: sense
+     això, la sincronització es queixaria cada quart d'hora d'una cosa que
+     s'arregla sola. És repetible sense por i no fa res quan ja està bé. */
+  try { grupsAfegeixColumnes(ss); } catch (e) {}
+
+  var r = contactesAplica(ss, false);
+  if (r && r.ok) { try { sheetSetJSON(gss, '_AppData', 'contactes_empremta', ara); } catch (e) {} }
+  if (r) { r.calia = true; r.empremta = ara; }
+  return r;
 }
 
 /* ============================================================

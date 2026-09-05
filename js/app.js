@@ -35,7 +35,7 @@ function debounce(key, fn, ms = 1200) {
 let config        = JSON.parse(localStorage.getItem('vedruna_cfg') || '{}');
 let students      = [];
 let observacions  = {};   // { studentId: { '1_matematiques': text, ... } }
-let personal      = {};   // { studentId: { mare, pare, emailMare, emailPare, obs } }
+let personal      = {};   // { studentId: { tutor1, correu1, tutor2, correu2, telefons, obs } }
 let registreItems = [];
 let registreData  = {};
 let currentObsStudentId      = null;
@@ -245,10 +245,14 @@ function fillPersonalForm(d) {
     var st = students.filter(function (x) { return x.id === currentPersonalStudentId; })[0];
     g.value = (st && st.genere === 'f') ? 'f' : 'm';
   }
-  document.getElementById('pMare').value      = d.mare      || '';
-  document.getElementById('pPare').value      = d.pare      || '';
-  document.getElementById('pEmailMare').value = d.emailMare || '';
-  document.getElementById('pEmailPare').value = d.emailPare || '';
+  /* Els contactes de la família. Des del 5/9/2026 no són «mare» i «pare»:
+     l'escola parla de tutor 1 i tutor 2, que no sempre és això. Surten del
+     full de la secretaria i aquí NOMÉS es miren. */
+  document.getElementById('pTutor1').value   = d.tutor1   || '';
+  document.getElementById('pCorreu1').value  = d.correu1  || '';
+  document.getElementById('pTutor2').value   = d.tutor2   || '';
+  document.getElementById('pCorreu2').value  = d.correu2  || '';
+  document.getElementById('pTelefons').value = d.telefons || '';
   document.getElementById('pObs').value       = d.obs       || '';
   document.getElementById('pEspecific').value = d.especific || '';
 
@@ -517,11 +521,10 @@ async function savePersonalDrawer(noTanquis) {
       _saveMainToCache();
     }
   }
+  /* ⚠ Els contactes de la família NO viatgen: surten del full de la
+     secretaria i el servidor no els escriu des d'aquí. Si s'enviessin,
+     l'app s'estaria discutint amb la seva pròpia font. */
   const dades = {
-    mare:      document.getElementById('pMare').value.trim(),
-    pare:      document.getElementById('pPare').value.trim(),
-    emailMare: document.getElementById('pEmailMare').value.trim(),
-    emailPare: document.getElementById('pEmailPare').value.trim(),
     obs:       document.getElementById('pObs').value.trim(),
     pi:        document.getElementById('pPICheck').checked ? _piAssigs.join('|') : '',
     am:        document.getElementById('pAMCheck').checked ? _amAssigs.join('|') : '',
@@ -1458,7 +1461,7 @@ function renderAlumnesList() {
     const hasEspec = pd.especific && pd.especific.trim();
     const hasAlert = hasMedic || hasEspec;
     const alertTip = [hasMedic ? '✚ ' + pd.obs : '', hasEspec ? '⚠ ' + pd.especific : ''].filter(Boolean).join('\n');
-    const hasData  = pd.mare || pd.pare || pd.emailMare || pd.emailPare || pd.obs || pd.especific;
+    const hasData  = pd.tutor1 || pd.correu1 || pd.tutor2 || pd.correu2 || pd.telefons || pd.obs || pd.especific;
     const hasPI    = pd.pi && pd.pi.trim();
     const hasAM    = pd.am && pd.am.trim();
 
@@ -1505,7 +1508,7 @@ function renderPanelStudents(list) {
     const obs      = observacions[s.id] || {};
     const obsCount = Object.values(obs).filter(v => v && v.trim()).length;
     const pd       = personal[s.id] || {};
-    const hasData  = pd.mare || pd.pare || pd.emailMare || pd.emailPare || pd.obs || pd.especific || pd.pi || pd.am;
+    const hasData  = pd.tutor1 || pd.correu1 || pd.tutor2 || pd.correu2 || pd.telefons || pd.obs || pd.especific || pd.pi || pd.am;
     const div = document.createElement('div');
     div.className = 'student-item';
     const gen = s.genere === 'f' ? 'f' : 'm';
@@ -1611,15 +1614,25 @@ async function renderFitxa(studentId) {
 
   // Dades personals
   const pBody = document.getElementById('fitxaPersonal');
-  if (pd.mare || pd.pare || pd.emailMare || pd.emailPare) {
+  if (pd.tutor1 || pd.correu1 || pd.tutor2 || pd.correu2 || pd.telefons) {
+    const _corr = (r, c) => c
+      ? `<div class="fitxa-field"><div class="fitxa-field-label">${r}</div>` +
+        `<div class="fitxa-field-val"><a href="mailto:${escapeHtml(c)}">${escapeHtml(c)}</a></div></div>` : '';
+    const _txt = (r, v) => v
+      ? `<div class="fitxa-field"><div class="fitxa-field-label">${r}</div>` +
+        `<div class="fitxa-field-val">${escapeHtml(v)}</div></div>` : '';
     pBody.innerHTML = [
-      pd.mare      ? `<div class="fitxa-field"><div class="fitxa-field-label">Mare</div><div class="fitxa-field-val">${escapeHtml(pd.mare)}</div></div>` : '',
-      pd.pare      ? `<div class="fitxa-field"><div class="fitxa-field-label">Pare</div><div class="fitxa-field-val">${escapeHtml(pd.pare)}</div></div>` : '',
-      pd.emailMare ? `<div class="fitxa-field"><div class="fitxa-field-label">Email mare</div><div class="fitxa-field-val"><a href="mailto:${pd.emailMare}">${pd.emailMare}</a></div></div>` : '',
-      pd.emailPare ? `<div class="fitxa-field"><div class="fitxa-field-label">Email pare</div><div class="fitxa-field-val"><a href="mailto:${pd.emailPare}">${pd.emailPare}</a></div></div>` : '',
+      _txt('Tutor/a 1', pd.tutor1),
+      _corr('Correu', pd.correu1),
+      _txt('Tutor/a 2', pd.tutor2),
+      _corr('Correu', pd.correu2),
+      /* Els telèfons van tots junts i sense dir de qui són: al full de la
+         secretaria van repartits en set columnes que ni tan sols ho diuen. */
+      _txt('Telèfons', pd.telefons),
     ].join('');
   } else {
-    pBody.innerHTML = '<p class="fitxa-empty-field">Sense dades. Clica Editar per afegir-ne.</p>';
+    /* Ja no es poden afegir des d'aquí: surten del full de la secretaria. */
+    pBody.innerHTML = '<p class="fitxa-empty-field">Encara no hi ha cap contacte al full de l\'escola.</p>';
   }
 
   // Observacions agrupades per trimestre
@@ -5428,7 +5441,7 @@ function _applyBootstrap(boot) {
     if (boot.personal) {
       personal = {};
       boot.personal.forEach(function(p) {
-        personal[p.id] = { mare: p.mare, pare: p.pare, emailMare: p.emailMare, emailPare: p.emailPare, obs: p.obs, pi: p.pi||'', am: p.am||'', especific: p.especific||'' };
+        personal[p.id] = { tutor1: p.tutor1, correu1: p.correu1, tutor2: p.tutor2, correu2: p.correu2, telefons: p.telefons, obs: p.obs, pi: p.pi||'', am: p.am||'', especific: p.especific||'' };
       });
     }
   }
