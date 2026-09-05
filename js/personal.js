@@ -214,10 +214,6 @@
       '.pol-inc-btn:hover{border-color:#C0392B;background:#FDF3F2}',
       '.pol-inc-btn:active{transform:scale(.94)}',
       '.pol-inc-btn:focus-visible{outline:2px solid #C0392B;outline-offset:2px}',
-      '.pol-inc-btn.te-cap{border-color:#E8BDB7;background:#FDF3F2}',
-      '.pol-inc-comptador{position:absolute;top:-4px;right:-4px;min-width:15px;height:15px;padding:0 3px;',
-      ' border-radius:8px;background:#C0392B;color:#fff;font-size:9px;font-weight:800;line-height:15px;',
-      ' text-align:center;box-shadow:0 0 0 2px var(--surface-tint)}',
 
       /* L'apartat de la fitxa */
       '.pol-inc-llista{list-style:none;margin:0 0 12px;padding:0}',
@@ -256,7 +252,10 @@
            '</svg>';
   }
 
-  /* ---------- el botó a cada targeta ---------- */
+  /* ---------- el botó a cada targeta ----------
+     El botó és NOMÉS el botó: no diu quantes n'hi ha ni es pinta diferent
+     si l'alumne en té. El compte va només a la seva fitxa, i així la llista
+     de la classe no ensenya a qui s'ha hagut d'escriure a casa. */
 
   function posaBotons() {
     var cont = document.getElementById('alumnesList');
@@ -268,12 +267,13 @@
       var accions = targetes[i].querySelector('.alumne-card-actions');
       if (!accions) continue;
 
-      var n = llistaDe(s.id).length;
       var b = accions.querySelector('.pol-inc-btn');
       if (!b) {
         b = document.createElement('button');
         b.type = 'button';
         b.className = 'pol-inc-btn';
+        b.innerHTML = icona();
+        b.title = 'Comunicar una incidència a la família';
         accions.appendChild(b);
         b.addEventListener('click', function (e) {
           e.stopPropagation();
@@ -281,14 +281,7 @@
         });
       }
       b.setAttribute('data-alumne', String(s.id));
-      b.className = 'pol-inc-btn' + (n ? ' te-cap' : '');
-      b.title = n
-        ? (n === 1 ? '1 incidència comunicada · comunicar-ne una altra'
-                   : n + ' incidències comunicades · comunicar-ne una altra')
-        : 'Comunicar una incidència a la família';
-      b.setAttribute('aria-label', 'Comunicar una incidència a la família de ' + s.nom +
-                                   (n ? ' (ja se n’han comunicat ' + n + ')' : ''));
-      b.innerHTML = icona() + (n ? '<span class="pol-inc-comptador">' + (n > 9 ? '9+' : n) + '</span>' : '');
+      b.setAttribute('aria-label', 'Comunicar una incidència a la família de ' + s.nom);
     }
   }
 
@@ -580,7 +573,6 @@
     }
 
     tanca();
-    posaBotons();
     var body = document.getElementById('polIncBody');
     if (body && String(body.getAttribute('data-alumne')) === String(studentId)) {
       pintaSeccioFitxa(studentId);
@@ -608,7 +600,6 @@
 
     mag.registre[k] = l.filter(function (y) { return String(y.id) !== String(id); });
     pintaSeccioFitxa(studentId);
-    posaBotons();
     desa().then(function (ok) {
       avis(ok ? 'Esborrada' : 'Esborrada, però no s’ha pogut desar al full', ok ? 'success' : 'error');
     });
@@ -642,13 +633,13 @@
 
   /* El perfil es reemplaça SENCER quan arriba del full (i al bootstrap). Quan
      això passa, les incidències bones són les que acaben d'arribar: cal
-     repintar-les o ensenyaríem els números d'abans de carregar. */
+     repintar l'apartat de la fitxa o hi ensenyaríem el compte d'abans de
+     carregar. Els botons de les targetes no cal tocar-los: no diuen res. */
   if (typeof window.perfilRenderAllSelectors === 'function') {
     var _origSel = window.perfilRenderAllSelectors;
     window.perfilRenderAllSelectors = function () {
       var r = _origSel.apply(this, arguments);
       try {
-        posaBotons();
         var body = document.getElementById('polIncBody');
         if (body) pintaSeccioFitxa(body.getAttribute('data-alumne'));
       } catch (e) {}
