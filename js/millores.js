@@ -81,24 +81,55 @@ function _milloraEsMeva(m) {
 }
 function _milloresMeves() { return MILLORES.filter(_milloraEsMeva); }
 
-/* Les que ja s'han demanat des d'aquest ordinador. Només serveix per no
-   demanar dues vegades el mateix sense adonar-se'n; qui mana és el correu
-   que li arriba a en Pol. */
-const MILLORES_CLAU = 'millores_demanades';
+/* ON ES GUARDA EL QUE JA HA DEMANAT O JA HA VIST.
 
-/* I les que ja ha vist. En Pol, 5/9/2026: «si les actualitzacions que hi ha
-   dins ja les ha demanades o llegides, no ha de sortir cap número d'alerta
-   de nova actualització». O sigui que el número és de les que són NOVES per
-   a ella, no de les que hi ha. Un avís que no marxa mai deixa de ser un
-   avís i la gent deixa de mirar-lo. */
+   AL SEU PERFIL, que viatja pel servidor —no al navegador.
+
+   En Pol, 6/9/2026: «ahir vaig demanar una actualització des del PC, avui
+   l'he obert amb el mòbil i em sortia l'alerta de nova actualització, i em
+   permetia tornar a demanar-la, com si no ho hagués fet».
+
+   Estava al `localStorage`, que és d'aquell navegador i d'aquell aparell. A
+   l'escola tothom fa servir l'ordinador de classe i el mòbil, i llavors
+   l'avís no vol dir res: surt encara que ja ho hagis mirat, i et deixa
+   demanar dues vegades el mateix. Un avís que no marxa mai deixa de ser un
+   avís.
+
+   El perfil ja va i ve del full de cada mestra a cada arrencada, o sigui que
+   no cal cap peça nova: només posar-ho on toca.                              */
+const MILLORES_CLAU = 'millores_demanades';
 const MILLORES_VISTES = 'millores_vistes';
 
+function _milloresCalaix() {
+  if (typeof _perfil === 'undefined' || !_perfil) return null;
+  if (!_perfil.millores) _perfil.millores = {};
+  return _perfil.millores;
+}
+
 function _milloresLlegeix(clau) {
+  const c = _milloresCalaix();
+  if (c && c[clau]) return c[clau];
+  /* Sense perfil encara (o el primer cop després d'actualitzar), el que hi
+     hagués al navegador. Així ningú no torna a veure com a nou el que ja
+     havia mirat abans d'aquesta versió. */
   try { return JSON.parse(localStorage.getItem(clau) || '{}') || {}; }
   catch (e) { return {}; }
 }
+
 function _milloresDesa(clau, d) {
+  const c = _milloresCalaix();
+  if (c) c[clau] = d;
+  /* Al navegador també: així es veu bé de seguida i encara que no hi hagi
+     connexió en aquell moment. */
   try { localStorage.setItem(clau, JSON.stringify(d)); } catch (e) {}
+  if (c) {
+    try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch (e) {}
+    /* En segon pla: això no ha de fer esperar ningú, i si falla es tornarà a
+       enviar el proper cop que es desi el perfil. */
+    if (typeof config !== 'undefined' && config.scriptUrl && typeof appsScriptPost === 'function') {
+      appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }).catch(function () {});
+    }
+  }
 }
 function _milloresDemanades() { return _milloresLlegeix(MILLORES_CLAU); }
 function _milloresVistes()    { return _milloresLlegeix(MILLORES_VISTES); }
