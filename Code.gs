@@ -4166,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v210';
+var BACKEND_VERSIO = 'v211';
 
 var MAX_CELA = 45000;
 
@@ -6662,7 +6662,10 @@ var FITXA_NO_NOMS = {
    o tot el text es reparteix en alumnes que existeixen, o no es toca.        */
 function _fitxaNomsSeguits_(v, esNom) {
   if (typeof esNom !== 'function') return [];
-  var mots = String(v == null ? '' : v).trim().split(/\s+/).filter(Boolean);
+  /* El que hi hagi a partir del primer parèntesi no és cap nom: al 4t A la
+     casella de la biblioteca acaba amb «Francesca (li aniria bé, però el curs
+     passat no va complir)». */
+  var mots = String(v == null ? '' : v).split('(')[0].trim().split(/\s+/).filter(Boolean);
   if (mots.length < 3) return [];
   /* Tots han de començar en majúscula: si hi ha una paraula normal pel mig,
      això no és una tirallonga de noms sinó una frase. */
@@ -6715,9 +6718,16 @@ function _fitxaNoms_(valor, esNom) {
       _fitxaNomsBanda_(banda, esNom).forEach(function (n) { if (fora.indexOf(n) < 0) fora.push(n); });
     });
   });
-  /* Si no n'ha trobat cap i el text és una tirallonga de noms sense comes,
-     es prova de partir-la contra la llista del grup. */
-  if (!fora.length) {
+  /* Si no n'ha trobat cap —o cap dels que ha trobat no és ningú d'aquell
+     grup— i el text és una tirallonga de noms sense comes, es prova de
+     partir-la contra la llista.
+
+     El segon cas és el del 4t A: «Nour Ahrika Hudaifa Aarab Maryam Bilal Zoe
+     Alana Francesca (…)». Amb pocs noms el lector en fa UN de sol de tres
+     paraules —que no és ningú— i es quedava tan ample. */
+  var capNingu = typeof esNom === 'function' && fora.length &&
+                 !fora.some(function (n) { return esNom(n); });
+  if (!fora.length || capNingu) {
     var seguits = _fitxaNomsSeguits_(v, esNom);
     if (seguits.length) return seguits;
   }
@@ -7375,6 +7385,23 @@ function _fitxaPerAlumne_(f, prep, alies) {
         p.noms.forEach(function (n) {
           quins(n).forEach(function (a) { ambMatis[a.uid] = p.matis; });
         });
+      });
+
+      /* I el parèntesi que va JUST DARRERE d'un nom també és seu.
+
+         Al 4t A: «Nour Ahrika Hudaifa Aarab Maryam Bilal Zoe Alana Francesca
+         (li aniria bé, però el curs passat no va complir)». Sense això, a la
+         Francesca li quedava «Biblioteca (BEET)» pelat —o sigui, que hi va—
+         quan el document diu justament el contrari. Una marca que digui que
+         un nen rep una cosa que no rep és pitjor que no tenir-ne cap: ningú
+         no va a comprovar un suport que la fitxa ja dóna per fet. */
+      noms.forEach(function (n) {
+        var pos = String(x.valor).indexOf(n);
+        if (pos < 0) return;
+        var seg = /^\s*\(([^)]*)\)/.exec(String(x.valor).slice(pos + n.length));
+        if (!seg || seg[1].indexOf(':') >= 0) return;   // amb dos punts és una llista, no un matís
+        var matis = _fitxaNetejaMatis_(seg[1]);
+        if (matis) quins(n).forEach(function (a) { ambMatis[a.uid] = matis; });
       });
 
       tots.forEach(function (a) {
@@ -8811,10 +8838,17 @@ function _fitxaTrossosParens_(v, sapQuiEs) {
     var nomsRun = _fitxaNoms_(neteja(run), sapQuiEs);
     /* Si el tros de davant és prosa —«…només hi ha els de l'Aina Graboleda
        (reunions junts)»— el nom hi és al FINAL, no al principi, i el lector
-       de llistes no el veu. `_fitxaTallaNomFinal_` és justament per a això. */
+       de llistes no el veu.
+
+       ⚠ I ha de començar en MAJÚSCULA. Sense això, «Pares Ariadna mal
+       separats, donar dos coses (informes no cal…)» acabava donant el
+       parèntesi a un nen que es diu Osahon Moses: «coses» està a una lletra
+       de «Moses», i la comparació tolerant —que hi és per als noms mal
+       escrits— s'empassava un mot qualsevol d'una frase. En català un nom
+       va en majúscula; una paraula solta en minúscula no ho és mai. */
     if (!nomsRun.length) {
       var final = _fitxaTallaNomFinal_(run, sapQuiEs);
-      if (final && final.nom) nomsRun = [final.nom];
+      if (final && final.nom && /^[A-ZÀ-ÖØ-Þ]/.test(final.nom)) nomsRun = [final.nom];
     }
     var nomsPrevis = _fitxaNoms_(neteja(previs), sapQuiEs);
 
