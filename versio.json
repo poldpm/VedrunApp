@@ -1,9 +1,9 @@
 {
-  "versio": "v211",
+  "versio": "v212",
   "data": "2026-09-06",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat el pitjor error que quedava: una paraula qualsevol d una frase podia acabar sent un alumne («coses» esta a una lletra de «Moses») i li anava a la fitxa una dada que no era seva.",
-    "La llista de la biblioteca del 4t A ja arriba sencera, i qui hi te un «pero» apuntat al costat ja no queda marcat com si hi anes."
+    "Quan al document un nom no es de ningu en concret —el nom d una nena amb el cognom d una altra— ara no s escriu a cap de les dues i surt a la llista de coses per validar.",
+    "Els noms escrits just darrere d un parentesi ja no es perden: al 6è B, en Samuel es quedava sense el TEA i la Mireia sense el suport de biblioteca."
   ]
 }

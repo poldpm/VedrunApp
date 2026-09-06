@@ -4166,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v211';
+var BACKEND_VERSIO = 'v212';
 
 var MAX_CELA = 45000;
 
@@ -6349,9 +6349,21 @@ function _qui_(preparats, etiqueta, alies) {
       // adaptació. Val només si cada paraula toca un nen DIFERENT i no
       // en sobra cap: si dues paraules apuntessin al mateix nen, seria
       // un nom sol i no una llista.
+      /* ⚠ I cada paraula ha de ser un NOM DE PILA, no un cognom.
+
+         Al 4t C el document diu «Saja el Marnissi» al suport de biblioteca.
+         A la classe hi ha la Saja El JARROUDI i l'Alaa El MARNISSI: el nom
+         d'una amb el cognom de l'altra. Mirant nom i cognoms alhora, això
+         semblava una llista de dues nenes i totes dues rebien el suport —una
+         d'elles sense que el document ho digui enlloc. És el pitjor cas que
+         hi ha, i el va trobar el repàs del 6/9/2026.
+
+         Una llista de debò («Aliou Zion» a 3r A) són dos noms de pila. Si un
+         dels mots és un cognom, allò és UN nom i prou —i si toca dos nens,
+         no se sap de qui és: val més no escriure-ho a ningú. */
       var perMot = mots.map(function (m) {
         return preparats.filter(function (p) {
-          return p.tots.some(function (t) {
+          return p.noms.some(function (t) {
             return t === m || (m.length >= 3 && t.indexOf(m) === 0) ||
                    (m.length >= 5 && _distancia1_(m, t));
           });
@@ -6665,7 +6677,10 @@ function _fitxaNomsSeguits_(v, esNom) {
   /* El que hi hagi a partir del primer parèntesi no és cap nom: al 4t A la
      casella de la biblioteca acaba amb «Francesca (li aniria bé, però el curs
      passat no va complir)». */
-  var mots = String(v == null ? '' : v).split('(')[0].trim().split(/\s+/).filter(Boolean);
+  var mots = String(v == null ? '' : v).split('(')[0].trim().split(/\s+/)
+               /* Fora la puntuació solta: quan un parèntesi s'ha canviat per
+                  una coma, en queda una al mig que no és cap nom. */
+               .filter(function (m) { return /[A-Za-zÀ-ÿ]/.test(m); });
   if (mots.length < 3) return [];
   /* Tots han de començar en majúscula: si hi ha una paraula normal pel mig,
      això no és una tirallonga de noms sinó una frase. */
@@ -6698,6 +6713,21 @@ function _fitxaNoms_(valor, esNom) {
 
   // "M. Antonia": el punt d'una inicial no talla la frase.
   v = v.replace(/(^|[^A-Za-zÀ-ÿ])([A-Za-zÀ-ÿ])\.\s*/g, '$1$2 ');
+
+  /* El que hi ha DINS d'un parèntesi no és cap nom, i el que ve just
+     després sí. «Illyas (no diagnosticat) Samuel Caicedo (possible)» i
+     «Martí Farrés (migdia lectura) Mireia Camprubí (mates)»: el segon nom
+     es perdia sempre, perquè el lector es tallava al primer parèntesi. En
+     Samuel es quedava sense el TEA i la Mireia sense el suport de
+     biblioteca. Es canvia el parèntesi per una coma, que és el separador
+     que el lector ja entén.
+
+     ⚠ Els parèntesis que porten DOS PUNTS a dins són una llista de noms
+     («però estan al límit: Cai i Jeyssel») i aquells no es toquen: allà els
+     noms hi són de debò i treure'ls deixaria dos nens sense la seva. */
+  v = v.replace(/\(([^)]*)\)/g, function (tot, dins) {
+    return dins.indexOf(':') >= 0 ? tot : ' , ';
+  });
 
   // Els noms tant poden anar abans dels dos punts ("Sami: certificat de
   // discapacitat") com després ("Comencem fent adaptacions...: Manel,
@@ -6817,6 +6847,10 @@ function _fitxaNomsBanda_(v, esNom) {
       // també talla; entre lletres, no.
       var cap = String(t).replace(/-(?![A-Za-zÀ-ÿ])/g, ' | ');
       cap = cap.split(/[(.|!?¡¿]/)[0].trim();
+      /* Una «i» al davant del tros («… , i Asher Beltran») s'enganxa al nom
+         i el fa perdre. Passa des que els parèntesis es canvien per una
+         coma: el que ve després sovint comença per la conjunció. */
+      cap = cap.replace(/^(i|y)\s+/i, '');
       cap = cap.replace(/^["'«»\s]+|["'«»\s]+$/g, '');
       if (!cap) return;
 
