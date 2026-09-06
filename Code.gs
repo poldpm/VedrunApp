@@ -4166,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v209';
+var BACKEND_VERSIO = 'v210';
 
 var MAX_CELA = 45000;
 
@@ -7737,6 +7737,148 @@ function fitxesAplica(ss, prova, nomesGrup) {
 
     return { ok: true, prova: !!prova, total: total, grups: perGrup, mostra: canvis };
   } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
+}
+
+
+/* ============================================================
+   COM ANEM? — la funció que et diu on ets
+   ------------------------------------------------------------
+   En Pol, 6/9/2026: «ja no sé ni per on vaig... aquest matí t'he parlat des
+   del PC portàtil i ja no sé què he actualitzat i què no».
+
+   És culpa del disseny, no seva: hi ha divuit funcions per executar i cap
+   que digui QUÈ FALTA. Recordar-ho de memòria, entre dos ordinadors i a
+   trossos, no ho pot fer ningú.
+
+   Això ho mira tot i acaba amb una llista del que queda per fer, amb el nom
+   exacte del que s'ha d'executar. Si no hi ha res a fer, ho diu en una
+   línia. Es pot executar sempre que es vulgui: no toca res.
+   ============================================================ */
+function comAnem() {
+  var l = [], cal = [];
+  function mira(titol, fn) {
+    try { fn(); } catch (e) { l.push('  ✗ ' + titol + ': ' + e.message); }
+  }
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  l.push('COM ANEM');
+  l.push('==========================================');
+  l.push('Codi de la biblioteca: ' + BACKEND_VERSIO);
+  l.push('');
+
+  /* 1. Les credencials */
+  l.push('ELS FULLS');
+  mira('els fulls', function () {
+    [['GRUPS_ID', 'full de grups'], ['DESDOB_ID', 'desdoblaments'],
+     ['CONTACTES_ID', 'contactes de secretaria']].forEach(function (p) {
+      var v = _prop(p[0]);
+      if (v) l.push('  ✔ ' + p[1] + ' configurat');
+      else {
+        l.push('  ✗ FALTA ' + p[0] + ' (' + p[1] + ')');
+        cal.push('Posa la propietat ' + p[0] + ' a Configuració del projecte → Propietats del script.');
+      }
+    });
+  });
+
+  /* 2. Les columnes del full de grups */
+  l.push('');
+  l.push('LES COLUMNES DEL FULL DE GRUPS');
+  mira('les columnes', function () {
+    var gss = getGrupsSpreadsheet(ss);
+    if (!gss) { l.push('  ✗ no puc obrir el full de grups'); return; }
+    var falten = [];
+    GRUPS_PRIMARIA.forEach(function (g) {
+      var sh = gss.getSheetByName(g);
+      if (!sh) return;
+      var c = _colsDe_(sh);
+      var cap = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 20)).getValues()[0]
+                  .map(function (x) { return _fnorm_(x); });
+      if (!c.telefons || cap.indexOf(_fnorm_('Tutor 1')) < 0) falten.push(g);
+    });
+    if (falten.length) {
+      l.push('  ✗ a ' + falten.length + ' grup(s) hi falten les columnes noves (' + falten.slice(0, 4).join(', ') + (falten.length > 4 ? '…' : '') + ')');
+      cal.push('Executa  afegeixColumnesDEBO()  —posa «Tutor 1/2», «Correu 1/2» i «Telèfons».');
+    } else {
+      l.push('  ✔ totes les pestanyes tenen les columnes al dia');
+    }
+  });
+
+  /* 3. El document d'aspectes generals */
+  l.push('');
+  l.push('EL DOCUMENT «ASPECTES GENERALS»');
+  mira('les fitxes', function () {
+    var gss = getGrupsSpreadsheet(ss);
+    var mirat = gss ? sheetGetJSON(gss, '_AppData', 'fitxes_mirat') : null;
+    var abans = gss ? sheetGetJSON(gss, '_AppData', 'fitxes_empremta') : null;
+    var doc = _fitxesTotes_();
+    var ara = _fitxesEmpremta_(doc, gss);
+    l.push('  Grups trobats al document: ' + Object.keys(doc.perGrup).length);
+    l.push('  Mirat per última vegada: ' + (mirat || 'mai'));
+    if (abans === ara) {
+      l.push('  ✔ les fitxes estan al dia amb el document I amb aquest codi');
+    } else {
+      l.push('  ▲ hi ha canvis per aplicar (el document, o el codi, han canviat)');
+      cal.push('Executa  provaAplicarFitxes()  i, si el registre et sembla bé,  aplicaFitxesDEBO().');
+    }
+  });
+
+  /* 4. Els contactes */
+  l.push('');
+  l.push('EL FULL DE CONTACTES DE SECRETARIA');
+  mira('els contactes', function () {
+    if (!_resolContactesId(ss)) { l.push('  ✗ encara no hi ha cap full configurat'); return; }
+    var gss = getGrupsSpreadsheet(ss);
+    var mirat = gss ? sheetGetJSON(gss, '_AppData', 'contactes_mirat') : null;
+    var abans = gss ? sheetGetJSON(gss, '_AppData', 'contactes_empremta') : null;
+    var doc = _contactesTots_(ss);
+    var ara = _contactesEmpremta_(doc);
+    l.push('  Pestanyes llegides: ' + doc.pestanyes + ' · grups: ' + Object.keys(doc.perGrup).length +
+           ' · alumnes: ' + doc.files);
+    if (doc.resum && doc.resum.length) l.push('  (ignorades, són un resum: ' + doc.resum.join(', ') + ')');
+    l.push('  Mirat per última vegada: ' + (mirat || 'mai'));
+    if (abans === ara) {
+      l.push('  ✔ els contactes estan al dia');
+    } else {
+      l.push('  ▲ hi ha canvis per aplicar');
+      cal.push('Executa  provaContactes()  i, si el registre et sembla bé,  aplicaContactesDEBO().');
+    }
+  });
+
+  /* 5. La sincronització que ho manté tot sol */
+  l.push('');
+  l.push('LA SINCRONITZACIÓ AUTOMÀTICA (cada ' + SYNC_CADA_MINUTS + ' minuts)');
+  mira('la sincronització', function () {
+    var permis = String(PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES') || '').toLowerCase();
+    var teDisparador = false;
+    try {
+      ScriptApp.getProjectTriggers().forEach(function (t) {
+        if (t.getHandlerFunction() === 'grupsSincronitzaAuto') teDisparador = true;
+      });
+    } catch (e) { l.push('  (no puc mirar els disparadors: ' + e.message + ')'); }
+    if (permis === 'si' && teDisparador) {
+      l.push('  ✔ engegada: les llistes, les fitxes i els contactes es mantenen sols');
+    } else if (permis === 'si') {
+      l.push('  ▲ té permís però no trobo el disparador');
+      cal.push('Executa  configuraSincronitzacioLlistes()  per tornar-lo a posar.');
+    } else {
+      l.push('  ✗ apagada en aquesta instal·lació');
+      cal.push('Executa  configuraSincronitzacioLlistes()  —només a UNA app de tota l\'escola.');
+    }
+  });
+
+  /* I el que queda per fer */
+  l.push('');
+  l.push('==========================================');
+  if (!cal.length) {
+    l.push('NO HAS DE FER RES. Tot està al dia.');
+  } else {
+    l.push('EL QUE ET QUEDA PER FER (' + cal.length + '), per aquest ordre:');
+    cal.forEach(function (x, i) { l.push('  ' + (i + 1) + '. ' + x); });
+  }
+
+  var txt = l.join('\n');
+  Logger.log(txt);
+  return txt;
 }
 
 /* Mira què faria, sense tocar res. */
