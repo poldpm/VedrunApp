@@ -1,11 +1,10 @@
 {
-  "versio": "v207",
+  "versio": "v208",
   "data": "2026-09-06",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El document d Aspectes generals es llegeix molt millor: els parentesis ja van al nen de qui parlen, i no al del costat.",
-    "Els informes de l EAP escrits amb «Nom alumne/a» al retol i el nom dins del text ja arriben.",
-    "Quan una casella nomena diversos nens amb un punt entremig, ara hi arriben tots.",
-    "I el titol d un apartat («Relació entre iguals», «Família») ja no s escriu a la fitxa de ningu com si fos una dada seva."
+    "Els paragrafs del document on cada frase parla d un nen diferent ara es llegeixen frase per frase: ja no es barregen.",
+    "Quan un apartat ocupa varies files i nomes la primera porta el retol, ara s hi llegeixen totes. Al 3r A hi havia mitja pagina de situacions familiars que no arribaven.",
+    "Els cognoms amb particula («d Agostino», «de Luna») ja no es prenen per un text."
   ]
 }

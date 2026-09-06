@@ -4166,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v207';
+var BACKEND_VERSIO = 'v208';
 
 var MAX_CELA = 45000;
 
@@ -6555,7 +6555,20 @@ function _fitxaLlegeix_(sh) {
     // No es va veure fins a la passada en sec amb les dades de debò: el
     // banc de proves es va fer a partir de l'exportació del document, i
     // aquella DESFÀ les combinacions i repeteix l'etiqueta a cada fila.
-    if (!etiq && val && ultimaEtiq && (seccio === 'pi' || seccio === 'am' || seccio === 'trastorns')) {
+    //
+    // ⚠ I la secció «Altres» TAMBÉ, que és on més mal feia. Al 3r A el bloc
+    // de «Família» ocupa quatre files i només la primera porta el rètol:
+    //
+    //   Família (pares separats…) | Família Violeta Nadal (es van enfadar…)
+    //                             | Jana Codina (pares separats, la mare té…)
+    //                             | Aliou (el pare parla castellà, però…)
+    //                             | Avneet (moltíssimes absències i retards…)
+    //
+    // Sense això, de tot aquest bloc només n'arribava la primera fila i la
+    // situació familiar de la resta es perdia sencera. Ho va trobar el repàs
+    // del 6/9/2026.
+    if (!etiq && val && ultimaEtiq &&
+        (seccio === 'pi' || seccio === 'am' || seccio === 'trastorns' || seccio === 'grup')) {
       etiq = ultimaEtiq;
     } else if (etiq) {
       ultimaEtiq = etiq;
@@ -6707,6 +6720,13 @@ function _fitxaFrasesUtils_(v, esNom) {
   return fora;
 }
 
+/* Les partícules que van dins d'un cognom, sempre en minúscula. */
+var FITXA_PARTICULES = {
+  de: 1, del: 1, dels: 1, da: 1, das: 1, do: 1, dos: 1, di: 1, du: 1,
+  la: 1, las: 1, le: 1, les: 1, el: 1, els: 1, lo: 1, los: 1,
+  van: 1, von: 1, der: 1, den: 1, ter: 1, bin: 1, ben: 1, ibn: 1, al: 1, y: 1,
+};
+
 function _fitxaNomsBanda_(v, esNom) {
   /* Dos talls, i no fan la mateixa feina.
 
@@ -6760,6 +6780,15 @@ function _fitxaNomsBanda_(v, esNom) {
       var bons = [];
       for (; i < mots.length; i++) {
         var m = mots[i].replace(/^[^A-Za-zÀ-ÿ0-9]+|[^A-Za-zÀ-ÿ0-9]+$/g, '');
+        /* Les partícules dels cognoms van en minúscula i formen part del nom:
+           «Maria d'Agostino», «Abril de Luna». Només compten si al darrere hi
+           ve una paraula en majúscula —així «La van derivar» segueix sense ser
+           cap nen— i si ja hi ha un nom al davant. Sense això, a l'EMVic del
+           4t C la Maria i l'Abril hi sortien amb el cognom com si fos un text
+           que se n'hagués dit. */
+        var seg = mots[i + 1] ? mots[i + 1].replace(/^[^A-Za-zÀ-ÿ0-9]+/, '') : '';
+        if (m && bons.length && FITXA_PARTICULES[net(m)] && /^[A-ZÀ-ÖØ-Þ]/.test(seg)) { bons.push(m); continue; }
+        if (m && bons.length && /^d[’']/i.test(m) && /^[A-ZÀ-ÖØ-Þ]/.test(m.slice(2))) { bons.push(m); continue; }
         if (!m || !/^[A-ZÀ-ÖØ-Þ]/.test(m) || /\d/.test(m)) break;
         if (FITXA_NO_NOMS[net(m)]) break;
         bons.push(m);
@@ -8639,15 +8668,60 @@ function _fitxaGrupTrossos_(valor, esNom) {
     if (fora.length) return fora;
   }
 
-  /* Amb parèntesis, cadascun és d'algú: veure `_fitxaTrossosParens_`. */
-  if (v.indexOf('(') >= 0) {
-    var amb = _fitxaTrossosParens_(v, sapQuiEs);
-    if (amb.length) return amb;
-  }
+  /* ⚠ PRIMER LES FRASES, i cada frase per separat.
 
-  /* ── Sense dos punts ni parèntesis: una llista, separada per comes,
-     punts o BARRES. La barra hi va perquè el document la fa servir i sense
-     ella tota la fila era un sol tros. */
+     La casella de «Família» del 4t B és un paràgraf sencer:
+
+       «Pares de l'Èric i l'Aina separats. No es porten bé. Maria Antonia
+        custòdia només mare. Només pot marxar amb ella o Jero (fer
+        autorització inici de curs). Manel viu a la Llar juvenil. Johan nen
+        adoptat. En Gio va venir a l'escola a 1r.»
+
+     Cada frase parla d'un nen diferent. Mirant la casella sencera, el
+     parèntesi del mig se n'enduia tota la primera meitat i el que venia
+     després quedava fet una sopa: en Johan perdia el «nen adoptat» i en Gio
+     el «va venir a l'escola a 1r». Es va veure a la passada en sec del
+     6/9/2026, comparant el «abans» amb el «ara».
+
+     Partint per frases, cada una es llegeix pel seu compte: la que porta
+     parèntesis va pel camí dels parèntesis i la que és una llista, pel de
+     les llistes. */
+  var fora2 = [];
+  _fitxaFrases_(v).forEach(function (frase) {
+    frase = frase.trim();
+    if (!frase) return;
+    if (frase.indexOf('(') >= 0) {
+      _fitxaTrossosParens_(frase, sapQuiEs).forEach(function (t) { fora2.push(t); });
+      return;
+    }
+    _fitxaTrossosLlista_(frase, sapQuiEs).forEach(function (t) { fora2.push(t); });
+  });
+  return fora2;
+}
+
+/* Les frases d'una casella: es parteix pel punt i per la barra, però mai
+   dins d'un parèntesi —«(Ext 1803/1806)» no són dues frases— ni darrere
+   d'una inicial («M. Antonia»). */
+function _fitxaFrases_(v) {
+  var fora = [], actual = '', nivell = 0;
+  for (var k = 0; k < v.length; k++) {
+    var c = v.charAt(k);
+    if (c === '(') nivell++;
+    if (c === ')') nivell = Math.max(0, nivell - 1);
+    if (nivell === 0 && (c === '/' || (c === '.' && !/[A-ZÀ-ÖØ-Þ]/.test(v.charAt(k - 1) || '')))) {
+      fora.push(actual); actual = ''; continue;
+    }
+    actual += c;
+  }
+  fora.push(actual);
+  return fora;
+}
+
+/* Una llista de noms separats per comes, sense cap parèntesi. */
+function _fitxaTrossosLlista_(v, sapQuiEs) {
+
+  /* Els noms van separats per comes; el que queda de cada tros, si en
+     queda res, és el que se n'ha dit. */
   var trossos = v.split(/[,./]/);
   var out = [];
   trossos.forEach(function (t) {
