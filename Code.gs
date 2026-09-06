@@ -4166,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v208';
+var BACKEND_VERSIO = 'v209';
 
 var MAX_CELA = 45000;
 
@@ -6645,6 +6645,45 @@ var FITXA_NO_NOMS = {
    candidats. D'una com "Olivia- Cal fer valoració. Hi ha algun retard..."
    en surt un i prou, perquè la resta és text.
 
+/* NOMS ESCRITS UN DARRERE L'ALTRE, SENSE CAP SEPARADOR.
+
+   Al document n'hi ha, i fins ara es perdien SENCERS:
+
+     Biblioteca (BEET) │ Nour Ahrika Hudaifa Aarab Maryam Bilal Zoe Alana…
+     EMVic             │ Arià Casals Mariona Seguranyes Tecla Selva
+
+   Sense comes ni «i», el lector de llistes no hi veu cap nom: es pensa que
+   tot plegat és un nom de set paraules i el descarta. Vuit alumnes del 4t A
+   es quedaven sense el suport de biblioteca i tres sense l'EMVic.
+
+   Això ho parteix comprovant-ho contra la LLISTA DEL GRUP: prova primer
+   tres paraules, després dues, després una, i només es queda amb el tall si
+   aquell tros és un alumne d'aquell grup de debò. Per això no s'inventa res:
+   o tot el text es reparteix en alumnes que existeixen, o no es toca.        */
+function _fitxaNomsSeguits_(v, esNom) {
+  if (typeof esNom !== 'function') return [];
+  var mots = String(v == null ? '' : v).trim().split(/\s+/).filter(Boolean);
+  if (mots.length < 3) return [];
+  /* Tots han de començar en majúscula: si hi ha una paraula normal pel mig,
+     això no és una tirallonga de noms sinó una frase. */
+  for (var k = 0; k < mots.length; k++) {
+    var net = mots[k].replace(/^[^A-Za-zÀ-ÿ]+|[^A-Za-zÀ-ÿ]+$/g, '');
+    if (!net || !/^[A-ZÀ-ÖØ-Þ]/.test(net)) return [];
+  }
+  var fora = [], i = 0;
+  while (i < mots.length) {
+    var trobat = 0;
+    for (var n = Math.min(3, mots.length - i); n >= 1; n--) {
+      var prova = mots.slice(i, i + n).join(' ');
+      if (esNom(prova)) { fora.push(prova); trobat = n; break; }
+    }
+    if (!trobat) return [];        // si un tros no és ningú, no és una llista
+    i += trobat;
+  }
+  return fora.length >= 2 ? fora : [];
+}
+
+/* Els noms que hi ha dins d'una casella.
    ⚠ Es prefereix perdre un nom que no pas endevinar-ne un. Al document hi
    ha molts noms propis que NO són alumnes (la Núria de l'EAP, la Mercè
    logopeda, el CSMIJ, l'Espai Viu). Si es busqués un nom enmig d'una
@@ -6676,6 +6715,12 @@ function _fitxaNoms_(valor, esNom) {
       _fitxaNomsBanda_(banda, esNom).forEach(function (n) { if (fora.indexOf(n) < 0) fora.push(n); });
     });
   });
+  /* Si no n'ha trobat cap i el text és una tirallonga de noms sense comes,
+     es prova de partir-la contra la llista del grup. */
+  if (!fora.length) {
+    var seguits = _fitxaNomsSeguits_(v, esNom);
+    if (seguits.length) return seguits;
+  }
   return fora;
 }
 

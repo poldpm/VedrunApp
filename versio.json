@@ -1,10 +1,8 @@
 {
-  "versio": "v208",
+  "versio": "v209",
   "data": "2026-09-06",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Els paragrafs del document on cada frase parla d un nen diferent ara es llegeixen frase per frase: ja no es barregen.",
-    "Quan un apartat ocupa varies files i nomes la primera porta el retol, ara s hi llegeixen totes. Al 3r A hi havia mitja pagina de situacions familiars que no arribaven.",
-    "Els cognoms amb particula («d Agostino», «de Luna») ja no es prenen per un text."
+    "Quan al document els noms van escrits un darrere l altre sense comes, ara tambe s hi llegeixen. Es perdien sencers: al 4t A, vuit alumnes es quedaven sense el suport de biblioteca i tres sense l EMVic."
   ]
 }
