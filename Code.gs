@@ -4166,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v213';
+var BACKEND_VERSIO = 'v214';
 
 var MAX_CELA = 45000;
 
@@ -7291,6 +7291,13 @@ function _fitxaTrosDeFiar_(txt) {
   if (!t) return '';                      // sense text ja es mira a part
   /* Un «Sí» o un «No» són una resposta, no cap bocí. */
   if (/^(si|sí|no|cap)$/i.test(t)) return '';
+  /* ⚠ I un SÍMBOL tot sol també ho és: la creu dels drets d'imatge («❌»)
+     vol dir que aquell nen NO pot sortir a cap foto. Mesurant la llargada
+     en lletres, una creu en té zero i es prenia per un bocí: a la passada
+     de les 19.13 del 6/9/2026, tres nens del 4t A van perdre la seva. Un nen
+     amb la casella dels drets buida sembla que en tingui, i això és el
+     contrari del que diu el document. */
+  if (!/[A-Za-zÀ-ÿ0-9]/.test(t)) return '';
   var mots = t.split(/\s+/);
   var net = function (m) { return _fnorm_(m).replace(/[^a-z0-9]/g, ''); };
 

@@ -1,10 +1,8 @@
 {
-  "versio": "v213",
+  "versio": "v214",
   "data": "2026-09-06",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "L app ja NO escriu mai un tros de frase a la fitxa d un nen. Els apartats escrits en prosa («Relació entre iguals», «Família») en deixaven bocins com «grup B» o «i vigilar», que no diuen res i amaguen que allà hi falta alguna cosa.",
-    "Ara aquests van a la llista de coses per mirar d Alumnes, amb la casella sencera i com s arregla al document.",
-    "Arreglat: al 4t C la Kadijatou perdia el seu PI i al 6è C el Victor Manuel tenia una «I» als drets d imatge."
+    "Arreglat: la creu dels drets d imatge («❌») es prenia per un tros sense sentit i tres nens del 4t A la van perdre. Un nen amb els drets buits sembla que en tingui, i es el contrari del que diu el document."
   ]
 }
