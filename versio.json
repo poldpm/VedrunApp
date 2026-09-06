@@ -1,8 +1,9 @@
 {
-  "versio": "v214",
+  "versio": "v215",
   "data": "2026-09-06",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: la creu dels drets d imatge («❌») es prenia per un tros sense sentit i tres nens del 4t A la van perdre. Un nen amb els drets buits sembla que en tingui, i es el contrari del que diu el document."
+    "Els avisos de quan alguna cosa no va ja no et demanen que obris menús de Google ni que toquis res del servidor: ara diuen que no has de fer res i, si la cosa no marxa sola, a qui ho has de dir.",
+    "A Convocar reunions, quan hi ha hores que l app no sap a quin dia van, ja no et diu que el servidor s ha de tornar a publicar: s arregla sol."
   ]
 }

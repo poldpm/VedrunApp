@@ -835,7 +835,7 @@ function saveConfig() {
     return;
   }
   if (!url.endsWith('/exec')) {
-    showToast('La URL ha d\'acabar en /exec. Assegura\'t de copiar la URL del desplegament (Implementa → Web App), no la de l\'editor.', 'error');
+    showToast('La URL ha d\'acabar en /exec. Si no la tens, demana-la en Pol.', 'error');
     return;
   }
   config = { scriptUrl: url };
@@ -1355,11 +1355,11 @@ function _mostraErrorConnexio(tipus, detall) {
   switch (tipus) {
     case 'auth':
       titol = 'No autoritzat';
-      missatge = 'La clau de seguretat (token) no coincideix amb la del servidor. Comprova que el token de config.local.js és el mateix que el del Google Apps Script.';
+      missatge = 'La clau de seguretat no coincideix amb la del servidor. Això no ho pots arreglar tu: digues-ho en Pol.';
       break;
     case 'network':
       titol = 'No es pot connectar';
-      missatge = 'No s\'ha pogut arribar al servidor. Revisa que la URL del Web App acabi en /exec i que tinguis connexió a internet. Si acabes de canviar el codi del Apps Script, recorda desplegar una NOVA versió.';
+      missatge = 'No s\'ha pogut arribar al servidor. Mira que tinguis connexió a internet i torna-ho a provar d\'aquí a un moment. Si continua, digues-ho en Pol.';
       break;
     case 'backend':
       titol = 'Error del servidor';
@@ -6260,16 +6260,22 @@ function _avisaBackendVell(versioServidor) {
   d.id = id;
   d.className = 'avis-backend';
   d.setAttribute('role', 'status');
+  /* ⚠ Aquesta franja la veu UNA MESTRA, i abans li deia que obrís l'Apps
+     Script, hi enganxés el codi nou del servidor i el tornés a publicar. Era
+     del temps que aquell codi vivia dins del full de cadascuna.
+
+     Ara viu en un sol lloc per a tota l'escola i li arriba sol: ella no ho pot
+     arreglar ni ho ha d'arreglar. Dir-li que ho faci només aconsegueix dues
+     coses, totes dues dolentes: que perdi l'estona buscant menús que no li
+     toquen, o que ho provi i es quedi sense adreça. */
   d.innerHTML =
     '<strong>El servidor s\'ha quedat enrere.</strong> ' +
-    'L\'app és la ' + escapeHtml(meva) + ' i el Google Apps Script encara serveix la ' +
-    escapeHtml(versioServidor) + '. Fins que no el tornis a desplegar, hi haurà coses ' +
-    'que es veuran malament (dates estranyes, pantalles buides).' +
-    '<span class="avis-backend-com">Al teu full: <b>Extensions → Apps Script</b>, ' +
-    'enganxa-hi el <b>Code.gs</b> nou i després <b>Implementa → Gestiona implementacions → ' +
-    'el llapis → Versió: Nova versió → Desplega</b>. ' +
-    '<b>No facis «Nova implementació»</b>: això crea una adreça nova i la teva app seguiria ' +
-    'parlant amb la vella.</span>';
+    'L\'app és la ' + escapeHtml(meva) + ' i el servidor encara serveix la ' +
+    escapeHtml(versioServidor) + ', o sigui que hi pot haver coses que es vegin' +
+    ' malament (dates estranyes, pantalles buides).' +
+    '<span class="avis-backend-com">No has de fer res: això s\'arregla des d\'un' +
+    ' sol lloc per a tota l\'escola i et vindrà sol. Si demà encara hi és,' +
+    ' digues-ho en Pol.</span>';
   document.body.insertBefore(d, document.body.firstChild);
 }
 

@@ -2194,6 +2194,48 @@ function doGet(e) {
 }
 function doPost(e) { return handleRequest(e); }
 
+/* ============================================================
+   QUE LA SINCRONITZACIÓ ES TORNI A POSAR DRETA TOTA SOLA
+   ------------------------------------------------------------
+   En Pol, 6/9/2026: «i mai necessitaré obrir el seu pont per executar cap
+   funció?».
+
+   Quedava aquest cas, i era de debò: un disparador de Google es pot perdre
+   —el compte es reautoritza, hi ha una errada seva, es toca el projecte— i
+   llavors la sincronització deixa d'anar EN SILENCI. L'informe deia «executa
+   configuraSincronitzacioLlistes()», que és fer-la obrir l'Apps Script.
+
+   Ara es repara sol: cada vegada que ella obre l'app, el servidor mira (com a
+   molt un cop cada sis hores, que no costi res) si el disparador hi és, i si
+   no hi és el torna a posar. El permís no se'l dona ell mateix: només
+   restaura el que algú ja havia engegat, o sigui que no s'escampa a cap app
+   on no hi hagi de ser.
+
+   ⚠ No pot fer caure mai una petició de l'app: tot va dins d'un try, i si
+   falla, falla en silenci i ja ho tornarà a provar d'aquí a sis hores. */
+function _disparadorSaVeure_() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    if (String(props.getProperty('SYNC_LLISTES') || '').toLowerCase() !== 'si') return;
+
+    /* L'hora es desa ABANS de mirar res: si això peta cada vegada, que peti
+       un cop cada sis hores i no a cada petició de l'app. */
+    var ara = Date.now();
+    var abans = Number(props.getProperty('SYNC_REPAS') || 0);
+    if (abans && (ara - abans) < 6 * 60 * 60 * 1000) return;
+    props.setProperty('SYNC_REPAS', String(ara));
+
+    var hi = false;
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === 'grupsSincronitzaAuto') hi = true;
+    });
+    if (hi) return;
+
+    ScriptApp.newTrigger('grupsSincronitzaAuto').timeBased().everyMinutes(SYNC_CADA_MINUTS).create();
+    Logger.log('El disparador de la sincronitzacio s havia perdut: l he tornat a posar sol.');
+  } catch (e) { /* mai, mai no pot trencar una peticio de l app */ }
+}
+
 function handleRequest(e) {
   try {
     var body, action;
@@ -2214,6 +2256,10 @@ function handleRequest(e) {
           .setMimeType(ContentService.MimeType.JSON);
       }
     }
+
+    /* Cada tant, mira que la sincronització no s'hagi quedat sense disparador.
+       Va aquí perquè és l'únic moment que passa sol: la mestra obre l'app. */
+    _disparadorSaVeure_();
 
     var result;
     switch (action) {
@@ -4166,7 +4212,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v214';
+var BACKEND_VERSIO = 'v219';
 
 var MAX_CELA = 45000;
 
@@ -5495,6 +5541,44 @@ function grupsSincronitzaSiCal(ss) {
    Es reparteix a totes les apps, però només treballa a la que
    té el permís: si no, divuit scripts escriurien el mateix full
    alhora i el LockService no els protegiria (és per script). */
+/* ============================================================
+   QUE UNA PASSADA QUE FALLA DEIXI RASTRE
+   ------------------------------------------------------------
+   El 6/9/2026, a les 20:35, la passada automàtica va fer les llistes
+   (20:35) i els contactes (20:37) i es va saltar les fitxes pel mig: el
+   full va quedar amb "fitxes_mirat" a les 20:21. Vaig veure-ho de
+   casualitat comparant hores.
+
+   El pas de les fitxes pot sortir per quatre portes sense apuntar res —el
+   full de grups que no s'obre, el document que no s'obre, cap grup
+   aparellat, l'empremta que peta— i totes tres feines van en try separats
+   perquè una que peti no aturi les altres. Bé, però el resultat era que la
+   sincronització SEMBLAVA que anava (dues de tres feines sí que es feien) i
+   les fitxes es quedaven congelades sense que ho digués res enlloc més que
+   el registre d'execucions del projecte, que no mira mai ningú.
+
+   Un problema que no deixa rastre acaba sempre igual: algú l'ha de venir a
+   buscar. Per això ara queda escrit al full, i el comAnem() ho diu. */
+function _araText_() {
+  try { return Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'); }
+  catch (e) { return String(new Date()); }
+}
+
+function _syncDeixaDit_(ss, falla) {
+  try {
+    var gss = getGrupsSpreadsheet(ss);
+    if (!gss) return;
+    var vell = '';
+    try { vell = String(sheetGetJSON(gss, '_AppData', 'sync_estat') || ''); } catch (e) {}
+    var nou = Object.keys(falla).length ? JSON.stringify({ quan: _araText_(), falla: falla }) : '';
+    /* Només s'escriu quan CANVIA. Si no, serien 96 escriptures al dia per
+       repetir el mateix, i la quota de Google no és infinita. */
+    var senseHora = function (t) { return String(t).replace(/"quan":"[^"]*",?/, ''); };
+    if (senseHora(vell) === senseHora(nou)) return;
+    sheetSetJSON(gss, '_AppData', 'sync_estat', nou);
+  } catch (e) {}
+}
+
 function grupsSincronitzaAuto() {
   try {
     var permis = PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES');
@@ -5506,12 +5590,14 @@ function grupsSincronitzaAuto() {
        comparteixen el try, el dia que la primera peti (el full de l'escola
        reanomenat, per exemple) la segona deixaria de fer-se en silenci i
        ningú no ho relacionaria. */
+    var falla = {};
     try {
       var r = grupsSincronitzaSiCal(ss);
+      if (r && r.ok === false) falla.llistes = r.error || 'no ha anat bé';
       if (!(r && r.ok && r.calia === false)) {
         Logger.log('grupsSincronitzaAuto (llistes): ' + JSON.stringify(r && r.total ? r.total : r));
       }
-    } catch (e) { Logger.log('grupsSincronitzaAuto (llistes) ha petat: ' + e.message); }
+    } catch (e) { falla.llistes = e.message; Logger.log('grupsSincronitzaAuto (llistes) ha petat: ' + e.message); }
 
     /* Les FITXES s'han de mirar SEMPRE, encara que les llistes no hagin
        canviat: el document d'aspectes generals es toca sense que hi entri
@@ -5520,20 +5606,24 @@ function grupsSincronitzaAuto() {
        aplicaFitxesDEBO() a mà. */
     try {
       var f = fitxesAplicaSiCal(ss);
+      if (f && f.ok === false) falla.fitxes = f.error || 'no ha anat bé';
       if (!(f && f.ok && f.calia === false)) {
         Logger.log('grupsSincronitzaAuto (fitxes): ' + JSON.stringify(f && f.total ? f.total : f));
       }
-    } catch (e) { Logger.log('grupsSincronitzaAuto (fitxes) ha petat: ' + e.message); }
+    } catch (e) { falla.fitxes = e.message; Logger.log('grupsSincronitzaAuto (fitxes) ha petat: ' + e.message); }
 
     /* I ELS CONTACTES DE LA FAMÍLIA, del full de la secretaria. Try a part,
        com les altres dues: són tres feines independents i el dia que una
        peti, les altres han de continuar. */
     try {
       var k = contactesAplicaSiCal(ss);
+      if (k && k.ok === false) falla.contactes = k.error || 'no ha anat bé';
       if (!(k && k.ok && k.calia === false)) {
         Logger.log('grupsSincronitzaAuto (contactes): ' + JSON.stringify(k && k.total ? k.total : k));
       }
-    } catch (e) { Logger.log('grupsSincronitzaAuto (contactes) ha petat: ' + e.message); }
+    } catch (e) { falla.contactes = e.message; Logger.log('grupsSincronitzaAuto (contactes) ha petat: ' + e.message); }
+
+    _syncDeixaDit_(ss, falla);
   } catch (e) { Logger.log('grupsSincronitzaAuto ha petat: ' + e.message); }
 }
 
@@ -6457,6 +6547,13 @@ function _distancia1_(a, b) {
    ============================================================ */
 
 var FITXES_ID = '1muxIeGoux6wG4gMZ7Xus58ULG-99Wsb0H3yONzCHKUo';
+
+/* El full de contactes de la secretaria. Va AQUÍ, com el de les fitxes i el
+   de les llistes, i no a una propietat del projecte de cada mestra: és un
+   full de sol per a tota l'escola. Si un dia canvia i visqués a la propietat
+   de cadascuna, caldria entrar al projecte d'una per una per canviar-lo
+   —vint-i-tantes visites per un ID. Aquí es canvia un cop i arriba a totes. */
+var CONTACTES_ID_ESCOLA = '1RaISWEPb-7q0VlIfM_n-lNK6fhV1FoMr5Zt_ak6ckQA';
 
 function _fnorm_(s) {
   return String(s == null ? '' : s)
@@ -7926,12 +8023,140 @@ function fitxesAplica(ss, prova, nomesGrup) {
    exacte del que s'ha d'executar. Si no hi ha res a fer, ho diu en una
    línia. Es pot executar sempre que es vulgui: no toca res.
    ============================================================ */
+/* ============================================================
+   LES CASELLES LLIURES DEL PONT
+   ------------------------------------------------------------
+   En Pol, 6/9/2026: «NO PUC HAVER DE TOCAR CAP PONT UN COP JA
+   L'HAGI INSTAL·LAT PER RES, NI PER ENGANXAR CODI, NI PER
+   EXECUTAR FUNCIONS NI PER IMPLEMENTAR».
+
+   Tenia raó i el disseny d'abans no ho complia. Hi havia una
+   escapatòria al pont amb un  var EINA = '…'  que s'havia
+   d'EDITAR abans d'executar. Al projecte d'una altra mestra
+   això no es pot fer: al botó d'Executar només s'hi TRIA d'una
+   llista, no s'hi escriu. L'escapatòria estava tancada per dins.
+
+   Ara el pont porta deu caselles buides (eina1…eina10) i cinc
+   disparadors de recanvi (disparador1…disparador5). Els noms ja
+   hi són des del primer dia i no canvien mai; QUÈ FAN es decideix
+   en aquestes dues taules, que viuen a la biblioteca i per tant
+   arriben soles a tothom.
+
+   Per estrenar una eina nova: se li assigna una casella aquí
+   sota i prou. La mestra tria "eina1" al desplegable i prem
+   Executar. No enganxa res, no desplega res, no escriu res.
+
+   ⚠ Assigna una casella NOMÉS quan li hagis dit a la mestra què
+   hi has posat. Si un dia executa una casella pensant que fa el
+   d'abans i mentrestant l'has canviada, li faràs fer una cosa
+   que no volia. El comAnem() sempre diu què hi ha a cada casella:
+   és allà on ho ha de mirar, no a la memòria.
+   ============================================================ */
+var EINES_LLIURES = {
+  /* 1: 'provaContactes',   ← així s'assigna una casella */
+};
+var DISPARADORS_LLIURES = {
+  /* 1: 'repassaLesFitxes', */
+};
+
+/* El pont pregunta: «la casella eina1, avui, què és?». Decidir-ho aquí
+   (i no al pont) és tot el truc: aquí s'hi arriba sol. */
+function quinaEina(mena, n) {
+  var taula = (mena === 'disparador') ? DISPARADORS_LLIURES : EINES_LLIURES;
+  return String(taula[n] || taula[String(n)] || '');
+}
+
+/* Les caselles que avui tenen feina, per al comAnem(). */
+function einesAssignades() {
+  var fora = [];
+  var mira = function (mena, taula) {
+    Object.keys(taula).forEach(function (n) {
+      if (taula[n]) fora.push({ mena: mena, n: Number(n), fa: String(taula[n]) });
+    });
+  };
+  mira('eina', EINES_LLIURES);
+  mira('disparador', DISPARADORS_LLIURES);
+  fora.sort(function (a, b) { return a.mena === b.mena ? a.n - b.n : (a.mena < b.mena ? -1 : 1); });
+  return fora;
+}
+
+/* La sincronització automàtica va? Es mira ABANS de res, perquè decideix una
+   cosa important: si va, res del que estigui per repassar és feina de ningú. */
+function _syncEngegada_() {
+  var permis = '', disparador = false, error = '';
+  try { permis = String(PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES') || '').toLowerCase(); }
+  catch (e) { error = e.message; }
+  try {
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === 'grupsSincronitzaAuto') disparador = true;
+    });
+  } catch (e) { error = e.message; }
+  return { permis: permis, disparador: disparador, ok: (permis === 'si' && disparador), error: error };
+}
+
+/* La data de l últim repàs es desa com a text, però el full la converteix en
+   data i en tornar-la a llegir surt "Sun Sep 06 2026 20:06:00 GMT+0200", que
+   no és manera de dir-li a ningú quan es va mirar una cosa. */
+function _quanText_(v) {
+  if (!v) return 'mai';
+  try {
+    if (Object.prototype.toString.call(v) === '[object Date]') {
+      return Utilities.formatDate(v, _gTz_(), 'yyyy-MM-dd HH:mm');
+    }
+  } catch (e) {}
+  return String(v);
+}
+
+/* La sincronització automàtica va? Es mira ABANS de res, perquè decideix una
+   cosa important: si va, res del que estigui per repassar és feina de ningú. */
+function _syncEngegada_() {
+  var permis = '', disparador = false, error = '';
+  try { permis = String(PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES') || '').toLowerCase(); }
+  catch (e) { error = e.message; }
+  try {
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === 'grupsSincronitzaAuto') disparador = true;
+    });
+  } catch (e) { error = e.message; }
+  return { permis: permis, disparador: disparador, ok: (permis === 'si' && disparador), error: error };
+}
+
+/* La data de l últim repàs es desa com a text, però el full la converteix en
+   data i en tornar-la a llegir surt "Sun Sep 06 2026 20:06:00 GMT+0200", que
+   no és manera de dir-li a ningú quan es va mirar una cosa. */
+function _quanText_(v) {
+  if (!v) return 'mai';
+  try {
+    if (Object.prototype.toString.call(v) === '[object Date]') {
+      return Utilities.formatDate(v, _gTz_(), 'yyyy-MM-dd HH:mm');
+    }
+  } catch (e) {}
+  return String(v);
+}
+
 function comAnem() {
   var l = [], cal = [];
   function mira(titol, fn) {
     try { fn(); } catch (e) { l.push('  ✗ ' + titol + ': ' + e.message); }
   }
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  /* ⚠ En Pol, 6/9/2026: «Ja hi tornem a ser executant coses al pont... no et
+     queda clar que no ho podré fer?». Tenia raó. Aquest informe li deia
+     "executa provaAplicarFitxes() i aplicaFitxesDEBO()" per una feina que la
+     sincronització automàtica ja tenia encarregada i que faria tota sola al
+     cap de pocs minuts. Una mestra no ha d obrir mai l Apps Script després
+     d instal·lar: si això ho demana, el que està trencat és això. */
+  var sync = _syncEngegada_();
+  function perAplicar(que, perque) {
+    if (sync.ok) {
+      l.push('  ▲ ' + perque + ', i ho aplicarà la sincronització tota sola');
+      l.push("    (com a molt d'aquí a " + SYNC_CADA_MINUTS + " minuts). No has de fer res.");
+    } else {
+      l.push('  ▲ hi ha canvis per aplicar (' + perque + ')');
+      cal.push('Engega la sincronització automàtica (mira-ho més avall): és qui aplica ' + que + ' sola.');
+    }
+  }
 
   l.push('COM ANEM');
   l.push('==========================================');
@@ -7985,12 +8210,11 @@ function comAnem() {
     var doc = _fitxesTotes_();
     var ara = _fitxesEmpremta_(doc, gss);
     l.push('  Grups trobats al document: ' + Object.keys(doc.perGrup).length);
-    l.push('  Mirat per última vegada: ' + (mirat || 'mai'));
+    l.push('  Mirat per última vegada: ' + _quanText_(mirat));
     if (abans === ara) {
       l.push('  ✔ les fitxes estan al dia amb el document I amb aquest codi');
     } else {
-      l.push('  ▲ hi ha canvis per aplicar (el document, o el codi, han canviat)');
-      cal.push('Executa  provaAplicarFitxes()  i, si el registre et sembla bé,  aplicaFitxesDEBO().');
+      perAplicar('les fitxes', 'el document, o el codi, han canviat');
     }
   });
 
@@ -8007,12 +8231,11 @@ function comAnem() {
     l.push('  Pestanyes llegides: ' + doc.pestanyes + ' · grups: ' + Object.keys(doc.perGrup).length +
            ' · alumnes: ' + doc.files);
     if (doc.resum && doc.resum.length) l.push('  (ignorades, són un resum: ' + doc.resum.join(', ') + ')');
-    l.push('  Mirat per última vegada: ' + (mirat || 'mai'));
+    l.push('  Mirat per última vegada: ' + _quanText_(mirat));
     if (abans === ara) {
       l.push('  ✔ els contactes estan al dia');
     } else {
-      l.push('  ▲ hi ha canvis per aplicar');
-      cal.push('Executa  provaContactes()  i, si el registre et sembla bé,  aplicaContactesDEBO().');
+      perAplicar('els contactes', 'el full de la secretaria, o el codi, han canviat');
     }
   });
 
@@ -8020,32 +8243,56 @@ function comAnem() {
   l.push('');
   l.push('LA SINCRONITZACIÓ AUTOMÀTICA (cada ' + SYNC_CADA_MINUTS + ' minuts)');
   mira('la sincronització', function () {
-    var permis = String(PropertiesService.getScriptProperties().getProperty('SYNC_LLISTES') || '').toLowerCase();
-    var teDisparador = false;
-    try {
-      ScriptApp.getProjectTriggers().forEach(function (t) {
-        if (t.getHandlerFunction() === 'grupsSincronitzaAuto') teDisparador = true;
-      });
-    } catch (e) { l.push('  (no puc mirar els disparadors: ' + e.message + ')'); }
-    if (permis === 'si' && teDisparador) {
+    if (sync.error) l.push('  (no puc mirar els disparadors: ' + sync.error + ')');
+    if (sync.ok) {
       l.push('  ✔ engegada: les llistes, les fitxes i els contactes es mantenen sols');
-    } else if (permis === 'si') {
-      l.push('  ▲ té permís però no trobo el disparador');
-      cal.push('Executa  configuraSincronitzacioLlistes()  per tornar-lo a posar.');
+    } else if (sync.permis === 'si') {
+      l.push('  ▲ té permís però ara mateix no hi ha disparador');
+      l.push('    (es torna a posar sol la propera vegada que obri l' + Q + 'app)');
     } else {
       l.push('  ✗ apagada en aquesta instal·lació');
       cal.push('Executa  configuraSincronitzacioLlistes()  —només a UNA app de tota l\'escola.');
     }
   });
 
+  /* Si l'última passada automàtica va fallar, dir-ho. Sense això només ho
+     sap el registre d'execucions del projecte, que no mira ningú. */
+  mira('la passada automàtica', function () {
+    var gss = getGrupsSpreadsheet(ss);
+    var brut = gss ? sheetGetJSON(gss, '_AppData', 'sync_estat') : null;
+    if (!brut) return;
+    var d = {};
+    try { d = JSON.parse(brut) || {}; } catch (x) { return; }
+    if (!d.falla || !Object.keys(d.falla).length) return;
+    l.push('');
+    l.push("▲ L'ÚLTIMA PASSADA AUTOMÀTICA NO VA PODER FER-HO TOT (" + (d.quan || "") + ")");
+    Object.keys(d.falla).forEach(function (q) { l.push('  · ' + q + ': ' + d.falla[q]); });
+    l.push('  Si era cosa passatgera, la propera passada ho arregla sola.');
+  });
+
+  /* Les caselles lliures del pont (les que avui tenen feina assignada) */
+  var caselles = einesAssignades();
+  if (caselles.length) {
+    l.push('');
+    l.push('LES CASELLES DEL PONT QUE AVUI TENEN FEINA');
+    caselles.forEach(function (c) {
+      l.push('  ' + c.mena + c.n + '  →  ' + c.fa + '()');
+    });
+    l.push('  (les tries al desplegable de dalt i prems Executar. No cal');
+    l.push('   enganxar res ni desplegar: el pont no es toca mai més.)');
+  }
+
   /* I el que queda per fer */
   l.push('');
   l.push('==========================================');
   if (!cal.length) {
-    l.push('NO HAS DE FER RES. Tot està al dia.');
+    l.push('NO HAS DE FER RES' + (sync.ok ? ': el que quedi per repassar es fa sol.' : '.'));
   } else {
     l.push('EL QUE ET QUEDA PER FER (' + cal.length + '), per aquest ordre:');
     cal.forEach(function (x, i) { l.push('  ' + (i + 1) + '. ' + x); });
+    l.push('');
+    l.push("(Són coses d'instal·lació. Un cop fetes no s'ha de tornar a obrir");
+    l.push(" mai més l'Apps Script: la resta es manté sola.)");
   }
 
   var txt = l.join('\n');
@@ -8481,8 +8728,11 @@ function _contacteQui_(nom, cognoms) {
 }
 
 function _resolContactesId(ss) {
+  /* Si aquesta app en té un de propi, mana (per si una mestra ha de mirar un
+     full a part). Si no, el de l'escola, que és el normal. */
   var propi = sheetGetJSON(ss, '_AppData', 'contactes_sheet_id');
   if (propi && propi.toString().trim()) return propi.toString().trim();
+  if (CONTACTES_ID_ESCOLA) return CONTACTES_ID_ESCOLA;
   return (FULLS_COMPARTITS.contactes || '').toString().trim();
 }
 

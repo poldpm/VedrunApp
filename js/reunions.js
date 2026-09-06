@@ -221,7 +221,7 @@ function _reuCalendari(c) {
   const blocSoltes = soltes.length ? `
     <div class="reucal-soltes">
       <strong>${soltes.length} ${soltes.length === 1 ? 'hora' : 'hores'} que l'app no sap a quin dia van.</strong>
-      Segurament el servidor (Apps Script) encara no s'ha tornat a desplegar.
+      Ho arregla el servidor tot sol; si demà encara hi són, digues-ho en Pol.
       <div class="reucal-hores">
         ${soltes.map(h => `<span class="reucal-h reucal-h-ple">${escapeHtml(h.inici || '?')}</span>`).join('')}
       </div>

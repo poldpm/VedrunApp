@@ -243,9 +243,35 @@ arriba sol.**
 - **Si la biblioteca es trenca, es trenquen totes les apps alhora.** Abans,
   una enganxada dolenta en trencava una. Per això `node eines/prova-tot.js`
   abans de tocar la biblioteca no és opcional.
-- **Una funció NOVA d'editor** (les que s'executen des de l'Apps Script) sí
-  que demana refer el pont i tornar-lo a enganxar. Les **accions noves del
-  navegador**, no: aquelles arriben soles.
+- **Un canvi a la biblioteca NO demana desplegar res.** Es desa la biblioteca
+  i ja està: a totes les mestres els arriba sol. No li diguis a en Pol que
+  «desplegui una versió nova» —això és del temps que el codi vivia dins de
+  cada projecte, i fer-l'hi fer és fer-li perdre el temps. El 6/9/2026 l'hi
+  vaig dir vuit vegades seguides.
+- **Una eina NOVA d'editor** tampoc no demana refer el pont, però **NO** de
+  la manera que això deia abans. Deia que es canviés la paraula d'un
+  `var EINA = '…'` del pont. **Això és impossible al projecte d'una altra
+  mestra**: al botó d'Executar només s'hi TRIA d'una llista, no s'hi escriu, i
+  editar-li el pont és exactament el que no s'ha de fer mai. Ho va enxampar en
+  Pol el 6/9/2026: «NO PUC HAVER DE TOCAR CAP PONT UN COP JA L'HAGI INSTAL·LAT
+  PER RES, NI PER ENGANXAR CODI, NI PER EXECUTAR FUNCIONS NI PER IMPLEMENTAR».
+
+  Ara el pont porta **quinze noms buits** que hi són des del primer dia i que
+  no canvien mai: `eina1`…`eina10` i `disparador1`…`disparador5`. Què fa
+  cadascun es decideix a la **biblioteca**, a les taules `EINES_LLIURES` i
+  `DISPARADORS_LLIURES` —i a la biblioteca s'hi arriba sol.
+
+  **Per estrenar una eina:** assigna-li una casella a la taula, desa la
+  biblioteca, i digues-li «tria `eina1` i prem Executar». Res més.
+  **Per estrenar un disparador:** assigna-li una casella de
+  `DISPARADORS_LLIURES` i que la biblioteca el munti amb aquell nom
+  (`newTrigger('disparador1')`); el nom ja és al seu projecte.
+
+  ⚠ Assigna una casella **només quan li acabis de dir què hi has posat**, i
+  que ho miri sempre al `comAnem()`, que diu què hi ha avui a cada casella. Si
+  se la mira de memòria i entretant l'has reassignada, li faràs executar una
+  cosa que no volia.
+- Les **accions noves del navegador** arriben soles i no demanen res.
 - **Per saber quin codi té una mestra a sobre**, obre la seva `/exec` amb
   `?v=1`, o executa-hi `veureAlies()`. El seu projecte no canvia mai i no hi
   ha cap altra manera de saber-ho.
