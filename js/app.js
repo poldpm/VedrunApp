@@ -6321,7 +6321,8 @@ function _dubtesAmaga(clau) {
   try { localStorage.setItem(DUBTES_AMAGATS, JSON.stringify(d)); } catch (e) {}
 }
 function _dubteClau(d) {
-  return (d.grup || '') + '|' + (d.mena || 'nom') + '|' + (d.etiqueta || '') + '|' + (d.text || '');
+  return (d.grup || '') + '|' + (d.mena || 'nom') + '|' + (d.etiqueta || '') + '|' +
+         (d.text || '') + '|' + (d.tros || '');
 }
 
 /* L'adreça del document surt del botó que ja hi ha a Alumnes, no d'una
@@ -6412,6 +6413,27 @@ function _dubtesRender() {
   }
   const delGrup = _dubtesAlumnesDelGrup();
   cont.innerHTML = _dubtes.map((d, i) => {
+    if (d.mena === 'tros') {
+      /* Un bocí d'un apartat escrit en prosa. No l'hem escrit a ningú, i
+         això no ho pot arreglar l'app: el que toca és escriure aquella
+         línia del document d'una manera que es pugui repartir. */
+      return '<article class="dubte">' +
+        '<h3 class="dubte-titol">' + escapeHtml(d.etiqueta) + '</h3>' +
+        '<p class="dubte-text">' + escapeHtml(d.text) + '</p>' +
+        '<p class="dubte-motiu">D\'aquí n\'he sabut treure «<strong>' +
+          escapeHtml(d.tros || '') + '</strong>»' +
+          (d.dequi && d.dequi.length ? ' per a ' + escapeHtml(d.dequi.join(', ')) : '') +
+          ', i això no diu res: ' + escapeHtml(d.motiu || '') + '. Per això <strong>no ho ' +
+          'he posat a la fitxa de ningú</strong>.</p>' +
+        '<p class="dubte-motiu">Si el que hi diu és important, val més escriure-ho a ' +
+          _dubtesDocEnllac('Aspectes generals') + ' <strong>una línia per nen</strong> ' +
+          '—«Nom: què li passa»—, com ja es fa a «Altres observacions». Llavors hi ' +
+          'arribarà sol.</p>' +
+        '<div class="dubte-botons">' +
+          '<button type="button" class="btn btn-secondary btn-sm" onclick="dubteAmaga(' + i + ')">Ja ho he mirat</button>' +
+        '</div>' +
+      '</article>';
+    }
     if (d.mena === 'casella') {
       /* Aquesta no la pot arreglar l'app: el rètol del document no es
          correspon amb cap apartat de la fitxa. */

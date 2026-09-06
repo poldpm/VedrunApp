@@ -4166,7 +4166,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v212';
+var BACKEND_VERSIO = 'v213';
 
 var MAX_CELA = 45000;
 
@@ -6666,8 +6666,30 @@ var FITXA_NO_NOMS = {
 
    Sense comes ni «i», el lector de llistes no hi veu cap nom: es pensa que
    tot plegat és un nom de set paraules i el descarta. Vuit alumnes del 4t A
-   es quedaven sense el suport de biblioteca i tres sense l'EMVic.
+   es quedaven sense el suport de biblioteca i tres sense l'EMVic.                */
 
+
+/* Hi ha el nom d'algun alumne d'aquest grup dins d'aquest text?
+
+   Es miren les paraules en majúscula, soles i de dues en dues. No es fa
+   servir `_fitxaNoms_` a posta: aquesta funció la crida ell mateix i es
+   quedarien donant voltes.
+
+   Sense `esNom` no es pot saber, i llavors val més dir que sí: fa que el
+   parèntesi es respecti, que és el costat prudent —no perdre res. */
+function _fitxaHiHaUnNom_(txt, esNom) {
+  if (typeof esNom !== 'function') return true;
+  var mots = String(txt == null ? '' : txt).split(/[^A-Za-zÀ-ÿ'’-]+/).filter(Boolean);
+  for (var i = 0; i < mots.length; i++) {
+    if (!/^[A-ZÀ-ÖØ-Þ]/.test(mots[i])) continue;
+    if (esNom(mots[i])) return true;
+    if (i + 1 < mots.length && /^[A-ZÀ-ÖØ-Þ]/.test(mots[i + 1]) &&
+        esNom(mots[i] + ' ' + mots[i + 1])) return true;
+  }
+  return false;
+}
+
+/* Parteix una tirallonga de noms escrits sense cap separador.
    Això ho parteix comprovant-ho contra la LLISTA DEL GRUP: prova primer
    tres paraules, després dues, després una, i només es queda amb el tall si
    aquell tros és un alumne d'aquell grup de debò. Per això no s'inventa res:
@@ -6726,7 +6748,15 @@ function _fitxaNoms_(valor, esNom) {
      («però estan al límit: Cai i Jeyssel») i aquells no es toquen: allà els
      noms hi són de debò i treure'ls deixaria dos nens sense la seva. */
   v = v.replace(/\(([^)]*)\)/g, function (tot, dins) {
-    return dins.indexOf(':') >= 0 ? tot : ' , ';
+    if (dins.indexOf(':') >= 0) return tot;
+    /* ⚠ I si a dins hi ha el NOM d'un alumne, tampoc no es toca.
+       Al 4t C el document té un parèntesi que ningú no va tancar: «Fajr El
+       Asri (punt fort… Manca de concentració. Kadijatou Jawo (molt tímida…»
+       El primer «)» que troba és molt més avall, i pel camí s'empassa la
+       Kadijatou. Traient-lo, ella perdia el seu PI. Un parèntesi que conté
+       un nen no és cap aclariment: és que està mal tancat. */
+    if (_fitxaHiHaUnNom_(dins, esNom)) return tot;
+    return ' , ';
   });
 
   // Els noms tant poden anar abans dels dos punts ("Sami: certificat de
@@ -7214,6 +7244,75 @@ var FITXA_COL_NOM = {
   trastorns: 'trastorns', acollida: 'acollida', drets: 'drets', emvic: 'emvic',
 };
 
+/* ============================================================
+   AIXÒ QUE HE TRET DE LA CASELLA, ÉS DE FIAR?
+   ------------------------------------------------------------
+   En Pol, 5/9/2026: «si dues hores després encara estàs trobant errors, no
+   creus que hauríem de buscar una altra manera més fiable?». La resposta
+   que vam acordar és aquesta: el que el lector no entengui, que NO ho
+   escrigui i ho deixi a la llista que valida el tutor del grup.
+
+   Els apartats «Relació entre iguals» i «Família» estan escrits en prosa
+   —paràgrafs que parlen de mig grup alhora— i el partidor n'acaba traient
+   bocins. El repàs del 6/9/2026 en va trobar a quatre classes:
+
+     Dídac (2n B)      → «A»            (de «no pot coincidir amb la Bruna
+                                          Crusats (A) ni amb l'Haron (A)»)
+     Asher (6è A)      → «grup B»       (de «no posar-lo amb en Crixus (grup B)»)
+     Malang (4t B)     → «el cuiden»
+     Rim i Dina (4t B) → «i vigilar»
+     Laia (4t B)       → «Vigilar també el trio Laia Olvera i»
+     Shaira (4t B)     → «força problemes amb M»
+
+   Cap d'aquests no diu res, i tots dos són pitjors que un buit: amaguen
+   que allà hi falta alguna cosa. Ningú no anirà a mirar el document per una
+   fitxa que sembla plena.
+
+   Això mira un tros i, si no és de fiar, diu PER QUÈ. La mateixa funció la
+   fan servir les dues bandes: la que escriu (per no escriure'l) i la que
+   fa la llista de dubtes (per dir-lo). Han de ser la mateixa, o un dia una
+   escriuria el que l'altra calla.
+   ============================================================ */
+
+/* Paraules que, al davant d'un tros, volen dir que ve d'una frase tallada.
+   No hi ha «no» ni «sense»: «No carn» i «Sense diagnòstic» són dades. */
+var FITXA_INICI_TALLAT = {
+  i: 1, y: 1, o: 1, tambe: 1, també: 1, el: 1, la: 1, els: 1, les: 1,
+  al: 1, als: 1, amb: 1, de: 1, del: 1, que: 1, per: 1, un: 1, una: 1,
+};
+/* I al final volen dir que la frase segueix i s'ha quedat a mitges. */
+var FITXA_FINAL_TALLAT = {
+  i: 1, y: 1, o: 1, amb: 1, de: 1, del: 1, a: 1, el: 1, la: 1, que: 1,
+  per: 1, com: 1, ni: 1,
+};
+
+function _fitxaTrosDeFiar_(txt) {
+  var t = String(txt == null ? '' : txt).trim();
+  if (!t) return '';                      // sense text ja es mira a part
+  /* Un «Sí» o un «No» són una resposta, no cap bocí. */
+  if (/^(si|sí|no|cap)$/i.test(t)) return '';
+  var mots = t.split(/\s+/);
+  var net = function (m) { return _fnorm_(m).replace(/[^a-z0-9]/g, ''); };
+
+  /* Una lletra o dues no diuen res: «A», «B». */
+  if (t.replace(/[^A-Za-zÀ-ÿ0-9]/g, '').length <= 2) {
+    return 'és massa curt per voler dir res';
+  }
+  /* Comença per una conjunció: ve del mig d'una frase. */
+  if (FITXA_INICI_TALLAT[net(mots[0])]) {
+    return 'comença al mig d\'una frase';
+  }
+  /* Acaba per una conjunció: la frase segueix i s'ha quedat a mitges. */
+  if (FITXA_FINAL_TALLAT[net(mots[mots.length - 1])]) {
+    return 'la frase es queda a mitges';
+  }
+  /* Acaba amb una inicial sola: «força problemes amb M». */
+  if (mots.length > 1 && /^[A-ZÀ-ÖØ-Þ]\.?$/.test(mots[mots.length - 1])) {
+    return 'acaba amb un nom a mitges';
+  }
+  return '';
+}
+
 /* Els rètols de la secció «Altres» que, tots sols i sense cap text al
    darrere, ja diuen alguna cosa de l'alumne: veure'ls a la seva fitxa
    s'entén. Els que no hi són —«Família», «Relació entre iguals»— són el
@@ -7529,6 +7628,11 @@ function _fitxaPerAlumne_(f, prep, alies) {
            Val més que hi falti: escriure el títol d'un apartat a la fitxa
            d'un nen no li diu res a ningú, i ocupa el lloc del que sí que
            importava. */
+        /* ⚠ I si el que n'ha tret és un BOCÍ, no s'escriu a ningú: va a la
+           llista que valida el tutor. Un «grup B» o un «i vigilar» a la fitxa
+           d'un nen no diu res i, pitjor, amaga que allà hi falta alguna cosa:
+           ningú no anirà a mirar el document per una fitxa que sembla plena. */
+        if (_fitxaTrosDeFiar_(txt)) return;
         if (!txt && !_fitxaRetolSol_(e)) return;
         per(a.uid)[on].push(txt ? txt : etiqCamp);
       });
@@ -8176,6 +8280,41 @@ function fitxesDubtes(ss, nomesGrup) {
                   text: String(x.valor).trim(), on: ['secció «Altres»'],
                   candidats: [], teCandidats: false,
                   motiu: 'no sé a quin apartat de la fitxa va' });
+    });
+
+    /* I LA TERCERA MENA: un tros que s'ha sabut de qui és, però el que se
+       n'ha tret és un BOCÍ i no s'ha escrit enlloc.
+
+       Passa als apartats escrits en prosa —«Relació entre iguals»,
+       «Família»—, on un paràgraf parla de mig grup alhora. El repàs del
+       6/9/2026 en va trobar a quatre classes: «grup B» a l'Asher, «A» al
+       Dídac, «i vigilar» a la Rim i la Dina, «el cuiden» al Malang.
+
+       Cap regla no partirà bé un paràgraf sempre, i per això el bocí ja no
+       s'escriu. Però callar seria tornar al problema d'abans: la mestra no
+       sabria que allà hi ha alguna cosa que el document sí que diu. */
+    (f.grupCamps || []).forEach(function (x) {
+      if (!x.valor || !String(x.valor).trim()) return;
+      if (!_fitxaRetolConegut_(x.camp) || _fitxaRetolAPosta_(x.camp)) return;
+      var esNomDaqui = function (t) {
+        var r = _qui_(prep, t, alies);
+        return !!(r && (r.alumne || (r.alumnes && r.alumnes.length)));
+      };
+      _fitxaGrupTrossos_(x.valor, esNomDaqui).forEach(function (t) {
+        var perque = _fitxaTrosDeFiar_(t.text);
+        if (!perque) return;
+        var dequi = [];
+        t.noms.forEach(function (n) {
+          _quiCandidats_(prep, n).forEach(function (a) {
+            var nom = a.nom + ' ' + (a.cognoms || '');
+            if (dequi.indexOf(nom) < 0) dequi.push(nom.trim());
+          });
+        });
+        fora.push({ grup: g, mena: 'tros', etiqueta: _fitxaEtiq_(x.camp),
+                    text: String(x.valor).trim(), tros: t.text,
+                    dequi: dequi, on: ['secció «Altres»'],
+                    candidats: [], teCandidats: false, motiu: perque });
+      });
     });
   });
 
