@@ -77,6 +77,47 @@ function _perfilMigrar(p) {
     });
     delete p.desdob;
   }
+  /* ⚠ «4t A A»: UN CURS QUE PORTAVA LA LÍNIA ENGANXADA.
+
+     Trobat a l'auditoria del 6/9/2026. Les assignatures d'«altres cursos»
+     van indexades pel CURS («4t»), però hi ha camins vells que hi deixaven el
+     grup sencer («4t A»). Llavors l'app hi tornava a enganxar la línia i
+     demanava el grup «4t A A», que no existeix: el desplegable sortia buit,
+     els alumnes no arribaven mai i no ho deia enlloc.
+
+     Aquí es reparen aquestes claus: es queda el curs i, si la línia s'havia
+     colat, ja la posarà el selector de grup. Es fa a la migració perquè es
+     repari sol el dia que la mestra obri l'app, sense que hagi de fer res. */
+  /* ⚠ I LA LÍNIA QUE ES LLENÇAVA AQUÍ LA TRIAVA DESPRÉS L'APP, SOLA.
+
+     Segona auditoria (8/9/2026). El comentari de sobre deia «ja la posarà el
+     selector de grup», i el selector, sense saber res, es queda amb la
+     PRIMERA línia. Una especialista amb el perfil «2n C · Música» acabava
+     treballant amb els alumnes de 2n A —observacions, registres, assoliments
+     i generador de grups— sense que res ho digués.
+
+     La línia la sabíem: era escrita a la clau. Ara es desa a `desdobGrup`,
+     que és on el selector la va a buscar. Si la mestra en vol una altra, la
+     canvia al selector, com sempre. */
+  const CURSOS_OK = ['1r','2n','3r','4t','5è','6è'];
+  Object.keys(p.altres).forEach(k => {
+    const parts = String(k).trim().split(/\s+/);
+    const curs = parts[0];
+    const linia = parts[1] || '';
+    if (k === curs) return;                            // ja està bé
+    if (CURSOS_OK.indexOf(curs) === -1) return;        // no ho sabem arreglar: es deixa
+    if (!p.altres[curs]) p.altres[curs] = [];
+    (p.altres[k] || []).forEach(a => {
+      if (p.altres[curs].indexOf(a) === -1) p.altres[curs].push(a);
+      if (linia) {
+        if (!p.desdobGrup || typeof p.desdobGrup !== 'object') p.desdobGrup = {};
+        const mk = (typeof _desdobMapKey === 'function') ? _desdobMapKey(curs, a) : (curs + '|' + a);
+        if (!p.desdobGrup[mk]) p.desdobGrup[mk] = curs + ' ' + linia;
+      }
+    });
+    delete p.altres[k];
+  });
+
   return p;
 }
 
@@ -179,12 +220,12 @@ function _perfilRenderGrupsEspecialista() {
     const curs = grup.split(' ')[0];
     const sel = _perfil.classes[grup] || [];
     const chips = _assigsDeCurs(curs).map(a =>
-      `<button type="button" class="perfil-assig-chip ${sel.includes(a)?'active':''}" onclick="_perfilToggleAssigGrup('${grup}','${a.replace(/'/g,"\\'")}')">${escapeHtml(a)}</button>`
+      `<button type="button" class="perfil-assig-chip ${sel.includes(a)?'active':''}" onclick="_perfilToggleAssigGrup('${_idJs(grup)}','${a.replace(/'/g,"\\'")}')">${escapeHtml(a)}</button>`
     ).join('');
     html += `<div class="perfil-grup-block">
       <div class="perfil-grup-block-head">
         <span class="perfil-grup-block-title">${escapeHtml(grup)}</span>
-        <button class="perfil-grup-remove" onclick="_perfilTreuGrupEsp('${grup}')" title="Treure aquest grup">×</button>
+        <button class="perfil-grup-remove" onclick="_perfilTreuGrupEsp('${_idJs(grup)}')" title="Treure aquest grup">×</button>
       </div>
       <div class="perfil-assig-chips">${chips}</div>
     </div>`;
@@ -236,14 +277,14 @@ function _perfilRenderTutorSel() {
   const cont = document.getElementById('perfilTutorSel');
   if (!cont) return;
   const cursos = PERFIL_CURSOS.map(c =>
-    `<button class="perfil-grup-btn ${_perfil.tutorCurs===c?'active':''}" onclick="_perfilSetTutorCurs('${c}')">${c}</button>`
+    `<button class="perfil-grup-btn ${_perfil.tutorCurs===c?'active':''}" onclick="_perfilSetTutorCurs('${_idJs(c)}')">${c}</button>`
   ).join('');
   let liniesHtml = '';
   if (_perfil.tutorCurs) {
     liniesHtml = `<div class="perfil-tutor-linies">
       <span class="perfil-tutor-lin-label">Línia:</span>
       ${PERFIL_LINIES.map(l =>
-        `<button class="perfil-linia-btn ${_perfil.tutorLinia===l?'active':''}" onclick="_perfilSetTutorLinia('${l}')">${_perfil.tutorCurs} ${l}</button>`
+        `<button class="perfil-linia-btn ${_perfil.tutorLinia===l?'active':''}" onclick="_perfilSetTutorLinia('${_idJs(l)}')">${_perfil.tutorCurs} ${l}</button>`
       ).join('')}
     </div>`;
   }
@@ -273,7 +314,7 @@ function _perfilRenderGrups() {
   const tutorKey = _grupKey(_perfil.tutorCurs, _perfil.tutorLinia);
   const sel = _perfil.classes[tutorKey] || [];
   const chips = _assigsDeCurs(_perfil.tutorCurs).map(a =>
-    `<button type="button" class="perfil-assig-chip ${sel.includes(a)?'active':''}" onclick="_perfilToggleAssig('${tutorKey}','${a.replace(/'/g,"\\'")}')">${escapeHtml(a)}</button>`
+    `<button type="button" class="perfil-assig-chip ${sel.includes(a)?'active':''}" onclick="_perfilToggleAssig('${_idJs(tutorKey)}','${a.replace(/'/g,"\\'")}')">${escapeHtml(a)}</button>`
   ).join('');
   cont.innerHTML = `<div class="perfil-assig-chips">${chips}</div>`;
 }
@@ -302,7 +343,12 @@ function _perfilToggleAssig(key, assig) {
   if (idx === -1) arr.push(assig); else arr.splice(idx, 1);
   // No esborrem el grup encara que quedi buit si és un afegit manualment;
   // però si no és el de tutoria i queda buit, el deixem (l'usuari el pot treure amb ×)
-  _perfilRenderGrupBlocks();
+  /* ⚠ Aquí hi deia `_perfilRenderGrupBlocks()`, que no existeix enlloc: un canvi
+     de nom a mitges. Cada clic a una assignatura llançava un ReferenceError, el
+     xip no es repintava mai i la mestra el clicava un segon cop —i llavors se li
+     desmarcava sense veure-ho. El bessó de les especialistes
+     (`_perfilToggleAssigGrup`) sempre havia cridat el seu render; aquest, el seu. */
+  _perfilRenderGrups();
 }
 
 function _perfilUpdateAvatar() {
@@ -362,10 +408,31 @@ async function perfilSave() {
   perfilRenderAllSelectors();
   if (config.scriptUrl) {
     try {
-      await appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) });
+      /* ⚠ `appsScriptPost` NO llança quan el servidor respon `{ok:false}` —
+         per exemple amb la clau de seguretat canviada. Sense mirar-ho, aquí
+         es deia «Perfil desat ✓» amb el perfil sense desar (auditoria
+         6/9/2026): la mestra donava per fet que ja ho tenia. */
+      const r = await appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) });
+      if (r && r.ok === false) throw new Error(r.error || 'el servidor no l\'ha pogut desar');
       showToast('Perfil desat ✓', 'success');
+      /* ⚠ I ARA VE'S A BUSCAR ELS ALUMNES.
+
+         Trobat a l'auditoria del 6/9/2026: en desar el perfil per primera
+         vegada, la pantalla d'Alumnes deia «Encara no hi ha cap alumne a
+         2n C — quan siguin al full compartit, sortiran aquí sols», amb els
+         dotze ja al full. Només calia recarregar, però una mestra nova no ho
+         sap: en treu la conclusió que la direcció no ha penjat la llista.
+
+         Ara, tot just desat el perfil, es demanen els alumnes del grup i es
+         repinta el que hi hagi obert. */
+      try {
+        if (typeof _loadTutoriaGrup === 'function') await _loadTutoriaGrup();
+        if (typeof renderAlumnesList === 'function') renderAlumnesList();
+        if (typeof updateHomeCounters === 'function') updateHomeCounters();
+        if (typeof renderObsGrid === 'function') renderObsGrid();
+      } catch (e) {}
     } catch(e) {
-      showToast('Desat localment; error desant al servidor: ' + e.message, 'error');
+      showToast('El perfil s\'ha desat en aquest ordinador, però NO al full: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
     }
   } else {
     showToast('Perfil desat localment (configura la connexió per sincronitzar)', 'info');
@@ -428,15 +495,24 @@ async function _loadTutoriaGrup() {
   try {
     const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
     if (r.ok && r.alumnes && r.alumnes.length) {
+      if (typeof _ultimaFallidaAlumnes !== 'undefined') _ultimaFallidaAlumnes = null;
       _aplicaTutoriaAlumnes(r.alumnes);
       try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes: r.alumnes, ts: Date.now(), v: versioAra })); } catch(e) {}
+    } else if (r && r.ok && r.existeix !== false) {
+      /* El grup hi es i no te ningu: aixo tambe es una resposta, i s ha de
+         fer cas. Si no, hi queden els alumnes del grup anterior. */
+      if (typeof _ultimaFallidaAlumnes !== 'undefined') _ultimaFallidaAlumnes = null;
+      _aplicaTutoriaAlumnes([], true);
+      try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes: [], ts: Date.now(), v: versioAra })); } catch(e) {}
     } else if (r && r.ok === false) {
+      if (typeof _ultimaFallidaAlumnes !== 'undefined') _ultimaFallidaAlumnes = (r.error || 'el servidor no ha pogut donar la llista');
       _avisAlumnesVells(r.error || 'el servidor no ha pogut donar la llista');
     }
   } catch(e) {
     /* ⚠ Abans això era silenciós, i és el pitjor que podia ser: si el
        servidor fallava, a la pantalla hi quedava la còpia vella i semblava
        la bona. Val més dir-ho. */
+    if (typeof _ultimaFallidaAlumnes !== 'undefined') _ultimaFallidaAlumnes = (e && e.message) ? e.message : 'sense connexió amb el servidor';
     _avisAlumnesVells(e && e.message ? e.message : 'sense connexió amb el servidor');
   }
 }
@@ -471,13 +547,32 @@ async function refrescaAlumnes() {
   if (typeof showToast === 'function') showToast('Alumnes al dia ✓', 'success');
 }
 
-function _aplicaTutoriaAlumnes(alumnes) {
-  // Protecció: mai substitueixis per una llista buida (evita pèrdua de dades
-  // si el servidor retorna buit per un error temporal)
-  if (!alumnes || !alumnes.length) return;
+/* `buitDeDebo` = el servidor ha respost i aquest grup NO té ningú.
+
+   Sense aquest segon argument la funció es planta i deixa la classe
+   anterior a la pantalla, que és el que volem quan la petició ha fallat
+   —no esborrar la feina de la mestra per un mal moment del servidor— però
+   NO quan el grup és buit de veritat: llavors s'hi quedaven els alumnes de
+   l'altre grup amb el nom del nou a sobre, i tot el que s'hi escrivia
+   anava a parar on no tocava (auditoria 6/9/2026). */
+let _grupCarregaId = 0;
+
+function _aplicaTutoriaAlumnes(alumnes, buitDeDebo) {
+  if ((!alumnes || !alumnes.length) && !buitDeDebo) return;
+  alumnes = alumnes || [];
+  /* Aquesta llista passa a ser la bona: qualsevol càrrega de grup que encara
+     estigui en marxa queda invalidada. Sense això, una petició d'un grup que
+     s'ha deixat enrere podia arribar tard i buidar la pantalla del grup que
+     s'acaba de triar (ho va destapar `comprova-rols.js` a direcció). */
+  if (typeof _grupCarregaId !== 'undefined') _grupCarregaId++;
   _tutoriaAlumnes = alumnes;
   _grupStudentsCarregat = (_grupDeTreball() || '') + '|';
-  students = alumnes.map(function(a) { return { id: a.id, nom: a.nom, genere: a.genere }; });
+  /* El rowId (el codi permanent del full «Grups») viatja amb l alumne.
+     Sense ell, tot el que es desa per alumne cau a la POSICIO: el dia que
+     la sincronitzacio reordena la llista, els assoliments d un nen surten
+     a un altre. _assimSid() ja el buscava; no el trobava mai perque aqui
+     no s hi posava. */
+  students = alumnes.map(function(a) { return { id: a.id, nom: a.nom, genere: a.genere, rowId: a.rowId }; });
   personal = {};
   alumnes.forEach(function(a) {
     personal[a.id] = {
@@ -623,7 +718,7 @@ function perfilRenderNavAssigs() {
     // Mostra el grup si l'assignatura es fa a més d'un grup, o si no és el grup de tutoria
     const mostraGrup = multi || e.grup !== tutorKey;
     const sufix = mostraGrup ? ` <span class="nav-assig-grup">${escapeHtml(e.grup)}</span>` : '';
-    return `<a class="nav-item" href="#" onclick="openNotesAuto('${key}','${e.grup}'); return false;">
+    return `<a class="nav-item" href="#" onclick="openNotesAuto('${_idJs(key)}','${_idJs(e.grup)}'); return false;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${_assigIcon(e.nom)}</svg>
       <span class="nav-assig-label">${escapeHtml(e.nom)}${sufix}</span>
     </a>`;
@@ -683,7 +778,12 @@ async function _ensureGrupStudents(grup, materia) {
 
 // Aplica una llista d'alumnes a students/personal
 function _aplicaGrupStudents(alumnes) {
-  students = alumnes.map(a => ({ id: a.id, nom: a.nom, genere: a.genere }));
+  /* El rowId (el codi permanent del full «Grups») viatja amb l alumne.
+     Sense ell, tot el que es desa per alumne cau a la POSICIO: el dia que
+     la sincronitzacio reordena la llista, els assoliments d un nen surten
+     a un altre. _assimSid() ja el buscava; no el trobava mai perque aqui
+     no s hi posava. */
+  students = alumnes.map(a => ({ id: a.id, nom: a.nom, genere: a.genere, rowId: a.rowId }));
   personal = {};
   alumnes.forEach(a => {
     personal[a.id] = { tutor1:a.tutor1, correu1:a.correu1, tutor2:a.tutor2, correu2:a.correu2, telefons:a.telefons,
@@ -693,9 +793,18 @@ function _aplicaGrupStudents(alumnes) {
 }
 
 // Carrega els alumnes del grup del backend (aplica desdoblament) i desa en cache
+/* Quina càrrega de grup mana. Cada vegada que se'n demana una, agafa número;
+   quan torna, només s'aplica si encara és l'última. Sense això, una petició
+   d'un grup que has deixat enrere pot arribar tard i trepitjar el grup que
+   estàs mirant ara —i des que un grup buit també s'aplica (que és el que
+   toca), això voldria dir quedar-se amb la pantalla en blanc. */
+
+
 async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
+  const meu = ++_grupCarregaId;
   try {
     const r = await appsScriptGet({ action:'getGrupAlumnes', grup: grup });
+    if (meu !== _grupCarregaId) return;      // ja n'hi ha una de més nova
     let alumnes = (r.ok && r.alumnes) ? r.alumnes : [];
 
     if (materia && alumnes.length) {
@@ -711,7 +820,32 @@ async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
       } catch(e) {}
     }
 
-    if (alumnes.length) {
+    /* ⚠ UN GRUP BUIT DE DEBÒ NO ÉS EL MATEIX QUE UNA PETICIÓ QUE HA FALLAT.
+
+       Abans aquí hi deia només `if (alumnes.length)`. La idea era bona —no
+       esborrar la classe perquè el servidor hagi tingut un mal moment— però
+       es menjava també el cas de veritat: triaves un grup que encara no té
+       ningú al full de l'escola (3r B, al setembre) i la pantalla es quedava
+       els alumnes del grup ANTERIOR, amb el nom del grup nou a sobre. Tot el
+       que s'hi escrivia anava al grup equivocat: observacions, creus de
+       registre, notes. Ho van trobar els tres rols alhora a l'auditoria del
+       6/9/2026.
+
+       El servidor ja ho sap distingir: si la pestanya del grup hi és, torna
+       `existeix:true` encara que no tingui ningú. O sigui que:
+         · ha respost i el grup és buit  → es buida la llista (és la veritat);
+         · la petició ha fallat          → es deixa el que hi havia. */
+    const haRespost = !!(r && r.ok);
+    /* ⚠ I només si aquest grup és el que s'està mirant ARA. A direcció, i a
+       una especialista amb diversos grups, hi ha peticions de grups que ja
+       s'han deixat enrere: si una d'aquelles tornava buida i es feia cas,
+       buidava la pantalla del grup bo. Ho va destapar `comprova-rols.js`. */
+    const grupAra = (typeof _grupDeTreball === 'function') ? _grupDeTreball() : null;
+    const encaraHiSom = !grupAra || grupAra === grup;
+    const grupBuitDeDebo = haRespost && !alumnes.length && r.existeix !== false && encaraHiSom;
+
+    if (meu !== _grupCarregaId) return;      // ha arribat tard: no toquis res
+    if (alumnes.length || grupBuitDeDebo) {
       alumnes.forEach(a => { if (!a.grupOrigen) a.grupOrigen = grup; });
       _aplicaGrupStudents(alumnes);
       _grupStudentsCarregat = clau;
@@ -738,7 +872,7 @@ function _restoreTutoriaStudents() {
   // d'una assignatura desdoblada, tornaves a Alumnes i hi veies 15 alumnes
   // en comptes de tots, sense cap avís.
   if (grup && _grupStudentsCarregat === grup + '|') return;
-  students = _tutoriaAlumnes.map(a => ({ id:a.id, nom:a.nom, genere:a.genere }));
+  students = _tutoriaAlumnes.map(a => ({ id:a.id, nom:a.nom, genere:a.genere, rowId:a.rowId }));
   personal = {};
   _tutoriaAlumnes.forEach(a => {
     personal[a.id] = { tutor1:a.tutor1, correu1:a.correu1, tutor2:a.tutor2, correu2:a.correu2, telefons:a.telefons,
@@ -821,7 +955,15 @@ function _perfilRenderAssimSelector() {
   const cont = document.getElementById('assimMateriaSelector');
   if (!cont) return;
   const entrades = _perfilEntradesAmbGrup();
-  if (!entrades.length) return; // sense perfil, deixa els botons per defecte
+  /* SENSE PERFIL NO S'INVENTEN ASSIGNATURES.
+     Trobat a l'auditoria del 6/9/2026: aqui es deixaven els cinc botons per
+     defecte (Mates, Catala, Medi, Musica, Angles) i una mestra que no fa cap
+     d'aquestes —o la direccio, que no en fa cap— es posava a avaluar objectius
+     dins d'una assignatura que no existeix. Ara s'hi diu on s'arregla. */
+  if (!entrades.length) {
+    cont.innerHTML = '<span class="modal-hint">Encara no has dit quines assignatures fas. Ves a <strong>El meu perfil</strong>.</span>';
+    return;
+  }
 
   cont.innerHTML = entrades.map((e, i) => {
     if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
@@ -829,7 +971,7 @@ function _perfilRenderAssimSelector() {
     if (e.altres) _assigDesdobMap[e.key] = { curs: e.curs, assig: e.nom, rotatori: e.rotatori };
     else _assigGrupMap[e.key] = e.grup;
     _assigNomMap[e.key] = e.nom;
-    return `<button class="trim-sel-btn${i===0?' active':''}" data-mat="${e.key}" onclick="selectAssimMateria('${e.key}',this)">${escapeHtml(e.label)}</button>`;
+    return `<button class="trim-sel-btn${i===0?' active':''}" data-mat="${e.key}" onclick="selectAssimMateria('${_idJs(e.key)}',this)">${escapeHtml(e.label)}</button>`;
   }).join('');
 
   // Si la matèria activa ja no existeix, selecciona la primera
@@ -950,19 +1092,50 @@ async function _loadDesdobStudents(curs, assig) {
   } catch(e) {}
   try {
     let alumnes = [];
+    /* La resposta es guarda fora de les dues branques: mes avall cal saber si
+       el servidor ha CONTESTAT que el grup es buit o si la crida ha fallat.
+       No es el mateix, i barrejar-ho es el que deixava els alumnes de
+       l assignatura d abans a la pantalla (segona auditoria, 8/9/2026). */
+    let resposta = null;
     if (o.desdob) {
-      const r = await appsScriptGet({ action: 'getDesdobGrup', curs: curs, assignatura: assig, grup: grup });
-      alumnes = (r && r.ok && r.alumnes) ? r.alumnes : [];
+      resposta = await appsScriptGet({ action: 'getDesdobGrup', curs: curs, assignatura: assig, grup: grup });
+      alumnes = (resposta && resposta.ok && resposta.alumnes) ? resposta.alumnes : [];
     } else {
       // Classe sencera: el "grup" és una línia (p. ex. "3r A")
-      const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
-      alumnes = (r && r.ok && r.alumnes) ? r.alumnes : [];
+      resposta = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
+      alumnes = (resposta && resposta.ok && resposta.alumnes) ? resposta.alumnes : [];
       alumnes.forEach(a => { a.grupOrigen = grup; });
     }
     if (alumnes.length) {
       _aplicaGrupStudents(alumnes);
       _grupStudentsCarregat = clau;
       try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes, ts: Date.now() })); } catch(e) {}
+    } else {
+      /* ⚠ EL GRUP BUIT QUE DEIXAVA ELS ALUMNES DE L'ASSIGNATURA ANTERIOR.
+
+         Trobat a la segona auditoria (8/9/2026). Aquí, amb la llista buida,
+         no es feia RES: ni s'aplicava res ni es deia res. `students` es
+         quedava amb els alumnes de l'assignatura d'abans, sota el nom del
+         grup nou, i tot el que s'hi escrivia —observacions, creus, notes—
+         anava al grup equivocat.
+
+         És la mateixa crítica que ja es va arreglar a `_ensureGrupStudents`
+         per als grups normals; aquest camí —el de les assignatures d'altres
+         cursos i els grups rotatoris— no s'hi va incloure.
+
+         ⚠ Només es buida si el servidor ha CONTESTAT que no hi ha ningú. Si
+         la crida ha fallat, es cau al `catch` i no es toca res: amb la
+         connexió dolenta val més deixar-li la classe a la pantalla. */
+      const haRespost = !!(resposta && resposta.ok !== false);
+      if (haRespost) {
+        _aplicaGrupStudents([]);
+        _grupStudentsCarregat = clau;
+        try { localStorage.removeItem(cacheKey); } catch(e) {}
+        if (typeof showToast === 'function') {
+          showToast('«' + (assig || '') + ' · ' + grup + '» encara no té cap alumne al full de l\'escola. ' +
+                    'Mentre no n\'hi hagi, aquí no hi pots escriure res.', 'error');
+        }
+      }
     }
   } catch(e) {}
 }
@@ -985,7 +1158,7 @@ function _renderDesdobBar(containerId, curs, assig, onChange) {
     el.innerHTML = '<div class="desdob-bar"><span class="desdob-bar-label">' + etiqueta + ':</span>' +
       o.grups.map(g => {
         const gEsc = g.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        return `<button type="button" class="desdob-chip${g === actual ? ' actiu' : ''}" onclick="_desdobTriaGrup('${curs}','${assig.replace(/'/g,"\\'")}','${gEsc}','${containerId}')">${escapeHtml(g)}</button>`;
+        return `<button type="button" class="desdob-chip${g === actual ? ' actiu' : ''}" onclick="_desdobTriaGrup('${_idJs(curs)}','${assig.replace(/'/g,"\\'")}','${gEsc}','${containerId}')">${escapeHtml(g)}</button>`;
       }).join('') + '</div>';
   };
   pintar();
@@ -1005,10 +1178,23 @@ async function _renderDesdobLabel(containerId, curs, assig) {
 
 // Mostra el control adequat segons si l'assignatura és rotatòria (selector) o
 // de grup fix (només etiqueta). dd = { curs, assig, rotatori }.
-function _renderDesdobControl(containerId, dd, onChange) {
+/* ⚠ NO ES PODIA CANVIAR DE LÍNIA DINS D'UN ALTRE CURS.
+
+   Trobat a l'auditoria del 6/9/2026. Aquí, si l'assignatura no era
+   «rotatòria» (com el Tallers), es pintava una etiqueta fixa —«Grup: 3r A»—
+   i prou. Però una especialista que fa Música a 3r A, 3r B i 3r C hi té tres
+   grups, i no en podia triar cap: es quedava sempre amb el primer, i tot el
+   que hi feia (assoliments, comentaris, grups) era d'aquell.
+
+   Ara mana el nombre de grups que hi ha de debò: si n'hi ha més d'un, es
+   poden triar; si només n'hi ha un, es queda l'etiqueta, que és la que toca. */
+async function _renderDesdobControl(containerId, dd, onChange) {
   const el = document.getElementById(containerId);
   if (!dd) { if (el) el.innerHTML = ''; return; }
-  if (dd.rotatori) _renderDesdobBar(containerId, dd.curs, dd.assig, onChange);
+  if (dd.rotatori) { _renderDesdobBar(containerId, dd.curs, dd.assig, onChange); return; }
+  try { await _desdobCarregaGrups(dd.curs, dd.assig); } catch (e) {}
+  const o = (typeof _desdobOpcions === 'function') ? _desdobOpcions(dd.curs, dd.assig) : { grups: [] };
+  if (o && o.grups && o.grups.length > 1) _renderDesdobBar(containerId, dd.curs, dd.assig, onChange);
   else _renderDesdobLabel(containerId, dd.curs, dd.assig);
 }
 
@@ -1044,7 +1230,7 @@ function _perfilRenderAltres() {
   afegits.forEach(curs => {
     const sel = _perfil.altres[curs] || [];
     const chips = _assigsDeCurs(curs).map(a =>
-      `<button type="button" class="perfil-assig-chip ${sel.includes(a)?'active':''}" onclick="_perfilToggleAltre('${curs}','${a.replace(/'/g,"\\'")}')">${escapeHtml(a)}</button>`
+      `<button type="button" class="perfil-assig-chip ${sel.includes(a)?'active':''}" onclick="_perfilToggleAltre('${_idJs(curs)}','${a.replace(/'/g,"\\'")}')">${escapeHtml(a)}</button>`
     ).join('');
     let grupsHtml = '';
     sel.forEach(a => {
@@ -1054,7 +1240,7 @@ function _perfilRenderAltres() {
     html += `<div class="perfil-grup-block">
       <div class="perfil-grup-block-head">
         <span class="perfil-grup-block-title">${escapeHtml(curs)}</span>
-        <button class="perfil-grup-remove" onclick="_perfilTreuCursAltre('${curs}')" title="Treure curs">×</button>
+        <button class="perfil-grup-remove" onclick="_perfilTreuCursAltre('${_idJs(curs)}')" title="Treure curs">×</button>
       </div>
       <div class="perfil-assig-chips">${chips}</div>
       ${grupsHtml}

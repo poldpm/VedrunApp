@@ -262,7 +262,7 @@ function _grupviewObreAfegirObs() {
   if (!a) return;
   const assigs = _grupviewMevesAssigsDelGrup();
   if (!assigs.length) { showToast('Al perfil no hi consta cap assignatura teva en aquest grup', 'error'); return; }
-  const trimActual = (typeof getTrimestreActual === 'function' && getTrimestreActual()) || 1;
+  const trimActual = (typeof getTrimestreProposat === 'function') ? getTrimestreProposat() : 1;
   const body = document.getElementById('grupviewFitxaBody');
   if (!body || document.getElementById('gvfObsText')) { const t = document.getElementById('gvfObsText'); if (t) t.focus(); return; }
 
@@ -337,7 +337,7 @@ async function _grupviewDesaObs() {
     showToast('Observació guardada', 'success');
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
-    showToast('Error: ' + e.message, 'error');
+    showToast('Error: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
   }
 }
 
@@ -583,9 +583,9 @@ function _grupviewRenderAssim(a, materia) {
         <div class="gva-obj-nom">${escapeHtml(obj.nom || obj.text || 'Objectiu')}</div>
         <div class="gva-btns">
           ${VALORS.map(V => `<button class="gva-btn ${V.cls} ${curVal===V.v?'active':''}"
-            onclick="_grupviewSetAssim('${materia}',${t},'${a.rowId}','${obj.id}','${V.v}')" title="${V.txt}">${V.v}</button>`).join('')}
+            onclick="_grupviewSetAssim('${_idJs(materia)}',${t},'${_idJs(a.rowId)}','${_idJs(obj.id)}','${_idJs(V.v)}')" title="${V.txt}">${V.v}</button>`).join('')}
           <button class="gva-btn gva-clear ${curVal===null?'active':''}"
-            onclick="_grupviewSetAssim('${materia}',${t},'${a.rowId}','${obj.id}','')" title="Sense avaluar">—</button>
+            onclick="_grupviewSetAssim('${_idJs(materia)}',${t},'${_idJs(a.rowId)}','${_idJs(obj.id)}','')" title="Sense avaluar">—</button>
         </div>
       </div>`;
     });

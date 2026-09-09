@@ -85,11 +85,11 @@ function renderHorari() {
         }).join(' ');
         const txt = zona || 'Pati';
         const inner = escapeHtml(txt) + (icones ? `<div class="horari-pati-icones">${icones}</div>` : '');
-        html += `<td><div class="horari-cell pati" onclick="obreHorariCell('${key}')">${inner}</div></td>`;
+        html += `<td><div class="horari-cell pati" onclick="obreHorariCell('${_idJs(key)}')">${inner}</div></td>`;
       } else {
         const assig = _horari[key] || '';
         const cls = assig ? 'horari-cell' : 'horari-cell buida';
-        html += `<td><div class="${cls}" onclick="obreHorariCell('${key}')">${assig ? escapeHtml(assig) : '+'}</div></td>`;
+        html += `<td><div class="${cls}" onclick="obreHorariCell('${_idJs(key)}')">${assig ? escapeHtml(assig) : '+'}</div></td>`;
       }
     });
     html += '</tr>';
@@ -168,7 +168,7 @@ function _renderHorariRols() {
   if (!cont) return;
   cont.innerHTML = PATI_ROLS.map(r => {
     const actiu = _horariRolsSel.includes(r.id);
-    return `<button type="button" class="horari-rol-chip${actiu ? ' actiu' : ''}" onclick="_toggleHorariRol('${r.id}')">
+    return `<button type="button" class="horari-rol-chip${actiu ? ' actiu' : ''}" onclick="_toggleHorariRol('${_idJs(r.id)}')">
       <span class="horari-rol-emoji">${r.emoji}</span> ${escapeHtml(r.nom)}
     </button>`;
   }).join('');
@@ -252,7 +252,7 @@ function buidarHorariCell() {
 function _horariPersist() {
   try { localStorage.setItem('horari', JSON.stringify(_horari)); } catch(e) {}
   if (config.scriptUrl) {
-    appsScriptPost({ action: 'saveHorari', horari: _horari }).catch(()=>{});
+    _desaAlFull({ action: 'saveHorari', horari: _horari });
   }
 }
 
@@ -268,21 +268,50 @@ function closeImportHorari() {
 }
 
 // Analitza el text enganxat i el converteix a l'estructura de l'horari
+/* Una fila enganxada que és la del PATI (o l'esbarjo, o l'esmorzar). */
+function _horariFilaEsPati(cols) {
+  const junts = (cols || []).join(' ').toLowerCase().trim();
+  if (!junts) return true;
+  return /\bpati\b|esbarjo|esmorzar|descans|lleure/.test(junts);
+}
+
+/* ⚠ LA FILA DEL PATI DESPLAÇAVA TOT L'HORARI UNA FRANJA.
+
+   Trobat a l'auditoria del 6/9/2026. L'horari que passa l'escola porta la
+   fila del pati enmig, i aquí les files enganxades s'anaven repartint per
+   les franges EDITABLES, que són les mateixes menys el pati. O sigui que a
+   partir d'aquella fila tot baixava un lloc i l'última es perdia: el «PATI»
+   acabava a les 11:10 i el «DINAR» a les 14:50, i deia «35 caselles
+   importades ✓».
+
+   Ara es recorren TOTES les franges (pati inclòs). Quan toca la del pati es
+   mira si la fila enganxada també ho és: si ho és, es consumeix i no
+   s'escriu enlloc; si no, vol dir que l'horari enganxat no en porta i es
+   passa de llarg sense gastar cap fila. Les dues maneres queden alineades. */
 function _parseImportHorari(text) {
   const dies = PLAN_DIES.map(d => d.id);
-  // Franges editables (sense el pati)
-  const franges = PLAN_FRANGES.map(f => f.id).filter(fid => fid !== HORARI_FRANJA_PATI);
-  const files = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length);
+  const totes = PLAN_FRANGES.map(f => f.id);      // amb el pati inclòs
+  const files = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length)
+                    .map(l => l.split(/\t|,|;/).map(c => c.trim()));
   const nou = {};
-  files.forEach((fila, i) => {
-    if (i >= franges.length) return; // més files que franges: ignora la resta
-    // Separa per tabulador o coma
-    const cols = fila.split(/\t|,|;/).map(c => c.trim());
-    cols.forEach((assig, j) => {
+  let f = 0;
+  for (let s = 0; s < totes.length && f < files.length; s++) {
+    const franja = totes[s];
+    if (franja === HORARI_FRANJA_PATI) {
+      if (_horariFilaEsPati(files[f])) f++;       // l'horari en porta: es descarta
+      continue;                                    // el pati no s'omple mai
+    }
+    files[f].forEach((assig, j) => {
       if (j >= dies.length) return;
-      if (assig) nou[dies[j] + '_' + franges[i]] = assig;
+      /* ⚠ Això admetia qualsevol text i de qualsevol llargada: enganxant una
+         taula que no era un horari, les caselles s'omplien amb paràgrafs
+         sencers i la graella quedava impracticable (auditoria 6/9/2026). Un
+         nom de matèria no passa de 40 caràcters; el que passi es talla, i així
+         la mestra veu de seguida que allò no era un horari. */
+      if (assig) nou[dies[j] + '_' + franja] = String(assig).slice(0, 40);
     });
-  });
+    f++;
+  }
   return nou;
 }
 
@@ -313,19 +342,80 @@ function aplicarImportHorari() {
 async function aplicarHorariAlPlanning() {
   const claus = Object.keys(_horari);
   if (!claus.length) { showToast('Primer omple l\'horari', 'error'); return; }
-  if (!confirm('Aplicar l\'horari a totes les setmanes del curs?\n\nS\'omplirà la matèria a cada franja. No s\'esborrarà res del que ja hagis escrit (comentaris, alertes…).')) return;
+  /* Que digui SEMPRE de quin curs parla. Aplicar-lo al curs que no toca omple
+     34 setmanes on ningú no mirarà i deixa buides les que sí. */
+  const _curs = _horariNomDelCurs();
+  if (!confirm('Aplicar l\'horari a totes les setmanes del curs ' + _curs + '?\n\n' +
+               'S\'omplirà la matèria a cada franja, del 8 de setembre al 18 de juny. ' +
+               'No s\'esborrarà res del que ja hagis escrit (comentaris, alertes…).')) return;
   if (!config.scriptUrl) { showToast('Cal estar connectat', 'error'); return; }
 
   showToast('Aplicant horari a tot el curs…', 'success');
   const setmanes = _horariSetmanesDelCurs();
+  /* ⚠ OMPLIA TAMBE LES SETMANES DE VACANCES.
+
+     Trobat a l auditoria del 6/9/2026: «Aplicar al planning» posava
+     l horari a les 41 setmanes del curs, Nadal i Setmana Santa incloses. El
+     planning d aquells dies quedava ple d assignatures que ningu no fara, i
+     la mestra les havia d anar esborrant una per una.
+
+     El calendari de l escola ja el sap l app: aqui es diu al servidor quins
+     dies ha de saltar-se. */
+  const fora = _horariDiesDeVacances(setmanes);
 
   try {
     // Una sola crida: el backend ho aplica a totes les setmanes de cop
-    const r = await appsScriptPost({ action: 'aplicarHorariPlanning', horari: _horari, weekIds: setmanes });
+    const r = await appsScriptPost({ action: 'aplicarHorariPlanning', horari: _horari, weekIds: setmanes, fora: fora });
     // Crea/registra les matèries de l'horari
     await _horariCreaAssignatures();
     if (r && r.ok) {
-      showToast(`Horari aplicat: ${r.tocades} caselles omplertes a tot el curs ✓`, 'success');
+      /* «0 saltades» pot voler dir dues coses molt diferents: que no hi ha cap
+         festa en aquestes setmanes, o que l'app no sap quan són les festes
+         d'aquest curs. Si no ho sap, s'ha de dir (segona auditoria, 8/9/2026):
+         si no, la mestra es troba Nadal ple d'assignatures i no entén per què. */
+      const _sap = _horariSapLesFestes(_horariAnyDelCurs(new Date()));
+      /* ⚠ «0 CASELLES OMPLERTES ✓» ES LLEGIA COM SI HAGUÉS ANAT BÉ.
+
+         Segona auditoria (8/9/2026): un horari on només hi ha el pati donava
+         aquest missatge en verd, amb la ✓ i tot. El servidor salta la franja
+         del pati a posta —al planning no hi va—, però aquí no es distingia 0
+         de N. La mestra creia que ja tenia l'horari aplicat i el planning
+         seguia buit. */
+      if (!r.tocades) {
+        showToast('No he omplert cap casella. Al planning només hi van les matèries: ' +
+                  'la franja del pati no s\'hi posa. Escriu les assignatures a l\'horari ' +
+                  'i torna-ho a provar.', 'error');
+        return;
+      }
+      showToast('Horari aplicat al curs ' + _curs + ': ' + r.tocades + ' caselles omplertes ✓' +
+        (r.saltades ? ' (' + r.saltades + ' saltades: festius i vacances)'
+                    : (_sap ? '' : ' — compte: encara no tinc el calendari de festes d\'aquest curs, ' +
+                                   'o sigui que també he omplert Nadal i Setmana Santa')), 'success');
+
+      /* ⚠ LES SETMANES QUE JA S'HAVIEN OBERT ES VEIEN BUIDES.
+
+         El planning es queda al navegador setmana per setmana, i en canviar
+         de setmana només es demana al full si el navegador no en té res
+         (`hasLocal`). Just després d'aplicar l'horari, les setmanes que la
+         mestra ja havia visitat en tenien —buides— i per tant no es tornaven
+         a demanar mai: 0 assignatures pintades de 34, i ella pensant que
+         l'horari no s'havia aplicat (auditoria 6/9/2026).
+
+         Es treu la còpia local de les setmanes que s'acaben d'omplir, i així
+         la propera vegada que hi passi es demanen fresques. El que la mestra
+         hagi escrit (comentaris, notes del dia) no es toca: això ja és al
+         full, que és d'on es tornaran a llegir. */
+      try {
+        const _sufixos = new Set(setmanes.map(w => 'plan_' + w + '_'));
+        const _fora = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k || k.indexOf('plan_') !== 0) continue;
+          for (const p of _sufixos) { if (k.indexOf(p) === 0) { _fora.push(k); break; } }
+        }
+        _fora.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+      } catch (e) {}
+
       // Refresca la setmana visible del planning des del núvol
       if (typeof getPlanWeekId === 'function' && typeof loadPlanningWeekFromSheets === 'function') {
         try {
@@ -338,15 +428,44 @@ async function aplicarHorariAlPlanning() {
       showToast('No s\'ha pogut aplicar: ' + ((r && r.error) || 'error'), 'error');
     }
   } catch(e) {
-    showToast('Error aplicant l\'horari: ' + e.message, 'error');
+    showToast('Error aplicant l\'horari: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
   }
 }
 
 // Retorna els IDs de setmana de tot el curs (format YYYY_S##)
+/* ⚠ EL CURS NO POT ESTAR ESCRIT A MÀ.
+
+   Aquí hi deia «8 setembre 2026 → 18 juny 2027» amb els anys clavats. El
+   14/9/2027 l'app deia «410 caselles omplertes ✓» i les escrivia totes al
+   curs 2026-27: el planning de la mestra quedava buit i ella es pensava que
+   ja el tenia fet (auditoria 6/9/2026).
+
+   Ara el curs es dedueix de la data d'avui: de setembre a agost, el curs és
+   el que comença aquell setembre; de gener a agost, el que va començar el
+   setembre passat. Els dies (8 de setembre i 18 de juny) es queden com
+   estaven, que són els del calendari de l'escola. */
+/* L'any en què comença el curs que toca ARA.
+
+   ⚠ Abans el tall era l'1 de setembre. Però l'horari te'l passa la direcció
+   a finals d'agost, i és llavors quan la mestra el posa: el 28 d'agost
+   `getMonth()` val 7, es prenia per «curs passat» i les 34 setmanes anaven a
+   parar al curs que ja s'havia acabat. Ella veia «410 caselles omplertes ✓»
+   i el planning buit (auditoria 6/9/2026). Ara el tall és l'1 d'agost: des
+   d'agost, el curs que ve és el que compta. */
+function _horariAnyDelCurs(avui) {
+  const d = avui || new Date();
+  return (d.getMonth() >= 7) ? d.getFullYear() : d.getFullYear() - 1;
+}
+function _horariNomDelCurs(avui) {
+  const a = _horariAnyDelCurs(avui);
+  return a + '-' + String(a + 1).slice(2);
+}
+
 function _horariSetmanesDelCurs() {
-  // Curs: 8 setembre 2026 → 18 juny 2027 (mateix rang que el planning)
-  const inici = new Date(2026, 8, 8);   // 8 set 2026
-  const fi    = new Date(2027, 5, 18);  // 18 juny 2027
+  const avui = new Date();
+  const anyInici = _horariAnyDelCurs(avui);
+  const inici = new Date(anyInici, 8, 8);        // 8 de setembre
+  const fi    = new Date(anyInici + 1, 5, 18);   // 18 de juny
   const setmanes = [];
   const d = new Date(inici);
   while (d <= fi) {
@@ -354,6 +473,63 @@ function _horariSetmanesDelCurs() {
     d.setDate(d.getDate() + 7);
   }
   return setmanes;
+}
+
+/* Els dies de vacances o festius de tot el curs, com a «2026_S52|dl». */
+/* Sap l'app quins dies són festa aquest curs?
+
+   ⚠ Segona auditoria (8/9/2026): l'arranjament del 6/9 —no omplir Nadal ni
+   Setmana Santa— depèn del calendari escolar que hi ha al navegador, que està
+   escrit a mà i només cobreix el curs 2026-27. El curs següent, sense saber
+   res, es tornaria a omplir Nadal exactament com abans de l'arranjament… i el
+   missatge diria «0 saltades», que és el mateix que diu quan de debò no n'hi
+   ha cap. «Cap» i «no ho sé» no es poden dir igual. */
+function _horariSapLesFestes(anyInici) {
+  if (typeof allEventsForDate !== 'function') return false;
+  try {
+    const evs = [].concat(cal2LoadEvents(anyInici) || [], cal2LoadEvents(anyInici + 1) || []);
+    const NO_LECTIU = (typeof PLAN_NO_LECTIU !== 'undefined') ? PLAN_NO_LECTIU : [];
+    return evs.some(e => NO_LECTIU.indexOf(e.catId) !== -1);
+  } catch (e) { return false; }
+}
+
+function _horariDiesDeVacances(setmanes) {
+  const fora = [];
+  if (typeof esDiaNoLectiu !== 'function') return fora;
+  const DIES = ['dl','dm','dc','dj','dv'];
+  const avui = new Date();
+  const anyInici = _horariAnyDelCurs(avui);
+  const d = new Date(anyInici, 8, 8);
+  // Comenca al dilluns de la setmana del 8 de setembre
+  d.setDate(d.getDate() - ((d.getDay() || 7) - 1));
+  const fi = new Date(anyInici + 1, 5, 25);
+  const iso = x => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  /* ⚠ PROMETIA «DEL 8 DE SETEMBRE» I OMPLIA TAMBÉ EL DILLUNS 7.
+
+     Segona auditoria (8/9/2026). Es treballa per setmanes senceres, i la
+     primera i l'última del curs no ho són: el 8 de setembre de 2026 és
+     dimarts, o sigui que el dilluns 7 —quan encara no hi ha classe— també
+     s'omplia d'assignatures. El mateix a l'altra punta, després del 18 de
+     juny. Ara els dies de fora del curs se salten pel mateix camí que els
+     festius, que ja existeix i ja el compta. */
+  /* Els dos dies del calendari de l'escola, els mateixos que fa servir
+     `_horariSetmanesDelCurs`: 8 de setembre i 18 de juny. (El `fi` del bucle
+     va fins al 25 només per no deixar-se l'última setmana a mitges.) */
+  const iniciISO = iso(new Date(anyInici, 8, 8));
+  const fiISO    = iso(new Date(anyInici + 1, 5, 18));
+  while (d <= fi) {
+    const wid = _weekIdDeData(d);
+    if (setmanes.indexOf(wid) !== -1) {
+      for (let i = 0; i < DIES.length; i++) {
+        const dia = new Date(d); dia.setDate(d.getDate() + i);
+        const ds = iso(dia);
+        if (ds < iniciISO || ds > fiISO) { fora.push(wid + '|' + DIES[i]); continue; }
+        try { if (esDiaNoLectiu(ds)) fora.push(wid + '|' + DIES[i]); } catch (e) {}
+      }
+    }
+    d.setDate(d.getDate() + 7);
+  }
+  return fora;
 }
 
 // Calcula l'ID de setmana (YYYY_S##) d'una data, igual que getPlanWeekId

@@ -1,9 +1,25 @@
 {
-  "versio": "v215",
-  "data": "2026-09-06",
+  "versio": "v219",
+  "data": "2026-09-09",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Els avisos de quan alguna cosa no va ja no et demanen que obris menús de Google ni que toquis res del servidor: ara diuen que no has de fer res i, si la cosa no marxa sola, a qui ho has de dir.",
-    "A Convocar reunions, quan hi ha hores que l app no sap a quin dia van, ja no et diu que el servidor s ha de tornar a publicar: s arregla sol."
+    "Els Assoliments tornen a funcionar: clicar una casella de la graella no feia absolutament res. Si darrerament hi vas provar i vas pensar que anava malament, no eres tu.",
+    "El que apuntes va al nen que toca, sempre. El full de l'escola es reordena sol cada quart d'hora, i fins ara això podia fer que una nota d'actitud, l'esborrat d'una observació o el plànol de l'aula acabessin en un altre alumne.",
+    "Corregir una observació que has posat al nen equivocat: canvia l'alumne (o l'assignatura, o el trimestre) al desplegable i es MOU de debò. Abans aquells desplegables es veien actius i no servien de res.",
+    "Si tanques una observació a mig escriure —amb la ×, amb Escape o amb el gest d'enrere del mòbil— ara t'ho pregunta abans de llençar-la.",
+    "El puntet de baix ja no diu «Sincronitzat» quan hi ha coses sense desar. I el que va quedar pendent ahir puja sol en obrir l'app, sense que hagis de fer res.",
+    "Passar la llista amb la roda del ratolí ja no canvia la nota que hi ha sota el cursor. Abans la canviava i la desava sense que ho veiessis.",
+    "Les colònies i la setmana cultural surten TOTS els dies al planning, no només el primer. També a la portada mentre s'estan fent.",
+    "El botó «Aspectes generals grup» porta al document que el servidor llegeix de debò. Fins ara obria el full de grups, i el que hi escrivies no servia de res.",
+    "Les assignatures del PI i de l'AM ja no es poden clicar: hi són per mirar-les. Un clic sense voler en treia una del document que veu tot el claustre.",
+    "Desar la fitxa d'un alumne ja no li esborra de la pantalla els contactes de la família, els drets d'imatge ni el trastorn.",
+    "Si dues mestres apunteu una observació al mateix nen alhora, hi són totes dues. Abans la segona esborrava la primera sense dir res.",
+    "Quan una cosa NO s'ha pogut desar, l'app ho desfà i t'ho diu, amb el text a punt per tornar-ho a provar. Val per a les observacions, les creus del registre i les notes.",
+    "Convocar reunions: si el servidor falla ho diu, en comptes de fer veure que no tens cap convocatòria. I tots els botons avisen quan una cosa no s'ha pogut fer.",
+    "Les entrevistes que ja s'han fet continuen a la llista, apagades, i els números quadren.",
+    "El botó ↺ Regenerar dels grups heterogenis ara dona un repartiment diferent cada vegada.",
+    "Les files de taules noves surten separades i tots els alumnes es poden tocar. Abans sortien unes damunt de les altres.",
+    "Amb la tauleta i el mòbil: les caselles del registre, els botons de les targetes d'alumne i els del planning i el calendari s'han fet prou grossos per al dit.",
+    "El text gris de tota l'app es llegeix millor, i el dels dies festius del calendari, encara més."
   ]
 }

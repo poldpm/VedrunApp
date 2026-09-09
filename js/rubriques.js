@@ -112,19 +112,68 @@
     return out;
   }
 
-  function detectaSeparador(linia) {
-    if (linia.indexOf('\t') !== -1) return '\t';
-    var pc = (linia.match(/;/g) || []).length;
-    var co = (linia.match(/,/g) || []).length;
-    if (pc >= 3 && pc >= co) return ';';
-    if (co >= 3) return ',';
-    return '\t';
+  /* ⚠ ELS OBJECTIUS QUE ES PARTIEN PER LES COMES.
+
+     Trobat a l'auditoria del 6/9/2026. Això només mirava la PRIMERA línia:
+     si hi havia tres comes, partia per comes. Un objectiu escrit en prosa
+     («Llegeix, entén i explica un text curt, amb ajuda») en porta tres i
+     prou, i llavors cada tros de frase es convertia en un criteri diferent.
+     La mestra veia la seva rúbrica feta miques i no sabia per què.
+
+     Ara es mira TOT el document: un separador de debò parteix totes les
+     línies en el mateix nombre de columnes. Si no ho fa, no és el
+     separador —és puntuació— i cada línia val per un objectiu sencer. */
+  function detectaSeparador(linies) {
+    var totes = Array.isArray(linies) ? linies : [linies];
+    if (totes.some(function (l) { return l.indexOf('\t') !== -1; })) return '\t';
+    var millor = null;
+    [';', ','].forEach(function (sep) {
+      if (millor) return;
+      var comptes = totes.map(function (l) { return parteix(l, sep).length; });
+      var n = comptes[0];
+      /* Una rúbrica té l'objectiu i quatre criteris: cinc columnes. Amb menys
+         de quatre no és una taula, són comes de la frase. */
+      if (n < 4) return;
+      // Ha de partir TOTES les línies igual (o gairebé: alguna pot dur menys
+      // criteris omplerts, però no pot variar amunt i avall).
+      var iguals = comptes.filter(function (c) { return c === n; }).length;
+      if (iguals >= Math.max(2, Math.ceil(totes.length * 0.8))) millor = sep;
+    });
+    /* ⚠ DEIA «Detectades columnes separades per tabulador» SENSE CAP TABULADOR.
+
+       Segona auditoria (8/9/2026): quan no es trobava cap separador, això
+       tornava el tabulador «per defecte» i l'avís de després deia que
+       n'havia detectat, encara que al document no n'hi hagués cap. La mestra
+       llegia l'explicació d'una cosa que no havia passat. Ara es diu que no
+       se n'ha trobat cap; el resultat és el mateix (cada línia, un objectiu
+       sencer), però ara ho diu bé. */
+    return millor;
   }
 
+  /* ⚠ LA PRIMERA FILA QUE DESAPAREIXIA.
+
+     Trobat a l'auditoria del 6/9/2026. Aquí n'hi havia prou que a la primera
+     fila hi sortís la paraula «objectiu» o «criteri» —en qualsevol de les
+     cinc caselles— perquè es donés per capçalera i es llencés sense dir res.
+     Un objectiu de debò que comenci «Reconeix l'objectiu del text…» es
+     perdia: la mestra importava vint objectius, n'apareixien dinou, i no hi
+     havia manera de saber què havia passat.
+
+     Ara la primera casella ha de ser una ETIQUETA (una paraula com
+     «Objectiu» o «Criteri», no una frase) i, a més, almenys dues de les
+     altres han de ser noms de nivell. I si es llença, es diu. */
+  var ETIQUETES_1A = ['objectiu', 'objectius', 'criteri', 'criteris', 'nom',
+                      'item', 'ítem', 'indicador', 'indicadors', 'descriptor'];
+  function semblaNivell(c) {
+    var t = String(c || '').toLowerCase().trim();
+    return /^(no assolit|assolit( amb ajuda)?|(molt )?ben assolit|excel|notable|b[eé]|suficient|insuficient|na|ai|as|ba|mba|nivell ?\d)/.test(t);
+  }
   function semblaCapcalera(cols) {
-    var t = cols.join(' ').toLowerCase();
-    return /objectiu|criteri|molt ben assolit|no assolit|assolit amb ajuda/.test(t) &&
-           !/\.\s*$/.test(cols[0] || '');
+    var primera = String(cols[0] || '').toLowerCase().trim().replace(/[:\s]+$/, '');
+    if (ETIQUETES_1A.indexOf(primera) === -1) return false;   // una frase no és una etiqueta
+    var nivells = 0;
+    for (var k = 1; k <= 4; k++) if (semblaNivell(cols[k])) nivells++;
+    return nivells >= 2;
   }
 
   // Text -> [{nom, nivells:[4]}]. Torna també els avisos per ensenyar-los.
@@ -132,14 +181,23 @@
     var linies = String(text || '').split(/\r?\n/).filter(function (l) { return l.trim() !== ''; });
     if (!linies.length) return { objectius: [], avisos: ['El document és buit.'] };
 
-    var sep = detectaSeparador(linies[0]);
-    var files = linies.map(function (l) { return parteix(l, sep); });
-    if (files.length && semblaCapcalera(files[0])) files.shift();
-
-    var res = [], avisos = [], senseCriteris = 0;
+    var sep = detectaSeparador(linies);
+    var files = linies.map(function (l) { return parteix(l, sep || '	'); });
+    var res = [], avisos = [], senseCriteris = 0, senseNom = 0;
+    if (files.length && semblaCapcalera(files[0])) {
+      avisos.push('La primera fila («' + String(files[0][0] || '').trim() +
+                  '…») s\'ha pres per la capçalera de la taula i no s\'importa. ' +
+                  'Si era un objectiu de debò, treu-li aquesta fila de sobre i torna-ho a enganxar.');
+      files.shift();
+    }
     files.forEach(function (f, i) {
       var nom = (f[0] || '').trim();
-      if (!nom) return;
+      /* Una fila amb el primer camp buit no és un objectiu: se salta. Però
+         s ha de DIR, com ja es diu de la capçalera i de les que no porten
+         criteris. Abans desapareixia en silenci i la mestra es trobava amb
+         menys objectius dels que havia enganxat, sense saber-ne el motiu
+         (segona auditoria, 8/9/2026). */
+      if (!nom) { if (f.some(function (x) { return String(x || '').trim(); })) senseNom++; return; }
       var nivells = [1, 2, 3, 4].map(function (k) { return (f[k] || '').trim(); });
       if (!nivells.some(function (x) { return x; })) senseCriteris++;
       res.push({ id: 'o' + Date.now() + '_' + i, nom: nom, nivells: nivells });
@@ -148,7 +206,17 @@
     if (!res.length) {
       avisos.push('No s\'ha trobat cap objectiu. Comprova que hi hagi una fila per objectiu.');
     } else {
-      if (sep === '\t') avisos.push('Detectades columnes separades per tabulador (taula del Word o full de càlcul).');
+      if (senseNom) {
+        avisos.push(senseNom === 1
+          ? 'Hi havia 1 fila amb text però sense nom d\'objectiu a la primera columna: no s\'ha importat.'
+          : 'Hi havia ' + senseNom + ' files amb text però sense nom d\'objectiu a la primera columna: no s\'han importat.');
+      }
+      if (!sep) {
+        avisos.push('No hi he trobat cap separador de columnes: he pres cada línia per un ' +
+                    'objectiu sencer, sense criteris. Si els criteris hi eren, mira que ' +
+                    'estiguin separats per tabuladors, per punt i coma o per comes.');
+      }
+      else if (sep === '\t') avisos.push('Detectades columnes separades per tabulador (taula del Word o full de càlcul).');
       else avisos.push('Detectades columnes separades per "' + sep + '".');
       if (senseCriteris) {
         avisos.push(senseCriteris + ' objectiu' + (senseCriteris > 1 ? 's' : '') +
@@ -482,7 +550,7 @@
     var res = interpreta(txt);
     var html = '<div class="rub-imp-previ">';
     html += '<div class="rub-imp-previ-cap">' +
-            (res.objectius.length ? ('S\'importaran <strong>' + res.objectius.length + ' objectius</strong>') : 'Cap objectiu detectat') +
+            (res.objectius.length ? ('S\'importar' + (res.objectius.length === 1 ? 'à' : 'an') + ' <strong>' + res.objectius.length + ' objectiu' + (res.objectius.length === 1 ? '' : 's') + '</strong>') : 'Cap objectiu detectat') +
             '</div>';
     res.avisos.forEach(function (a) { html += '<div class="rub-imp-avis">' + esc(a) + '</div>'; });
     res.objectius.slice(0, 3).forEach(function (o) {
@@ -631,6 +699,8 @@
   function desaEnllacos(obj) {
     try { localStorage.setItem('enllacos_propis', JSON.stringify(obj)); } catch (e) {}
     pintaEnllacos();
+    // I al full: abans nomes vivien en aquest navegador (auditoria 6/9/2026)
+    if (typeof _ajustosDesa === 'function') _ajustosDesa();
   }
   function pintaEnllacos() {
     var e = enllacos();

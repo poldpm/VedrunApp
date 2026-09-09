@@ -49,7 +49,7 @@ function _entrDataText(d, h) {
   const p = String(d).split('-');
   if (p.length !== 3) return d;
   const MESOS = ['gener','febrer','març','abril','maig','juny','juliol','agost','setembre','octubre','novembre','desembre'];
-  return (+p[2]) + ' de ' + (MESOS[+p[1] - 1] || '') + (h ? ' a les ' + h : '');
+  return (+p[2]) + ' ' + (typeof dePreposicio === 'function' ? dePreposicio(MESOS[+p[1] - 1] || '') : 'de ' + (MESOS[+p[1] - 1] || '')) + (h ? ' a les ' + h : '');
 }
 
 /* ---------- la secció de la fitxa ---------- */
@@ -73,8 +73,8 @@ function pintaEntrevistes(studentId) {
             <div class="entr-item-cap">
               <span class="entr-data">${escapeHtml(_entrDataText(e.data, e.hora))}</span>
               <span class="entr-accions">
-                <button class="entr-mini" onclick="obreEntrevista(${studentId},'${e.id}')" title="Editar">Editar</button>
-                <button class="entr-mini entr-mini-x" onclick="esborraEntrevista(${studentId},'${e.id}')" title="Esborrar">×</button>
+                <button class="entr-mini" onclick="obreEntrevista(${studentId},'${_idJs(e.id)}')" title="Editar">Editar</button>
+                <button class="entr-mini entr-mini-x" onclick="esborraEntrevista(${studentId},'${_idJs(e.id)}')" title="Esborrar">×</button>
               </span>
             </div>
             ${e.nota ? `<div class="entr-nota">${escapeHtml(e.nota)}</div>` : ''}

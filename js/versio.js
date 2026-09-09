@@ -21,7 +21,7 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v215';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v219';   // ← ha de coincidir amb el CACHE del sw.js
 
   /* La versió MÉS VELLA del Code.gs amb què aquesta app encara funciona.
      ------------------------------------------------------------------
@@ -32,7 +32,13 @@
      ⚠ Aquesta línia NOMÉS es puja quan l'app deixa de funcionar amb el
      servidor d'abans: una acció nova al Code.gs, un camp nou que el
      navegador espera... Si el canvi és de pantalla, NO es toca. */
-  var BACKEND_MINIM = 'v213';
+  /* v219: aquesta sí que s'ha de pujar. Amb un servidor anterior l'app no
+     falla —segueix responent— però es MENJA DADES en silenci, que és pitjor:
+     esborrar una observació esborra la d'un altre nen, l'actitud va a la fila
+     equivocada, i dues mestres al mateix nen s'esborren la feina l'una a
+     l'altra. Tot això és arreglat al Code.gs de la v219, no al navegador.
+     Val més la franja groga que aquells errors. */
+  var BACKEND_MINIM = 'v219';
 
   var K_AJORNAT  = 'versio_ajornada';
   /* ⚠ EL BUCLE DEL 4/9/2026.

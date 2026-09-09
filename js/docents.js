@@ -213,7 +213,7 @@ function _docentsRenderHub() {
   const cont = document.getElementById('docentsHubEines');
   if (!cont) return;
   cont.innerHTML = DOCENTS_EINES.map(e =>
-    `<button type="button" class="doc-eina" onclick="docentsVista('${e.clau}')">
+    `<button type="button" class="doc-eina" onclick="docentsVista('${_idJs(e.clau)}')">
        <svg class="doc-eina-icona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">${e.icona}</svg>
        <span class="doc-eina-titol">${escapeHtml(e.titol)}</span>
        <span class="doc-eina-desc">${escapeHtml(e.desc)}</span>
@@ -297,7 +297,7 @@ function _docentCard(d) {
   // Als tutors, un botó per anar directament als seus alumnes: és la feina
   // que direcció hi ve a fer (omplir el que falta d'un grup sense tutor a l'app).
   const accio = d.grup
-    ? `<button type="button" class="doc-veure" onclick="docentsVeureGrup('${d.grup}')" title="Veure els alumnes de ${escapeHtml(d.grup)}">
+    ? `<button type="button" class="doc-veure" onclick="docentsVeureGrup('${_idJs(d.grup)}')" title="Veure els alumnes de ${escapeHtml(d.grup)}">
          Veure els alumnes
        </button>`
     : '';
@@ -333,7 +333,7 @@ function _docentsPintaFiltres() {
     { clau: 'siei',          text: 'SIEI' },
   ];
   cont.innerHTML = opcions.map(o =>
-    `<button type="button" class="doc-filtre${_docentsFiltre === o.clau ? ' active' : ''}" aria-pressed="${_docentsFiltre === o.clau}" onclick="docentsFiltra('${o.clau}')">${o.text}</button>`
+    `<button type="button" class="doc-filtre${_docentsFiltre === o.clau ? ' active' : ''}" aria-pressed="${_docentsFiltre === o.clau}" onclick="docentsFiltra('${_idJs(o.clau)}')">${o.text}</button>`
   ).join('');
 }
 

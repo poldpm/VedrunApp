@@ -32,10 +32,88 @@ function debounce(key, fn, ms = 1200) {
 }
 
 /* --- State --- */
+/* ============================================================
+   AQUEST NAVEGADOR, ÉS EL D'AQUESTA APP?
+   ------------------------------------------------------------
+   Trobat a l'auditoria del 6/9/2026, i és un problema que només es veurà
+   quan hi hagi diverses mestres: totes les apps viuran al mateix domini
+   (`poldpm.github.io`), i per al navegador el mateix domini vol dir el
+   MATEIX calaix de dades. Les claus no porten cap prefix (`tasques`,
+   `postits`, `horari`, `vedruna_cfg`…), o sigui que obrir l'app d'una altra
+   mestra al mateix ordinador li deixava les seves tasques a sobre —i al
+   primer canvi, l'app les pujava al full d'aquesta.
+
+   No es canvien els noms de totes les claus: això deixaria sense res tothom
+   qui ja té dades. El que es fa és més senzill i més segur: es marca de qui
+   és el calaix i, si es troba que és d'una altra app, es buida el que és
+   d'aquesta app abans de llegir-ne res. Les dades de debò són al full: el
+   que hi ha aquí és una còpia per anar de pressa.
+   ============================================================ */
+(function _calaixDAquestaApp() {
+  try {
+    /* ⚠ window.APP_TOKEN, no APP_TOKEN: més avall es torna a declarar amb
+       const, i el nom queda a la zona morta fins llavors —un typeof aquí hi
+       peta i el guard no s executava mai. */
+    const _qui = String((typeof window !== 'undefined' && window.APP_TOKEN) || '') + '|' +
+                 String((typeof window !== 'undefined' && window.APP_ROL) || 'tutor');
+    // Una empremta curta: no cal desar el token en clar enlloc.
+    let h = 0;
+    for (let i = 0; i < _qui.length; i++) { h = ((h * 31) + _qui.charCodeAt(i)) | 0; }
+    const empremta = String(h);
+    const abans = localStorage.getItem('vedruna_app');
+    if (abans === empremta) return;                 // som a casa
+    const PREFIXOS = ['vedruna_cfg', 'vedruna_perfil', 'vedruna_cache_main', 'vedruna_pendents',
+      'vedruna_autosetup_fet', 'tasques', 'tasques_malmes', 'postits', 'horari', 'grup_treball',
+      'direccio_grup', 'enllacos_propis', 'coment_estil', 'actitud_aspectes', 'notifEnabled',
+      'trimAlertSup', 'main_sheet_id', 'grups_sheet_id_local', 'desdob_sheet_id_local',
+      'cal_escola_seed', 'plan_', 'cal2_', 'assim_', 'actitud_', 'notescache_', 'tutoriacache_',
+      'gcal_', 'seients_', 'obs_'];
+    const esNostra = k => k && PREFIXOS.some(p => k === p || k.indexOf(p) === 0);
+
+    if (abans !== null) {
+      /* Hi havia una ALTRA app en aquest navegador. El seu no s'esborra: es
+         desa a part amb el seu nom, i el nostre —si en tenim de guardat—
+         es torna a posar. Així dues mestres poden compartir ordinador sense
+         que cap de les dues hagi de tornar a configurar res, i sense que
+         l'una vegi les dades de l'altra. */
+      const seu = {};
+      const fora = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (esNostra(k)) { seu[k] = localStorage.getItem(k); fora.push(k); }
+      }
+      try { localStorage.setItem('vedruna_calaix_' + abans, JSON.stringify(seu)); } catch (e) {}
+      fora.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+    }
+
+    /* I si aquesta app ja havia estat en aquest navegador, torna-li el seu. */
+    const meu = localStorage.getItem('vedruna_calaix_' + empremta);
+    if (meu) {
+      try {
+        const d = JSON.parse(meu) || {};
+        Object.keys(d).forEach(k => { if (d[k] !== null) localStorage.setItem(k, d[k]); });
+        localStorage.removeItem('vedruna_calaix_' + empremta);
+      } catch (e) {}
+    }
+    localStorage.setItem('vedruna_app', empremta);
+  } catch (e) { /* si el navegador no en deixa, no passa res: es llegirà del full */ }
+})();
+
 let config        = JSON.parse(localStorage.getItem('vedruna_cfg') || '{}');
+/* Els documents que llegeix el servidor, tal com els va dir l ultim cop. Aixi
+   els botons de «Aspectes generals grup» i «Llistat d alumnes» ja porten al
+   lloc bo abans que arribi el bootstrap. */
+try {
+  const _dg = localStorage.getItem('vedruna_docs_ids');
+  if (_dg && !config.docsIds) config.docsIds = JSON.parse(_dg);
+} catch (e) {}
 let students      = [];
 let observacions  = {};   // { studentId: { '1_matematiques': text, ... } }
 let personal      = {};   // { studentId: { tutor1, correu1, tutor2, correu2, telefons, obs } }
+/* Les caselles de text del registre que encara no han sortit cap al full.
+   Es buiden totes de cop quan es canvia de grup, de pantalla o es tanca. */
+const _regPendents = new Set();
+function _regBuidaPendents() { [..._regPendents].forEach(f => { try { f(); } catch (e) {} }); _regPendents.clear(); }
 let registreItems = [];
 let registreData  = {};
 let currentObsStudentId      = null;
@@ -59,11 +137,27 @@ const PAGINES_NOMES_TUTOR = ['alumnes', 'seients'];
 const PAGINES_NOMES_DIRECCIO = ['docents'];
 
 function showPage(pageId, _fromPop) {
+  if (typeof _regBuidaPendents === 'function') _regBuidaPendents();
+  /* ⚠ UN APARTAT QUE EL ROL NO POT VEURE DEIXAVA L'ADREÇA MENTINT.
+
+     Segona auditoria (8/9/2026). Si una tutora obria #docents —un apartat que
+     només és de direcció—, aquí es redirigia a l'Inici, però l'adreça es
+     quedava dient #docents i l'historial hi apuntava: a partir d'aquell
+     moment el gest «enrere» s'encallava anant i venint del mateix lloc.
+
+     Quan la redirecció ve d'un `popstate` o d'un canvi de # fet a mà,
+     `_fromPop` és cert i el bloc de sota no toca l'historial. Aquí es marca
+     que S'HA REDIRIGIT, i llavors l'adreça sí que s'ha d'arreglar: ha de dir
+     on som de debò. */
+  const _demanat = pageId;
   if (typeof esEspecialista === 'function' && esEspecialista() && PAGINES_NOMES_TUTOR.indexOf(pageId) !== -1) {
     pageId = 'home';
   }
   if (!_rolDireccio() && PAGINES_NOMES_DIRECCIO.indexOf(pageId) !== -1) {
     pageId = 'home';
+  }
+  if (_fromPop && pageId !== _demanat) {
+    try { history.replaceState({ page: pageId }, '', '#' + pageId); } catch (e) {}
   }
   document.querySelectorAll('.page-content').forEach(p => p.classList.add('page-hidden'));
   document.getElementById('page-' + pageId).classList.remove('page-hidden');
@@ -82,11 +176,13 @@ function showPage(pageId, _fromPop) {
   }
   // títol topbar fix: sempre "2n de Primària C"
   // nav-item actiu
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => { el.classList.remove('active'); el.removeAttribute('aria-current'); });
   const match = [...document.querySelectorAll('.nav-item')].find(el =>
     el.getAttribute('onclick') && el.getAttribute('onclick').includes("'" + pageId + "'")
   );
-  if (match) match.classList.add('active');
+  /*  diu on som a qui fa servir un lector de pantalla: la
+     classe  només és un color (auditoria 6/9/2026). */
+  if (match) { match.classList.add('active'); match.setAttribute('aria-current', 'page'); }
   closeSidebar();
   // Alumnes, Registres i Observacions són del grup SENCER. Si venim de les
   // notes d'una assignatura desdoblada, `students` només té mitja classe:
@@ -116,7 +212,18 @@ function showFitxa(studentId, _fromPop) {
   const s = students.find(x => x.id === studentId);
   if (!s) return;
   document.getElementById('fitxaAvatar').textContent = getInitials(s.nom);
-  document.getElementById('fitxaNom').textContent    = s.nom;
+  document.getElementById('fitxaNom').textContent    = nomAlumne(s);
+  /* ⚠ De quin grup es aquest nen. Una especialista entra a divuit grups i la
+     fitxa no ho deia enlloc: obria la fitxa de la Julia i no sabia si era la
+     de 3r A o la de 5e B (auditoria 6/9/2026). Als tutors, que nomes en tenen
+     un, no els hi surt: ja ho saben. */
+  const _fSub = document.getElementById('fitxaGrupSub');
+  if (_fSub) {
+    const _g = (typeof senseTutoria === 'function' && senseTutoria() &&
+                typeof _grupDeTreball === 'function') ? _grupDeTreball() : '';
+    _fSub.textContent = _g || '';
+    _fSub.style.display = _g ? '' : 'none';
+  }
   // títol topbar fix — no canviar
   document.querySelectorAll('.page-content').forEach(p => p.classList.add('page-hidden'));
   document.getElementById('page-fitxa').classList.remove('page-hidden');
@@ -137,7 +244,16 @@ function _tancaObertsPerEnrere() {
   const oberts = [...document.querySelectorAll('.modal-overlay.open, .panel-overlay.open')];
   if (oberts.length) {
     const ultim = oberts[oberts.length - 1];
-    ultim.classList.remove('open');
+    /* ⚠ EL GEST «ENRERE» LLENÇAVA EL QUE S'ESTAVA ESCRIVINT.
+
+       Trobat a l'auditoria del 6/9/2026: aquí es treia la classe `open` i
+       prou. La finestra desapareixia sense fer la neteja que fa el seu botó
+       de tancar —i, sobretot, sense preguntar res: al mòbil, un gest cap
+       enrere sense voler et podia esborrar una observació a mig escriure.
+       Ara es prem el seu propi botó de tancar, com fa la tecla Escape: la
+       finestra que hagi de preguntar alguna cosa, la pregunta. */
+    if (typeof _finestraTanca === 'function') _finestraTanca(ultim);
+    else { ultim.classList.remove('open'); document.body.style.overflow = ''; }
     return true;
   }
   return false;
@@ -169,13 +285,61 @@ function _onPopState(e) {
   }
 }
 
+/* ⚠ REFRESCAR ET TREIA D'ON ERES.
+
+   Trobat a l'auditoria del 6/9/2026. L'app ja escriu l'apartat a l'adreça
+   (#registres, #planning…) quan hi entres —per això el botó d'enrere va—,
+   però en arrencar l'ignorava i sempre et deixava a l'Inici. O sigui: F5 al
+   mig d'una feina, o desar-se l'adreça d'un apartat a les preferides, o el
+   navegador del mòbil que recarrega sol la pestanya en tornar-hi, i a
+   començar de nou pel menú. Ara torna on eres.
+
+   Només s'accepten apartats que existeixen de debò i que aquest rol pot
+   veure: `showPage` ja fa fora els que no toquen. La fitxa d'un alumne NO
+   es recupera a posta —quan arrenca l'app encara no hi ha la llista
+   d'alumnes, i portaria a una fitxa buida. */
+function _apartatDeLAdreca() {
+  let h = '';
+  try { h = String(location.hash || '').replace('#', '').trim(); } catch (e) { return ''; }
+  if (!h || h === 'home' || h === 'fitxa') return '';
+  if (!/^[a-z0-9-]{1,30}$/.test(h)) return '';
+  try { if (!document.getElementById('page-' + h)) return ''; } catch (e) { return ''; }
+  return h;
+}
+
 // Inicialitza la gestió d'historial (crida-ho un cop a l'arrencada)
 function _initHistoryNav() {
+  const apartat = _apartatDeLAdreca();
   try {
-    // Estat inicial = home
-    history.replaceState({ page: 'home' }, '', '#home');
+    // Estat inicial = l'apartat de l'adreça, o l'Inici
+    history.replaceState({ page: apartat || 'home' }, '', '#' + (apartat || 'home'));
   } catch(e) {}
   window.addEventListener('popstate', _onPopState);
+  /* I si algú escriu l'apartat a la barra d'adreces amb l'app ja oberta
+     (canviar només el # no recarrega res), que hi vagi igualment. Si ja hi
+     som no es toca: `showPage` torna a pintar-ho tot i es perdria el que
+     s'estigués fent. */
+  window.addEventListener('hashchange', () => {
+    const a = _apartatDeLAdreca() || 'home';
+    if (a !== _currentPage) { try { showPage(a, true); } catch (e) {} }
+    /* ⚠ CANVIAR EL # A MÀ TRENCAVA L'ENRERE PER SEMPRE.
+
+       Segona auditoria (8/9/2026). El navegador afegeix una entrada
+       d'historial quan canvia el #, però amb l'estat a `null`; com que aquí
+       es crida `showPage(a, true)` —que a posta no toca l'historial—, aquell
+       `null` s'hi quedava. A partir d'aquell moment, `_onPopState` no sabia
+       de quin apartat venia i l'enrere anava sempre a l'Inici amb l'adreça
+       d'un altre apartat.
+
+       Es marca l'entrada amb l'apartat on som de debò: l'historial torna a
+       tenir sentit i l'enrere torna a funcionar. */
+    try {
+      if (!history.state || history.state.page !== _currentPage) {
+        history.replaceState({ page: _currentPage }, '', '#' + _currentPage);
+      }
+    } catch (e) {}
+  });
+  if (apartat) { try { showPage(apartat, true); } catch (e) {} }
 }
 
 /* ============================================================
@@ -187,6 +351,8 @@ function toggleNavSection(name) {
   if (!items || !toggle) return;
   const collapsed = items.classList.toggle('collapsed');
   toggle.classList.toggle('collapsed', collapsed);
+  // Que els lectors de pantalla sapiguen si esta obert o tancat
+  toggle.setAttribute('aria-expanded', String(!collapsed));
 }
 
 function toggleSidebar() {
@@ -216,6 +382,20 @@ function closePanel() {
 /* ============================================================
    DRAWER DADES PERSONALS
    ============================================================ */
+/* Una foto del que hi ha ara als camps de la fitxa. Es compara amb la de
+   quan es va obrir per saber que ha tocat la mestra de debo. */
+let _fitxaOriginal = null;
+function _fitxaFoto() {
+  const v = id => { const e = document.getElementById(id); return e ? (e.type === 'checkbox' ? e.checked : e.value) : null; };
+  return JSON.stringify({
+    obs: v('pObs'), pi: v('pPICheck'), piA: (typeof _piAssigs !== 'undefined' ? _piAssigs.slice() : []),
+    am: v('pAMCheck'), amA: (typeof _amAssigs !== 'undefined' ? _amAssigs.slice() : []),
+    especific: v('pEspecific'), eapC: v('pEAPCheck'), eap: v('pEAP'),
+    sm: v('pSeatMestre'), sp: v('pSeatPorta'), sf: v('pSeatFinestra'), sx: v('pSeatFixat'),
+    inc: (typeof _seatIncompatibles !== 'undefined' ? _seatIncompatibles.slice() : []),
+  });
+}
+
 async function openPersonalDrawer(studentId) {
   /* ⚠ El rètol de què ha passat s'ha de netejar SEMPRE en obrir. En Pol,
      5/9/2026: «quan obres el full de dades, ja comença amb el missatge
@@ -225,8 +405,16 @@ async function openPersonalDrawer(studentId) {
   _fitxaEstat('');
   currentPersonalStudentId = studentId;
   const s = students.find(x => x.id === studentId);
-  document.getElementById('personalDrawerName').textContent = s ? s.nom : '—';
+  /* `nomAlumne()` i no `s.nom`: és qui hi posa el número quan la classe té dos
+     «Clara Vidal Roca». La targeta i la fitxa ja ho feien; aquests tres llocs
+     no, i es podia obrir la fitxa d'un nen creient que era la de l'altre
+     (segona auditoria, 8/9/2026). */
+  document.getElementById('personalDrawerName').textContent = s ? nomAlumne(s) : '—';
   fillPersonalForm(personal[studentId] || {});
+  /* Com estava la fitxa en obrir-la. Serveix per enviar NOMES el que la
+     mestra canvii: si s envia tot, es reescriu a sobre del que l escola
+     hagi tocat al full compartit mentrestant (auditoria 6/9/2026). */
+  _fitxaOriginal = _fitxaFoto();
   document.getElementById('personalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   if (!personal[studentId] && config.scriptUrl) {
@@ -234,7 +422,7 @@ async function openPersonalDrawer(studentId) {
       const s2 = students.find(x => x.id === studentId);
       const rowId = s2 ? (s2.rowId || studentId) : studentId;
       const r = await appsScriptGet({ action: 'getPersonal', studentId: rowId });
-      if (r.ok) { personal[studentId] = r.dades; fillPersonalForm(r.dades); }
+      if (r.ok) { personal[studentId] = r.dades; fillPersonalForm(r.dades); _fitxaOriginal = _fitxaFoto(); }
     } catch (_) {}
   }
 }
@@ -345,7 +533,7 @@ function _renderIncompatibles() {
   // Opcions del selector: tots els companys menys ell mateix i els ja triats
   const opcions = students
     .filter(s => s.id !== currentId && !_seatIncompatibles.includes(s.id))
-    .map(s => `<option value="${s.id}">${escapeHtml(s.nom)}</option>`)
+    .map(s => `<option value="${s.id}">${escapeHtml(nomAlumne(s))}</option>`)
     .join('');
   sel.innerHTML = '<option value="">+ Afegir company…</option>' + opcions;
 }
@@ -385,21 +573,36 @@ function _piamAssigsDelCurs() {
   return PIAM_ASSIGS;
 }
 
+/* ⚠ UN CLIC DESCUIDAT TREIA UNA ASSIGNATURA DEL PI DEL FULL COMPARTIT.
+
+   Trobat a la segona auditoria (8/9/2026). Tot l'apartat «Atenció a la
+   diversitat» ve del document de l'escola i és de només mirar: la casella
+   «PI» ja és `disabled` a l'HTML. Però els botons de les assignatures no ho
+   eren. Un clic a sobre en treia una de la llista sense dir res, sense cap
+   rètol de «Desant…», i el següent canvi que la mestra fes a la fitxa
+   (marcar una casella de seient, per exemple) pujava el PI mutilat al full
+   compartit que veu tot el claustre.
+
+   Ara són etiquetes, no botons: el que digui el document de l'escola, mana. */
 function _renderPIAMAssigs(tipus) {
   const wrap = document.getElementById(tipus === 'pi' ? 'pPIAssigs' : 'pAMAssigs');
   if (!wrap) return;
   const sel = tipus === 'pi' ? _piAssigs : _amAssigs;
   const assigs = _piamAssigsDelCurs();
-  wrap.innerHTML = assigs.map(a =>
-    `<button type="button" class="pi-am-assig-btn ${sel.includes(a)?'active':''}" onclick="_togglePIAMAssig('${tipus}','${a.replace(/'/g,"\\'")}')">${a}</button>`
-  ).join('');
+  const nom = tipus === 'pi' ? 'PI' : 'AM';
+  wrap.innerHTML = assigs.map(a => {
+    const te = sel.includes(a);
+    const titol = (te ? a + ' té ' + nom : a + ' no té ' + nom) +
+                  ', segons el document de l\'escola. Aquí només es pot mirar.';
+    return `<button type="button" disabled aria-disabled="true" class="pi-am-assig-btn ${te?'active':''}" title="${escapeHtml(titol)}">${escapeHtml(a)}</button>`;
+  }).join('');
 }
 
+/* Es queda per si algun handler antic la crida: ha de no tocar res i dir per què. */
 function _togglePIAMAssig(tipus, assig) {
-  const sel = tipus === 'pi' ? _piAssigs : _amAssigs;
-  const idx = sel.indexOf(assig);
-  if (idx === -1) sel.push(assig); else sel.splice(idx, 1);
-  _renderPIAMAssigs(tipus);
+  if (typeof showToast === 'function') {
+    showToast('El PI i l\'AM surten del document de l\'escola: aquí només es poden mirar.', 'info');
+  }
 }
 function closePersonalDrawer() {
   /* ⚠ Si quedava una desada per sortir, es fa ARA. És literalment el que li
@@ -427,9 +630,33 @@ async function _esborraDesDelCalaix() {
   const id = currentPersonalStudentId;
   const st = students.filter(function (x) { return x.id === id; })[0];
   const nom = st ? st.nom : "aquest alumne";
+
+  /* ⚠ AIXÒ NO POT PROMETRE UNA COSA QUE NO FARÀ.
+
+     Trobat a l'auditoria del 6/9/2026: el missatge deia «Perdràs les seves
+     observacions i entrevistes, i no es pot desfer», i en canvi l'alumne
+     TORNAVA a sortir en recarregar. Quan la llista ve del full «Grups» de
+     l'escola —que és el cas de qualsevol tutora, especialista o direcció—
+     l'app no pot treure ningú de la classe: la llista la fa la secretaria.
+
+     Val més dir-ho que fer veure que s'ha esborrat una cosa que hi continua
+     sent. Només es deixa treure de la llista quan els alumnes són del full
+     PERSONAL de la mestra, que és l'únic cas en què això s'aguanta. */
+  const _delFullCompartit = (typeof _grupDeTreball === 'function' && _grupDeTreball()) ||
+                            (typeof _tutoriaGrup !== 'undefined' && _tutoriaGrup);
+  if (_delFullCompartit) {
+    showToast('Els alumnes de ' + _delFullCompartit + ' surten del full de l\'escola: des d\'aquí no se\'n pot treure cap. ' +
+              'Si algú ja no és a la classe, digues-ho a secretaria i desapareixerà sol.', 'error');
+    return;
+  }
+
   if (!confirm('Treure ' + nom + ' de la llista?\n\nPerdràs les seves observacions i entrevistes, i no es pot desfer.')) return;
   if (typeof closePersonalDrawer === "function") closePersonalDrawer();
-  await deleteStudent(id);
+  /* ⚠ Dues confirmacions seguides per a la mateixa cosa, i la segona («Eliminar
+     aquest alumne?») deia menys que la primera: qui hi arribava ja no llegia i
+     hi clicava a sobre (auditoria 6/9/2026). `deleteStudent` la fa per als
+     altres camins; aquí es diu que ja s'ha preguntat. */
+  await deleteStudent(id, true);
 }
 
 /* ============================================================
@@ -472,6 +699,42 @@ function _fitxaEstat(text, mena) {
    Es posa la marca aquí i no al `_toggleSeatFixat` a posta: així també val
    per a qualsevol altra cosa que un dia s'afegeixi a omplir el formulari. */
 let _omplintFitxa = false;
+
+/* ⚠ TANCAR L'APP AMB FEINA A MIG DESAR.
+
+   Trobat a l'auditoria del 6/9/2026: si es recarregava la pàgina dins del
+   quart de segon del desat automàtic, el canvi de la fitxa es perdia sense
+   dir res —i a tota l'app no hi havia cap `beforeunload`.
+
+   Ara el navegador pregunta si de debò vol marxar quan hi ha res a mig
+   desar: la fitxa esperant, una desada en marxa, o coses a la cua del que
+   no s'ha pogut pujar. Si no hi ha res pendent no pregunta mai: un avís que
+   surt sempre és un avís que ningú no llegeix. */
+function _hiHaFeinaAMigDesar() {
+  if (typeof _regPendents !== 'undefined' && _regPendents.size) return true;
+  if (_fitxaDesaTemps || _fitxaDesant) return true;
+  if (typeof _pendents !== 'undefined' && _pendents.length) return true;
+  /* ⚠ UNA OBSERVACIÓ A MIG ESCRIURE ES PERDIA EN RECARREGAR SENSE DIR RES.
+
+     Segona auditoria (8/9/2026). Aquí es miraven el registre, la fitxa i la
+     cua de pendents, però no el quadre d'observacions, que és on la mestra
+     escriu els textos més llargs. Un F5 sense voler i el text volava. */
+  try {
+    const _ov = document.getElementById('addObsOverlay');
+    const _ta = document.getElementById('obsText');
+    if (_ov && _ov.classList.contains('open') && _ta &&
+        String(_ta.value || '').trim() !== String(_obsTextOriginal || '').trim()) return true;
+  } catch (e) {}
+  return false;
+}
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('beforeunload', function (e) {
+    if (!_hiHaFeinaAMigDesar()) return;
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  });
+}
 
 /* Ho crida qualsevol de les coses que es poden tocar. */
 function _fitxaCanviada() {
@@ -578,11 +841,46 @@ async function savePersonalDrawer(noTanquis) {
       }),
     },
   };
-  // Conserva camps que no s'editen al drawer (rowId, dataNaix del full grups)
+  /* ⚠ DESAR LA FITXA BUIDAVA ELS CONTACTES DE LA FAMÍLIA I MITJA FITXA MÉS.
+
+     Trobat a la segona auditoria (8/9/2026). Aquí es feia `personal[id] =
+     dades;` amb un objecte acabat de fer que només porta el que s'edita en
+     aquest calaix, i només se'n rescataven `rowId` i `dataNaix`. Tota la
+     resta —tutor1, correu1, tutor2, correu2, telèfons, trastorns, aula
+     d'acollida, drets d'imatge, EMVic, grup d'origen— es llençava de la
+     còpia del navegador. Al full no s'hi perdia res, però la mestra que
+     marcava una casella de seient veia tot seguit una fitxa que deia que
+     aquell nen no té drets d'imatge apuntats ni cap contacte de família:
+     la resposta contrària a la bona, i just la que es va a mirar.
+
+     Ara es parteix del que ja hi havia i només s'hi sobreescriu el que
+     aquest calaix edita de debò. */
   const prev = personal[id] || {};
-  dades.rowId = prev.rowId;
-  dades.dataNaix = prev.dataNaix;
-  personal[id] = dades;
+  personal[id] = Object.assign({}, prev, dades);
+
+  /* ⚠ QUÈ S'ENVIA AL FULL: només el que la mestra ha canviat de debò.
+
+     Abans s'enviava tot el que hi havia als camps, i els camps s'omplen en
+     obrir la fitxa. Si l'escola havia tocat el full compartit mentrestant
+     —una al·lèrgia greu nova, un PI— n'hi havia prou que la mestra marqués
+     una casella de seient perquè li tornés el valor vell i li deixés els
+     altres camps en blanc, amb un «Desat ✓» al peu. */
+  const _ara = _fitxaFoto();
+  const _abans = _fitxaOriginal;
+  const _canviat = {};
+  if (_abans === null || _abans !== _ara) {
+    let a = {}, b = {};
+    try { a = JSON.parse(_abans || '{}'); } catch (e) {}
+    try { b = JSON.parse(_ara || '{}'); } catch (e) {}
+    const dif = (...claus) => claus.some(k => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+    if (_abans === null || dif('obs'))                       _canviat.obs = dades.obs;
+    if (_abans === null || dif('pi', 'piA'))                 _canviat.pi = dades.pi;
+    if (_abans === null || dif('am', 'amA'))                 _canviat.am = dades.am;
+    if (_abans === null || dif('especific'))                 _canviat.especific = dades.especific;
+    if (_abans === null || dif('eapC', 'eap'))               _canviat.eap = dades.eap;
+    if (_abans === null || dif('sm', 'sp', 'sf', 'sx', 'inc')) _canviat.seient = dades.seient;
+  }
+  _fitxaOriginal = _ara;   // el que hi ha ara passa a ser el punt de partida
   // Tanca la finestra… si no s'està desant sol (llavors ha de quedar oberta)
   if (!noTanquis) closePersonalDrawer();
   // Refresca fitxa si és oberta
@@ -597,18 +895,40 @@ async function savePersonalDrawer(noTanquis) {
       if (typeof _tutoriaGrup !== 'undefined' && _tutoriaGrup) {
         // conserva el rowId a personal per a properes desades
         personal[id].rowId = rowId;
-        r = await appsScriptPost({ action: 'saveGrupPersonal', grup: _tutoriaGrup, rowId: rowId, dades });
+        /* Només el que ha canviat. La crida es fa igualment encara que no
+           hagi canviat res: el peu de la fitxa dirà «Desat ✓», i això només
+           ho pot dir si de debò s'ha parlat amb el servidor. Amb `dades`
+           buides el servidor no escriu res (mira camp per camp). */
+        /* ⚠ SI EL DESAT DE LA FITXA FALLAVA, ES PERDIA.
+
+           Trobat a l'auditoria del 6/9/2026: el canvi es quedava pintat a la
+           pantalla com si fos bo, sortia un toast que se'n va als vuit
+           segons i no es tornava a provar mai. Ara va per la cua de
+           pendents, com la resta: es reintenta sol quan torna la connexió i
+           mentrestant el comptador de dalt diu quants canvis hi ha
+           esperant. */
+        r = await _desaAlFull({ action: 'saveGrupPersonal', grup: _tutoriaGrup, rowId: rowId, dades: _canviat }, { callat: true });
       } else {
-        r = await appsScriptPost({ action: 'savePersonal', studentId: rowId, dades });
+        r = await _desaAlFull({ action: 'savePersonal', studentId: rowId, dades }, { callat: true });
       }
-      if (!r.ok) throw new Error(r.error);
+      if (r && r._pendent) {
+        /* No ha anat, però queda a la cua: es diu clar i s'apunta que la
+           foto de partida no val, perquè el proper desat hi torni a incloure
+           el que encara no ha pujat. */
+        _fitxaOriginal = _abans;
+        showToast('Això encara no ha arribat al full. Ho tornaré a provar sol; ' +
+                  'no cal que ho tornis a escriure.', 'error');
+        if (noTanquis) throw new Error(r.error || 'pendent');
+        return;
+      }
+      if (!r || !r.ok) throw new Error((r && r.error) || 'no s\'ha pogut desar');
       if (!noTanquis) showToast('Dades guardades', 'success');
     } catch (e) {
       /* Quan es desa sol, l'error el diu el rètol de la mateixa fitxa i qui
          crida se n'ha d'assabentar; el toast només val quan hi ha hagut un
          clic al darrere. */
       if (noTanquis) throw e;
-      showToast('Error: ' + e.message, 'error');
+      showToast('Error: ' + errorHuma(e), 'error');
     }
   }
 }
@@ -621,7 +941,7 @@ function openObsDrawer(studentId) {
   const s   = students.find(x => x.id === studentId);
   const obs = observacions[studentId] || {};
   const tot = Object.values(obs).filter(v => v && v.trim()).length;
-  document.getElementById('obsDrawerName').textContent = s ? s.nom : '—';
+  document.getElementById('obsDrawerName').textContent = s ? nomAlumne(s) : '—';
   document.getElementById('obsDrawerMeta').textContent =
     tot ? tot + (tot !== 1 ? ' assignatures' : ' assignatura') + ' amb observacions' : 'Sense observacions';
   document.getElementById('obsDrawerOverlay').classList.add('open');
@@ -638,24 +958,103 @@ function closeObsDrawer() {
    MODAL NOVA OBSERVACIÓ
    ============================================================ */
 function openAddObsModal(studentId) {
+  /* ⚠ UNA OBSERVACIÓ SENSE CAP ALUMNE.
+
+     Trobat a l'auditoria del 6/9/2026: sense alumnes carregats (una
+     especialista que encara no ha triat grup, la direcció acabada d'obrir,
+     o el servidor caigut) la finestra s'obria amb el desplegable buit. La
+     mestra escrivia l'observació, clicava Desar i s'esvaïa sense anar
+     enlloc. Ara no s'obre: es diu què falta. */
+  if (!students.length) {
+    showToast(typeof senseTutoria === 'function' && senseTutoria()
+      ? 'Primer tria el grup a dalt: encara no hi ha cap alumne carregat.'
+      : 'Encara no hi ha cap alumne carregat. Prova de refrescar o mira la connexió.', 'error');
+    return;
+  }
   if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector();
   const sel = document.getElementById('obsAlumne');
   sel.innerHTML = students.map(s =>
-    `<option value="${s.id}" ${s.id === studentId ? 'selected' : ''}>${escapeHtml(s.nom)}</option>`
+    `<option value="${s.id}" ${s.id === studentId ? 'selected' : ''}>${escapeHtml(nomAlumne(s))}</option>`
   ).join('');
   document.getElementById('obsText').value      = '';
-  document.getElementById('obsMateria').value   = 'general';
-  document.getElementById('obsTrimestre').value = '1';
+  /* ⚠ «General» és cosa del tutor: a l'app de les especialistes aquella opció
+     es treu del desplegable a posta. Posar-la igualment deixava el selector
+     en blanc i l'observació es desava amb la clau «1_», SENSE assignatura: al
+     full compartit hi quedava {"2nC-u1":{"1_":"…"}} i al calaix sortia amb
+     l'etiqueta buida (auditoria 6/9/2026). Ara es tria la primera opció que
+     hi hagi de debò. */
+  /* ⚠ I ALLÒ DE «LA PRIMERA OPCIÓ» ARXIVAVA L'OBSERVACIÓ A L'ALTRA LÍNIA.
+
+     Segona auditoria (8/9/2026). Una especialista que fa Música a 2n A, 2n B
+     i 2n C tria «Música · 2n C» al selector de dalt, la llista passa als 12
+     alumnes de 2n C, clica «Nova observació»… i la finestra proposava
+     «Música · 2n A», la primera de la llista. Si no se n'adonava, al full
+     compartit hi quedava l'alumne bo amb l'assignatura d'una altra línia.
+
+     Ara mana el que la mestra té triat a la pàgina (`_entradaTreball`). La
+     primera opció només és el darrer recurs. */
+  const _selMat = document.getElementById('obsMateria');
+  const _teGeneral = !!(_selMat && _selMat.querySelector('option[value="general"]'));
+  if (_selMat) {
+    const _hiEs = (typeof _entradaTreball !== 'undefined' && _entradaTreball)
+      ? [..._selMat.options].some(o => o.value === _entradaTreball) : false;
+    const _triada = _hiEs ? _entradaTreball : '';
+    _selMat.value = _triada || (_teGeneral ? 'general' : ((_selMat.options[0] && _selMat.options[0].value) || ''));
+  }
+  /* El trimestre que toca ARA, no sempre el primer: al febrer proposava el
+     1r trimestre i l'observació anava a parar al trimestre que ja s'ha tancat. */
+  const _trimAra = (typeof getTrimestreProposat === 'function') ? getTrimestreProposat() : 1;
+  document.getElementById('obsTrimestre').value = String(_trimAra);
   resetSaveObsBtn();
+  _obsTextOriginal = '';
   document.getElementById('addObsOverlay').classList.add('open');
   setTimeout(() => document.getElementById('obsText').focus(), 100);
 }
-function closeAddObsModal() { document.getElementById('addObsOverlay').classList.remove('open'); }
+
+/* ⚠ UN GEST CAP ENRERE LLENÇAVA L OBSERVACIÓ A MIG ESCRIURE.
+
+   Trobat a la segona auditoria (8/9/2026). El gest «enrere» i la tecla
+   Escape premen el boto de tancar de la finestra —aixo ja es va arreglar—,
+   pero el boto de tancar D AQUESTA finestra no preguntava res. Al mobil,
+   un gest sense voler i l observacio escrita desapareixia.
+
+   Es guarda el text que hi havia en obrir-la i nomes es pregunta si de debo
+   s hi ha escrit alguna cosa: preguntar sempre seria pitjor que no fer-ho. */
+let _obsTextOriginal = '';
+function closeAddObsModal(forcat) {
+  const ta = document.getElementById('obsText');
+  const ara = ta ? String(ta.value || '').trim() : '';
+  if (!forcat && ara !== String(_obsTextOriginal || '').trim() &&
+      !confirm('Has escrit una observació i encara no l\'has desat. Si tanques, es perdrà.\n\nVols tancar igualment?')) return;
+  _obsTextOriginal = '';
+  document.getElementById('addObsOverlay').classList.remove('open');
+}
 
 /* ============================================================
    CONFIG / REGISTRE MODALS
    ============================================================ */
-function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); }
+function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); _avisaTokenDExemple(); }
+
+/* L'avís del token d'exemple, dins de Configuració. Es pinta un sol cop i es
+   queda: no és una cosa que es pugui «tancar» i oblidar. */
+function _avisaTokenDExemple() {
+  const dins = document.getElementById('configOverlay');
+  if (!dins) return;
+  let avis = document.getElementById('cfgAvisToken');
+  if (!_tokenEsDExemple()) { if (avis) avis.remove(); return; }
+  if (avis) return;
+  const cos = dins.querySelector('.modal-body');
+  if (!cos) return;
+  avis = document.createElement('div');
+  avis.id = 'cfgAvisToken';
+  avis.className = 'callout warn';
+  avis.style.cssText = 'margin-bottom:12px;padding:10px 12px;border-radius:8px;background:#FEF3C7;color:#7C2D12;font-size:12px;line-height:1.5';
+  avis.innerHTML = '<strong>La clau d\'aquesta app encara és la d\'exemple.</strong> ' +
+    'Les teves dades funcionen igual, però el pany és una clau que surt escrita al codi ' +
+    'que tothom pot llegir. Digues-ho a en Pol perquè te la canviï: és un minut i es fa ' +
+    'un sol cop.';
+  cos.insertBefore(avis, cos.firstChild);
+}
 
 // Obre els fulls de càlcul construint la URL des dels IDs guardats localment
 // (mai hardcodejats al codi públic).
@@ -739,14 +1138,14 @@ async function diagGrupsSheet() {
       res.style.color = '#B91C1C';
     }
   } catch(e) {
-    res.innerHTML = '⚠ Error: ' + escapeHtml(e.message);
+    res.innerHTML = '⚠ ' + escapeHtml(errorHuma(e));
     res.style.color = '#B91C1C';
   }
   if (btn) { btn.disabled = false; btn.textContent = 'Comprovar accés'; }
 }
 
 async function saveGrupsSheetCfg() {
-  if (!config.scriptUrl) { showToast('Primer configura la connexio', 'error'); return; }
+  if (!config.scriptUrl) { showToast('Primer configura la connexió', 'error'); return; }
   const rawG = document.getElementById('cfgGrupsSheet').value.trim();
   const rawD = document.getElementById('cfgDesdobSheet').value.trim();
   const idG = rawG ? _extractSheetId(rawG) : null;
@@ -767,7 +1166,7 @@ async function saveGrupsSheetCfg() {
     if (oks.length) showToast('Fulls desats: ' + oks.join(' i ') + ' \u2713', 'success');
     else showToast('No s\'ha pogut desar cap full', 'error');
   } catch(e) {
-    showToast('Error desant: ' + e.message, 'error');
+    showToast('Error desant: ' + errorHuma(e), 'error');
   }
   if (btn) { btn.disabled = false; btn.textContent = 'Desar fulls'; }
 }
@@ -785,7 +1184,7 @@ async function setupGrupsSheets() {
       showToast('Error: ' + (r.error || 'desconegut'), 'error');
     }
   } catch(e) {
-    showToast('Error creant les pestanyes: ' + e.message, 'error');
+    showToast('Error creant les pestanyes: ' + errorHuma(e), 'error');
   }
   if (btn) { btn.disabled = false; btn.textContent = 'Crear les pestanyes de grup'; }
 }
@@ -802,7 +1201,7 @@ async function ajustarColumnesSheets() {
       showToast('Error: ' + (r.error || 'desconegut'), 'error');
     }
   } catch(e) {
-    showToast('Error ajustant les columnes: ' + e.message, 'error');
+    showToast('Error ajustant les columnes: ' + errorHuma(e), 'error');
   }
   if (btn) { btn.disabled = false; btn.textContent = 'Ajustar amplada columnes'; }
 }
@@ -820,7 +1219,7 @@ async function protegirFullsSheets() {
       showToast('Error: ' + (r.error || 'desconegut'), 'error');
     }
   } catch(e) {
-    showToast('Error protegint els fulls: ' + e.message, 'error');
+    showToast('Error protegint els fulls: ' + errorHuma(e), 'error');
   }
   if (btn) { btn.disabled = false; btn.textContent = 'Protegir tots els fulls'; }
 }
@@ -830,15 +1229,45 @@ function saveConfig() {
   const geminiKey = document.getElementById('cfgGeminiKey')?.value.trim() || '';
   // Validació amb missatges específics
   if (!url) { showToast('Enganxa la URL del Web App', 'error'); return; }
-  if (!url.includes('script.google.com')) {
-    showToast('Aquesta no és una URL de Google Apps Script. Ha de començar per https://script.google.com/…', 'error');
+  /* ⚠ AIXÒ ERA UN «CONTÉ script.google.com», I NO N'HI HA PROU.
+
+     Trobat a l'auditoria del 6/9/2026: una adreça com
+     `https://script.google.com.qui-sigui.com/x/exec` passava la comprovació,
+     i a partir d'aquell moment l'app hi enviava el token i totes les dades
+     dels alumnes. Ara es mira el DOMINI de debò, no si el text hi apareix. */
+  let _u = null;
+  try { _u = new URL(url); } catch (e) { _u = null; }
+  if (!_u || _u.protocol !== 'https:' ||
+      (_u.hostname !== 'script.google.com' && _u.hostname !== 'script.googleusercontent.com')) {
+    showToast('Aquesta no és una adreça de Google Apps Script. Ha de començar per https://script.google.com/…', 'error');
     return;
   }
-  if (!url.endsWith('/exec')) {
-    showToast('La URL ha d\'acabar en /exec. Si no la tens, demana-la en Pol.', 'error');
+  if (!_u.pathname.endsWith('/exec')) {
+    showToast('L\'adreça ha d\'acabar en /exec. Si no la tens, demana-la en Pol.', 'error');
     return;
+  }
+  /* ⚠ CANVIAR DE SERVIDOR NO TORNAVA A FER LA POSADA EN MARXA.
+
+     Trobat a l'auditoria del 6/9/2026. `vedruna_autosetup_fet` es posa un cop
+     i no es neteja mai. Si la mestra enganxa una URL NOVA —perquè li han fet
+     un projecte nou, o perquè s'havia equivocat—, el full nou es queda sense
+     pestanyes creades, sense protegir i sense columnes ajustades, i no ho diu
+     ningú: l'app va donant errors estranys durant dies. */
+  const _urlAbans = config && config.scriptUrl;
+  if (_urlAbans && _urlAbans !== url) {
+    try { localStorage.removeItem('vedruna_autosetup_fet'); } catch (e) {}
   }
   config = { scriptUrl: url };
+  /* Els identificadors dels fulls compartits no s'han de perdre en desar la
+     connexió: abans `config` es tornava a fer de zero i se'ls emportava. */
+  try {
+    const _g = localStorage.getItem('grups_sheet_id_local');
+    const _d = localStorage.getItem('desdob_sheet_id_local');
+    if (_g) config.grupsSheetId = _g;
+    if (_d) config.desdobSheetId = _d;
+    const _ids = localStorage.getItem('vedruna_docs_ids');
+    if (_ids) config.docsIds = JSON.parse(_ids);
+  } catch (e) {}
   if (geminiKey) config.geminiKey = geminiKey;
   localStorage.setItem('vedruna_cfg', JSON.stringify(config));
   closeConfig();
@@ -902,6 +1331,19 @@ function closeNewItemModal() { document.getElementById('newItemOverlay').classLi
 // Code.gs (clau APP_TOKEN). És una cadena que TU inventes, no és cap
 // credencial de Google (per això és segur al codi; GitHub no el bloqueja).
 const APP_TOKEN = (typeof window !== 'undefined' && window.APP_TOKEN) ? window.APP_TOKEN : '';
+
+/* ⚠ EL TOKEN D'EXEMPLE QUE NINGÚ NO HAVIA CANVIAT.
+
+   Trobat a l'auditoria del 6/9/2026. El `js/config.local.js` de la plantilla
+   porta un token d'exemple que està escrit al codi públic de tothom. Si en
+   crear una app nova ningú no el canvia, l'app funciona igual de bé —i per
+   això no se'n adona ningú— però el «pany» de les dades és una clau que
+   qualsevol pot llegir. Ara ho diu, a l'apartat de Configuració i a
+   l'arrencada, i no calla fins que es canvia. */
+function _tokenEsDExemple() {
+  const t = String(APP_TOKEN || '');
+  return !t || /canvia-per-una-cadena|posa-aqui|el-teu-token|exemple/i.test(t);
+}
 
 // La clau de Gemini viu al backend (Apps Script), MAI al codi públic.
 // Les crides a Gemini es fan a través del backend (acció 'gemini').
@@ -1055,7 +1497,7 @@ async function _appsScriptGetFetch(params, _retry = true) {
       return _appsScriptGetFetch(params, false); // segon intent sense més reintents
     }
     // Error final: retorna un objecte segur (mai llança) perquè cap crida peti l'app
-    return { ok: false, error: (e && e.message) || 'Error de connexió', _networkError: true };
+    return { ok: false, error: (typeof errorHuma === 'function' ? errorHuma(e) : ((e && e.message) || 'Error de connexió')), _networkError: true };
   } finally { clearTimeout(timeout); }
 }
 /* QUÈ HI DIU MENTRE ESPERA, I PER QUÈ IMPORTA.
@@ -1081,6 +1523,34 @@ const _POST_NOMES_LLEGEIX = {
   fitxesDubtes:    false,
   reunionsPreview: 'Mirant quines hores queden lliures…',
   gemini:          'Pensant…',
+};
+
+/* ⚠ «DESANT…» QUAN NO ES DESAVA RES.
+
+   Trobat a l'auditoria del 6/9/2026, i és la mateixa queixa que en Pol ja
+   havia fet un cop: aquestes accions SÍ que escriuen (i per tant han de
+   llençar el que teníem guardat de les lectures, com totes les altres), però
+   el que fan no és desar el que la mestra ha escrit. Enviar un correu,
+   preparar les pestanyes del full o ajustar les columnes no és «desar», i
+   dir-ho fa que el dia que de debò desi no s'ho cregui.
+
+   Per això la llista és a part de `_POST_NOMES_LLEGEIX`: allà hi ha les que
+   NO escriuen; aquí, les que escriuen però diuen una altra cosa. */
+const _POST_TEXT_PROPI = {
+  demanaMillora:        'Enviant la petició…',
+  enviaAvisEsmorzar:    'Enviant el correu…',
+  reunionsMissatge:     'Enviant…',
+  setupGrups:           'Preparant els fulls…',
+  protegirFulls:        'Protegint els fulls…',
+  ajustarColumnes:      'Ajustant les columnes…',
+  syncAlumnesARegistre: 'Posant la llista al dia…',
+  reunionsCrea:         'Creant les hores…',
+  reunionsAfegeixHores: 'Afegint les hores…',
+  reunionsEsborra:      'Esborrant…',
+  reunionsAllibera:     'Alliberant l\'hora…',
+  completaGoogleTask:   'Marcant-ho al Google…',
+  gwriteSync:           'Passant-ho al Google…',
+  buidaLesDades:        'Esborrant-ho tot…',
 };
 
 /* Escriptures que NO toquen res del que llegim dels fulls compartits: no cal
@@ -1109,11 +1579,35 @@ async function appsScriptPost(body, _retry = true) {
   if (!nomesLlegeix && !_POST_NO_TOCA_LECTURES.has(accio)) _oblidaLectures();
   const text = nomesLlegeix ? _POST_NOMES_LLEGEIX[accio]
              : _POST_SENSE_VEL.has(accio) ? false
-             : 'Desant…';
+             : (Object.prototype.hasOwnProperty.call(_POST_TEXT_PROPI, accio) ? _POST_TEXT_PROPI[accio]
+             : 'Desant…');
   return _ambSenyalDEspera(() => _appsScriptPostFetch(body, _retry), text);
 }
 
+/* ⚠ EL REINTENT NO POT FER LA FEINA DUES VEGADES.
+
+   Trobat a l'auditoria del 6/9/2026: quan la petició arriba al servidor però
+   la resposta es perd pel camí (wifi dolenta), el reintent automàtic de sota
+   la torna a enviar i el servidor la torna a fer. Amb un sol clic a «Nou
+   ítem» quedaven DUES columnes iguals al full de registres, i l'app deia
+   «Ítem creat». El mateix passava amb els ítems de nota i amb l'avís de
+   l'esmorzar, que enviava dos correus.
+
+   El remei ja existia al projecte per a les reunions: una clau d'operació
+   que NO canvia entre l'intent i el reintent, i el servidor que se'n recorda.
+   Aquí es fa per a TOTES les escriptures, i així també per a les que es facin
+   demà: la clau es posa una sola vegada, abans del primer enviament, i el
+   reintent reutilitza el mateix cos. */
+function _posaOpId(body) {
+  if (!body || typeof body !== 'object' || body.opId) return body;
+  const a = Math.random().toString(36).slice(2, 10);
+  const b = Date.now().toString(36);
+  body.opId = a + b;
+  return body;
+}
+
 async function _appsScriptPostFetch(body, _retry = true) {
+  if (_retry) _posaOpId(body);     // només al primer intent: el reintent el reaprofita
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), 45000);
   try {
@@ -1275,14 +1769,48 @@ async function loadAll() {
     if (boot && boot._authError) {
       updateSync('error', 'No autoritzat');
       _arrencadaFora(true);
-      _mostraErrorConnexio('auth');
+      /* Amb la pantalla buida cal explicar-ho tot; amb dades a la cache la
+         pantalla s omple igualment i el perill es el contrari: que sembli que
+         va be. Aquesta bifurcacio hi era a la branca de xarxa i aqui no, o
+         sigui que qui tenia dades no llegia enlloc que el que escrivis no es
+         desaria (segona auditoria, 8/9/2026). */
+      if (!students.length) _mostraErrorConnexio('auth');
+      else _avisDadesVelles('auth');
+      /* ⚠ «ENCARA NO HAS DIT QUE FAS» AMB EL PROBLEMA A LA CONNEXIO.
+
+         Segona auditoria (8/9/2026): sense connexio i sense copia al
+         navegador, Alumnes deia que no tenia assignatures al perfil i la
+         manava a omplir-lo. `_ultimaFallidaAlumnes` nomes s omplia dins de
+         `_carregaTutoriaAlumnes`, i alla no s hi arriba si el que ha fallat
+         es el PERFIL. Es marca aqui, que es on de debo se sap. */
+      _ultimaFallidaAlumnes = _ultimaFallidaAlumnes || 'no s ha pogut parlar amb el servidor';
+
+      /* I es continua provant. Si no, l app es quedava amb la franja
+         vermella per sempre. */
+      _startBackgroundRefresh();
       return;
     }
     // Error de xarxa: no s'ha pogut arribar al servidor
     if (boot && boot._networkError) {
       updateSync('error', 'Sense connexió');
       _arrencadaFora(true);
+      /* Amb la pantalla buida cal explicar-ho tot; amb dades a la cache la
+         pantalla s'omple igualment i el perill és el contrari: que sembli que
+         va bé. Per això aquí també s'avisa —d'una altra manera. */
       if (!students.length) _mostraErrorConnexio('network');
+      else _avisDadesVelles('network');
+      /* ⚠ «ENCARA NO HAS DIT QUE FAS» AMB EL PROBLEMA A LA CONNEXIO.
+
+         Segona auditoria (8/9/2026): sense connexio i sense copia al
+         navegador, Alumnes deia que no tenia assignatures al perfil i la
+         manava a omplir-lo. `_ultimaFallidaAlumnes` nomes s omplia dins de
+         `_carregaTutoriaAlumnes`, i alla no s hi arriba si el que ha fallat
+         es el PERFIL. Es marca aqui, que es on de debo se sap. */
+      _ultimaFallidaAlumnes = _ultimaFallidaAlumnes || 'no s ha pogut parlar amb el servidor';
+
+      /* I es continua provant. Si no, l app es quedava amb la franja
+         vermella per sempre. */
+      _startBackgroundRefresh();
       return;
     }
     if (boot.ok) {
@@ -1292,11 +1820,28 @@ async function loadAll() {
       updateSync('error', 'Error');
       _arrencadaFora(true);
       if (!students.length) _mostraErrorConnexio('backend', boot && boot.error);
+      else _avisDadesVelles('backend');
+      /* ⚠ «ENCARA NO HAS DIT QUE FAS» AMB EL PROBLEMA A LA CONNEXIO.
+
+         Segona auditoria (8/9/2026): sense connexio i sense copia al
+         navegador, Alumnes deia que no tenia assignatures al perfil i la
+         manava a omplir-lo. `_ultimaFallidaAlumnes` nomes s omplia dins de
+         `_carregaTutoriaAlumnes`, i alla no s hi arriba si el que ha fallat
+         es el PERFIL. Es marca aqui, que es on de debo se sap. */
+      _ultimaFallidaAlumnes = _ultimaFallidaAlumnes || 'no s ha pogut parlar amb el servidor';
+
+      /* I es continua provant. Si no, l app es quedava amb la franja
+         vermella per sempre. */
+      _startBackgroundRefresh();
       return;
     }
 
+    _ultimaFallidaAlumnes = null;   // ha anat bé: fora la marca de l'última fallada
     _saveMainToCache(); // desa per a la propera arrencada instantània
-    updateSync('ok', 'Sincronitzat'); updateStatSync();
+    try { _posaEnllacosDocs(); } catch (e) {}   // els botons dels documents, al dia
+    /* La ratlla la decideix `_finalitzaRefresc`, no aqui: si queda res a la
+       cua ha de dir-ho, no pas «Sincronitzat» (segona auditoria, 8/9/2026). */
+    _finalitzaRefresc(boot);
     document.getElementById('setupBanner').style.display = 'none';
     _paintAllViews();
     /* Ja hi ha les dades i la pantalla està pintada: fora l'arrencada. Aquí
@@ -1339,12 +1884,23 @@ async function loadAll() {
     _startBackgroundRefresh();
   } catch (e) {
     updateSync('error', 'Sense connexió');
+    /* ⚠ SI L ARRENCADA FALLAVA, L APP NO S HI TORNAVA MAI.
+
+       Trobat a la segona auditoria (8/9/2026): `_startBackgroundRefresh()`
+       nomes es cridava al cami felic. Amb una arrencada fallida, l app es
+       quedava amb la franja vermella per sempre i no tornava a provar-ho ni
+       quan tornava la connexio —just el contrari del que promet la versio. */
+    _startBackgroundRefresh();
+    if (typeof _pendentsTe === 'function' && _pendentsTe()) _pendentsEngegaRellotge();
     /* ⚠ Passi el que passi, l'arrencada se'n va. Si petés aquí i es quedés,
        l'app seria una pantalla granada i prou, i l'única sortida seria
        tancar-la. */
     _arrencadaFora(true);
-    // Si tenim cache, no mostrem error agressiu (l'app ja funciona offline)
+    /* Amb cache no es fa l'error gran (l'app ja va), pero SI que s'avisa que
+       el que es veu es del darrer cop: la pantalla plena no ha de fer creure
+       que la connexio va be. */
     if (!students.length) _mostraErrorConnexio('network', e && e.message);
+    else _avisDadesVelles('network');
   }
 }
 
@@ -1378,12 +1934,45 @@ function _mostraErrorConnexio(tipus, detall) {
   const banner = document.getElementById('setupBanner');
   if (banner) {
     banner.style.display = 'block';
+    _bannerEsError = true;
     const bt = banner.querySelector('.setup-banner-text');
     if (bt) {
       bt.innerHTML = '<strong>' + escapeHtml(titol) + ':</strong> ' + escapeHtml(missatge) +
         ' <a onclick="openConfig()">Obrir configuració →</a>';
     }
   }
+}
+
+/* ⚠ EL SERVIDOR CAIGUT AMB LA CACHE CALENTA.
+
+   Trobat a l'auditoria del 6/9/2026. Si el servidor no responia però el
+   navegador encara guardava les dades de l'últim cop, l'app les pintava i
+   només ho deia amb el puntet de dalt a la dreta —que ningú no mira. La
+   mestra passava una hora escrivint damunt d'unes dades de fa dos dies
+   pensant que eren les d'ara.
+
+   Ara ho diu la franja, i s'hi queda fins que torni. Aquesta franja NO parla
+   de configurar res: la connexió ja està configurada, el que passa és que
+   avui no arriba. */
+function _avisDadesVelles(quin) {
+  const banner = document.getElementById('setupBanner');
+  if (!banner) return;
+  const bt = banner.querySelector('.setup-banner-text');
+  const text = quin === 'auth'
+    ? "Ara mateix el servidor no et deixa entrar. El que veus és <strong>del darrer cop</strong> i el que escriguis no s'hi desarà."
+    : "No s'arriba al servidor. El que veus és <strong>del darrer cop</strong>: pots consultar-ho, però el que escriguis quedarà esperant aquí fins que torni.";
+  if (bt) bt.innerHTML = text + ' <a onclick="reintentaConnexio()">Torna-ho a provar →</a>';
+  banner.style.display = 'block';
+  _bannerEsError = true;
+}
+
+/* El botó de la franja: torna a demanar-ho tot, sense recarregar l'app.
+   No fa servir cap acció nova del servidor a posta: així funciona igual amb
+   el `Code.gs` d'abans i la mestra no es queda amb un botó que no va. */
+async function reintentaConnexio() {
+  updateSync('syncing', 'Provant…');
+  if (typeof _pendentsProva === 'function') { try { await _pendentsProva(); } catch (e) {} }
+  if (typeof loadAll === 'function') await loadAll();
 }
 
 /* ============================================================
@@ -1395,12 +1984,33 @@ let _bgRefreshing   = false;
 // Bloqueig: quan l'usuari està editant, el refresc en segon pla s'espera
 // per no sobreescriure el que està fent (evita pèrdua de dades i salts d'scroll).
 let _editingLock    = false;
+/* ESTÀ ESCRIVINT ARA MATEIX?
+
+   Si ho està, el refresc de fons no ha de tocar res: substituir el que la
+   mestra té a mitges pel que hi ha al full és perdre-li la feina.
+
+   Fins ara només es miraven TRES overlays, i el forat gros no era cap
+   overlay: era la pantalla del **Perfil**, que no n'és cap. Escrivies el
+   nom, canviaves de pestanya i tornaves, i `_applyBootstrap` repintava el
+   perfil amb el del servidor (auditoria 6/9/2026).
+
+   Ara, a més dels overlays, es mira si el cursor és dins d'un camp de text
+   o si hi ha cap overlay obert, sigui quin sigui. Així els que es facin
+   demà tampoc no caldrà anar-los afegint d'un en un. */
 function _isEditing() {
-  // Hi ha algun drawer/modal d'edició obert?
+  // Qualsevol finestra d'edició oberta (no una llista tancada d'elles)
+  if (document.querySelector('.modal-overlay.open, .panel-overlay.open, .drawer-overlay.open')) return true;
   const editSelectors = ['#personalOverlay.open', '#addObsOverlay.open', '#obsDrawerOverlay.open'];
   for (const sel of editSelectors) {
     if (document.querySelector(sel)) return true;
   }
+  // El cursor dins d'un camp: està escrivint, encara que no sigui a cap modal
+  const a = document.activeElement;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' ||
+            a.isContentEditable)) return true;
+  // La pantalla del Perfil oberta: no és cap overlay i es repinta sencera
+  const perfil = document.getElementById('page-perfil');
+  if (perfil && !perfil.classList.contains('page-hidden')) return true;
   return _editingLock;
 }
 
@@ -1412,6 +2022,29 @@ function _startBackgroundRefresh() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) _backgroundRefresh();
   });
+}
+
+/* Que ha de dir la ratlla de baix quan acaba un refresc de fons. Es aqui i no
+   escampat perque el refresc de fons, l arrencada i la cua diguin totes tres
+   el mateix. */
+function _finalitzaRefresc(resposta) {
+  const haFallat = !resposta || resposta.ok === false || resposta._networkError || resposta._authError;
+  const pendents = (typeof _pendents !== 'undefined' && _pendents) ? _pendents.length : 0;
+  if (haFallat) {
+    updateSync('error', resposta && resposta._authError ? 'No autoritzat' : 'Sense connexió');
+    if (typeof _avisDadesVelles === 'function' && students.length) {
+      _avisDadesVelles(resposta && resposta._authError ? 'auth' : 'network');
+    }
+    if (pendents && typeof _pendentsEngegaRellotge === 'function') _pendentsEngegaRellotge();
+    return;
+  }
+  if (pendents) {
+    updateSync('error', pendents === 1 ? '1 canvi sense desar' : pendents + ' canvis sense desar');
+    if (typeof _pendentsEngegaRellotge === 'function') _pendentsEngegaRellotge();
+    if (typeof _pendentsProva === 'function') _pendentsProva();
+    return;
+  }
+  updateSync('ok', 'Sincronitzat'); updateStatSync();
 }
 
 async function _backgroundRefresh() {
@@ -1433,7 +2066,18 @@ async function _backgroundRefresh() {
 
     // Repinta NOMÉS la pàgina visible
     _paintAllViews();
-    updateSync('ok', 'Sincronitzat'); updateStatSync();
+    /* ⚠ LA RATLLA DEIA «SINCRONITZAT» AMB LA FEINA SENSE DESAR.
+
+       Trobat a la segona auditoria (8/9/2026). `_appsScriptGetFetch` NO llança
+       mai —quan falla torna {ok:false,_networkError:true}—, o sigui que el
+       try/catch d aquesta funcio no s executava i sempre s arribava aqui. Amb
+       el servidor caigut i canvis a la cua, el puntet es posava VERD, i com
+       que el verd tambe treu la franja d avis, l avis de «el que veus es del
+       darrer cop» desapareixia amb el servidor igual de caigut.
+
+       Ara el verd nomes es posa si la crida ha anat BE i no queda res a la
+       cua. Si no, es diu el que hi ha. */
+    _finalitzaRefresc(boot);
   } catch(e) {
     // Silenciós: ja ho reintentarà al pròxim cicle
   }
@@ -1447,10 +2091,25 @@ async function _backgroundRefresh() {
    tutoria. Abans sempre deia "Connecta amb Google Sheets per veure els alumnes",
    fins i tot estant connectada: una especialista pensava que li fallava la
    connexió i anava a Configuració a buscar-hi un problema que no hi era. */
+/* ⚠ «No hi ha cap alumne» i «no ho he pogut demanar» NO són el mateix.
+
+   Trobat a l'auditoria del 6/9/2026: amb el servidor caigut i sense còpia
+   local, la pantalla d'Alumnes deia «Encara no hi ha cap alumne a 2n C —
+   quan els alumnes del teu grup siguin al full compartit, sortiran aquí
+   sols». La mestra en treia la conclusió que la direcció no havia penjat la
+   llista, i no era això: era que no s'havia pogut preguntar. */
+let _ultimaFallidaAlumnes = null;   // el motiu de l'última càrrega que ha fallat
+
 function _motiuSenseAlumnes() {
   if (!config.scriptUrl) {
     return { titol: 'Encara no estàs connectada',
              text: 'Ves a <strong>Configuració</strong> i enganxa la URL que et van donar.' };
+  }
+  if (_ultimaFallidaAlumnes) {
+    return { titol: 'No he pogut demanar la llista',
+             text: 'Això <strong>no vol dir que el grup estigui buit</strong>: vol dir que ara mateix no s\'ha pogut parlar amb el full. ' +
+                   'Torna-ho a provar d\'aquí a una estona. Si segueix igual demà, digues-ho en Pol.<br><small>' +
+                   escapeHtml(String(_ultimaFallidaAlumnes)) + '</small>' };
   }
   if (typeof esEspecialista === 'function' && esEspecialista()) {
     return { titol: 'Tria un grup',
@@ -1465,6 +2124,20 @@ function _motiuSenseAlumnes() {
   }
   const teTutoria = (typeof grupActual === 'function') && grupActual();
   if (!teTutoria) {
+    /* ⚠ AIXÒ LI DEIA DE FER UNA COSA QUE NO PODIA FER.
+
+       Trobat a l'auditoria del 6/9/2026: a una mestra acabada d'estrenar,
+       aquí hi deia «tria l'assignatura al menú de l'esquerra», i al menú no
+       hi havia cap assignatura —perquè encara no havia omplert el perfil. Es
+       quedava clicant per un menú buit. Ara, si no en té cap, se li diu on
+       s'omple; si en té, la instrucció d'abans sí que se pot seguir. */
+    const _teAssigs = (typeof _perfilEntradesAmbGrup === 'function') &&
+                      _perfilEntradesAmbGrup().length > 0;
+    if (!_teAssigs) {
+      return { titol: 'Encara no has dit què fas',
+               text: 'Ves a <strong>El meu perfil</strong> i digues de quin grup ets tutor/a, o a quins cursos fas classe. ' +
+                     'A partir d\'aquí l\'app ja sap quins alumnes t\'ha d\'ensenyar.' };
+    }
     return { titol: 'No ets tutor/a de cap grup',
              text: 'Aquesta pantalla mostra els alumnes de la teva tutoria. Per veure els d\'un curs on fas classe, tria l\'assignatura al menú de l\'esquerra i clica <strong>Veure alumnes</strong>.' };
   }
@@ -1483,6 +2156,14 @@ function _pintaEstatBuitAlumnes(el) {
    ⚠ Els que no tenen gènere posat també es diuen: si no, els números no
    sumarien el total i qui ho miri es pensarà que l'app compta malament.
    És, a més, la manera de veure que en falta algun per triar. */
+/* Un nom preparat per comparar-lo: sense accents, sense majuscules i sense
+   els espais de mes. Aixi «julia serra» troba la «Júlia  Serra». */
+function _normCerca(t) {
+  return String(t == null ? '' : t)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 function _alumnesCompteText() {
   const total = students.length;
   if (!total) return '';
@@ -1505,11 +2186,41 @@ function renderAlumnesList() {
     compte.textContent = _alumnesCompteText();
     compte.style.display = students.length ? '' : 'none';
   }
+  /* ⚠ A ALUMNES NO HI HAVIA CAP CERCA.
+
+     Trobat a l auditoria del 6/9/2026: l unica que existia era dins del calaix
+     «Gestionar alumnes», al qual ja no s hi arriba, i no entenia els accents
+     («julia» no trobava la «Júlia»). Amb 25 targetes, buscar un nen concret
+     volia dir passar-les totes amb l ull. Ara la cerca es aqui, i tant li fan
+     els accents i les majuscules. */
+  /* ⚠ EL FILTRE ES QUEDAVA ACTIU AMB EL QUADRE AMAGAT.
+
+     Segona auditoria (8/9/2026). El quadre de cerca s'amaga quan la llista
+     baixa de nou alumnes (al canviar de grup, per exemple), però el que hi
+     havia escrit s'hi quedava i tres línies més avall es tornava a llegir:
+     la mestra veia «Cap alumne amb «mar»» i cap quadre on esborrar-ho. Sense
+     manera de sortir-ne si no era recarregant.
+
+     Si s'amaga, es buida: un filtre que no es veu no pot manar. */
+  const _cercaBox = document.getElementById('alumnesCercaBox');
+  const _campCerca = document.getElementById('alumnesCerca');
+  const _esVeu = students.length > 8;
+  if (_cercaBox) _cercaBox.style.display = _esVeu ? '' : 'none';
+  if (!_esVeu && _campCerca) _campCerca.value = '';
+  const _q = _normCerca((_campCerca || {}).value || '');
+  const _llista = _q ? students.filter(s => _normCerca(s.nom).indexOf(_q) !== -1) : students;
+
   if (!students.length) { _pintaEstatBuitAlumnes(empty); empty.style.display = 'block'; return; }
+  if (!_llista.length) {
+    const p = empty.querySelector('p');
+    if (p) p.innerHTML = '<strong>Cap alumne amb «' + escapeHtml(_q) + '»</strong><br>Prova amb una altra part del nom.';
+    empty.style.display = 'block';
+    return;
+  }
   empty.style.display = 'none';
 
   const _alFrag = document.createDocumentFragment();
-  students.forEach(s => {
+  _llista.forEach(s => {
     const obs      = observacions[s.id] || {};
     const obsCount = Object.values(obs).filter(v => v && v.trim()).length;
     const pd       = personal[s.id] || {};
@@ -1529,21 +2240,23 @@ function renderAlumnesList() {
         ${hasAM ? '<span class="alumne-badge-am" title="Adaptació Metodològica: ' + escapeHtml(pd.am.replace(/\|/g,', ')) + '">AM</span>' : ''}
         ${hasAlert ? '<span class="alumne-card-alert" title="' + escapeHtml(alertTip) + '">⚠</span>' : ''}
       </div>
-      <div class="alumne-card-top" title="Obrir fitxa">
+      <div class="alumne-card-top" role="button" tabindex="0" aria-label="Obrir la fitxa de ${escapeHtml(nomAlumne(s))}" title="Obrir fitxa">
         <div class="student-avatar alumne-card-avatar">${getInitials(s.nom)}</div>
-        <div class="alumne-card-nom">${escapeHtml(s.nom)}</div>
+        <div class="alumne-card-nom">${escapeHtml(nomAlumne(s))}</div>
       </div>
       <div class="alumne-card-actions">
-        <button class="alumne-card-btn ${hasData ? 'active' : ''}" title="Dades personals">
+        <button class="alumne-card-btn ${hasData ? 'active' : ''}" aria-label="Dades personals de ${escapeHtml(nomAlumne(s))}" title="Dades personals">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         </button>
-        <button class="alumne-card-btn ${obsCount ? 'active' : ''}" title="${obsCount ? obsCount + ' observacions' : 'Sense observacions'}" style="position:relative">
+        <button class="alumne-card-btn ${obsCount ? 'active' : ''}" aria-label="Observacions de ${escapeHtml(nomAlumne(s))}" title="${obsCount ? obsCount + ' observacions' : 'Sense observacions'}" style="position:relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           ${obsCount ? '<span class="obs-badge" style="top:-4px;right:-4px">' + (obsCount > 9 ? '9+' : obsCount) + '</span>' : ''}
         </button>
       </div>`;
 
-    card.querySelector('.alumne-card-top').addEventListener('click', () => showFitxa(s.id));
+    const _dalt = card.querySelector('.alumne-card-top');
+    _dalt.addEventListener('click', () => showFitxa(s.id));
+    _dalt.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); showFitxa(s.id); } });
     card.querySelectorAll('.alumne-card-btn')[0].addEventListener('click', e => { e.stopPropagation(); openPersonalDrawer(s.id); });
     card.querySelectorAll('.alumne-card-btn')[1].addEventListener('click', e => { e.stopPropagation(); openObsDrawer(s.id); });
 
@@ -1572,7 +2285,7 @@ function renderPanelStudents(list) {
       <span class="student-num">${idx + 1}</span>
       <div class="student-avatar">${getInitials(s.nom)}</div>
       <div class="student-info">
-        <div class="student-name">${escapeHtml(s.nom)}</div>
+        <div class="student-name">${escapeHtml(nomAlumne(s))}</div>
         <div class="student-meta">${grupActual() ? escapeHtml(grupActual()) + ' · ' : ''}<button class="student-gen-btn" data-gen="${gen}" title="Canviar gènere">${gen === 'f' ? '♀ Femení' : '♂ Masculí'}</button></div>
       </div>
       <div class="student-actions">
@@ -1843,7 +2556,7 @@ async function loadFitxaNotes(studentId, container) {
   });
 
   // NE per trimestre actual
-  const trimActual = getTrimestreActual() || 1;
+  const trimActual = getTrimestreProposat();
   const trimLabel  = getTrimLabel(trimActual);
 
   // NE del trimestre actual per assignatura
@@ -1915,7 +2628,10 @@ function loadFitxaAssoliments(studentId, container) {
   if (tutorGrup && typeof _perfil !== 'undefined' && _perfil.classes && _perfil.classes[tutorGrup]) {
     assigs = _perfil.classes[tutorGrup].slice();
   }
-  if (!assigs.length) assigs = ['Matemàtiques','Català','Medi','Música','Anglès']; // reserva
+  /* Abans, sense perfil, aqui hi havia una llista de reserva (Matematiques,
+     Catala, Medi, Musica, Angles). A la fitxa d'un nen sortien cinc
+     assignatures que la mestra potser no fa, totes a zero. Ara no s'inventa
+     res: es diu on s'omple. */
 
   // Id estable de l'alumne (rowId)
   const st = students.find(x => x.id === studentId);
@@ -1946,6 +2662,10 @@ function loadFitxaAssoliments(studentId, container) {
 
   // Comprova si hi ha alguna dada
   const tensDades = rows.some(r => r.pcts.some(p => p !== null));
+  if (!rows.length) {
+    container.innerHTML = '<p class="fitxa-empty-field">Per veure aquí els assoliments, primer digues quines assignatures fas a <strong>El meu perfil</strong>.</p>';
+    return;
+  }
   if (!tensDades) {
     container.innerHTML = '<p class="fitxa-empty-field">Sense objectius d\'assoliment definits.</p>';
     return;
@@ -2005,9 +2725,27 @@ function filterStudents() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   renderPanelStudents(students.filter(s => s.nom.toLowerCase().includes(q)));
 }
+/* ⚠ AFEGIR UN ALUMNE A MÀ NO POT FER VEURE QUE FUNCIONA.
+
+   Trobat a l'auditoria del 6/9/2026: l'alumne s'afegia a la llista, es
+   pintava, es creava la seva fila al registre d'aula… i en recarregar havia
+   desaparegut, perquè anava al full PERSONAL de la mestra i la llista de
+   debò surt del full «Grups» de l'escola. A sobre, deixava una fila
+   fantasma al full de registres.
+
+   Quan els alumnes vénen del full compartit —que és el cas de qualsevol
+   tutora, especialista o direcció— la llista la fa la secretaria i des
+   d'aquí no s'hi pot afegir ningú. Val més dir-ho. */
 async function addStudent() {
   const nom = document.getElementById('newStudentName').value.trim();
   if (!nom) { document.getElementById('newStudentName').focus(); return; }
+  const _delFullCompartit = (typeof _grupDeTreball === 'function' && _grupDeTreball()) ||
+                            (typeof _tutoriaGrup !== 'undefined' && _tutoriaGrup);
+  if (_delFullCompartit) {
+    showToast('Els alumnes de ' + _delFullCompartit + ' surten del full de l\'escola: des d\'aquí no se\'n pot afegir cap. ' +
+              'Si n\'hi ha un de nou, digues-ho a secretaria i sortirà aquí sol.', 'error');
+    return;
+  }
   const generSel = document.querySelector('input[name="newStudentGenere"]:checked');
   const genere   = generSel ? generSel.value : 'm';
   students.push({ id: students.length, nom, genere });
@@ -2049,12 +2787,39 @@ async function toggleStudentGenere(id) {
     } else {
       await saveStudents();
     }
-  } catch (e) { showToast('Error desant el gènere: ' + e.message, 'error'); }
+  } catch (e) { showToast('Error desant el gènere: ' + errorHuma(e), 'error'); }
 }
 
-async function deleteStudent(id) {
-  if (!confirm('Eliminar aquest alumne?')) return;
-  students = students.filter(s => s.id !== id).map((s,i) => ({...s, id:i}));
+/* ⚠ TREURE UN ALUMNE DESPLAÇAVA LES DADES DE TOTS ELS DE SOTA.
+
+   Trobat a l'auditoria del 6/9/2026. Aquí es renumeraven els alumnes
+   (`map((s,i) => ({...s, id:i}))`) però `personal{}` i `observacions{}`
+   segueixen indexats pels ids VELLS. Resultat: després de treure el segon
+   de la llista, la Clara portava l'observació d'en Bernat, en Dídac
+   ensenyava l'avís mèdic de la Clara, i el que s'escrivia després anava a
+   la fitxa d'un altre nen —al full compartit, a la vista del claustre.
+
+   Ara els dos diccionaris es tornen a muntar amb els ids nous, alhora que
+   la llista. */
+async function deleteStudent(id, jaPreguntat) {
+  if (!jaPreguntat && !confirm('Eliminar aquest alumne?')) return;
+  const queden = students.filter(s => s.id !== id);
+  const nouId = {};                       // id vell → id nou
+  queden.forEach((s, i) => { nouId[s.id] = i; });
+
+  const personalNou = {}, obsNou = {};
+  Object.keys(personal || {}).forEach(vell => {
+    const nou = nouId[vell];
+    if (nou !== undefined) personalNou[nou] = personal[vell];
+  });
+  Object.keys(observacions || {}).forEach(vell => {
+    const nou = nouId[vell];
+    if (nou !== undefined) obsNou[nou] = observacions[vell];
+  });
+  personal = personalNou;
+  observacions = obsNou;
+
+  students = queden.map((s, i) => ({ ...s, id: i }));
   renderPanelStudents(students);
   updateHomeCounters();
   await saveStudents();
@@ -2073,7 +2838,7 @@ async function saveStudents(callat) {
     await appsScriptPost({ action: 'syncAlumnesARegistre', alumnes: students });
     updateSync('ok', 'Sincronitzat'); updateStatSync();
     if (!callat) showToast('Canvis guardats', 'success');
-  } catch (e) { updateSync('error', 'Error'); showToast('Error: ' + e.message, 'error'); }
+  } catch (e) { updateSync('error', 'Error'); showToast('Error: ' + errorHuma(e), 'error'); }
 }
 async function syncStudents() {
   document.getElementById('syncBtn').classList.add('spinning');
@@ -2088,6 +2853,21 @@ function renderObsGrid() {
   const grid  = document.getElementById('obsStudentGrid');
   grid.querySelectorAll('.obs-student-card').forEach(el => el.remove());
   const empty = document.getElementById('obsEmpty');
+  /* ⚠ DIRECCIÓ SENSE GRUP TRIAT VEIA ALUMNES QUE NO TOCAVEN.
+
+     Trobat a l'auditoria del 6/9/2026: `students` es queda amb el que hagi
+     carregat l'última pantalla (les notes d'una assignatura, per exemple).
+     Sense grup triat, l'avís de dalt deia «Primer tria un grup» i just a sota
+     hi sortien divuit nens d'un altre grup, amb les seves observacions. La
+     direcció podia escriure-hi creient que eren del grup que mirava. */
+  if (_rolDireccio() && !_dirGrup()) {
+    if (empty) {
+      empty.innerHTML = '<p>Primer tria un grup a <strong>Alumnes</strong>. ' +
+        'Fins llavors no puc saber de quins nens em parles.</p>';
+      empty.style.display = 'block';
+    }
+    return;
+  }
   // Mateix motiu que a Alumnes: abans deia "Carrega els alumnes", que no és
   // cap instrucció (no hi ha res per clicar que els carregui).
   if (!students.length) { _pintaEstatBuitAlumnes(empty); empty.style.display='block'; return; }
@@ -2100,13 +2880,19 @@ function renderObsGrid() {
     card.innerHTML = `
       <div class="student-avatar">${getInitials(s.nom)}</div>
       <div class="obs-student-card-info">
-        <div class="obs-student-card-name">${escapeHtml(s.nom)}</div>
+        <div class="obs-student-card-name">${escapeHtml(nomAlumne(s))}</div>
         <div class="obs-student-card-count ${count?'has-obs':''}">
           ${count ? count+(count!==1?' assignatures':' assignatura') : 'Sense observacions'}
         </div>
       </div>
       <svg style="width:16px;height:16px;color:var(--border-strong);flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>`;
+    /* Amb el teclat també: era un div sense res, i la fitxa d un alumne
+       no s hi podia arribar (auditoria 6/9/2026). */
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', 'Observacions de ' + nomAlumne(s));
     card.addEventListener('click', () => openObsDrawer(s.id));
+    card.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openObsDrawer(s.id); } });
     grid.appendChild(card);
   });
 }
@@ -2140,8 +2926,8 @@ function renderObsDrawerContent(studentId) {
       div.innerHTML = `
         <div class="obs-entry-header">
           <span class="obs-materia-badge" style="background:${c.bg};color:${c.text}">${MATERIES[mat]||mat}</span>
-          <button class="obs-entry-edit" onclick="editObservacio(${studentId},'${mat}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          <button class="obs-entry-delete" onclick="deleteObservacioMateria(${studentId},'${mat}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          <button class="obs-entry-edit" onclick="editObservacio(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="obs-entry-delete" onclick="deleteObservacioMateria(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="obs-entry-text">${escapeHtml(text)}</div>`;
       list.appendChild(div);
@@ -2156,47 +2942,101 @@ function renderObsDrawerContent(studentId) {
    OBSERVACIONS — Save / Edit / Delete
    ============================================================ */
 async function saveObservacio() {
+  return _unSolCop('saveObservacio', _saveObservacioFer, document.getElementById('saveObsBtn'));
+}
+async function _saveObservacioFer() {
   const studentId = parseInt(document.getElementById('obsAlumne').value);
   const materia   = document.getElementById('obsMateria').value;
+  /* Sense assignatura l'observació es desava amb una clau coixa («1_») i
+     després sortia sense etiqueta. Val més dir-ho que desar-la a mig fer. */
+  if (!materia) {
+    showToast('Tria de quina assignatura és l\'observació', 'error');
+    const _s = document.getElementById('obsMateria'); if (_s) _s.focus();
+    return;
+  }
   const trimestre = document.getElementById('obsTrimestre').value;
   const text      = document.getElementById('obsText').value.trim();
-  if (!text) { document.getElementById('obsText').focus(); return; }
+  if (!text) { showToast('Escriu què vols apuntar', 'error'); document.getElementById('obsText').focus(); return; }
   const key = trimestre+'_'+materia;
   if (!observacions[studentId]) observacions[studentId]={};
   const cur = observacions[studentId][key]||'';
   const nouText = cur ? cur+' · '+text : text;
   observacions[studentId][key] = nouText;
-  closeAddObsModal();
+  closeAddObsModal(true);
   refreshObsViews(studentId);
   if (config.scriptUrl) {
     try {
       // Les observacions es desen al full "Grups" compartit (les veu tot el claustre).
       // Necessitem el rowId de l'alumne i el grup de l'assignatura.
+      /* ⚠ De quin grup és aquesta observació. Trobat a l'auditoria del
+         6/9/2026: a DIRECCIÓ cap de les vies d'abans no servia —els alumnes
+         que carrega no porten `grupOrigen`, el mapa d'assignatures és buit i
+         no hi ha grup de tutoria— i queia al camí de sota, que desa al full
+         PRIVAT de direcció. La pantalla deia «Observació guardada» i «Les veu
+         tot el claustre», i el text no arribava enlloc.
+         `_grupDeTreball()` ja sap contestar-ho per als tres rols; s'hi posa
+         abans del darrer recurs, sense tocar l'ordre que ja funcionava per a
+         tutores i especialistes. */
       const grup = (personal[studentId] && personal[studentId].grupOrigen)
         ? personal[studentId].grupOrigen
         : ((typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
             ? _assigGrupMap[materia]
-            : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null));
+            : ((typeof _grupDeTreball === 'function' && _grupDeTreball())
+                ? _grupDeTreball()
+                : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null)));
+      /* El nom del nen viatja amb l'observacio: al full la fila la mana el
+         NOM, no el numero, perque el full es reordena sol (auditoria 6/9/2026). */
+      const _nomAl = (students.find(x => String(x.id) === String(studentId)) || {}).nom || '';
       const rowId = (personal[studentId] && personal[studentId].rowId) || studentId;
       let r;
       if (grup) {
         // materia amb la clau (pot incloure grup) → desa el text acumulat
-        r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text: nouText });
+        /* `base` és el text del qual partia aquest navegador i `afegit` el
+           tros nou: així, si mentrestant hi ha escrit una altra mestra, el
+           servidor pot sumar-hi el nostre en comptes de trepitjar-li el seu
+           (segona auditoria, 8/9/2026). */
+        r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key,
+                                   text: nouText, base: cur, afegit: text });
       } else {
-        r = await appsScriptPost({ action:'saveObservacio', studentId, materia, trimestre, text });
+        r = await appsScriptPost({ action:'saveObservacio', studentId, materia, trimestre, text, nomAlumne: _nomAl });
       }
       if (!r.ok) throw new Error(r.error);
-      showToast('Observació guardada','success');
-    } catch(e){ showToast('Error: '+e.message,'error'); }
+      if (r.fusionat && r.text) {
+        /* Una altra mestra hi havia escrit pel mig. No s'ha perdut res, però
+           la mestra ha de saber que allà hi ha més text del que ella hi veia. */
+        observacions[studentId][key] = r.text;
+        refreshObsViews(studentId);
+        showToast('Desada ✓ Mentre escrivies, algú altre hi havia apuntat una observació: hi són totes dues.', 'info');
+      } else {
+        showToast('Observació guardada','success');
+      }
+    } catch(e){
+      /* ⚠ Si no s'ha desat, no pot quedar-se pintada com si sí (auditoria
+         6/9/2026). La pantalla la seguia ensenyant, el comptador la comptava
+         i el toast d'error marxava tot sol: la mestra tancava l'app convençuda
+         que l'observació hi era. Es desfà i s'hi torna a posar el text al
+         quadre perquè no hagi d'escriure-la una altra vegada. */
+      if (cur) observacions[studentId][key] = cur;
+      else delete observacions[studentId][key];
+      refreshObsViews(studentId);
+      showToast('NO s\'ha desat l\'observació: ' + errorHuma(e) + ' El text el tens aquí sota, torna-ho a provar.', 'error');
+      try {
+        openAddObsModal(studentId);
+        document.getElementById('obsMateria').value = materia;
+        document.getElementById('obsTrimestre').value = trimestre;
+        document.getElementById('obsText').value = text;
+      } catch (x) {}
+    }
   }
 }
 function editObservacio(studentId, materia, trimestre) {
   const sel = document.getElementById('obsAlumne');
-  sel.innerHTML = students.map(s=>`<option value="${s.id}" ${s.id===studentId?'selected':''}>${escapeHtml(s.nom)}</option>`).join('');
+  sel.innerHTML = students.map(s=>`<option value="${s.id}" ${s.id===studentId?'selected':''}>${escapeHtml(nomAlumne(s))}</option>`).join('');
   document.getElementById('obsMateria').value   = materia;
   document.getElementById('obsTrimestre').value = String(trimestre);
   const key = trimestre+'_'+materia;
   document.getElementById('obsText').value = (observacions[studentId]||{})[key]||'';
+  _obsTextOriginal = document.getElementById('obsText').value || '';
   const btn = document.getElementById('saveObsBtn');
   btn.textContent = 'Substituir';
   btn.onclick     = () => replaceObservacio(studentId, materia, trimestre);
@@ -2204,44 +3044,179 @@ function editObservacio(studentId, materia, trimestre) {
   setTimeout(()=>{ const ta=document.getElementById('obsText'); ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); },100);
 }
 async function replaceObservacio(studentId, materia, trimestre) {
-  const text = document.getElementById('obsText').value.trim(); if (!text) return;
-  const key  = trimestre+'_'+materia;
+  /* ⚠ EL BOTO ES QUEDAVA DIENT «SUBSTITUIR».
+
+     Segona auditoria (8/9/2026). `_unSolCop` es guarda el text del boto al
+     principi i el torna a posar al final, per treure-li el «Desant…». Pero la
+     feina de dins ja crida `resetSaveObsBtn()` per deixar-lo com a «Guardar»,
+     i llavors _unSolCop hi tornava a escriure «Substituir» a sobre. La
+     seguent observacio nova s obria amb un boto que deia «Substituir».
+
+     Es torna a deixar be quan tot ha acabat. */
+  const r = await _unSolCop('replaceObservacio', () => _replaceObservacioFer(studentId, materia, trimestre), document.getElementById('saveObsBtn'));
+  try { resetSaveObsBtn(); } catch (e) {}
+  return r;
+}
+async function _replaceObservacioFer(studentId, materia, trimestre) {
+  const text = document.getElementById('obsText').value.trim();
+  if (!text) { showToast('Escriu què vols apuntar', 'error'); document.getElementById('obsText').focus(); return; }
+
+  /* ⚠ ELS TRES DESPLEGABLES ES VEIEN ACTIUS I S'IGNORAVEN.
+
+     Trobat a la segona auditoria (8/9/2026). En obrir una observació per
+     editar-la, els desplegables d'alumne, assignatura i trimestre queden
+     habilitats —convidant a canviar-los— però el botó quedava lligat als
+     valors de quan s'havia obert. Qui volgués corregir una observació posada
+     al nen equivocat i triés l'altre nen, l'escrivia UNA SEGONA VEGADA al
+     mateix nen equivocat, esborrant el que hi tenia, i llegia «Observació
+     actualitzada». Doble pèrdua, al full que llegeix tot el claustre.
+
+     Ara mana el que hi ha triat ARA. I si això vol dir moure-la d'un nen (o
+     d'una assignatura, o d'un trimestre) a un altre, es mou de debò: s'escriu
+     a la destinació i s'esborra de l'origen. */
+  const _selA = document.getElementById('obsAlumne');
+  const _selM = document.getElementById('obsMateria');
+  const _selT = document.getElementById('obsTrimestre');
+  const origenId = studentId, origenMat = materia, origenTrim = trimestre;
+  if (_selA && _selA.value !== '') {
+    const _v = _selA.value;
+    const _al = students.find(x => String(x.id) === String(_v));
+    if (_al) studentId = _al.id;
+  }
+  if (_selM && _selM.value) materia = _selM.value;
+  if (_selT && _selT.value) trimestre = _selT.value;
+
+  const esMou = String(studentId) !== String(origenId) ||
+                String(materia) !== String(origenMat) ||
+                String(trimestre) !== String(origenTrim);
+  const keyDesti = trimestre + '_' + materia;
+
+  if (esMou) {
+    const _nomDesti = (students.find(x => String(x.id) === String(studentId)) || {}).nom || 'aquest alumne';
+    const jaHiHa = ((observacions[studentId] || {})[keyDesti] || '').trim();
+    if (jaHiHa && !confirm('«' + _nomDesti + '» ja té una observació aquí:\n\n' + jaHiHa +
+                           '\n\nVols substituir-la per la que estàs escrivint?')) return;
+    // Es treu de l'origen: si no, quedaria a tots dos llocs.
+    const keyOrigen = origenTrim + '_' + origenMat;
+    if (observacions[origenId]) delete observacions[origenId][keyOrigen];
+    try { await deleteObservacioMateria(origenId, origenMat, origenTrim, true); } catch (e) {}
+    refreshObsViews(origenId);
+  }
+
+  const key = keyDesti;
   if (!observacions[studentId]) observacions[studentId]={};
+  /* El que hi havia abans de tocar-hi res: si el desat no arriba al full, s'hi
+     torna a posar (segona auditoria, 8/9/2026 — veure el `catch` de sota). */
+  const _abansDesti = observacions[studentId][key];
   observacions[studentId][key] = text;
-  resetSaveObsBtn(); closeAddObsModal(); refreshObsViews(studentId);
+  resetSaveObsBtn(); closeAddObsModal(true); refreshObsViews(studentId);
   if (config.scriptUrl) {
     try {
+      /* ⚠ De quin grup és aquesta observació. Trobat a l'auditoria del
+         6/9/2026: a DIRECCIÓ cap de les vies d'abans no servia —els alumnes
+         que carrega no porten `grupOrigen`, el mapa d'assignatures és buit i
+         no hi ha grup de tutoria— i queia al camí de sota, que desa al full
+         PRIVAT de direcció. La pantalla deia «Observació guardada» i «Les veu
+         tot el claustre», i el text no arribava enlloc.
+         `_grupDeTreball()` ja sap contestar-ho per als tres rols; s'hi posa
+         abans del darrer recurs, sense tocar l'ordre que ja funcionava per a
+         tutores i especialistes. */
       const grup = (personal[studentId] && personal[studentId].grupOrigen)
         ? personal[studentId].grupOrigen
         : ((typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
             ? _assigGrupMap[materia]
-            : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null));
+            : ((typeof _grupDeTreball === 'function' && _grupDeTreball())
+                ? _grupDeTreball()
+                : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null)));
+      /* El nom del nen viatja amb l'observacio: al full la fila la mana el
+         NOM, no el numero, perque el full es reordena sol (auditoria 6/9/2026). */
+      const _nomAl = (students.find(x => String(x.id) === String(studentId)) || {}).nom || '';
       const rowId = (personal[studentId] && personal[studentId].rowId) || studentId;
       let r;
       if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text });
-      else r = await appsScriptPost({action:'saveObservacio',studentId,materia,trimestre:String(trimestre),text,replace:true});
+      else r = await appsScriptPost({action:'saveObservacio',studentId,materia,trimestre:String(trimestre),text,replace:true,nomAlumne:_nomAl});
       if(!r.ok) throw new Error(r.error);
       showToast('Observació actualitzada','success');
     }
-    catch(e){ showToast('Error: '+e.message,'error'); }
+    catch(e){
+      /* ⚠ SUBSTITUIR AMB EL SERVIDOR CAIGUT PERDIA EL TEXT ESCRIT.
+
+         Trobat a la segona auditoria (8/9/2026). Aquí només hi havia un
+         `showToast('Error: …')`: la pantalla es quedava ensenyant el text
+         nou, al full compartit hi continuava el vell, i el que la mestra
+         acabava d'escriure ja no era enlloc. Tancava l'app convençuda que
+         estava desat.
+
+         Ara es fa el mateix que ja fa el desat d'una observació NOVA: es
+         desfà el canvi a la pantalla i se li torna a obrir la finestra amb
+         el text, perquè no l'hagi de reescriure. */
+      if (_abansDesti !== undefined) observacions[studentId][key] = _abansDesti;
+      else delete observacions[studentId][key];
+      refreshObsViews(studentId);
+      showToast('NO s\'ha desat el canvi: ' + errorHuma(e) + ' El text el tens aquí sota, torna-ho a provar.', 'error');
+      try {
+        editObservacio(studentId, materia, trimestre);
+        document.getElementById('obsText').value = text;
+        _obsTextOriginal = text;
+      } catch (x) {}
+    }
   }
 }
-async function deleteObservacioMateria(studentId, materia, trimestre) {
-  if (!confirm('Esborrar les observacions de '+(MATERIES[materia]||materia)+' ('+TRIM_LABELS[String(trimestre)]+') per aquest alumne?')) return;
+/* `senseDemanar` = ja s'ha preguntat abans. Ho fa servir el moure d'una
+   observació d'un nen a un altre: allà la pregunta ja s'ha fet i tornar-la a
+   fer seria demanar dues vegades el mateix. */
+async function deleteObservacioMateria(studentId, materia, trimestre, senseDemanar) {
+  if (!senseDemanar &&
+      !confirm('Esborrar les observacions de '+(MATERIES[materia]||materia)+' ('+TRIM_LABELS[String(trimestre)]+') per aquest alumne?')) return;
   const key = trimestre+'_'+materia;
+  /* El que hi havia: si l esborrat no arriba al full, s hi torna a posar
+     (segona auditoria, 8/9/2026 — veure el `catch` de sota). */
+  const _abans = (observacions[studentId] || {})[key];
   if (observacions[studentId]) delete observacions[studentId][key];
   refreshObsViews(studentId);
   if (config.scriptUrl) {
     try {
+      /* ⚠ De quin grup és aquesta observació. Trobat a l'auditoria del
+         6/9/2026: a DIRECCIÓ cap de les vies d'abans no servia —els alumnes
+         que carrega no porten `grupOrigen`, el mapa d'assignatures és buit i
+         no hi ha grup de tutoria— i queia al camí de sota, que desa al full
+         PRIVAT de direcció. La pantalla deia «Observació guardada» i «Les veu
+         tot el claustre», i el text no arribava enlloc.
+         `_grupDeTreball()` ja sap contestar-ho per als tres rols; s'hi posa
+         abans del darrer recurs, sense tocar l'ordre que ja funcionava per a
+         tutores i especialistes. */
       const grup = (personal[studentId] && personal[studentId].grupOrigen)
         ? personal[studentId].grupOrigen
         : ((typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
             ? _assigGrupMap[materia]
-            : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null));
+            : ((typeof _grupDeTreball === 'function' && _grupDeTreball())
+                ? _grupDeTreball()
+                : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null)));
       const rowId = (personal[studentId] && personal[studentId].rowId) || studentId;
-      if (grup) await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text: '' });
-      else await appsScriptPost({action:'deleteObservacio',studentId,materia,trimestre:String(trimestre)});
-    } catch(e){ showToast('Error: '+e.message,'error'); }
+      /* El nom viatja també en ESBORRAR: al full la fila la mana el nom, no
+         el número (segona auditoria, 8/9/2026). Sense això s'esborrava la
+         casella del nen que ara ocupa aquella posició. */
+      const _nomAl = (students.find(x => String(x.id) === String(studentId)) || {}).nom || '';
+      let r;
+      if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text: '' });
+      else r = await appsScriptPost({action:'deleteObservacio',studentId,materia,trimestre:String(trimestre),nomAlumne:_nomAl});
+      if (r && r.ok === false) throw new Error(r.error || 'no s\'ha pogut esborrar');
+    } catch(e){
+      /* ⚠ S'ESBORRAVA DE LA PANTALLA I ES QUEDAVA AL FULL COMPARTIT.
+
+         Segona auditoria (8/9/2026). Aquí només hi havia el toast: la mestra
+         veia l'observació desapareguda, tancava l'app convençuda que estava
+         feta, i al full que llegeix tot el claustre hi continuava. Ara, si no
+         s'ha pogut esborrar, torna a sortir a la pantalla: el que es veu ha
+         de ser el que hi ha. */
+      if (_abans !== undefined) {
+        if (!observacions[studentId]) observacions[studentId] = {};
+        observacions[studentId][key] = _abans;
+        refreshObsViews(studentId);
+      }
+      showToast('NO s\'ha esborrat: ' + errorHuma(e) +
+                ' Segueix al full, i per això torna a sortir aquí.', 'error');
+    }
   }
 }
 function refreshObsViews(studentId) {
@@ -2264,7 +3239,25 @@ function getSelectedType() { return (document.querySelector('.type-option.select
 
 async function addRegistreItem() {
   const nom=document.getElementById('newItemName').value.trim(), tipus=getSelectedType();
-  if (!nom){ document.getElementById('newItemName').focus(); return; }
+  /* ⚠ «Crear ítem» amb el nom buit no feia res ni deia res: el botó semblava
+     espatllat (auditoria 6/9/2026). */
+  if (!nom){ showToast('Posa-li un nom a l\'ítem', 'error'); document.getElementById('newItemName').focus(); return; }
+  /* ⚠ DIRECCIÓ SENSE GRUP TRIAT CREAVA UN REGISTRE ORFE.
+
+     La direcció no és tutora de cap grup: fins que no en tria un, el registre
+     no té pestanya on anar i la columna acabava en un full «Registres d'aula»
+     sense amo, que després no trobava ningú. */
+  if (_rolDireccio() && !_dirGrup()) {
+    showToast('Primer tria el grup a dalt: sense grup no sé a quin registre va aquest ítem.', 'error');
+    return;
+  }
+  /* Dos ítems amb el mateix nom a la mateixa taula no es poden distingir:
+     dues columnes «Deures» i cap manera de saber quina és quina. */
+  if (registreItems.some(i => (i.nom || '').trim().toLowerCase() === nom.toLowerCase())) {
+    showToast('Ja hi ha una columna que es diu «' + nom + '». Posa-li un altre nom.', 'error');
+    document.getElementById('newItemName').focus();
+    return;
+  }
   closeNewItemModal();
   const item={id:Date.now(),nom,tipus};
   registreItems.push(item); registreData[item.id]={};
@@ -2272,21 +3265,101 @@ async function addRegistreItem() {
   renderRegistre();
   if (config.scriptUrl) {
     updateSync('syncing','Creant columna…');
-    try { const r=await appsScriptPost({action:'addRegistreItem',item,alumnes:students,grup:_registreGrup()}); if(!r.ok) throw new Error(r.error); updateSync('ok','Sincronitzat'); showToast('Ítem «'+nom+'» creat','success'); }
-    catch(e){ updateSync('error','Error'); showToast('Error: '+e.message,'error'); }
+    try {
+      const r=await appsScriptPost({action:'addRegistreItem',item,alumnes:students,grup:_registreGrup()});
+      if(!r.ok) throw new Error(r.error);
+      updateSync('ok','Sincronitzat');
+      showToast('Ítem «'+nom+'» creat','success');
+    } catch(e) {
+      /* ⚠ LA COLUMNA QUE NOMÉS EXISTIA A LA PANTALLA.
+
+         Trobat a l'auditoria del 6/9/2026. Sense connexió (o amb el servidor
+         caigut) la columna es pintava igualment, la mestra hi passava la
+         llista sencera, i en refrescar no hi era: ni la columna ni les
+         creus. Ara es treu de seguida i es diu per què, que és molt millor
+         que deixar-la treballar per no res.
+
+         No es posa a la cua de pendents a posta: una columna a mig crear
+         desquadraria les creus que s'hi escriuen a sobre, perquè el servidor
+         encara no en sap res. */
+      registreItems = registreItems.filter(i => i.id !== item.id);
+      delete registreData[item.id];
+      renderRegistre();
+      updateSync('error','No desat');
+      showToast('No s’ha pogut crear «' + nom + '»: ' + errorHuma(e) +
+                ' No l’he deixat a la taula perquè no hi escrivissis en va.', 'error');
+    }
   }
 }
+/* ⚠ El codi de la columna viatja ENTRE COMETES i, per tant, arriba com a text.
+   Es va posar aixi el 8/9/2026: sense cometes, el dia que un codi deixi de ser
+   un numero l atribut deixa de ser JavaScript valid i el boto no fa res —que es
+   exactament el que li va passar als Assoliments. Aqui es compara amb String()
+   perque funcioni amb els codis d abans (numeros) i amb els d ara. */
 async function deleteRegistreItem(itemId) {
-  const item=registreItems.find(i=>i.id===itemId);
+  const item=registreItems.find(i=>String(i.id)===String(itemId));
   if (!item||!confirm('Eliminar «'+item.nom+'»?')) return;
-  registreItems=registreItems.filter(i=>i.id!==itemId); delete registreData[itemId];
+  itemId = item.id;   // el de debo, del tipus que sigui
+  registreItems=registreItems.filter(i=>String(i.id)!==String(itemId)); delete registreData[itemId];
   renderRegistre();
-  if (config.scriptUrl){ try{ await appsScriptPost({action:'deleteRegistreItem',itemId,grup:_registreGrup()}); showToast('Ítem eliminat','success'); } catch(e){ showToast('Error: '+e.message,'error'); } }
+  if (config.scriptUrl){ try{ await appsScriptPost({action:'deleteRegistreItem',itemId,grup:_registreGrup()}); showToast('Ítem eliminat','success'); } catch(e){ showToast('Error: '+ errorHuma(e),'error'); } }
 }
+/* Lliga el que ve del full amb els alumnes PEL NOM, no per la posició.
+
+   El full de registres i el full «Grups» de l'escola es reordenen per separat:
+   la sincronització toca el segon cada quinze minuts. Mentre no s'han posat
+   d'acord, la fila 2 del registre i el primer alumne de la llista poden ser
+   nens diferents. És exactament el que ja fan les notes amb `rowNoms`. */
+function _registreRemap(rr) {
+  if (!rr || !rr.data) return rr;
+  if (Array.isArray(rr.rowNoms) && rr.rowNoms.length && typeof _remapValorsPerNom === 'function') {
+    try { rr.data = _remapValorsPerNom(rr.data, rr.rowNoms); } catch (e) {}
+  }
+  return rr;
+}
+
 async function updateRegistreCell(itemId,studentId,value) {
   if (!registreData[itemId]) registreData[itemId]={};
   registreData[itemId][studentId]=value;
-  if (config.scriptUrl){ try{ await appsScriptPost({action:'updateRegistreCell',itemId,studentId,value,grup:_registreGrup()}); } catch(e){ showToast('Error: '+e.message,'error'); } }
+  /* De qui és la creu. Sense això el servidor l'ha d'escriure a la fila que
+     li digui el número, i el número canvia cada cop que algú reordena el full. */
+  const _st = students.find(s => String(s.id) === String(studentId));
+  const nomAlumne = _st ? _st.nom : '';
+  if (config.scriptUrl){
+    try{
+      const r = await appsScriptPost({action:'updateRegistreCell',itemId,studentId,value,grup:_registreGrup(),nomAlumne});
+      /* Una escriptura que no ha anat enlloc no es pot quedar pintada com si
+         sí: la mestra ha de saber que allò NO s'ha desat. */
+      if (r && r.ok === false) {
+        showToast(r.error || 'No s\'ha pogut desar aquesta casella', 'error');
+        updateSync('error', 'No desat');
+        /* La columna ja no hi és (l'ha esborrada una altra pestanya): la creu
+           que s'acaba de pintar no és de ningú. Es treu i es torna a demanar
+           el registre, perquè la pantalla digui la veritat. */
+        if (r._foraDeLloc) {
+          if (registreData[itemId]) delete registreData[itemId][studentId];
+          registreItems = registreItems.filter(i => String(i.id) !== String(itemId));
+          delete registreData[itemId];
+          renderRegistre();
+        }
+      }
+    } catch(e){
+      /* ⚠ AMB EL SERVIDOR CAIGUT, LES CREUS ES PERDIEN EN REFRESCAR.
+
+         Segona auditoria (8/9/2026). Aquí es feia `appsScriptPost` a pèl: si
+         no arribava, sortia el toast i prou. La creu es quedava pintada, no
+         s'apuntava a la cua de pendents —que sí que cobreix la fitxa i les
+         observacions— i el primer refresc se l'emportava. La mestra havia
+         passat la llista sencera i no en quedava res.
+
+         Ara va a la cua: es tornarà a provar sola quan torni la connexió, i
+         mentrestant la ratlla de baix diu els canvis que hi ha sense desar. */
+      _desaAlFull({ action:'updateRegistreCell', itemId, studentId, value,
+                    grup:_registreGrup(), nomAlumne }, { callat: true });
+      showToast('Això encara no s\'ha desat al full. Ho tornaré a provar sol quan torni la connexió.', 'error');
+      updateSync('error', 'No desat');
+    }
+  }
 }
 async function syncRegistre(){
   // A l'app dels especialistes el registre és el del grup triat, no el del
@@ -2309,24 +3382,49 @@ function renderRegistre() {
   const tbody=document.getElementById('regTableBody'), thead=document.querySelector('.reg-table thead tr');
   while(thead.children.length>1) thead.removeChild(thead.lastChild);
   tbody.innerHTML='';
+  /* Mateix motiu que a Observacions: sense grup triat, la direcció veia les
+     files dels alumnes que hagués carregat una altra pantalla. */
+  if (_rolDireccio() && !_dirGrup()) {
+    empty.innerHTML = '<p>Primer tria un grup a <strong>Alumnes</strong>. ' +
+      'Cada grup té el seu registre.</p>';
+    empty.style.display='block'; table.style.display='none'; return;
+  }
   if (!registreItems.length){ empty.style.display='block'; table.style.display='none'; return; }
   empty.style.display='none'; table.style.display='block';
   registreItems.forEach(item=>{
     const th=document.createElement('th'); th.className='reg-th-item';
-    th.innerHTML=`<div class="reg-th-inner"><span>${escapeHtml(item.nom)}</span><button class="reg-th-delete" onclick="deleteRegistreItem(${item.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
+    th.innerHTML=`<div class="reg-th-inner"><span title="${escapeHtml(item.nom)}">${escapeHtml(item.nom)}</span><button class="reg-th-delete" aria-label="Eliminar ${escapeHtml(item.nom)}" title="Eliminar ${escapeHtml(item.nom)}" onclick="deleteRegistreItem('${_idJs(item.id)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
     thead.appendChild(th);
   });
   const _regFrag = document.createDocumentFragment();
   students.forEach(s=>{
     const tr=document.createElement('tr');
     const tdN=document.createElement('td'); tdN.className='reg-td-name';
-    tdN.innerHTML=`<div class="student-avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${getInitials(s.nom)}</div>${escapeHtml(s.nom)}`;
+    tdN.innerHTML=`<div class="student-avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${getInitials(s.nom)}</div>${escapeHtml(nomAlumne(s))}`;
     tr.appendChild(tdN);
     registreItems.forEach(item=>{
       const td=document.createElement('td'); td.className='reg-td-cell';
       const val=(registreData[item.id]||{})[s.id];
       if (item.tipus==='checkbox'){ const cb=document.createElement('input'); cb.type='checkbox'; cb.className='reg-checkbox'; cb.checked=val===true||val==='TRUE'; cb.addEventListener('change',()=>updateRegistreCell(item.id,s.id,cb.checked)); td.appendChild(cb); }
-      else { const inp=document.createElement('input'); inp.type='text'; inp.className='reg-text-input'; inp.value=val||''; inp.placeholder='—'; let t; inp.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>updateRegistreCell(item.id,s.id,inp.value),800);}); td.appendChild(inp); }
+      else {
+        const inp=document.createElement('input'); inp.type='text'; inp.className='reg-text-input';
+        inp.value=val||''; inp.placeholder='—';
+        /* ⚠ El text s'esperava 800 ms abans de sortir cap al full, i si
+           mentrestant la mestra canviava de grup o de pantalla —o
+           recarregava— es perdia sense dir res (auditoria 6/9/2026).
+           Ara, a més del retard, es desa en sortir de la casella; i el
+           temporitzador queda apuntat perquè es pugui buidar de cop. */
+        let t;
+        const desa = () => { clearTimeout(t); t = null; _regPendents.delete(desa);
+                             updateRegistreCell(item.id, s.id, inp.value); };
+        inp.addEventListener('input', () => {
+          clearTimeout(t);
+          _regPendents.add(desa);
+          t = setTimeout(desa, 800);
+        });
+        inp.addEventListener('blur', () => { if (t) desa(); });
+        td.appendChild(inp);
+      }
       tr.appendChild(td);
     });
     _regFrag.appendChild(tr);
@@ -2383,23 +3481,567 @@ function updateHomeCounters() {
     const avui = new Date();
     const dies = ['Diumenge','Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte'];
     const mesos = ['gener','febrer','març','abril','maig','juny','juliol','agost','setembre','octubre','novembre','desembre'];
-    dateEl.textContent = dies[avui.getDay()] + ', ' + avui.getDate() + ' de ' + mesos[avui.getMonth()] + ' de ' + avui.getFullYear();
+    dateEl.textContent = dies[avui.getDay()] + ', ' + avui.getDate() + ' ' + dePreposicio(mesos[avui.getMonth()]) + ' de ' + avui.getFullYear();
   }
 }
-function updateSync(state,text) { document.getElementById('syncDot').className='sync-dot '+state; document.getElementById('syncText').textContent=text; }
+/* ⚠ LA FRANJA VERMELLA QUE NO SE N'ANAVA MAI.
+
+   Trobat a l'auditoria del 6/9/2026. Quan queia la connexió, `_mostraErrorConnexio`
+   posava la franja de dalt dient què passava —bé—, però ningú no la treia
+   quan tornava. La primera càrrega sí que la treu (aquí sota, a l'arrencada),
+   però si la connexió tornava pel refresc de fons o en buidar la cua de
+   canvis pendents, la franja es quedava dient «Sense connexió» amb l'app
+   sincronitzant perfectament. La mestra la llegia i no s'atrevia a escriure
+   res.
+
+   Ara la franja d'error i el puntet van junts: quan el puntet es posa verd,
+   la franja se'n va sola, vingui d'on vingui la sincronització. */
+let _bannerEsError = false;
+function _bannerErrorFora() {
+  if (!_bannerEsError) return;
+  const b = document.getElementById('setupBanner');
+  if (b) b.style.display = 'none';
+  _bannerEsError = false;
+}
+function updateSync(state,text) {
+  document.getElementById('syncDot').className='sync-dot '+state;
+  document.getElementById('syncText').textContent=text;
+  if (state === 'ok') _bannerErrorFora();
+}
+
+/* ============================================================
+   LES FINESTRES, AMB EL TECLAT
+   ------------------------------------------------------------
+   Trobat a l'auditoria del 6/9/2026: cap de les trenta finestres de l'app
+   no es tancava amb Escape, cap no es quedava el focus a dins —de 45
+   tabulacions, més de trenta se n'anaven a la pàgina de darrere, que ni es
+   veu— i en tancar-la el focus no tornava on era. Una mestra que treballi
+   amb el teclat (o amb un lector de pantalla) es perdia a la primera.
+
+   Això NO es va lloc per lloc: hi ha 102 punts que obren i tanquen
+   finestres, i anar-hi un per un vol dir oblidar-se'n una i que les que es
+   facin demà tornin a néixer sense. Es mira quan una finestra s'obre —el
+   navegador ho diu— i s'hi posa el que li falta:
+
+     · role="dialog" i aria-modal, perquè els lectors ho diguin;
+     · el focus se'n va a dins, i es queda a dins mentre sigui oberta;
+     · Escape la tanca (prement el seu propi botó de tancar, perquè faci la
+       neteja que ja feia);
+     · en tancar-se, el focus torna exactament on era.
+   ============================================================ */
+const _SEL_FINESTRES = '.modal-overlay, .panel-overlay';
+const _SEL_FOCUS = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
+                   'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+/* ⚠ On era el focus ABANS d'obrir la finestra.
+
+   No es pot mirar en el moment d'obrir-la: quan el navegador ens avisa que
+   s'ha obert, l'app ja ha mogut el focus a un camp de dins, i llavors
+   «tornar-lo on era» seria tornar-lo a la finestra que acabem de tancar.
+   Per això s'apunta contínuament l'últim lloc de FORA on ha estat. */
+let _finestraFocusAbans = null;
+function _finestraRecordaFocus(e) {
+  const t = e.target;
+  if (!t || !t.closest) return;
+  if (t.closest('.modal-overlay, .panel-overlay, .sidebar-overlay')) return;
+  _finestraFocusAbans = t;
+}
+
+function _finestraOberta() {
+  const totes = document.querySelectorAll(_SEL_FINESTRES + ', .sidebar-overlay');
+  let ultima = null;
+  totes.forEach(el => { if (el.classList.contains('open')) ultima = el; });
+  return ultima;
+}
+
+function _finestraFocusables(cont) {
+  return [...cont.querySelectorAll(_SEL_FOCUS)].filter(el => {
+    if (el.disabled || el.hidden) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+}
+
+function _finestraSObre(el) {
+  if (el.dataset._a11y === 'fet') return;
+  el.dataset._a11y = 'fet';
+  if (!el.getAttribute('role')) el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+}
+
+function _finestraEntraFocus(el) {
+  const f = _finestraFocusables(el);
+  const primer = f.find(x => !x.classList.contains('modal-close') && !x.classList.contains('panel-close')) || f[0];
+  if (primer) { try { primer.focus(); } catch (e) {} }
+  else { el.setAttribute('tabindex', '-1'); try { el.focus(); } catch (e) {} }
+}
+
+function _finestraTanca(el) {
+  /* Es prem el SEU botó de tancar: així es fa la neteja que ja feia l'app
+     (buidar el que hi hagi, tornar l'scroll del cos, oblidar l'alumne…). */
+  const btn = el.querySelector('.modal-close, .panel-close, [data-tanca]');
+  if (btn) { btn.click(); return true; }
+  const fons = el.getAttribute('onclick');
+  if (fons && /tanca|close/i.test(fons)) { el.click(); return true; }
+  el.classList.remove('open');
+  document.body.style.overflow = '';
+  return true;
+}
+
+function _finestraVigila() {
+  if (typeof MutationObserver !== 'function') return;
+  const obs = new MutationObserver(muts => {
+    muts.forEach(m => {
+      const el = m.target;
+      if (!el.classList || !el.matches || !el.matches(_SEL_FINESTRES)) return;
+      const oberta = el.classList.contains('open');
+      const eraOberta = el.dataset._oberta === '1';
+      if (oberta && !eraOberta) {
+        el.dataset._oberta = '1';
+        _finestraSObre(el);
+        setTimeout(() => { if (el.classList.contains('open')) _finestraEntraFocus(el); }, 30);
+      } else if (!oberta && eraOberta) {
+        el.dataset._oberta = '0';
+        const tornar = _finestraFocusAbans;
+        _finestraFocusAbans = null;
+        if (tornar && document.contains(tornar)) { try { tornar.focus(); } catch (e) {} }
+      }
+    });
+  });
+  document.querySelectorAll(_SEL_FINESTRES).forEach(el => {
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+  });
+}
+
+/* ============================================================
+   LES GRAELLES, AMB EL TECLAT
+   ------------------------------------------------------------
+   Trobat a l'auditoria del 6/9/2026: 179 controls no s'hi podia arribar amb
+   el teclat. Tot l'Horari (41), tot el Planning setmanal (81), tot el
+   Calendari (35) i les targetes d'Inici (9) són `div` i `td` amb un
+   `onclick`: es cliquen amb el ratolí i prou. Amb el teclat, aquelles tres
+   pantalles senceres no es poden fer servir.
+
+   Es fa aquí i no a cada plantilla per dues raons: n'hi ha desenes i es
+   pinten des de JS a cada canvi de setmana o de mes —anar-hi una per una és
+   oblidar-se'n— i, sobretot, perquè les que s'escriguin demà també ho
+   tinguin sense haver-hi de pensar.
+
+   El que s'hi posa és el que el navegador ja dona a un botó: s'hi pot
+   arribar amb el tabulador, es diu que és un botó, i Enter o Espai el
+   premen. El clic de ratolí segueix igual. */
+const _NO_CAL_TECLAT = new Set(['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'SUMMARY']);
+
+function _teclatCella(el) {
+  if (!el || !el.tagName || _NO_CAL_TECLAT.has(el.tagName)) return;
+  if (el.hasAttribute('tabindex')) return;
+  /* Els fons de les finestres també porten `onclick` (per tancar-les clicant
+     fora) i NO són botons: fer-los focusables seria posar una parada
+     absurda al mig del recorregut. */
+  if (el.classList.contains('modal-overlay') || el.classList.contains('panel-overlay') ||
+      el.classList.contains('sidebar-overlay')) return;
+  el.setAttribute('tabindex', '0');
+  if (!el.getAttribute('role')) el.setAttribute('role', 'button');
+}
+
+function _teclatRepassa(arrel) {
+  const dins = arrel || document;
+  if (dins.querySelectorAll) dins.querySelectorAll('[onclick]').forEach(_teclatCella);
+  if (dins.nodeType === 1 && dins.hasAttribute && dins.hasAttribute('onclick')) _teclatCella(dins);
+}
+
+function _teclatVigila() {
+  _teclatRepassa(document);
+  if (typeof MutationObserver !== 'function') return;
+  let pendent = false;
+  const obs = new MutationObserver(muts => {
+    if (pendent) return;
+    pendent = true;
+    const fer = () => {
+      pendent = false;
+      muts.forEach(m => m.addedNodes && m.addedNodes.forEach(n => { if (n.nodeType === 1) _teclatRepassa(n); }));
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fer); else setTimeout(fer, 0);
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+}
+
+/* Enter i Espai premen el que és clicable però no és un botó de debò. */
+function _teclatPrem(e) {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const el = document.activeElement;
+  if (!el || _NO_CAL_TECLAT.has(el.tagName)) return;
+  if (el.getAttribute('role') !== 'button' || !el.hasAttribute('onclick')) return;
+  e.preventDefault();
+  el.click();
+}
+
+function _finestraTeclat(e) {
+  /* ⚠ TRES COSES QUE NO ES TANCAVEN AMB ESCAPE.
+
+     Trobat a l auditoria del 6/9/2026: el menu del mobil, el panell d en
+     Vedrunu i les dues finestres de Millores no son `.modal-overlay`, i per
+     tant es quedaven fora d aquest gestor. Amb el teclat no hi havia manera
+     de sortir-ne. */
+  if (e.key === 'Escape') {
+    const menu = document.querySelector('.sidebar.open, #sidebar.open');
+    if (menu) { e.preventDefault(); if (typeof closeSidebar === 'function') closeSidebar(); return; }
+    const ved = document.querySelector('.vedrunu-panel.open');
+    if (ved) { e.preventDefault(); if (typeof toggleVedrunu === 'function') toggleVedrunu(); return; }
+  }
+  const el = _finestraOberta();
+  if (!el) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    _finestraTanca(el);
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  const f = _finestraFocusables(el);
+  if (!f.length) return;
+  const primer = f[0], ultim = f[f.length - 1];
+  const on = document.activeElement;
+  if (!el.contains(on)) { e.preventDefault(); primer.focus(); return; }
+  if (e.shiftKey && on === primer) { e.preventDefault(); ultim.focus(); }
+  else if (!e.shiftKey && on === ultim) { e.preventDefault(); primer.focus(); }
+}
+
+/* ============================================================
+   EL QUE ENCARA NO S'HA DESAT
+   ------------------------------------------------------------
+   Trobat a l'auditoria del 6/9/2026, i era el problema més estès de tots:
+   hi havia ONZE llocs que desaven així —
+
+       appsScriptPost({...}).catch(() => {});
+
+   — o sigui que si el servidor no hi era, o responia malament, l'error
+   queia en un pou. La mestra veia el planning escrit, la ratlla verda de
+   «Sincronitzat», i no hi havia res al full. I encara pitjor: quan tornava
+   la connexió, el refresc de fons li portava el que SÍ que hi havia al
+   servidor i li esborrava de la pantalla el que havia escrit. Sense un
+   avís. Passava al planning, a l'horari, al calendari, a les tasques, als
+   post-its, als assoliments, a l'actitud i als seients.
+
+   Això ho canvia per tres coses:
+
+     1. Si no s'ha pogut desar, es guarda a una cua (al navegador, o sigui
+        que sobreviu a tancar l'app) i es torna a provar tot sol: quan torna
+        la connexió, quan es desa qualsevol altra cosa, i cada dos minuts.
+     2. Mentre hi hagi res a la cua, la ratlla de baix ho diu clarament. No
+        pot dir «Sincronitzat» amb feina pendent.
+     3. El refresc de fons NO trepitja el que està pendent de desar: seria
+        substituir el que ha escrit la mestra pel que encara no li ha
+        arribat al full.
+
+   Una entrada per «cosa» (l'acció més la seva clau): del planning d'una
+   setmana el que val és l'últim estat, no els vint intents.
+   ============================================================ */
+const _PENDENTS_CLAU = 'vedruna_pendents';
+let _pendents = [];
+let _pendentsTimer = null;
+
+function _pendentClau(body) {
+  const a = (body && body.action) || '?';
+  /* `rowId` i `studentId` hi entren perquè la fitxa de dos nens diferents no
+     es trepitgi a la cua: sense això, desar la fitxa d'un alumne sense
+     connexió i tot seguit la d'un altre deixava només l'última, i el primer
+     es perdia sense dir res (auditoria 6/9/2026). */
+  const extra = [body && body.weekId, body && body.year, body && body.materia,
+                 body && body.trimestre, body && body.grup,
+                 body && body.rowId, body && body.studentId]
+                 .filter(x => x !== undefined && x !== null).join('|');
+  return extra ? a + '·' + extra : a;
+}
+function _pendentsCarrega() {
+  try { _pendents = JSON.parse(localStorage.getItem(_PENDENTS_CLAU) || '[]') || []; }
+  catch (e) { _pendents = []; }
+  _pendentsPinta();
+  /* ⚠ EL QUE HAVIA QUEDAT PENDENT D AHIR NO PUJAVA MAI.
+
+     Trobat a la segona auditoria (8/9/2026): el rellotge de reintent nomes
+     s engegava dins del `catch` de `_desaAlFull`, o sigui dins de la sessio
+     on havia fallat. Qui escrivia amb el servidor caigut i tancava l app, l
+     endemà obria una sessio NOVA: la cua encara hi era, pero el rellotge no
+     s engegava i el canvi es quedava al navegador per sempre. */
+  if (_pendents.length) {
+    _pendentsEngegaRellotge();
+    setTimeout(() => { try { _pendentsProva(); } catch (e) {} }, 3000);
+  }
+}
+function _pendentsGuarda() {
+  try { localStorage.setItem(_PENDENTS_CLAU, JSON.stringify(_pendents)); } catch (e) {}
+  _pendentsPinta();
+}
+/* Hi ha res pendent d'aquesta acció? El refresc de fons ho fa servir per
+   no trepitjar el que la mestra ha escrit i encara no ha pogut pujar. */
+function _pendentsTe(accio) {
+  if (!_pendents.length) return false;
+  if (!accio) return true;
+  return _pendents.some(p => p.body && p.body.action === accio);
+}
+function _pendentsPinta() {
+  if (!_pendents.length) return;
+  try {
+    updateSync('error', _pendents.length === 1 ? '1 canvi sense desar' : _pendents.length + ' canvis sense desar');
+  } catch (e) {}
+}
+
+/* Desa al full. Si no pot, s'ho apunta i ho tornarà a provar sol. */
+async function _desaAlFull(body, opcions) {
+  opcions = opcions || {};
+  if (!config.scriptUrl) return { ok: false, _senseConnexio: true };
+  const clau = _pendentClau(body);
+  try {
+    const r = await appsScriptPost(body);
+    if (r && r.ok === false) throw new Error(r.error || 'el servidor no ho ha pogut desar');
+    const hiEra = _pendents.length;
+    _pendents = _pendents.filter(p => p.clau !== clau);
+    if (_pendents.length !== hiEra) _pendentsGuarda();
+    if (!_pendents.length && !opcions.callat) { updateSync('ok', 'Sincronitzat'); updateStatSync(); }
+    _pendentsProva();          // aprofita que la xarxa va per buidar la cua
+    return r;
+  } catch (e) {
+    _pendents = _pendents.filter(p => p.clau !== clau);
+    _pendents.push({ clau, body, ts: Date.now() });
+    _pendentsGuarda();
+    if (!opcions.callat) {
+      showToast('Això encara no s\'ha desat al full. Ho tornaré a provar sol quan torni la connexió.', 'error');
+    }
+    _pendentsEngegaRellotge();
+    return { ok: false, error: (e && e.message) || 'no s\'ha pogut desar', _pendent: true };
+  }
+}
+
+/* Torna a provar el que hi ha a la cua, d'un en un i sense fer soroll. */
+let _pendentsProvant = false;
+async function _pendentsProva() {
+  if (_pendentsProvant || !_pendents.length || !config.scriptUrl) return;
+  _pendentsProvant = true;
+  try {
+    const cua = _pendents.slice();
+    for (const p of cua) {
+      try {
+        const r = await appsScriptPost(p.body);
+        /* ⚠ UNA COSA QUE EL SERVIDOR NO SABRÀ FER MAI TAPAVA LA CUA SENCERA.
+
+           Trobat a l'auditoria del 6/9/2026. Si a la cua hi queia una acció
+           que aquell servidor no coneix —perquè encara no s'hi ha enganxat
+           el Code.gs nou—, aquí es feia `break` i totes les que venien
+           darrere es quedaven esperant per sempre. La mestra veia «3 canvis
+           sense desar» amb la connexió perfecta i no hi havia manera de
+           desencallar-ho.
+
+           Una acció desconeguda no s'arregla esperant: es treu de la cua i
+           s'avisa. La resta de fallades (xarxa, permisos) sí que hi tornen. */
+        if (r && r.ok === false && /acci[oó] desconeguda/i.test(String(r.error || ''))) {
+          _pendents = _pendents.filter(x => x.clau !== p.clau);
+          _pendentsGuarda();
+          showToast('Hi havia un canvi que aquest servidor encara no sap desar. ' +
+                    'Digues a en Pol que actualitzi el servidor.', 'error');
+          continue;
+        }
+        if (r && r.ok === false) break;              // segueix sense anar: ja hi tornarem
+        _pendents = _pendents.filter(x => x.clau !== p.clau);
+        _pendentsGuarda();
+      } catch (e) { break; }
+    }
+    if (!_pendents.length) {
+      updateSync('ok', 'Sincronitzat'); updateStatSync();
+      showToast('Ja s\'ha desat tot el que havia quedat pendent ✓', 'success');
+      if (_pendentsTimer) { clearInterval(_pendentsTimer); _pendentsTimer = null; }
+    }
+  } finally { _pendentsProvant = false; }
+}
+function _pendentsEngegaRellotge() {
+  if (_pendentsTimer) return;
+  _pendentsTimer = setInterval(() => { if (!document.hidden) _pendentsProva(); }, 120000);
+}
+/* El «ja torno a tenir xarxa» del navegador. Va protegit perquè les eines de
+   comprovació carreguen l'app dins d'un navegador de mentida que no sempre
+   porta addEventListener, i una excepció aquí impediria carregar tot el
+   fitxer. */
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('online', () => _pendentsProva());
+
+  /* ⚠ LA RODA DEL RATOLÍ CANVIAVA LES NOTES, I LES DESAVA.
+
+     Trobat a la segona auditoria (8/9/2026). Passar notes es fa així: cliques
+     la casella, escrius el 8, i fas rodar la roda per arribar a l'alumne
+     següent. Si el punter encara era damunt de la casella que acabaves de
+     tocar, el navegador —perquè és un `input type=number`— li canviava el
+     valor (8 → 7,5), l'app ho prenia per una edició de la mestra i ho desava
+     al full. La mestra no ho veia: estava mirant més avall.
+
+     Es posa aquí i no a cada casella perquè el problema és de TOTS els camps
+     de número (les notes, l'actitud, la puntuació màxima d'un ítem): un dia
+     se n'afegirà un altre i ja quedarà protegit.
+
+     El gest no es bloqueja: es treu el focus de la casella i la pàgina baixa
+     com sempre. Les fletxes amunt/avall sí que continuen servint, que és on
+     s'esperen. */
+  window.addEventListener('wheel', (e) => {
+    const el = document.activeElement;
+    if (!el || el.type !== 'number' || el !== e.target) return;
+    el.blur();
+  }, { passive: true, capture: true });
+}
 function updateStatSync() {
   const now  = new Date();
   const hora = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
   const el   = document.getElementById('syncHora');
   if (el) { el.textContent = '· ' + hora; el.style.display = 'inline'; }
 }
+
+/* ⚠ L ENLLAC QUE ESCRIU LA MESTRA VA DINS D UN ATRIBUT HTML.
+
+   Trobat a l auditoria del 6/9/2026: s hi encastava tal qual
+   s'hi encastava tal qual dins de l'atribut href, o sigui que amb unes
+   cometes s'hi podien afegir atributs a l'etiqueta —un onmouseover, per
+   exemple— i executar-los. I, a més, un «javascript:…» com a enllaç també
+   s'executa en clicar-lo.
+
+   Això torna un enllaç buit si no és http o https, i escapa el que quedi. */
+function _enllacSegur(u) {
+  if (u === undefined || u === null) return '';
+  const net = String(u).trim();
+  if (!net) return '';
+  if (!/^https?:\/\//i.test(net)) return '';
+  return escapeHtml(net);
+}
+
+/* DOS NENS AMB EL MATEIX NOM.
+   Trobat a l'auditoria del 6/9/2026: si al grup hi ha dues «Julia Serra»,
+   totes les llistes i tots els desplegables les pinten igual i la mestra no
+   te manera de saber a quina esta escrivint. Ara, NOMES quan un nom es
+   repeteix, se li posa al costat el seu numero: «Julia Serra (1)» i «Julia
+   Serra (2)». Surt de l'ordre de la llista, que es el mateix a tot arreu,
+   o sigui que cadascuna porta sempre el mateix numero. */
+function nomAlumne(s) {
+  if (!s) return '';
+  const nom = String(s.nom || '');
+  const clau = nom.trim().toLowerCase();
+  if (!clau) return nom;
+  const iguals = (students || []).filter(x => String(x.nom || '').trim().toLowerCase() === clau);
+  if (iguals.length < 2) return nom;
+  const n = iguals.findIndex(x => x.id === s.id) + 1;
+  return n ? nom + ' (' + n + ')' : nom;
+}
+/* ⚠ «15 DE OCTUBRE».
+
+   Trobat a l'auditoria del 6/9/2026: les dates es muntaven sempre amb «de»,
+   i en català davant de vocal és «d'». Sortia «15 de octubre», «2 de abril»,
+   «11 de agost» a les entrevistes, a les reunions i a l'esmorzar. Ho llegeixen
+   les famílies. */
+function dePreposicio(mes) {
+  const m = String(mes || '').trim();
+  return /^[aeiouàèéíòóúAEIOU]/.test(m) ? "d'" + m : 'de ' + m;
+}
 function escapeHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ⚠ ELS CODIS QUE S'ENGANXEN DINS D'UN onclick.
+
+   Trobat a l'auditoria del 6/9/2026. Arreu de l'app hi ha botons fets així:
+
+       onclick="postitEsborrar('${_idJs(p.id)}')"
+
+   Els codis que fa l'app són números i van bé. Però n'hi ha que vénen de
+   fora —els del Google Tasks, els del Google Calendar, els que algú ha
+   escrit al full— i n'hi ha prou amb un apòstrof a dins perquè el botó
+   deixi de fer res: el navegador tanca la cadena on no toca i el handler
+   queda trencat. La mestra clica i no passa res, que és el pitjor que pot
+   fer un botó.
+
+   `_idJs` deixa el codi en condicions per anar dins d'una cadena amb
+   apòstrofs que, alhora, viu dins d'un atribut HTML amb cometes. */
+function _idJs(v) {
+  return String(v == null ? '' : v)
+    .split(String.fromCharCode(92)).join(String.fromCharCode(92, 92))
+    .split(String.fromCharCode(39)).join(String.fromCharCode(92, 39))
+    .split('"').join('&quot;')
+    .split('<').join('&lt;')
+    .split('>').join('&gt;')
+    .split('\n').join('')
+    .split('\r').join('');
+}
+
+/* ============================================================
+   ELS ERRORS, EN CATALÀ I AMB SENTIT
+   ------------------------------------------------------------
+   Trobat a l'auditoria del 6/9/2026, i sortia per tot arreu: al registre,
+   a les tasques, al calendari, a Vedrunu, a les millores. La mestra veia
+   coses com «Failed to fetch», «Unexpected token '<'» o «HTTP 500», que no
+   li diuen ni què ha passat ni què ha de fer.
+
+   El pitjor és el segon: «Unexpected token '<'» vol dir que Google ha
+   respost una pàgina HTML en comptes de dades, i això passa quan et vol
+   tornar a identificar. Deia «mira la teva connexió a internet», que és
+   justament la pista equivocada.
+
+   Es tradueix en un sol lloc, i tot el que ensenya errors hi passa. */
+/* Treu el punt final d'una frase per poder-n'hi enganxar una altra darrere.
+   `errorHuma()` ja torna la frase acabada en punt, i a la Coordinació i al
+   Registre de docents s'hi afegia « . Prova de…»: sortien dos punts seguits
+   (segona auditoria, 8/9/2026). */
+function senseElPuntFinal(t) {
+  return String(t || '').trim().replace(/[.…]+$/, '');
+}
+
+function errorHuma(e) {
+  const t = String((e && e.message) || e || '').trim();
+  if (!t) return 'No ha anat bé, i no sé dir per què. Torna-ho a provar.';
+  if (/Unexpected token\s*'?<|SyntaxError.*JSON|is not valid JSON/i.test(t)) {
+    return 'Google demana que et tornis a identificar. Obre qualsevol pàgina de Google ' +
+           '(el Gmail o el Drive), entra-hi amb el teu compte de l\'escola i torna a provar-ho aquí.';
+  }
+  if (/Failed to fetch|NetworkError|ERR_INTERNET|ERR_NETWORK|Load failed/i.test(t)) {
+    return 'No he pogut arribar al full. Sol ser la connexió: mira que tinguis internet i torna-ho a provar.';
+  }
+  if (/aborted|AbortError|timeout/i.test(t)) {
+    return 'El full ha trigat massa a respondre. Torna-ho a provar d\'aquí a un moment.';
+  }
+  if (/HTTP 5\d\d/i.test(t)) {
+    return 'El full no respon bé ara mateix (error del servidor de Google). Torna-ho a provar d\'aquí a una estona.';
+  }
+  if (/HTTP 40[13]|No autoritzat/i.test(t)) {
+    return 'La clau de seguretat no coincideix amb la del servidor. Això no ho pots arreglar tu: digues-ho en Pol.';
+  }
+  return t;   // ja és un missatge nostre, en català
+}
+
+/* ============================================================
+   UN CLIC ÉS UN CLIC
+   ------------------------------------------------------------
+   Trobat a l'auditoria del 6/9/2026: clicar tres vegades «Guardar» desava
+   l'observació tres vegades enganxada; «Enviar-li» enviava dos correus a en
+   Pol; l'avís de l'esmorzar, un correu per clic.
+
+   L'`opId` del transport només atura els REINTENTS automàtics: un segon
+   clic de la mestra és una operació nova i legítima des de fora. Això atura
+   el segon clic mentre el primer encara treballa, i deixa el botó fet una
+   pena perquè es vegi que hi està.
+   ============================================================ */
+const _enMarxa = new Set();
+async function _unSolCop(nom, feina, btn) {
+  if (_enMarxa.has(nom)) return;
+  _enMarxa.add(nom);
+  const _txt = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Un moment…'; }
+  try { return await feina(); }
+  finally {
+    _enMarxa.delete(nom);
+    if (btn) { btn.disabled = false; if (_txt !== null) btn.textContent = _txt; }
+  }
+}
 
 let toastTimer;
 function showToast(msg,type='info') {
   const icons={success:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`,error:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>`,info:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`};
   const t=document.getElementById('toast');
-  t.innerHTML=icons[type]+'<span>'+msg+'</span>';
+  /* ⚠ El text del rètol s'escapa SEMPRE (auditoria 6/9/2026). Aquí hi arriba
+     el nom d'un ítem que ha escrit la mestra i, sobretot, el text d'error que
+     torna el servidor: n'hi havia prou de dir-li a una activitat
+     `<img onerror=…>` perquè s'executés. Hi aboquen 42 punts de l'app, o
+     sigui que el lloc on s'ha d'arreglar és aquest, no cadascun d'ells. */
+  t.innerHTML=icons[type]+'<span>'+escapeHtml(msg)+'</span>';
   t.className='toast show'+(type==='success'?' success':type==='error'?' error':'');
   // Els errors solen tenir instruccions: es mostren més estona per poder-los llegir
   const durada = (type === 'error' && msg.length > 60) ? 8000 : 3500;
@@ -2410,6 +4052,12 @@ function showToast(msg,type='info') {
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
+  _pendentsCarrega();     // el que va quedar sense desar l altre dia
+  document.addEventListener('focusin', _finestraRecordaFocus, true);
+  _finestraVigila();      // Escape, focus a dins i focus que torna, a totes les finestres
+  _teclatVigila();        // que a les graelles s hi pugui arribar amb el tabulador
+  document.addEventListener('keydown', _finestraTeclat, true);
+  document.addEventListener('keydown', _teclatPrem);
   _rolAplicaInterficie(); // subtítol del logo i apartats segons el rol de l'app
   updateHomeCounters(); // inicialitza data sidebar
   // Mostra el nom del perfil al menú des del cache local (immediat)
@@ -2459,6 +4107,9 @@ function _rolAplicaInterficie() {
   const esp = (typeof esEspecialista === 'function') && esEspecialista();
   const titol = document.getElementById('sidebarBrandTitle');
   if (titol && typeof rolSubtitol === 'function') titol.textContent = rolSubtitol();
+  /* Els rètols que no volen dir el mateix segons qui obri l'app ("Tutoria"
+     a Tasques, per exemple): els posa `rol.js`, que és on viu el rol. */
+  if (typeof rolPosaEtiquetes === 'function') { try { rolPosaEtiquetes(); } catch (e) {} }
   if (_rolDireccio()) {
     // Direcció ho veu tot, com un tutor. L'única diferència és que el grup
     // no és fix: el trien a Alumnes i els segueix per tota l'app. I hi tenen
@@ -2580,10 +4231,23 @@ async function _rolCarregaGrupTreball(clau, pagina) {
   } else {
     // Registres d'aula: cada assignatura de cada grup té la seva pestanya
     try {
-      const rr = await appsScriptGet({ action: 'getRegistre', grup: _clauRegistre });
+      const rr = _registreRemap(await appsScriptGet({ action: 'getRegistre', grup: _clauRegistre }));
       registreItems = (rr.ok && rr.items) ? rr.items : [];
       registreData  = (rr.ok && rr.data)  ? rr.data  : {};
-    } catch(err) { registreItems = []; registreData = {}; }
+    } catch(err) {
+      /* ⚠ UNA LECTURA QUE FALLA NO POT FER VEURE QUE NO HI HA RES.
+
+         Trobat a l'auditoria del 6/9/2026: si no s'arribava al full, aqui es
+         buidava la taula i es pintava com si aquell grup no tingues cap
+         registre. La mestra el donava per buit i es posava a crear columnes
+         que ja existien. Ara es diu que no s'ha pogut llegir. */
+      registreItems = []; registreData = {};
+      const _h = document.getElementById('regGrupHint');
+      if (_h) _h.textContent = 'No s’han pogut llegir els registres: ' +
+        (typeof errorHuma === 'function' ? errorHuma(err) : (err && err.message) || '') +
+        ' El que veus no vol dir que estigui buit.';
+      showToast('No s’han pogut llegir els registres d’aquest grup. Torna-ho a provar.', 'error');
+    }
     renderRegistre();
   }
 }
@@ -2686,7 +4350,7 @@ function _dirRenderGrupPicker() {
   const linies = (typeof PERFIL_LINIES !== 'undefined') ? PERFIL_LINIES : ['A','B','C'];
 
   const cursosHtml = cursos.map(c =>
-    `<button type="button" class="dir-grup-btn${_dirCursObert === c ? ' active' : ''}" aria-pressed="${_dirCursObert === c}" onclick="dirObreCurs('${c}')">${escapeHtml(c)}</button>`
+    `<button type="button" class="dir-grup-btn${_dirCursObert === c ? ' active' : ''}" aria-pressed="${_dirCursObert === c}" onclick="dirObreCurs('${_idJs(c)}')">${escapeHtml(c)}</button>`
   ).join('');
 
   let liniesHtml = '';
@@ -2695,7 +4359,7 @@ function _dirRenderGrupPicker() {
       <span class="dir-grup-lin-label" id="dirGrupLinLabel">Línia:</span>
       ${linies.map(l => {
         const g = _dirCursObert + ' ' + l;
-        return `<button type="button" class="dir-linia-btn${grup === g ? ' active' : ''}" aria-pressed="${grup === g}" onclick="dirTriaGrup('${g}')">${escapeHtml(g)}</button>`;
+        return `<button type="button" class="dir-linia-btn${grup === g ? ' active' : ''}" aria-pressed="${grup === g}" onclick="dirTriaGrup('${_idJs(g)}')">${escapeHtml(g)}</button>`;
       }).join('')}
     </div>`;
   }
@@ -2722,13 +4386,21 @@ function dirTriaGrup(grup) {
 /* Carrega TOT el que depèn del grup: alumnes, observacions compartides,
    registre d'aula i distribució de l'aula. Es fa en un sol lloc perquè no hi
    pugui haver mai mitja pantalla parlant d'un grup i mitja d'un altre. */
+/* ⚠ EL GRUP NOMÉS ÉS «EL GRUP» QUAN LA LLISTA HA ARRIBAT DE DEBÒ.
+
+   Trobat a l'auditoria del 6/9/2026: aquí es desava el grup nou ABANS de
+   demanar-ne els alumnes. Si la petició fallava, l'app deia per tot arreu
+   que era a 1r C —l'avís de Registres, el títol, el selector— i les files
+   que ensenyava seguien sent les de 6è A. Crear un ítem allà generava el
+   full «Registres 1r C» amb els nens de 6è A a dins.
+
+   Ara el grup no passa a ser l'oficial fins que la llista hi és. Si falla,
+   es queda on era i es diu què ha passat. */
 async function _dirCarregaGrup(grup) {
   if (!grup || !_rolDireccio()) return;
   const meu = ++_dirCarregaId;
+  const _grupAbans = _direccioGrup;
 
-  _direccioGrup = grup;
-  try { localStorage.setItem('direccio_grup', grup); } catch(e) {}
-  _tutoriaGrup = grup;
   _dirCursObert = grup.split(' ')[0];
   _dirRenderGrupPicker();
 
@@ -2758,8 +4430,11 @@ async function _dirCarregaGrup(grup) {
     else throw new Error((r && r.error) || 'resposta buida');
   } catch (e) {
     if (meu !== _dirCarregaId) return;
-    _dirEstat('No s\'han pogut carregar els alumnes de ' + grup + ': ' + e.message +
-              '. Torna a clicar el grup; si continua, mira la connexió a Configuració.', 'error');
+    /* El grup no ha arribat: ens quedem al que hi havia, i es diu. Si es
+       canviés igualment, la pantalla diria «1r C» amb els nens de 6è A. */
+    _dirRenderGrupPicker();
+    _dirEstat('No s\'han pogut carregar els alumnes de ' + grup + ': ' + errorHuma(e) +
+              '. Segueixes a ' + (_grupAbans || 'cap grup') + '. Torna a clicar el grup; si continua, mira la connexió a Configuració.', 'error');
     return;
   }
   if (meu !== _dirCarregaId) return;   // ja n'han triat un altre
@@ -2769,8 +4444,14 @@ async function _dirCarregaGrup(grup) {
      els alumnes de l'altre: hi hauries pogut escriure dades a qui no toca. */
   _tutoriaAlumnes = [];
   students = []; personal = {}; observacions = {};
+  /* Ha arribat: ARA sí que aquest és el grup on som. */
+  _direccioGrup = grup;
+  _tutoriaGrup = grup;
+  try { localStorage.setItem('direccio_grup', grup); } catch(e) {}
+  _dirRenderGrupPicker();
+
   if (alumnes.length) {
-    if (typeof _aplicaTutoriaAlumnes === 'function') _aplicaTutoriaAlumnes(alumnes);
+    if (typeof _aplicaTutoriaAlumnes === 'function') _aplicaTutoriaAlumnes(alumnes, true);
     try { localStorage.setItem('tutoriacache_' + grup, JSON.stringify({ alumnes: alumnes, ts: Date.now(), v: (window.versioApp && window.versioApp.actual) || '' })); } catch(e) {}
   } else {
     _grupStudentsCarregat = grup + '|';
@@ -2795,7 +4476,7 @@ async function _dirCarregaGrup(grup) {
 
   // 3) Registre d'aula d'aquest grup (pestanya pròpia, "Registres 4t B")
   try {
-    const rr = rReg;                       // ja demanada a dalt, alhora
+    const rr = _registreRemap(rReg);       // ja demanada a dalt, alhora
     if (meu !== _dirCarregaId) return;
     registreItems = (rr && rr.ok && rr.items) ? rr.items : [];
     registreData  = (rr && rr.ok && rr.data)  ? rr.data  : {};
@@ -2866,6 +4547,19 @@ function getPlanWeekLabel(offset) {
   return fmt(dl) + ' – ' + fmt(dv);
 }
 
+/* ⚠ ES LECTIU, AQUEST DIA?
+
+   Fins ara aixo nomes existia dins de la funcio que pinta el planning. Ara
+   tambe ho necessita l horari, per no omplir les setmanes de Nadal i de
+   Setmana Santa amb assignatures que ningu no fara (auditoria 6/9/2026). */
+const PLAN_NO_LECTIU = ['festiu', 'vacances', 'local', 'lliure'];
+function esDiaNoLectiu(ds) {
+  if (!ds) return false;
+  const evs = (typeof allEventsForDate === 'function') ? allEventsForDate(ds) : [];
+  return evs.some(e => PLAN_NO_LECTIU.indexOf(e.catId) !== -1 &&
+                       !/tarda no lectiva|inici de classes/i.test(e.titol || ''));
+}
+
 function getPlanMondayDate(offset) {
   const d = new Date();
   d.setDate(d.getDate() + (offset || 0) * 7);
@@ -2930,13 +4624,24 @@ function planCalEvents(diaId, franja) {
   const horariIni = _franjaInici(PLAN_FRANGES[0]);
   const horariFi  = _franjaFi(PLAN_FRANGES[PLAN_FRANGES.length - 1]);
 
-  // Events locals de l'app + Google Calendar (memoïtzats: es parsegen 1 cop per render)
-  const locals = _planLoadEvs(y);
+  /* ⚠ LES COLONIES NOMES SORTIEN EL PRIMER DIA AL PLANNING.
+
+     Trobat a la segona auditoria (8/9/2026). Aqui es comparava «ev.data !==
+     ds» a pel. Una sortida de tres dies es veia be al calendari i a la
+     franja de setmana de la portada, pero al planning nomes hi era el
+     dilluns: dimarts i dimecres deien que era una setmana normal. El propi
+     codi ja avisava mes avall que aixo s ha de preguntar SEMPRE amb
+     `_evTocaDia()`; l arranjament de la data final no havia arribat aqui.
+
+     I l any anterior tambe: unes colonies del 30 de desembre es desen a
+     l any que COMENCEN, o sigui que al planning del 4 de gener no hi
+     sortien. `allEventsForDate` ja ho feia; el planning, no. */
+  const locals = _planLoadEvs(y).concat(_planLoadEvs(y - 1));
   const gcal = _planLoadGcal();
   const evs = gcal.length ? locals.concat(gcal) : locals;
 
   return evs.filter(ev => {
-    if (ev.data !== ds) return false;
+    if (!_evTocaDia(ev, ds)) return false;
     // Sense hora → es mostra a la primera franja del dia
     if (!ev.hora) return esPrimera;
     const m = ev.hora.match(/(\d{1,2}):(\d{2})/);
@@ -2962,13 +4667,13 @@ function _planDiaCal(diaId) {
   dataDia.setDate(dataDia.getDate() + diaIdx);
   const y = dataDia.getFullYear();
   const ds = `${y}-${String(dataDia.getMonth()+1).padStart(2,'0')}-${String(dataDia.getDate()).padStart(2,'0')}`;
-  const evs = (typeof _planLoadEvs === 'function') ? _planLoadEvs(y) : (function(){ try { return JSON.parse(localStorage.getItem('cal2_events_' + y) || '[]'); } catch(e) { return []; } })();
+  const evs = (typeof _planLoadEvs === "function") ? _planLoadEvs(y).concat(_planLoadEvs(y - 1)) : [];
   // Tots els dies d'escola són catId 'festiu' (gris); acceptem també les catIds
   // antigues per compatibilitat. Distingim pel títol: "tarda no lectiva" → només
   // tarda; "inici de classes" → dia normal (no buida res).
   const NO_LECTIU = ['festiu', 'vacances', 'local', 'lliure'];
   const esNoLectiu = e => NO_LECTIU.indexOf(e.catId) !== -1 && !/tarda no lectiva|inici de classes/i.test(e.titol || '');
-  const festa = evs.find(e => e.data === ds && esNoLectiu(e)) || null;
+  const festa = evs.find(e => _evTocaDia(e, ds) && esNoLectiu(e)) || null;
   const tarda = festa ? null : (evs.find(e => e.data === ds && /tarda no lectiva/i.test(e.titol || '')) || null);
   return { festa, tarda };
 }
@@ -3013,10 +4718,10 @@ function renderPlanning() {
     if (typeof aniversarisDelDia === 'function') _aniv = aniversarisDelDia(dateD);
     html += `<th class="plan-th-dia${isToday ? ' plan-th-today' : ''}">
       <div class="plan-th-dia-top">${dia.nom}<span class="plan-th-date">${toStr(dateD)}</span>
-        <button class="plan-day-add-note" onclick="event.stopPropagation();openPlanNoteDay('${_diaId}')" title="Afegir nota del dia">+</button>
+        <button class="plan-day-add-note" onclick="event.stopPropagation();openPlanNoteDay('${_idJs(_diaId)}')" title="Afegir nota del dia">+</button>
       </div>
       ${_aniv.map(nom => `<div class="plan-day-aniversari" title="Aniversari"><span>🎂 Aniversari ${escapeHtml(nom.split(' ')[0])}</span></div>`).join('')}
-      ${_dayNotes.map((n, i) => `<div class="plan-day-note-text"><span>${escapeHtml(n)}</span><button class="plan-note-del" onclick="event.stopPropagation();deleteDayNoteItem('${_diaId}',${i})" title="Esborrar">×</button></div>`).join('')}
+      ${_dayNotes.map((n, i) => `<div class="plan-day-note-text"><span>${escapeHtml(n)}</span><button class="plan-note-del" onclick="event.stopPropagation();deleteDayNoteItem('${_idJs(_diaId)}',${i})" title="Esborrar">×</button></div>`).join('')}
     </th>`;
   });
   html += '</tr></thead><tbody>';
@@ -3029,7 +4734,29 @@ function renderPlanning() {
     PLAN_DIES.forEach(dia => {
       // Dia sencer no lectiu: UNA sola cel·la unida per tot el dia, amb el nom centrat.
       if (festes[dia.id]) {
-        if (fi === 0) html += `<td class="plan-td-festa" rowspan="${PLAN_FRANGES.length}"><div class="plan-festa-tag">🎉 ${escapeHtml(festes[dia.id].titol)}</div></td>`;
+        if (fi === 0) {
+          /* ⚠ EL QUE LA MESTRA HI HAVIA ESCRIT DESAPAREIXIA I NO S'HI PODIA
+             TORNAR.
+
+             Segona auditoria (8/9/2026). La cel·la de festa es pinta amb un
+             rowspan que tapa tota la columna, i aquí es descartava la resta
+             sense mirar si a sota hi havia res. Si la mestra havia planificat
+             un dia i DESPRÉS aquell dia es marcava de festa —cosa que passa:
+             una vaga, un pont que es decideix tard—, la seva feina es quedava
+             al full però no es veia enlloc ni s'hi podia arribar.
+
+             Ara, si a sota hi ha res, es diu quant i com recuperar-ho. */
+          let _teFeina = 0;
+          PLAN_FRANGES.forEach(f2 => {
+            const d2 = planCellLoad(dia.id, f2.id);
+            if (d2 && (d2.assig || d2.event || d2.alerta || d2.coment)) _teFeina++;
+          });
+          const _avis = _teFeina
+            ? `<div class="plan-festa-sota">Hi tenies ${_teFeina} ${_teFeina === 1 ? 'hora planificada' : 'hores planificades'}. ` +
+              `No s'ha perdut: treu la festa del calendari i tornaran a sortir.</div>`
+            : '';
+          html += `<td class="plan-td-festa" rowspan="${PLAN_FRANGES.length}"><div class="plan-festa-tag">🎉 ${escapeHtml(festes[dia.id].titol)}</div>${_avis}</td>`;
+        }
         return; // fi>0: ja cobert pel rowspan
       }
       // Tarda no lectiva: hores de tarda (f7 i f8) buides i grises, unides.
@@ -3064,30 +4791,30 @@ function renderPlanCell(data, key, isPati, calEvs) {
 
   if (!data) {
     const cls = isPati ? 'plan-cell plan-cell-pati' : 'plan-cell plan-cell-empty';
-    return `<td class="${cls}" onclick="openPlanCell('${key}')">
+    return `<td class="${cls}" onclick="openPlanCell('${_idJs(key)}')">
       ${calHtml}
-      <div class="plan-cell-coment-dot" onclick="event.stopPropagation();openPlanCellComent('${key}')" title="Afegir comentari de sessió">
+      <div class="plan-cell-coment-dot" onclick="event.stopPropagation();openPlanCellComent('${_idJs(key)}')" title="Afegir comentari de sessió">
         <svg viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       </div>
     </td>`;
   }
 
   if (data.tipus === 'festa') {
-    return `<td class="plan-cell plan-cell-festa" onclick="openPlanCell('${key}')">
+    return `<td class="plan-cell plan-cell-festa" onclick="openPlanCell('${_idJs(key)}')">
       ${calHtml}
       <div class="plan-cell-event-name">${escapeHtml(data.event || 'FESTA')}</div>
       ${data.eventSub ? `<div class="plan-cell-event-sub">${escapeHtml(data.eventSub)}</div>` : ''}
     </td>`;
   }
   if (data.tipus === 'especial') {
-    return `<td class="plan-cell plan-cell-especial" onclick="openPlanCell('${key}')">
+    return `<td class="plan-cell plan-cell-especial" onclick="openPlanCell('${_idJs(key)}')">
       ${calHtml}
       <div class="plan-cell-event-name">${escapeHtml(data.event || '')}</div>
       ${data.eventSub ? `<div class="plan-cell-event-sub">${escapeHtml(data.eventSub)}</div>` : ''}
     </td>`;
   }
   if (data.tipus === 'sortida') {
-    return `<td class="plan-cell plan-cell-sortida" onclick="openPlanCell('${key}')">
+    return `<td class="plan-cell plan-cell-sortida" onclick="openPlanCell('${_idJs(key)}')">
       ${calHtml}
       <div class="plan-cell-event-name">${escapeHtml(data.event || '')}</div>
       ${data.eventSub ? `<div class="plan-cell-event-sub">${escapeHtml(data.eventSub)}</div>` : ''}
@@ -3100,10 +4827,10 @@ function renderPlanCell(data, key, isPati, calEvs) {
   if (data.alerta) inner += `<div class="plan-cell-alerta">⚠ ${escapeHtml(data.alerta)}</div>`;
   if (data.assig)  inner += `<div class="plan-cell-assig">${escapeHtml(data.assig)}</div>`;
   if (data.sub)    inner += `<div class="plan-cell-sub">${escapeHtml(data.sub)}</div>`;
-  if (data.link)   inner += `<a class="plan-cell-link" href="${data.link}" target="_blank" onclick="event.stopPropagation()">📄 Programació</a>`;
+  if (data.link)   inner += `<a class="plan-cell-link" href="${_enllacSegur(data.link)}" target="_blank" onclick="event.stopPropagation()">📄 Programació</a>`;
   const comentClass = data.coment ? 'plan-cell-coment-dot has-coment' : 'plan-cell-coment-dot';
   const comentColor  = data.coment ? '#7A1E2E' : '#9CA3AF';
-  inner += `<div class="${comentClass}" onclick="event.stopPropagation();openPlanCellComent('${key}')" title="${data.coment ? escapeHtml(data.coment) : 'Afegir comentari de sessió'}">
+  inner += `<div class="${comentClass}" onclick="event.stopPropagation();openPlanCellComent('${_idJs(key)}')" title="${data.coment ? escapeHtml(data.coment) : 'Afegir comentari de sessió'}">
     <svg viewBox="0 0 24 24" fill="${data.coment ? '#FBEAED' : 'none'}" stroke="${comentColor}" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
   </div>`;
 
@@ -3113,7 +4840,7 @@ function renderPlanCell(data, key, isPati, calEvs) {
 
   let cls = isPati ? 'plan-cell plan-cell-pati' : 'plan-cell';
   if (esPermanencia) cls += ' plan-cell-permanencia';
-  return `<td class="${cls}" onclick="openPlanCell('${key}')">${inner}</td>`;
+  return `<td class="${cls}" onclick="openPlanCell('${_idJs(key)}')">${inner}</td>`;
 }
 
 /* --- Modal cel·la --- */
@@ -3163,20 +4890,36 @@ function openPlanCell(key) {
   document.querySelectorAll('input[name="planCellType"]').forEach(r => r.checked = r.value === tipus);
   updatePlanCellType(tipus);
 
-  if (tipus === 'normal') {
-    document.getElementById('planCellAssig').value  = data?.assig   || '';
-    document.getElementById('planCellSub2').value   = data?.sub     || '';
-    document.getElementById('planCellAlerta').value = data?.alerta  || '';
-    document.getElementById('planCellLink').value   = data?.link    || '';
-  } else {
-    document.getElementById('planCellEvent').value    = data?.event    || '';
-    document.getElementById('planCellEventSub').value = data?.eventSub || '';
-  }
+  /* ⚠ UNA CASELLA NOVA SORTIA AMB EL TEXT DE L'ÚLTIMA SORTIDA.
+
+     Trobat a la segona auditoria (8/9/2026). Aquí es reomplien els camps
+     d'event NOMÉS quan la casella ja era especial; si era buida (tipus
+     «normal») els quadres es quedaven amb el que hi havia de l'última
+     casella especial que s'hagués obert. Marcar un dia qualsevol com a
+     «Festa» sense escriure-hi res hi enganxava «SORTIDA AL MUSEU», i anava
+     al full tal qual.
+
+     Ara es reomplen SEMPRE els sis camps amb el que digui aquesta casella:
+     el que hi ha a la finestra ha de ser el que hi ha a la casella, sempre. */
+  document.getElementById('planCellAssig').value    = data?.assig    || '';
+  document.getElementById('planCellSub2').value     = data?.sub      || '';
+  document.getElementById('planCellAlerta').value   = data?.alerta   || '';
+  document.getElementById('planCellLink').value     = data?.link     || '';
+  document.getElementById('planCellEvent').value    = data?.event    || '';
+  document.getElementById('planCellEventSub').value = data?.eventSub || '';
   document.getElementById('planCellComent').value = data?.coment || '';
   // Reinicia selector de durada (només per a especials)
   _resetPlanDurada();
   document.getElementById('planCellOverlay').classList.add('open');
-  setTimeout(() => document.getElementById('planCellAssig').focus(), 100);
+  /* El focus va al primer camp que de debo es VEU: si la casella es una
+     sortida o una festa, els camps normals estan amagats i el focus se n anava
+     a un camp invisible (segona auditoria, 8/9/2026): amb teclat, el cursor
+     desapareixia i el primer tabulador tornava a començar de dalt. */
+  setTimeout(() => {
+    const quin = (tipus === 'normal') ? 'planCellAssig' : 'planCellEvent';
+    const el = document.getElementById(quin);
+    if (el) el.focus();
+  }, 100);
 }
 
 function updatePlanCellType(val) {
@@ -3242,7 +4985,16 @@ function savePlanCell() {
       link:   document.getElementById('planCellLink').value.trim(),
       coment,
     };
-    if (!data.assig && !data.alerta && !data.coment) { localStorage.removeItem(_planEditKey); }
+    /* ⚠ EL SUBTÍTOL I L'ENLLAÇ QUE ES PERDIEN.
+
+       Trobat a l'auditoria del 6/9/2026. Aquí es mirava si hi havia
+       assignatura, alerta o comentari; si no, s'esborrava la casella. Però
+       el subtítol i l'enllaç a la programació NO es miraven: qui posava
+       només l'enllaç del document de la sessió (sense escriure-hi
+       l'assignatura, que ja se sap pel seu horari) clicava Desar i la
+       casella es quedava buida, sense dir res. */
+    const teAlguna = data.assig || data.alerta || data.coment || data.sub || data.link;
+    if (!teAlguna) { localStorage.removeItem(_planEditKey); }
     else localStorage.setItem(_planEditKey, JSON.stringify(data));
   } else {
     data = {
@@ -3332,7 +5084,13 @@ function selectPlanNoteDay(diaId, btn) {
 
 function savePlanNoteDay() {
   const text = document.getElementById('planNoteDayText').value.trim();
-  if (!text) return;
+  /* Un boto que no fa res i no diu res sembla espatllat (segona auditoria,
+     8/9/2026): abans aixo era un `return` mut. */
+  if (!text) {
+    showToast('Escriu la nota abans de desar-la.', 'error');
+    const _t = document.getElementById('planNoteDayText'); if (_t) _t.focus();
+    return;
+  }
   const arr = planDayNoteLoad(_planNoteDaySelected);
   arr.push(text);
   planDayNoteSave(_planNoteDaySelected, arr);
@@ -3410,16 +5168,50 @@ let _cal2GCalCache     = {};  // cache de GCal per mes (clau "year-month")
 let _cal2GCalCacheMeta = {};  // timestamp de l'última càrrega per mes
 let _cal2NavToken      = 0;   // token per ignorar respostes de mesos antics
 
+/* ⚠ UN EVENT POT DURAR MÉS D'UN DIA.
+
+   Tot el que pregunti «aquest event cau en aquest dia?» ho ha de fer AQUÍ, i
+   no comparant `e.data === dia`: si cadascú ho fes a la seva manera, les
+   colònies sortirien al calendari i no al planning (o al revés), que és
+   pitjor que no tenir-les. `dataFi` és opcional; sense ella, un sol dia. */
+function _evTocaDia(e, dateStr) {
+  if (!e || !e.data || !dateStr) return false;
+  const fi = e.dataFi && e.dataFi >= e.data ? e.dataFi : e.data;
+  return dateStr >= e.data && dateStr <= fi;
+}
+/* Un event que travessa el canvi de mes o d'any també toca aquest mes.
+
+   ⚠ I UN EVENT AMB LA DATA MAL POSADA HA DE PASSAR IGUALMENT.
+
+   Segona auditoria (8/9/2026): en posar aquest filtre nou (per als events de
+   diversos dies) van tornar a desaparèixer els events amb una data que no
+   s'entén —una data buida, un «31/02/2026»—, i ara també de la llista del
+   mes, que era justament on el 6/9 s'havien fet sortir marcats perquè la
+   mestra els pogués arreglar. Un event que l'app no sap col·locar no pot
+   desaparèixer: llavors la mestra el té apuntat i no el troba enlloc. */
+function _evTocaMes(e, year, month) {
+  if (!e) return false;
+  if (!e.data || isNaN(new Date(e.data).getTime())) return true;   // que es vegi i s'arregli
+  const ini = String(year) + '-' + String(month + 1).padStart(2, '0') + '-01';
+  const fiM = new Date(year, month + 1, 0);
+  const fi  = String(year) + '-' + String(month + 1).padStart(2, '0') + '-' + String(fiM.getDate()).padStart(2, '0');
+  const eFi = e.dataFi && e.dataFi >= e.data ? e.dataFi : e.data;
+  return e.data <= fi && eFi >= ini;
+}
+
 // Retorna TOTS els events (locals app + Google Calendar) d'una data 'YYYY-MM-DD'
 function allEventsForDate(dateStr) {
   if (!dateStr) return [];
   _hydrateGCalCache();
   const year = parseInt(dateStr.split('-')[0]);
-  const locals = (typeof cal2LoadEvents === 'function' ? cal2LoadEvents(year) : [])
-    .filter(e => e.data === dateStr);
+  /* També l'any anterior: unes colònies del 30 de desembre al 2 de gener es
+     guarden a l'any que comencen, i el 2 de gener no les trobaria. */
+  const carrega = y => (typeof cal2LoadEvents === 'function' ? cal2LoadEvents(y) : []);
+  const locals = [...carrega(year - 1), ...carrega(year)]
+    .filter(e => _evTocaDia(e, dateStr));
   let gcal = [];
   Object.values(_cal2GCalCache || {}).forEach(arr => {
-    (arr || []).forEach(e => { if (e.data === dateStr) gcal.push(e); });
+    (arr || []).forEach(e => { if (_evTocaDia(e, dateStr)) gcal.push(e); });
   });
   return [...locals, ...gcal];
 }
@@ -3458,11 +5250,16 @@ const CAL2_CATS_DEFAULT = [
 
 function cal2LoadCats() {
   const s = localStorage.getItem('cal2_cats');
-  return s ? JSON.parse(s) : JSON.parse(JSON.stringify(CAL2_CATS_DEFAULT));
+  const cats = s ? JSON.parse(s) : JSON.parse(JSON.stringify(CAL2_CATS_DEFAULT));
+  /* El gris vell es va sembrar al navegador de cada mestra i no marxaria sol
+     canviant nomes la constant: es canvia aqui, en llegir-lo. Si algu l ha
+     triat expressament un altre color, no es toca. */
+  (cats || []).forEach(c => { if (c && c.color === '#9AA0A6') c.color = '#6B7280'; });
+  return cats;
 }
 function cal2SaveCats(cats)         { localStorage.setItem('cal2_cats', JSON.stringify(cats)); _calSaveCatsToSheets(); }
 function cal2CatById(id) {
-  return cal2LoadCats().find(c => c.id === id) || { color: '#9AA0A6', nom: 'Sense categoria' };
+  return cal2LoadCats().find(c => c.id === id) || { color: '#6B7280', nom: 'Sense categoria' };
 }
 
 // Quants events fan servir una categoria (de tots els anys desats)
@@ -3489,8 +5286,15 @@ function cal2SaveEvents(year, evs)  { localStorage.setItem('cal2_events_' + year
    Per actualitzar el curs vinent: canvia les dades i puja CAL_ESCOLA_SEED_VER. */
 const CAL_ESCOLA_SEED_VER = 'escola-2026-27-v2';
 // Un sol color (gris) per a tots els dies d'escola: el nom ja diu què és.
+/* ⚠ EL GRIS DELS FESTIUS NO ES LLEGIA.
+
+   Segona auditoria (8/9/2026): #9AA0A6 dona 2,64:1, molt per sota del 4,5:1
+   que demana la norma. Els festius del calendari i del planning —justament el
+   que es mira d una ullada per saber si es fa classe— gairebe no es podien
+   llegir. Aquest gris arriba a 4,6:1 sobre el fons de l app i segueix essent
+   discret: el que es volia era que no cridés l atencio, no que no es veies. */
 const CAL_ESCOLA_CATS = [
-  { id:'festiu', nom:'Festiu', color:'#9AA0A6' },
+  { id:'festiu', nom:'Festiu', color:'#6B7280' },
 ];
 const CAL_ESCOLA_EVENTS = {
   '2026': [
@@ -3566,7 +5370,42 @@ function _calSeedEscola() {
 
 /* Agendar */
 function cal2LoadAgendar() { return JSON.parse(localStorage.getItem('cal2_agendar') || '[]'); }
-function cal2SaveAgendar(a) { localStorage.setItem('cal2_agendar', JSON.stringify(a)); }
+function cal2SaveAgendar(a) {
+  localStorage.setItem('cal2_agendar', JSON.stringify(a));
+  _ajustosDesa();   // que no es quedi només en aquest navegador
+}
+
+/* ⚠ EL QUE NOMÉS VIVIA EN AQUEST NAVEGADOR.
+
+   Trobat a l'auditoria del 6/9/2026. Dues coses que escriu la mestra no
+   sortien mai del navegador: els enllaços que es posa ella a la portada (el
+   seu ClassDojo, la seva Coordinació) i la llista de «per agendar» del
+   calendari. Amb un ordinador nou, o esborrant les dades del navegador, se
+   li perdien sense avisar —i no hi havia manera de recuperar-les, perquè no
+   eren enlloc més.
+
+   Ara van al full amb tota la resta i tornen soles a qualsevol ordinador. */
+function _ajustosPlega() {
+  const llegeix = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  return {
+    enllacos: llegeix('enllacos_propis') || {},
+    agendar:  llegeix('cal2_agendar') || [],
+  };
+}
+function _ajustosDesa() {
+  if (!config.scriptUrl) return;
+  _desaAlFull({ action: 'saveAjustosPropis', data: _ajustosPlega() }, { callat: true });
+}
+function _ajustosAplica(a) {
+  if (!a) return;
+  try {
+    if (a.enllacos && Object.keys(a.enllacos).length) {
+      localStorage.setItem('enllacos_propis', JSON.stringify(a.enllacos));
+      if (window.rubriques && typeof window.rubriques.pintaEnllacos === 'function') window.rubriques.pintaEnllacos();
+    }
+    if (a.agendar && a.agendar.length) localStorage.setItem('cal2_agendar', JSON.stringify(a.agendar));
+  } catch (e) {}
+}
 
 /* --- Render --- */
 function renderCalendari() {
@@ -3580,8 +5419,8 @@ function renderCalendari() {
   document.getElementById('cal2RightTitle').textContent = 'Events de ' + MESOS_CA[month];
 
   // Events locals d'aquest mes
-  const localEvents = cal2LoadEvents(year)
-    .filter(e => { const p=(e.data||'').split('-'); return parseInt(p[0])===year && parseInt(p[1])===month+1; })
+  const localEvents = [...cal2LoadEvents(year - 1), ...cal2LoadEvents(year)]
+    .filter(e => _evTocaMes(e, year, month))
     .sort((a,b) => a.data.localeCompare(b.data));
 
   // GCal d'aquest mes (del cache per mes, si ja el tenim)
@@ -3631,9 +5470,33 @@ async function _loadGCalEvents(year, month) {
         _renderCal2Grid(year, month, allEvents);
         _renderCal2EventList(allEvents);
       }
+    } else {
+      /* ⚠ L'AVÍS QUE ES VA POSAR ERA CODI MORT.
+
+         Trobat a la segona auditoria (8/9/2026). L'avís del 6/9 es va posar
+         al `catch`, però `appsScriptGet` NO llança mai: quan alguna cosa va
+         malament retorna {ok:false, error:…}. O sigui que la branca d'error
+         no s'hi arribava amb cap dels cinc modes d'avaria, i la mestra
+         seguia veient el mes amb només les cites que havia posat a l'app,
+         convençuda que no en tenia cap més al Google.
+
+         Ara es mira el que de debò passa: `!r.ok`. */
+      _gcalAvisaError(r && r.error);
     }
-  } catch(e) { /* silent */ }
+  } catch(e) {
+    // Per si un dia sí que llança (un JSON impossible de llegir, per exemple)
+    _gcalAvisaError(e && e.message);
+  }
 }
+/* L'avís, un sol cop per sessió: si el Google no va, no va tot el dia, i
+   repetir-ho a cada mes que es mira només faria nosa. */
+function _gcalAvisaError(motiu) {
+  if (_gcalAvisat) return;
+  _gcalAvisat = true;
+  showToast('No he pogut llegir el teu Google Calendar: ' + errorHuma(motiu || 'no ha respost') +
+            ' El que veus són només les cites que has posat aquí.', 'error');
+}
+let _gcalAvisat = false;
 
 function _mergeEvents(local, gcal) {
   // Combina locals + GCal, ordenats per data
@@ -3650,15 +5513,20 @@ function _renderCal2Grid(year, month, events) {
   const daysInM = new Date(year, month+1, 0).getDate();
   const startCol = (first.getDay() + 6) % 7;
 
-  // Filtre ESTRICTE: només events d'aquest any+mes (evita pintar dies d'altres mesos)
-  const monthEvents = events.filter(e => {
-    if (!e.data) return false;
-    const parts = e.data.split('-');
-    return parseInt(parts[0]) === year && parseInt(parts[1]) === month + 1;
-  });
+  /* Els events que toquen aquest mes, encara que comencin al mes d'abans:
+     unes colonies del 30 al 2 han de sortir tots quatre dies. */
+  const monthEvents = events.filter(e => _evTocaMes(e, year, month));
 
   const byDay = {};
-  monthEvents.forEach(e => { const d=parseInt(e.data.split('-')[2]); if(!byDay[d])byDay[d]=[]; byDay[d].push(e); });
+  const _ds = d => year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  const _diesM = new Date(year, month + 1, 0).getDate();
+  monthEvents.forEach(e => {
+    for (let d = 1; d <= _diesM; d++) {
+      if (!_evTocaDia(e, _ds(d))) continue;
+      if (!byDay[d]) byDay[d] = [];
+      byDay[d].push(e);
+    }
+  });
 
   let html = '';
   for (let i=0; i<startCol; i++) html += '<div class="cal2-cell cal2-cell-empty"></div>';
@@ -3671,7 +5539,7 @@ function _renderCal2Grid(year, month, events) {
       <div class="cal2-cell-num">${day}</div>`;
     evs.slice(0,3).forEach(e => {
       const cat      = e.fromGCal ? { color: e.calColor||'#4285F4' } : cal2CatById(e.catId);
-      const dotClick = e.fromGCal ? '' : `onclick="event.stopPropagation();openCal2EventEdit('${e.id}')"`;
+      const dotClick = e.fromGCal ? '' : `onclick="event.stopPropagation();openCal2EventEdit('${_idJs(e.id)}')"`;
       html += `<div class="cal2-event-dot${e.fromGCal?' cal2-dot-gcal':''}" style="background:${cat.color}" title="${escapeHtml(e.titol)}" ${dotClick}>${escapeHtml(e.titol)}</div>`;
     });
     if (evs.length > 3) html += `<div class="cal2-event-more">+${evs.length-3} més</div>`;
@@ -3684,23 +5552,46 @@ function _renderCal2Grid(year, month, events) {
 
 function _renderCal2EventList(events) {
   const list = document.getElementById('cal2EventList');
+  /* ⚠ Els events amb una data que no es pot llegir («31/02», un text) no
+     sortien a la graella pero SI a la llista del mes: la mestra el veia
+     apuntat i no el trobava enlloc del calendari (auditoria 6/9/2026). Ara
+     surten marcats, perque els pugui arreglar. */
+  events = (events || []).map(e => {
+    const d = new Date(e.data);
+    return (!e.data || isNaN(d.getTime())) ? Object.assign({}, e, { _dataDolenta: true }) : e;
+  });
   if (!events.length) { list.innerHTML='<p class="fitxa-empty-field" style="padding:12px">Cap event aquest mes.</p>'; return; }
   list.innerHTML = events.map(e => {
     const cat = cal2CatById(e.catId);
     const dat = new Date(e.data);
-    const diaStr = dat.toLocaleDateString('ca-ES', { day:'numeric', month:'long' });
+    let diaStr = e._dataDolenta
+      ? ('⚠ Data que no s’entén: ' + (e.data || 'buida') + ' — obre l’event i posa-li el dia')
+      : dat.toLocaleDateString('ca-ES', { day:'numeric', month:'long' });
+    // Un event de mes d'un dia ho ha de dir: "del 3 al 5 de maig"
+    if (e.dataFi && e.dataFi > e.data) {
+      const df = new Date(e.dataFi);
+      const mateixAny = df.getFullYear() === dat.getFullYear();
+      const mateixMes = df.getMonth() === dat.getMonth() && mateixAny;
+      /* L'any hi va sempre que el tram en travessi un: sense això, un «Fins
+         al dia» amb l'any mal teclejat es llegia igual que un de bo (segona
+         auditoria, 8/9/2026). */
+      const fmt = { day:'numeric', month:'long' };
+      if (!mateixAny) fmt.year = 'numeric';
+      diaStr = 'del ' + (mateixMes ? dat.getDate() : dat.toLocaleDateString('ca-ES', fmt)) +
+               ' al ' + df.toLocaleDateString('ca-ES', fmt);
+    }
     const isGCal   = !!e.fromGCal;
     const barColor = isGCal ? (e.calColor || '#4285F4') : cat.color;
     const titColor = isGCal ? (e.calColor || '#4285F4') : cat.color;
     const catLabel = isGCal ? (e.calNom || 'Google Calendar') : cat.nom;
-    const onClick  = isGCal ? '' : `onclick="openCal2EventEdit('${e.id}')"`;
+    const onClick  = isGCal ? '' : `onclick="openCal2EventEdit('${_idJs(e.id)}')"`;
     return `<div class="cal2-ev-item${isGCal?' cal2-ev-gcal':''}" ${onClick} style="${isGCal?'':'cursor:pointer'}">
       <div class="cal2-ev-item-bar" style="background:${barColor}"></div>
       <div class="cal2-ev-item-body">
         <div class="cal2-ev-item-titol" style="color:${titColor}">${escapeHtml(e.titol)}${isGCal?'<svg class="cal2-gcal-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>':''}</div>
         <div class="cal2-ev-item-meta">${diaStr}${e.hora?' · '+escapeHtml(e.hora):''} · <strong>${escapeHtml(catLabel)}</strong></div>
         ${e.desc?`<div class="cal2-ev-item-desc">${escapeHtml(e.desc)}</div>`:''}
-        ${e.link?`<a class="cal2-ev-item-link" href="${e.link}" target="_blank" onclick="event.stopPropagation()">🔗 Enllaç</a>`:''}
+        ${e.link?`<a class="cal2-ev-item-link" href="${_enllacSegur(e.link)}" target="_blank" onclick="event.stopPropagation()">🔗 Enllaç</a>`:''}
       </div>
     </div>`;
   }).join('');
@@ -3748,10 +5639,25 @@ function openCal2Event(id, prefillDate) {
   document.getElementById('cal2EvDelBtn').style.display = id ? 'inline-flex' : 'none';
   _fillCal2Select();
   if (id) {
-    const ev = [_cal2Year-1,_cal2Year,_cal2Year+1].flatMap(y=>cal2LoadEvents(y)).find(e=>e.id===id);
+    /* Es busquen cinc anys, no tres: un event mogut lluny (o unes colonies de
+       cap d any) es podia quedar fora de la finestra i no es trobava. */
+    const ev = [_cal2Year-2,_cal2Year-1,_cal2Year,_cal2Year+1,_cal2Year+2]
+      .flatMap(y=>cal2LoadEvents(y)).find(e=>e.id===id);
+    /* ⚠ SI NO ES TROBAVA, EL FORMULARI ES QUEDAVA AMB L EVENT ANTERIOR.
+
+       Trobat a l auditoria del 6/9/2026: `if (ev)` i prou. Amb un event que
+       no hi era, la finestra s obria amb el titol i la data de l ultim que
+       s hagues editat, pero amb l id del que no existeix: desant-lo, se n
+       creava un de nou amb les dades d un altre. */
+    if (!ev) {
+      showToast('Aquest event ja no hi és. Potser l’has esborrat en un altre dispositiu.', 'error');
+      renderCalendari();
+      return;
+    }
     if (ev) {
       document.getElementById('cal2EvTitol').value = ev.titol||'';
       document.getElementById('cal2EvData').value  = ev.data||'';
+      { const _df=document.getElementById('cal2EvDataFi'); if(_df) _df.value = ev.dataFi||''; }
       document.getElementById('cal2EvHora').value  = ev.hora||'';
       { const _hf=document.getElementById('cal2EvHoraFi'); if(_hf) _hf.value = ev.horaFi||''; }
       document.getElementById('cal2EvGrup').value  = ev.catId||'';
@@ -3761,6 +5667,7 @@ function openCal2Event(id, prefillDate) {
   } else {
     document.getElementById('cal2EvTitol').value = '';
     document.getElementById('cal2EvData').value  = prefillDate||(_cal2Year+'-'+String(_cal2Month+1).padStart(2,'0')+'-01');
+    { const _df=document.getElementById('cal2EvDataFi'); if(_df) _df.value = ''; }
     document.getElementById('cal2EvHora').value  = '';
     { const _hf=document.getElementById('cal2EvHoraFi'); if(_hf) _hf.value = ''; }
     document.getElementById('cal2EvDesc').value  = '';
@@ -3773,12 +5680,74 @@ function openCal2Event(id, prefillDate) {
 function closeCal2Event() { document.getElementById('cal2EventOverlay').classList.remove('open'); }
 
 function saveCal2Event() {
-  const titol = document.getElementById('cal2EvTitol').value.trim(); if(!titol) return;
+  const titol = document.getElementById('cal2EvTitol').value.trim();
+  /* Abans no feia res i no deia res: el botó semblava espatllat. */
+  if (!titol) { showToast('Posa-li un títol a la cita', 'error'); document.getElementById('cal2EvTitol').focus(); return; }
   const data  = document.getElementById('cal2EvData').value; if(!data){showToast('Cal posar una data','error');return;}
   const year  = parseInt(data.split('-')[0]);
   const evs   = cal2LoadEvents(year);
-  const obj   = { titol, data, hora:document.getElementById('cal2EvHora').value.trim(), catId:document.getElementById('cal2EvGrup').value, desc:document.getElementById('cal2EvDesc').value.trim(), link:document.getElementById('cal2EvLink').value.trim() };
+  /* ⚠ L'hora final s'omplia en editar l'event, però no es llegia mai en
+     desar-lo: el camp existia i no servia de res (auditoria 6/9/2026). */
+  const _hf = document.getElementById('cal2EvHoraFi');
+  /* ⚠ LES COLÒNIES QUE NO CABIEN AL CALENDARI.
+
+     Trobat a l'auditoria del 6/9/2026: un event només podia ser d'un dia. Les
+     colònies, una sortida de dos dies o una setmana cultural s'havien de posar
+     dia per dia, i llavors ni el planning ni els avisos les entenien com una
+     sola cosa. Ara hi ha un «Fins al dia» opcional: si s'omple, l'event surt
+     tots els dies del tram. */
+  const _dfEl = document.getElementById('cal2EvDataFi');
+  let dataFi = _dfEl ? String(_dfEl.value || '').trim() : '';
+  if (dataFi && dataFi < data) {
+    showToast('El dia final no pot ser abans del dia d\'inici.', 'error');
+    if (_dfEl) _dfEl.focus();
+    return;
+  }
+  /* ⚠ UN ANY MAL TECLEJAT PINTAVA MIG CALENDARI DE COLÒNIES.
+
+     Segona auditoria (8/9/2026). No hi havia cap límit de durada: escriure
+     2027 on tocava 2026 al «Fins al dia» omplia TOTS els mesos que hi ha pel
+     mig, i des del calendari no es veia què havia passat perquè el text del
+     tram no diu mai l'any. Es demana confirmació a partir de 31 dies —una
+     setmana cultural o unes colònies no hi arriben mai, i unes vacances
+     llargues sí que es poden confirmar. */
+  /* Un any de tres xifres o de cinc es sempre una badada de teclat, i l event
+     se n anava a un racó del calendari on no es tornava a trobar mai (segona
+     auditoria, 8/9/2026). */
+  const _any = parseInt(String(data).split('-')[0], 10);
+  if (!(_any >= 2000 && _any <= 2100)) {
+    showToast('L any «' + _any + '» no sembla bo. Repassa la data: si el deso aixi, ' +
+              'l event anira a parar a un racó del calendari on no el trobaras.', 'error');
+    const _d = document.getElementById('cal2EvData'); if (_d) _d.focus();
+    return;
+  }
+  if (dataFi) {
+    const _dies = Math.round((new Date(dataFi) - new Date(data)) / 86400000);
+    if (_dies > 31) {
+      const _f = d => new Date(d).toLocaleDateString('ca-ES',
+        { day:'numeric', month:'long', year:'numeric' });
+      if (!confirm('Aquest event duraria ' + _dies + ' dies: del ' + _f(data) + ' al ' +
+                   _f(dataFi) + '.\n\nSegur que el «Fins al dia» és aquest? ' +
+                   'Sovint és un any mal teclejat.\n\nVols desar-lo igualment?')) {
+        if (_dfEl) _dfEl.focus();
+        return;
+      }
+    }
+  }
+  if (dataFi === data) dataFi = '';        // un sol dia: no cal guardar-ho
+  const obj   = { titol, data, dataFi, hora:document.getElementById('cal2EvHora').value.trim(), horaFi:(_hf ? _hf.value.trim() : ''), catId:document.getElementById('cal2EvGrup').value, desc:document.getElementById('cal2EvDesc').value.trim(), link:document.getElementById('cal2EvLink').value.trim() };
   if (_cal2EditEventId) {
+    /* ⚠ CANVIAR UN EVENT D'ANY EL DUPLICAVA.
+       Els events es guarden per any. En moure'l del 15/9/2026 al 10/5/2027
+       s'afegia al 2027 i el del 2026 es quedava on era: el mateix event
+       sortia dos cops al calendari. Ara es treu de tots els anys que el
+       puguin tenir abans de desar-lo al que li toca. */
+    [year-1, year, year+1, _cal2Year-1, _cal2Year, _cal2Year+1].forEach(y => {
+      if (y === year) return;
+      const altres = cal2LoadEvents(y);
+      const nets = altres.filter(e => e.id !== _cal2EditEventId);
+      if (nets.length !== altres.length) cal2SaveEvents(y, nets);
+    });
     const idx = evs.findIndex(e=>e.id===_cal2EditEventId);
     if (idx!==-1) evs[idx]={...evs[idx],...obj};
     else evs.push({id:_cal2EditEventId,...obj});
@@ -3789,7 +5758,14 @@ function saveCal2Event() {
 
 function deleteCal2Event() {
   if(!_cal2EditEventId||!confirm('Eliminar aquest event?'))return;
-  [_cal2Year-1,_cal2Year,_cal2Year+1].forEach(y=>{ cal2SaveEvents(y,cal2LoadEvents(y).filter(e=>e.id!==_cal2EditEventId)); });
+  /* ⚠ DEIA QUE L'HAVIA ESBORRAT I NO L'ESBORRAVA.
+
+     Segona auditoria (8/9/2026). Aquí es netejaven tres anys (±1) i, en
+     canvi, `openCal2Event` en busca cinc (±2) a posta —perquè un event pot
+     ser lluny del mes que s'està mirant. Amb un event trobat a dos anys de
+     distància, l'app el treia de la pantalla, deia que estava fet, i en
+     refrescar hi tornava a ser. Les dues finestres han de ser la mateixa. */
+  [_cal2Year-2,_cal2Year-1,_cal2Year,_cal2Year+1,_cal2Year+2].forEach(y=>{ cal2SaveEvents(y,cal2LoadEvents(y).filter(e=>e.id!==_cal2EditEventId)); });
   closeCal2Event(); renderCalendari();
   renderPlanning(); // refresca el planning perquè l'event hi desaparegui
 }
@@ -3798,7 +5774,8 @@ function deleteCal2Event() {
 function openCal2Agendar()  { document.getElementById('cal2AgTitol').value=''; document.getElementById('cal2AgDesc').value=''; document.getElementById('cal2AgendarOverlay').classList.add('open'); setTimeout(()=>document.getElementById('cal2AgTitol').focus(),100); }
 function closeCal2Agendar() { document.getElementById('cal2AgendarOverlay').classList.remove('open'); }
 function saveCal2Agendar()  {
-  const titol=document.getElementById('cal2AgTitol').value.trim(); if(!titol)return;
+  const titol=document.getElementById('cal2AgTitol').value.trim();
+  if(!titol){ showToast('Posa-li un títol', 'error'); document.getElementById('cal2AgTitol').focus(); return; }
   const items=cal2LoadAgendar(); items.push({id:Date.now().toString(),titol,desc:document.getElementById('cal2AgDesc').value.trim()});
   cal2SaveAgendar(items); closeCal2Agendar(); _renderCal2Agendar();
 }
@@ -3850,7 +5827,8 @@ function updateCal2Cat(i, camp, valor) {
   try { renderCalendari(); } catch (e) {}
 }
 function addCal2Category() {
-  const nom = document.getElementById('cal2CatNom').value.trim(); if(!nom)return;
+  const nom = document.getElementById('cal2CatNom').value.trim();
+  if(!nom){ showToast('Posa-li un nom a la categoria', 'error'); document.getElementById('cal2CatNom').focus(); return; }
   const color = document.getElementById('cal2CatColor').value;
   const cats = cal2LoadCats();
   cats.push({ id: Date.now().toString(), nom, color });
@@ -3892,8 +5870,45 @@ const TQ_CATS = {
 let _tqFilter     = 'all';
 let _tqEditId     = null;
 
-function tqLoad()        { return JSON.parse(localStorage.getItem('tasques') || '[]'); }
-function tqSave(items)              { localStorage.setItem('tasques', JSON.stringify(items)); _tqSaveToSheets(); _rescheduleIfNeeded(); }
+/* ⚠ Llegir el que hi ha al navegador no pot fer caure la pantalla.
+
+   Trobat a l'auditoria del 6/9/2026: amb la clau `tasques` malmesa —i les
+   claus no porten prefix, o sigui que hi pot escriure una altra app del
+   mateix domini— aquest `JSON.parse` llançava, i com que d'aquí en pengen
+   la pantalla de Tasques i els recordatoris d'Inici, clicar «Tasques» al
+   menú deixava de fer res i tornava a sortir el «Pas 1: configura la
+   connexió», com si la mestra no estigués connectada.
+
+   Ara, si el que hi ha no s'entén, es fa servir una llista buida (i el que
+   hi hagués es guarda a part per si algun dia s'ha de mirar). */
+function tqLoad() {
+  const cru = localStorage.getItem('tasques');
+  if (!cru) return [];
+  try {
+    const v = JSON.parse(cru);
+    /* ⚠ UNA ENTRADA NUL·LA DEIXAVA LA PANTALLA DE TASQUES EN BLANC.
+
+       Segona auditoria (8/9/2026): amb un `null` dins de la llista, el
+       primer `t.feta` de `_renderTqList` llançava i la pàgina es quedava
+       buida, sense cap tasca i sense dir res. Un `null` s hi pot colar per
+       una sincronitzacio a mig fer o per una copia vella; el que no pot
+       passar es que se n endugui la pantalla sencera. */
+    return Array.isArray(v) ? v.filter(t => t && typeof t === 'object') : [];
+  } catch (e) {
+    try { localStorage.setItem('tasques_malmes', cru); } catch (x) {}
+    return [];
+  }
+}
+function tqSave(items) {
+  /* Si el navegador és ple, `setItem` llança. Abans es perdia aquí i la
+     tasca no arribava ni al navegador ni al full, sense dir res. */
+  try { localStorage.setItem('tasques', JSON.stringify(items)); }
+  catch (e) {
+    showToast('No hi cap res més en aquest navegador. La tasca no s\'ha desat aquí, però provaré de desar-la al full.', 'error');
+  }
+  _tqSaveToSheets();
+  _rescheduleIfNeeded();
+}
 
 /* --- Render --- */
 function renderTasques() {
@@ -3950,9 +5965,20 @@ function _renderTqList() {
     const today   = new Date().toISOString().split('T')[0];
     const vencuda = t.data && t.data < today && !t.feta;
     const avui    = t.data === today && !t.feta;
-    const dataStr = t.data ? new Date(t.data).toLocaleDateString('ca-ES',{day:'numeric',month:'long'}) : '';
+    /* ⚠ LES DATES SENSE ANY.
+       Una tasca del 2027 es veia igual que una d'aquest curs: «3 de maig», i
+       prou. Ara, quan NO es d'aquest any, hi va l'any (auditoria 6/9/2026). */
+    let dataStr = '';
+    if (t.data) {
+      const _d = new Date(t.data);
+      if (!isNaN(_d.getTime())) {
+        const _mateixAny = _d.getFullYear() === new Date().getFullYear();
+        dataStr = _d.toLocaleDateString('ca-ES',
+          _mateixAny ? { day:'numeric', month:'long' } : { day:'numeric', month:'long', year:'numeric' });
+      }
+    }
     const isGoogle  = !!t.fromGoogle;
-    const itemClick = isGoogle ? '' : `onclick="openTasca('${t.id}')"`;
+    const itemClick = isGoogle ? '' : `onclick="openTasca('${_idJs(t.id)}')"`;
     // Les de Google ara també es poden marcar: es marquen al Google Tasks.
     const checkClick = isGoogle ? `toggleGTask('${t.id}')` : `toggleTasca('${t.id}')`;
     return `<div class="tq-item${t.feta?' tq-item-feta':''}${vencuda?' tq-item-vencuda':''}${isGoogle?' tq-item-google':''}" ${itemClick}>
@@ -3960,8 +5986,8 @@ function _renderTqList() {
         ${(isGoogle && !t.feta)?`<svg class="gtq-gicon-sm" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>`:(t.feta?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>':'')}
       </button>
       <div class="tq-item-body">
-        <div class="tq-item-titol">${escapeHtml(t.titol)}</div>
-        ${t.desc?`<div class="tq-item-desc">${escapeHtml(t.desc)}</div>`:''}
+        <div class="tq-item-titol">${escapeHtml(t.titol == null || t.titol === '' ? '(sense títol)' : t.titol)}</div>
+        ${(t.desc != null && t.desc !== '')?`<div class="tq-item-desc">${escapeHtml(t.desc)}</div>`:''}
         <div class="tq-item-meta">
           <span class="tq-cat-pill" style="background:${cat.bg};color:${cat.color}">${cat.nom}</span>
           ${t.data?`<span class="tq-data${vencuda?' tq-data-vencuda':''}${avui?' tq-data-avui':''}">${vencuda?'⚠ ':''}${avui?'⏰ ':''}${dataStr}</span>`:''}
@@ -4021,7 +6047,7 @@ function closeTasca() { document.getElementById('tascaOverlay').classList.remove
 
 function saveTasca() {
   const titol = document.getElementById('tascaTitol').value.trim();
-  if (!titol) { document.getElementById('tascaTitol').focus(); return; }
+  if (!titol) { showToast('Posa-li un títol a la tasca', 'error'); document.getElementById('tascaTitol').focus(); return; }
   const cat   = document.querySelector('input[name="tascaCat"]:checked').value;
   const items = tqLoad();
   if (_tqEditId) {
@@ -4052,18 +6078,38 @@ async function loadGoogleTasksSilent() {
   } catch(e) { /* silenci, no és crític */ }
 }
 
-async function loadGoogleTasks() {
+/* ⚠ UN AVIS VERD QUE NINGU NO HAVIA DEMANAT.
+
+   Segona auditoria (8/9/2026). El guard era `if (btn) showToast(...)`, pensat
+   per distingir «ha clicat Sincronitzar» de «s ha carregat sola». Pero el boto
+   #gtasquesRefreshBtn EXISTEIX al DOM —esta amagat amb display:none des que es
+   va treure el panell lateral—, o sigui que `btn` sempre era cert i cada cop
+   que s obrien Tasques saltava un «Tasques del Google al dia» que ningu no
+   havia demanat. Un avis que surt sol i sempre deixa de voler dir res.
+
+   Ara ho diu qui la crida: `loadGoogleTasks(true)` quan ho ha demanat una
+   persona. La carrega automatica es muda. */
+async function loadGoogleTasks(hoHaDemanat) {
   if (!config.scriptUrl) return;
   const btn = document.getElementById('gtasquesRefreshBtn');
   if (btn) btn.textContent = '↺ Carregant…';
   try {
     const r = await appsScriptGet({ action: 'getGoogleTasks' });
-    if (r.ok && r.tasks) _renderGoogleTasks(r.tasks);
-    else document.getElementById('gtasquesList').innerHTML =
-      '<p class="fitxa-empty-field" style="padding:12px;font-size:12px">No s\'han pogut carregar les tasques de Google Tasks.<br><small>' + (r.error||'') + '</small></p>';
+    if (r && r.ok && r.tasks) {
+      _renderGoogleTasks(r.tasks);
+      if (hoHaDemanat) showToast('Tasques del Google al dia', 'success');
+    } else {
+      /* AQUEST AVIS NO EL VEIA NINGU.
+         Trobat a l'auditoria del 6/9/2026: anava a #gtasquesList, que es un
+         panell que ja no es pinta ("Panel lateral ocult", aqui sota). La
+         mestra clicava Sincronitzar, no passava res i no en sabia el motiu.
+         Ara ho diu el toast, que si que es veu. */
+      const _e = (r && r.error) || '';
+      showToast("No s'han pogut carregar les tasques del Google" + (_e ? ': ' + _e : '.'), 'error');
+    }
   } catch(e) {
-    document.getElementById('gtasquesList').innerHTML =
-      '<p class="fitxa-empty-field" style="padding:12px;font-size:12px">Error de connexió amb Google Tasks.</p>';
+    showToast(typeof errorHuma === 'function' ? errorHuma(e)
+      : ('Error de connexió amb el Google Tasks: ' + e.message), 'error');
   }
   if (btn) btn.textContent = '↺ Sincronitzar';
 }
@@ -4105,6 +6151,14 @@ function _renderGoogleTasks(tasks) {
 // Integra les tasques de Google a la llista principal com a items virtuals
 let _gtaskVirtuals = [];
 function _integrateGTasksInList(tasks) {
+  /* ⚠ Les que hi hem escrit NOSALTRES no s'han de tornar a ensenyar: sortien
+     dues vegades —la de l'app i la còpia que torna del Google Tasks—, la
+     bombolla comptava el doble i marcar-ne una no marcava l'altra. Per als
+     events del calendari això ja es feia; per a les tasques faltava
+     (auditoria 6/9/2026). */
+  if (window.gwrite && typeof window.gwrite.filtraTasquesPropies === 'function') {
+    try { tasks = window.gwrite.filtraTasquesPropies(tasks); } catch (e) {}
+  }
   _gtaskVirtuals = tasks.map(t => ({
     id: 'gtask_' + t.id,
     titol: t.titol,
@@ -4134,9 +6188,20 @@ async function toggleGTask(id) {
   _renderTqList();
   updateTasquesBadge();
 
-  const r = await appsScriptPost({
-    action: 'completaGoogleTask', taskId: t.gId, llistaId: t.gLlista, fet: nou
-  });
+  let r = null;
+  try {
+    r = await appsScriptPost({
+      action: 'completaGoogleTask', taskId: t.gId, llistaId: t.gLlista, fet: nou
+    });
+  } catch (e) {
+    /* Sense aquest try, si queia la connexió la tasca es quedava pintada com
+       a feta per sempre i al Google no ho estava. */
+    t.feta = !nou;
+    _renderTqList();
+    updateTasquesBadge();
+    showToast(typeof errorHuma === "function" ? errorHuma(e) : ("No s'ha pogut marcar: " + e.message), "error");
+    return;
+  }
 
   if (r && r.ok) {
     showToast(nou
@@ -4148,7 +6213,7 @@ async function toggleGTask(id) {
     updateTasquesBadge();
     const msg = (r && r.error) || 'No s\'ha pogut marcar';
     showToast(/no s'ha trobat|not found/i.test(msg)
-      ? 'Aquesta tasca ja no és al teu Google Tasks. Refresca amb el botó de sincronitzar.'
+      ? 'Aquesta tasca ja no és al teu Google Tasks. Torna a entrar a Tasques i la llista es posarà al dia.'
       : 'No s\'ha pogut marcar al Google Tasks: ' + msg, 'error');
   }
 }
@@ -4196,6 +6261,8 @@ function grupsSetTipus(tipus, btn) {
   _grupsTipus = tipus;
   document.querySelectorAll('.grups-tipus-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  // La pista de sota diu com quedaran els grups, i cada mode els fa diferent.
+  if (typeof _updateGrupsHint === 'function') _updateGrupsHint();
 }
 
 // Pobla el selector d'assignatura amb les meves assignatures (amb grup)
@@ -4204,7 +6271,17 @@ function _grupsPoblarSelector() {
   if (!sel) return;
   const entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
   if (!entrades.length) {
-    // Sense perfil: usa el grup de tutoria amb els students actuals
+    /* Sense perfil. Una tutora encara te els alumnes del seu grup carregats i
+       pot fer grups amb ells; una especialista o la direccio, no: dir-los
+       "Tutoria" era ensenyar-los una assignatura que no fan. */
+    const senseGrup = (typeof senseTutoria === 'function') && senseTutoria();
+    if (senseGrup || !students.length) {
+      sel.innerHTML = '<option value="">—</option>';
+      const h = document.getElementById('grupsAssigHint');
+      if (h) h.innerHTML = 'Encara no has dit a quins grups fas classe. Ves a <strong>El meu perfil</strong>.';
+      _grupsAlumnes = [];
+      return;
+    }
     sel.innerHTML = '<option value="">Tutoria</option>';
     _grupsAlumnes = students.slice();
     return;
@@ -4287,16 +6364,42 @@ function grupsChangeNum(delta) {
 function _updateGrupsHint() {
   const total = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes.length : students.length;
   if (!total) { document.getElementById('grupsHint').textContent = 'Carrega els alumnes primer'; return; }
+  /* ⚠ «0 DE 12 I 1 DE 8».
+
+     Segona auditoria (8/9/2026): en canviar a una assignatura d'una classe
+     més petita, `_grupsNum` es quedava amb el número d'abans (12) i el
+     compte sortia amb un grup de zero. La mida d'un grup no pot ser més gran
+     que la classe: s'acota aquí, que és per on passa tothom. */
+  if (_grupsNum > total) _grupsNum = total;
   const nGrups  = Math.ceil(total / _grupsNum);
   const sobren  = total % _grupsNum;
   let hint = `${total} alumnes → ${nGrups} grup${nGrups!==1?'s':''}`;
-  if (sobren > 0) hint += ` (${nGrups-1} de ${_grupsNum} i 1 de ${sobren})`;
-  else hint += ` de ${_grupsNum}`;
+  /* ⚠ LA PISTA NO DEIA EL QUE PASSAVA DE DEBÒ.
+
+     Trobat a l'auditoria del 6/9/2026: sempre deia «(N−1 de 3 i 1 de 2)»,
+     que és el que fa el mode HOMOGENI —talla la llista en trossos. En
+     heterogenis els alumnes es reparteixen en serpentina entre els grups i
+     queden equilibrats: «12 de 3» quan en sobren, no «3 de 3 i 1 de 2». La
+     mestra comptava els grups i no li quadraven amb el que deia la pista. */
+  if (_grupsTipus === 'hetero') {
+    const base = Math.floor(total / nGrups);
+    if (total % nGrups === 0) hint += ` de ${base}`;
+    else hint += ` de ${base} o ${base + 1} (repartits per nivell)`;
+  } else if (sobren > 0) {
+    hint += ` (${nGrups-1} de ${_grupsNum} i 1 de ${sobren})`;
+  } else {
+    hint += ` de ${_grupsNum}`;
+  }
   document.getElementById('grupsHint').textContent = hint;
 }
 
 function afegirCondicio() {
-  if (!students.length) { showToast('Carrega els alumnes primer', 'error'); return; }
+  /* ⚠ Aixo mirava `students`, que a una especialista o a la direccio es buit
+     fins que no obren un altre apartat: el generador tenia la seva llista
+     carregada, es veien els divuit noms, i el boto no feia res (auditoria
+     6/9/2026). Ara mira la llista que el generador fa servir de debo. */
+  const _al = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes : students;
+  if (!_al.length) { showToast('Encara no hi ha alumnes: tria l’assignatura a dalt.', 'error'); return; }
   _grupsCondicions.push([null, null]);
   _renderGrupsCondicions();
 }
@@ -4306,7 +6409,16 @@ function _renderGrupsCondicions() {
   if (!_grupsCondicions.length) { wrap.innerHTML = ''; return; }
 
   const _al = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes : students;
-  const opts = _al.map((s,i) => `<option value="${i}">${escapeHtml(s.nom)}</option>`).join('');
+  /* Si al grup hi ha dos noms iguals, se'ls numera: si no, la mestra no pot
+     saber quina de les dues Julies esta triant. */
+  const _rep = {}; _al.forEach(s => { const k = String(s.nom||'').trim().toLowerCase(); _rep[k] = (_rep[k]||0)+1; });
+  const _num = {};
+  const opts = _al.map((s,i) => {
+    const k = String(s.nom||'').trim().toLowerCase();
+    let n = s.nom;
+    if (k && _rep[k] > 1) { _num[k] = (_num[k]||0)+1; n = s.nom + ' (' + _num[k] + ')'; }
+    return `<option value="${i}">${escapeHtml(n)}</option>`;
+  }).join('');
 
   wrap.innerHTML = _grupsCondicions.map((cond, ci) => `
     <div class="grups-cond-row">
@@ -4332,7 +6444,17 @@ function _renderGrupsCondicions() {
 }
 
 function updateCondicio(ci, pos, val) {
-  _grupsCondicions[ci][pos] = val === '' ? null : parseInt(val);
+  const nou = val === '' ? null : parseInt(val);
+  /* ⚠ «Aina ≠ Aina» era una condicio impossible: el generador s hi barallava
+     500 vegades i acabava dient que no s havien pogut complir les condicions,
+     sense dir mai quina era el problema (auditoria 6/9/2026). */
+  const altre = _grupsCondicions[ci][pos === 0 ? 1 : 0];
+  if (nou !== null && altre !== null && nou === altre) {
+    showToast('Has triat el mateix alumne als dos costats. Tria’n un altre.', 'error');
+    _renderGrupsCondicions();
+    return;
+  }
+  _grupsCondicions[ci][pos] = nou;
 }
 
 function eliminarCondicio(ci) {
@@ -4344,12 +6466,32 @@ function eliminarCondicio(ci) {
 function generarGrups() {
   const alumnes = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes : students;
   if (!alumnes.length) { showToast('No hi ha alumnes carregats', 'error'); return; }
+  /* ⚠ Amb «Alumnes per grup» a 0 o negatiu, `_formarGrups` no avancava mai i
+     la pagina es quedava penjada entre 15 i 22 segons abans de petar. Des dels
+     botons no s hi arriba, pero des de qualsevol altra crida si (auditoria
+     6/9/2026). */
+  const _perGrup = parseInt(_grupsNum, 10);
+  if (!Number.isFinite(_perGrup) || _perGrup < 1) {
+    showToast('Els alumnes per grup han de ser com a mínim 1.', 'error');
+    return;
+  }
+  _grupsNum = Math.min(_perGrup, alumnes.length);
 
   let grups = null;
 
   if (_grupsTipus === 'hetero') {
-    // Heterogeni: reparteix equilibradament per nivell i PI/AM
-    grups = _generarHeterogenis(alumnes);
+    /* ⚠ EL BOTÓ ↺ REGENERAR TORNAVA SEMPRE ELS MATEIXOS GRUPS.
+
+       Segona auditoria (8/9/2026). Aquí es cridava sense `aleatoritzar`, i
+       la barreja només s'activava als 200 reintents… que només corren si
+       alguna condició falla. Sense condicions no falla mai, o sigui que el
+       resultat era sempre idèntic: la mestra clicava ↺ i no passava res,
+       amb la sensació que el botó estava espatllat.
+
+       Amb `true` continua equilibrant per nivell i PI/AM exactament igual:
+       l'únic que canvia és per quin nen comença dins de cada nivell, que és
+       justament el que ha de canviar quan es demana una repartició nova. */
+    grups = _generarHeterogenis(alumnes, true);
     // Intenta respectar les condicions reordenant si cal
     if (!_compleixCondicions(grups)) {
       // Un parell d'intents més barrejant l'ordre de repartiment
@@ -4385,9 +6527,13 @@ function _generarHeterogenis(alumnes, aleatoritzar) {
   // Classifica els alumnes per índex
   const ambPI = [], ambAM = [], resta = [];
   alumnes.forEach((s, i) => {
+    /* ⚠ Si l alumne porta el seu PI/AM (ve del full «Grups» d un altre grup),
+       mana el SEU.  és de la classe que hi ha carregada, i
+       repartint un altre grup hi posava el PI i l AM dels teus alumnes
+       (auditoria 6/9/2026). */
     const pd = personal[s.id] || {};
-    const tePI = (pd.pi && pd.pi.trim()) || (s.pi && s.pi.toString().trim());
-    const teAM = (pd.am && pd.am.trim()) || (s.am && s.am.toString().trim());
+    const tePI = (s.pi !== undefined) ? String(s.pi || '').trim() : String(pd.pi || '').trim();
+    const teAM = (s.am !== undefined) ? String(s.am || '').trim() : String(pd.am || '').trim();
     if (tePI) ambPI.push(i);
     else if (teAM) ambAM.push(i);
     else resta.push(i);
@@ -4403,10 +6549,34 @@ function _generarHeterogenis(alumnes, aleatoritzar) {
     return nb - na;              // de més alta a més baixa
   });
 
-  // Si demanem aleatoritzar (per provar condicions), barreja lleugerament
-  // els empats mantenint l'ordre global aproximat
+  /* ⚠ AQUÍ ELS 200 REINTENTS NO SERVIEN DE RES.
+
+     Quan una condició («l'Aitana i en Bernat no poden anar junts») no es
+     complia, es tornava a generar fins a 200 vegades. Però l'única cosa que
+     es barrejava eren els vectors de PI i d'AM, que són dos o tres alumnes:
+     el gruix de la classe (`resta`) quedava ordenat exactament igual per
+     nota, i els 200 intents donaven els MATEIXOS grups. Resultat: en mode
+     heterogeni la condició no es complia mai (8 de 8 a l'auditoria del
+     6/9/2026), mentre que en homogeni sí.
+
+     Ara també es barreja `resta`, però NOMÉS entre alumnes que van igual de
+     bé: així cada intent és de debò diferent i els grups segueixen quedant
+     equilibrats per nivell, que és el que la mestra demana quan tria
+     «heterogenis». I es comença per una columna a l'atzar, que canvia com
+     cau la serpentina. */
   if (aleatoritzar) {
     _barrejar(ambPI); _barrejar(ambAM);
+    let i = 0;
+    while (i < resta.length) {
+      const nota = notaDe(resta[i]);
+      let j = i + 1;
+      while (j < resta.length && notaDe(resta[j]) === nota) j++;
+      if (j - i > 1) {
+        const tros = _barrejar(resta.slice(i, j));
+        for (let k = i; k < j; k++) resta[k] = tros[k - i];
+      }
+      i = j;
+    }
   }
 
   // Reparteix PI: un a cada grup, rotant
@@ -4417,7 +6587,9 @@ function _generarHeterogenis(alumnes, aleatoritzar) {
 
   // Reparteix la resta en SERPENTINA (0,1,2,2,1,0,0,1,2…) perquè els nivells
   // quedin equilibrats: cada grup rep alternativament dels forts i dels fluixos
-  let dir = 1, col = g % nGrups;
+  /* La columna on comença la serpentina també canvia a cada intent: si no,
+     dos intents amb la mateixa nota tornarien a caure igual. */
+  let dir = 1, col = aleatoritzar ? Math.floor(Math.random() * nGrups) : (g % nGrups);
   resta.forEach(idx => {
     grups[col].push(idx);
     if (dir === 1) { if (col === nGrups - 1) { dir = -1; } else col++; }
@@ -4542,7 +6714,11 @@ function _compleixCondicions(grups) {
 
 function _mostrarGrups(grups) {
   const wrap  = document.getElementById('grupsResultat');
-  const total = students.length;
+  /* ⚠ El comptador deia sempre els alumnes de la TUTORIA, repartissis el grup
+     que repartissis: «3 grups · 12 alumnes» amb 8 noms a la pantalla, i «4
+     grups · 0 alumnes» a una especialista amb 12 nens repartits. Ara diu els
+     que hi ha de debò al resultat (auditoria 6/9/2026). */
+  const total = grups.reduce((n, g) => n + g.length, 0);
   const nG    = grups.length;
 
   // Diu si els grups s han pogut equilibrar per nota de debo. Si no hi ha
@@ -4640,7 +6816,7 @@ function _renderHomeAvui() {
   const avui = new Date();
   const dies = ['Diumenge','Dilluns','Dimarts','Dimecres','Dijous','Divendres','Dissabte'];
   const mesos = ['gener','febrer','març','abril','maig','juny','juliol','agost','setembre','octubre','novembre','desembre'];
-  const label = dies[avui.getDay()] + ', ' + avui.getDate() + ' de ' + mesos[avui.getMonth()];
+  const label = dies[avui.getDay()] + ', ' + avui.getDate() + ' ' + dePreposicio(mesos[avui.getMonth()]);
   document.getElementById('homeAvuiLabel').textContent = 'Avui — ' + label;
 
   const diaId = ['dl','dm','dc','dj','dv','',''][avui.getDay() === 0 ? 6 : avui.getDay() - 1] || null;
@@ -4673,7 +6849,7 @@ function _renderHomeAvui() {
       html += `<div class="home-franja">
         <span class="home-franja-hora">${f.hora}</span>
         <span class="home-franja-pill" style="background:${bg};color:${fc}">⚠ ${escapeHtml(data.event||'')}</span>
-        ${data.link?`<a class="home-franja-link" href="${data.link}" target="_blank">📄</a>`:''}
+        ${data.link?`<a class="home-franja-link" href="${_enllacSegur(data.link)}" target="_blank">📄</a>`:''}
       </div>`;
       teContingut = true; return;
     }
@@ -4686,7 +6862,7 @@ function _renderHomeAvui() {
           <span class="home-franja-pill" style="background:${col.bg};color:${col.color}">${escapeHtml(data.assig||'')}</span>
           ${data.sub?`<span class="home-franja-sub">${escapeHtml(data.sub)}</span>`:''}
         </div>
-        ${data.link?`<a class="home-franja-link" href="${data.link}" target="_blank">📄</a>`:''}
+        ${data.link?`<a class="home-franja-link" href="${_enllacSegur(data.link)}" target="_blank">📄</a>`:''}
       </div>`;
       teContingut = true;
     }
@@ -4736,17 +6912,35 @@ function _renderHomeRecordatoris() {
   const prox7 = new Date(avui); prox7.setDate(avui.getDate() + 7);
   const prox7Str = prox7.toISOString().split('T')[0];
   // Recull events de tots dos orígens per al rang de dates
+  /* ⚠ LA PORTADA NO DEIA RES DE LES COLÒNIES MENTRE S'ESTAVEN FENT.
+
+     Segona auditoria (8/9/2026). El filtre mirava només el dia en què l'event
+     COMENÇA: unes colònies de dimarts a dijous desapareixien de la portada el
+     dimecres, que és justament el dia que la mestra hi és. I només es llegia
+     l'any actual, o sigui que un event de cap d'any tampoc no hi sortia el 2
+     de gener. Ara es mira si l'event TOCA la finestra dels set dies. */
   let _calProp = (cal2LoadEvents ? cal2LoadEvents(avui.getFullYear()) : []).slice();
+  if (cal2LoadEvents) _calProp = _calProp.concat(cal2LoadEvents(avui.getFullYear() - 1) || []);
   Object.values(_cal2GCalCache || {}).forEach(arr => { _calProp = _calProp.concat(arr || []); });
   const calEvents = _calProp
-    .filter(e => e.data >= avuiStr && e.data <= prox7Str)
+    .filter(e => {
+      if (!e || !e.data) return false;
+      const fi = (e.dataFi && e.dataFi >= e.data) ? e.dataFi : e.data;
+      return e.data <= prox7Str && fi >= avuiStr;   // se solapen els dos trams
+    })
     .sort((a,b) => (a.data + (a.hora||'')).localeCompare(b.data + (b.hora||'')));
 
   if (calEvents.length) {
     html += `<div class="home-rec-section-label">Calendari proper</div>`;
     calEvents.slice(0,5).forEach(e => {
       const cat = e.fromGCal ? { color: e.calColor || '#4285F4' } : (cal2CatById ? cal2CatById(e.catId) : {color:'#4285F4'});
-      const datStr = e.data === avuiStr ? 'avui' : new Date(e.data).toLocaleDateString('ca-ES',{day:'numeric',month:'short'});
+      /* Un event que ja ha començat i encara dura és «avui», encara que
+         comencés dilluns: si no, la portada deia «14 set.» un dimecres 16 i
+         semblava una cosa futura. */
+      const _fi = (e.dataFi && e.dataFi >= e.data) ? e.dataFi : e.data;
+      const datStr = (e.data <= avuiStr && _fi >= avuiStr)
+        ? (_fi > avuiStr ? 'avui i fins al ' + new Date(_fi).toLocaleDateString('ca-ES',{day:'numeric',month:'short'}) : 'avui')
+        : new Date(e.data).toLocaleDateString('ca-ES',{day:'numeric',month:'short'});
       html += `<div class="home-rec-item" onclick="showPage('calendari')">
         <span class="home-rec-dot" style="background:${cat.color}"></span>
         <span class="home-rec-nom">${escapeHtml(e.titol)}</span>
@@ -4853,7 +7047,7 @@ function _renderHomeSetmana() {
    ============================================================ */
 
 let _assimTrim    = 1;
-let _assimMateria = 'matematiques';
+let _assimMateria = '';   // cap assignatura inventada: la posa el perfil
 let _assimEditObjId = null;
 
 const ASSIM_MATERIES = {
@@ -4865,15 +7059,47 @@ const ASSIM_MATERIES = {
 };
 
 /* --- Persistència --- */
-function assimObjKey()   { return `assim_obj_${_assimMateria}_${_assimTrim}`; }
-function assimObjLoad()  { return JSON.parse(localStorage.getItem(assimObjKey()) || '[]'); }
+
+/* LA CLAU AMB QUÈ ES DESA UN ASSOLIMENT — ha de portar el GRUP.
+
+   Trobat a l'auditoria del 6/9/2026. Les assignatures «d'altres cursos» del
+   perfil van indexades per CURS, no per grup: la clau de Música a 3r era
+   `musica__3r` per a 3r A, 3r B i 3r C alhora. Les tres línies compartien la
+   mateixa graella —el que posaves a l'una sortia a l'altra i la trepitjava—
+   i a direcció encara era pitjor: amb el perfil buit la clau no portava ni
+   curs (`matematiques`), i els divuit grups compartien les mateixes marques.
+
+   Aquí s'hi afegeix el grup on s'està treballant, i NOMÉS quan la clau no en
+   porta ja. Les de tutoria (`catala__2nc`) es queden igual a posta: així les
+   rúbriques i les valoracions que les mestres ja tenen desades no es mouen
+   de lloc el dia que s'actualitzin. */
+function _assimClauMat() {
+  const g = (typeof _grupDeTreball === 'function') ? (_grupDeTreball() || '') : '';
+  if (!g || typeof _assimMateria !== 'string') return _assimMateria;
+  const esDAltreCurs = (typeof _assigDesdobMap !== 'undefined') && !!_assigDesdobMap[_assimMateria];
+  const jaPortaGrup = _assimMateria.indexOf('__') !== -1 && !esDAltreCurs;
+  if (jaPortaGrup) return _assimMateria;
+  return _assimMateria + '@' + g.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/* Llegeix amb la clau nova i, si encara no hi ha res, amb la vella. Així el
+   que una mestra ja tingués desat no desapareix el dia de l'actualització. */
+function _assimLlegeix(nova, vella) {
+  const v = localStorage.getItem(nova);
+  return v !== null ? v : localStorage.getItem(vella);
+}
+
+function assimObjKey()      { return `assim_obj_${_assimClauMat()}_${_assimTrim}`; }
+function assimObjKeyVella() { return `assim_obj_${_assimMateria}_${_assimTrim}`; }
+function assimObjLoad()     { return JSON.parse(_assimLlegeix(assimObjKey(), assimObjKeyVella()) || '[]'); }
 function assimObjSave(v) {
   localStorage.setItem(assimObjKey(), JSON.stringify(v));
-  _assimSaveObjToSheets(_assimMateria, _assimTrim);   // dades ocultes (sync)
+  _assimSaveObjToSheets(_assimClauMat(), _assimTrim);   // dades ocultes (sync)
   _autoSyncAssimSheet(_assimTrim);                    // full visible bonic
 }
 
-function assimValKey(sid, objId) { return `assim_${_assimMateria}_${_assimTrim}_${sid}_${objId}`; }
+function assimValKey(sid, objId)      { return `assim_${_assimClauMat()}_${_assimTrim}_${sid}_${objId}`; }
+function assimValKeyVella(sid, objId) { return `assim_${_assimMateria}_${_assimTrim}_${sid}_${objId}`; }
 // Identificador ESTABLE d'un alumne per als assoliments: rowId si existeix
 // (estable entre càrregues), si no l'id de posició (compatibilitat).
 function _assimSid(s) {
@@ -4885,13 +7111,13 @@ function _assimSid(s) {
   return s;
 }
 function assimValGet(sid, objId) {
-  const v = localStorage.getItem(assimValKey(sid, objId));
+  const v = _assimLlegeix(assimValKey(sid, objId), assimValKeyVella(sid, objId));
   return v === null ? null : JSON.parse(v);
 }
 function assimValSet(sid, objId, val) {
   if (val === null) localStorage.removeItem(assimValKey(sid, objId));
   else localStorage.setItem(assimValKey(sid, objId), JSON.stringify(val));
-  _assimSaveValsToSheets(_assimMateria, _assimTrim);  // dades ocultes (sync)
+  _assimSaveValsToSheets(_assimClauMat(), _assimTrim);  // dades ocultes (sync)
   _autoSyncAssimSheet(_assimTrim);                    // full visible bonic
 }
 
@@ -4971,6 +7197,14 @@ async function _assimLoadGrupStudents(matKey) {
 }
 
 function _renderAssimTable() {
+  /* Sense assignatura triada (perfil buit) no hi ha res a avaluar: val mes
+     dir-ho que no pas ensenyar la taula d'una assignatura inventada. */
+  if (!_assimMateria || typeof ASSIM_MATERIES === 'undefined' || !ASSIM_MATERIES[_assimMateria]) {
+    const w0 = document.getElementById('assimTableWrap');
+    if (w0) w0.innerHTML = '<div class="tasques-empty"><p>Primer digues quines assignatures fas a <strong>El meu perfil</strong>.</p></div>';
+    const c0 = document.getElementById('assimObjCount'); if (c0) c0.textContent = '';
+    return;
+  }
   const objectius = assimObjLoad();
   const wrap = document.getElementById('assimTableWrap');
   const countEl = document.getElementById('assimObjCount');
@@ -4991,26 +7225,38 @@ function _renderAssimTable() {
     const nomCurt = obj.nom || (obj.text ? obj.text.substring(0,25) : 'Objectiu ' + (i+1));
     const descTitol = obj.text ? escapeHtml(obj.text) : '';
     html += `<th class="assim-th-obj">
-      <button class="notes-del-btn" onclick="deleteAssimObjDirect('${obj.id}')" title="Eliminar objectiu" style="top:4px;right:4px">
+      <button class="notes-del-btn" onclick="deleteAssimObjDirect('${_idJs(obj.id)}')" title="Eliminar objectiu" style="top:4px;right:4px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
       <div class="assim-obj-nom"><strong>${escapeHtml(nomCurt)}</strong></div>
-      ${descTitol ? `<button class="assim-obj-info" onclick="showAssimObjInfo('${obj.id}',event)" title="${descTitol}">ⓘ</button>` : ''}
-      <button class="assim-obj-edit" onclick="openAssimObj('${obj.id}')" title="Editar">✎</button>
+      ${descTitol ? `<button class="assim-obj-info" onclick="showAssimObjInfo('${_idJs(obj.id)}',event)" title="${descTitol}">ⓘ</button>` : ''}
+      <button class="assim-obj-edit" onclick="openAssimObj('${_idJs(obj.id)}')" title="Editar">✎</button>
     </th>`;
   });
   html += '<th class="assim-th-pct">%</th></tr></thead><tbody>';
 
   students.forEach(s => {
     let punts = 0;
-    html += `<tr><td class="assim-td-nom">${escapeHtml(s.nom)}</td>`;
+    html += `<tr><td class="assim-td-nom">${escapeHtml(nomAlumne(s))}</td>`;
     objectius.forEach(obj => {
       const val = assimValGet(_assimSid(s), obj.id);
       if (val === true)       punts += 1;
       else if (val === 'partial') punts += 0.5;
       const cls = val === true ? 'assim-cell assolit' : val === 'partial' ? 'assim-cell parcial' : val === false ? 'assim-cell no-assolit' : 'assim-cell buit';
       const icon = val === true ? '✓' : val === 'partial' ? '~' : val === false ? '✗' : '—';
-      html += `<td class="${cls}" onclick="toggleAssim(${_assimSid(s)},'${obj.id}',this)">${icon}</td>`;
+      /* ⚠ EL CODI DE L'ALUMNE HA D'ANAR ENTRE COMETES.
+
+         Trobat a la segona auditoria (8/9/2026), i era el pitjor de tots:
+         `_assimSid(s)` torna el CODI PERMANENT del full («2nC-u1»), no un
+         número. Sense cometes, l'atribut que sortia era
+         `onclick="toggleAssim(2nC-u1,'o1',this)"` — que no és JavaScript
+         vàlid. Cada clic donava SyntaxError i **no es podia marcar ni un sol
+         assoliment**. Mentre `_assimSid` tornava la posició (un número)
+         l'atribut sortia bo de casualitat; l'arranjament que va posar el codi
+         permanent el va convertir en invàlid, i el repàs que va posar
+         `_idJs()` a 77 llocs no el va veure perquè només buscava el patró
+         «'${…}'» —ja entre cometes. */
+      html += `<td class="${cls}" onclick="toggleAssim('${_idJs(_assimSid(s))}','${_idJs(obj.id)}',this)">${icon}</td>`;
     });
     const pct = objectius.length > 0 ? Math.round(punts / objectius.length * 100) : 0;
     const color = pct >= 80 ? '#065F46' : pct >= 50 ? '#92400E' : '#991B1B';
@@ -5044,7 +7290,7 @@ function _renderAssimResum() {
     const barBg = pct >= 80 ? '#22C55E' : pct >= 50 ? '#F59E0B' : '#EF4444';
 
     return `<div class="assim-resum-item">
-      <div class="assim-resum-nom">${escapeHtml(s.nom)}</div>
+      <div class="assim-resum-nom">${escapeHtml(nomAlumne(s))}</div>
       <div class="assim-resum-bar-wrap">
         <div class="assim-resum-bar" style="width:${pct}%;background:${barBg}"></div>
       </div>
@@ -5081,8 +7327,16 @@ function _updateAssimRowPct(sid) {
   rows.forEach(tr => {
     const nomCell = tr.querySelector('.assim-td-nom');
     if (!nomCell) return;
-    const s = students.find(x => x.nom === nomCell.textContent);
-    if (!s || _assimSid(s) !== sid) return;
+    /* ⚠ Dues coses que aquí fallaven en silenci (segona auditoria, 8/9/2026):
+
+       · La cel·la del nom pinta `nomAlumne(s)`, que als noms repetits hi
+         afegeix «(1)» i «(2)». Buscant per `x.nom` pelat, aquells dos nens
+         no es trobaven mai i el seu % no es refrescava.
+       · El codi ara arriba com a cadena des de l'atribut; comparar-lo amb
+         `!==` contra un número no quadrava mai. Es comparen com a text. */
+    const s = students.find(x => nomAlumne(x) === nomCell.textContent) ||
+              students.find(x => x.nom === nomCell.textContent);
+    if (!s || String(_assimSid(s)) !== String(sid)) return;
     let punts = 0;
     objectius.forEach(obj => {
       const v = assimValGet(_assimSid(s), obj.id);
@@ -5150,7 +7404,9 @@ function closeAssimObj() { document.getElementById('assimObjOverlay').classList.
 function saveAssimObj() {
   const nom  = document.getElementById('assimObjNom').value.trim();
   const text = document.getElementById('assimObjText').value.trim();
-  if (!nom) { document.getElementById('assimObjNom').focus(); return; }
+  /* ⚠ Sense nom, aixo posava el cursor al camp i prou: el boto semblava
+     espatllat (auditoria 6/9/2026). Ara es diu que hi falta. */
+  if (!nom) { showToast('Posa-li un nom a l’objectiu', 'error'); document.getElementById('assimObjNom').focus(); return; }
   const objectius = assimObjLoad();
   if (_assimEditObjId) {
     const obj = objectius.find(o => o.id === _assimEditObjId);
@@ -5175,16 +7431,39 @@ function deleteAssimObj() {
 
 /* Sincronitza tots els assoliments del trimestre actual al Sheets */
 // Recull totes les dades d'assoliments d'un trimestre per al full visible
+/* ⚠ AIXÒ MIRAVA CINC ASSIGNATURES QUE JA NO EXISTEIXEN.
+
+   Trobat a l'auditoria del 6/9/2026: la llista d'assignatures estava escrita
+   a mà (`matematiques`, `catala`, `medi`, `musica`, `angles`) i les claus de
+   debò fa temps que porten el grup a dins (`catala__2nc`). O sigui que aquí
+   no es trobava mai res: «Assoliments sincronitzats al Sheets ✓» i el full
+   `1T_Assoliments` es quedava buit —i, a sobre, s'esborrava i es tornava a
+   crear a cada sincronització.
+
+   Ara no s'endevina res: es miren les claus que hi ha de debò al navegador
+   per a aquest trimestre. Així també hi entren les assignatures que es facin
+   demà, sense haver de tocar aquesta llista mai més. I l'alumne s'identifica
+   amb `_assimSid`, que és amb el que s'han desat les valoracions. */
 function _buildAssimSheetData(trim) {
-  const MATS = ['matematiques','catala','medi','musica','angles'];
   const data = {};
-  MATS.forEach(mat => {
-    const objectius = JSON.parse(localStorage.getItem(`assim_obj_${mat}_${trim}`) || '[]');
+  const prefix = 'assim_obj_';
+  const sufix = '_' + trim;
+  const claus = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.indexOf(prefix) === 0 && k.slice(-sufix.length) === sufix) claus.push(k);
+  }
+  claus.forEach(k => {
+    const mat = k.slice(prefix.length, k.length - sufix.length);
+    if (!mat) return;
+    let objectius = [];
+    try { objectius = JSON.parse(localStorage.getItem(k) || '[]') || []; } catch (e) { return; }
     if (!objectius.length) return;
     const alumnes = students.map(s => {
+      const sid = (typeof _assimSid === 'function') ? _assimSid(s) : s.id;
       const vals = {};
       objectius.forEach(obj => {
-        const v = localStorage.getItem(`assim_${mat}_${trim}_${s.id}_${obj.id}`);
+        const v = localStorage.getItem(`assim_${mat}_${trim}_${sid}_${obj.id}`);
         vals[obj.id] = v !== null ? JSON.parse(v) : null;
       });
       return { id: s.id, nom: s.nom, vals };
@@ -5201,7 +7480,7 @@ function _autoSyncAssimSheet(trim) {
   const t = trim || _assimTrim;
   debounce('assimSheet_' + t, () => {
     const data = _buildAssimSheetData(t);
-    appsScriptPost({ action: 'syncAssoliments', trimestre: t, data }).catch(() => {});
+    _desaAlFull({ action: 'syncAssoliments', trimestre: t, data }, { callat: true });
   }, 2500);
 }
 
@@ -5253,7 +7532,12 @@ function syncPlanningWeek(weekId) {
   if (!config.scriptUrl) return;
   const wid = weekId || getPlanWeekId(_planWeekOffset);
   debounce('planning_' + wid, () => {
-    appsScriptPost({ action: 'savePlanning', weekId: wid, data: _planningWeekData(wid) }).catch(() => {});
+    /* El  diu al servidor què havia vist aquest navegador d aquesta
+       setmana. Sense això, desar s emporta per davant el que hagi escrit
+       l altre dispositiu (auditoria 6/9/2026). */
+    const _base = localStorage.getItem('plan_base_' + wid) || '';
+    _desaAlFull({ action: 'savePlanning', weekId: wid, data: _planningWeekData(wid), base: _base })
+      .then(r => { if (r && r.ok && r.ts) { try { localStorage.setItem('plan_base_' + wid, String(r.ts)); } catch (e) {} } });
   }, 800);
 }
 
@@ -5262,6 +7546,8 @@ async function loadPlanningWeekFromSheets(weekId) {
   try {
     const r = await appsScriptGet({ action: 'loadPlanning', weekId });
     if (!r.ok || !r.data) return;
+    // Des d ara, tot el que canviï al full serà posterior a aquest moment.
+    if (r.base) { try { localStorage.setItem('plan_base_' + weekId, String(r.base)); } catch (e) {} }
     const prefix = 'plan_' + weekId + '_';
     Object.entries(r.data).forEach(([subkey, val]) => {
       if (subkey === '_notes') {
@@ -5281,7 +7567,9 @@ function _tqSaveToSheets() {
   if (!config.scriptUrl) return;
   debounce('tasques', () => {
     const data = JSON.parse(localStorage.getItem('tasques') || '[]');
-    appsScriptPost({ action: 'saveTasques', data }).catch(() => {});
+    const _b = localStorage.getItem('tasques_base') || '';
+    _desaAlFull({ action: 'saveTasques', data, base: _b })
+      .then(r => { if (r && r.ok && r.ts) { try { localStorage.setItem('tasques_base', String(r.ts)); } catch (e) {} } });
   }, 800);
 }
 
@@ -5299,13 +7587,15 @@ async function _tqLoadFromSheets() {
 function _calSaveToSheets(year) {
   if (!config.scriptUrl) return;
   const data = JSON.parse(localStorage.getItem('cal2_events_' + year) || '[]');
-  appsScriptPost({ action: 'saveCalendari', year, data }).catch(() => {});
+  const _b = localStorage.getItem('cal_base_' + year) || '';
+  _desaAlFull({ action: 'saveCalendari', year, data, base: _b })
+    .then(r => { if (r && r.ok && r.ts) { try { localStorage.setItem('cal_base_' + year, String(r.ts)); } catch (e) {} } });
 }
 
 function _calSaveCatsToSheets() {
   if (!config.scriptUrl) return;
   const data = JSON.parse(localStorage.getItem('cal2_cats') || 'null');
-  if (data) appsScriptPost({ action: 'saveCalendariCats', data }).catch(() => {});
+  if (data) _desaAlFull({ action: 'saveCalendariCats', data });
 }
 
 async function _calLoadFromSheets(year) {
@@ -5325,7 +7615,7 @@ async function _calLoadFromSheets(year) {
 function _assimSaveObjToSheets(materia, trimestre) {
   if (!config.scriptUrl) return;
   const data = JSON.parse(localStorage.getItem(`assim_obj_${materia}_${trimestre}`) || '[]');
-  appsScriptPost({ action: 'saveAssimObjectius', materia, trimestre, data }).catch(() => {});
+  _desaAlFull({ action: 'saveAssimObjectius', materia, trimestre, data });
 }
 
 function _assimSaveValsToSheets(materia, trimestre) {
@@ -5342,7 +7632,7 @@ function _assimSaveValsToSheets(materia, trimestre) {
         data[sid][obj.id] = v !== null ? JSON.parse(v) : null;
       });
     });
-    appsScriptPost({ action: 'saveAssimValors', materia, trimestre, data }).catch(() => {});
+    _desaAlFull({ action: 'saveAssimValors', materia, trimestre, data });
   });
 }
 
@@ -5375,7 +7665,7 @@ function _actitudSaveToSheets(materia, trimestre) {
       const v = localStorage.getItem(`actitud_${materia}_${trimestre}_${s.id}`);
       if (v) data[s.id] = JSON.parse(v);
     });
-    appsScriptPost({ action: 'saveActitud', materia, trimestre, data }).catch(() => {});
+    _desaAlFull({ action: 'saveActitud', materia, trimestre, data });
   });
 }
 
@@ -5416,8 +7706,8 @@ async function loadAllFromSheets() {
 // Processa les dades de planning/tasques/calendari/assoliments/actitud
 // (compartit entre loadAllFromSheets i _applyBootstrap)
 function _processAppData(r) {
-  // Planning
-  if (r.planning) {
+  // Planning (mai per damunt del que encara no s ha pogut pujar)
+  if (r.planning && !_pendentsTe('savePlanning')) {
     Object.entries(r.planning).forEach(([weekId, data]) => {
       const prefix = 'plan_' + weekId + '_';
       Object.entries(data).forEach(([subkey, val]) => {
@@ -5427,15 +7717,34 @@ function _processAppData(r) {
       });
     });
   }
-  // Tasques
-  if (r.tasques && r.tasques.length) localStorage.setItem('tasques', JSON.stringify(r.tasques));
+  /* Tasques. Si n hi ha cap de pendent de pujar, NO es toca res: el que ve
+     del servidor encara no la porta, i escriure-hi a sobre la faria
+     desapareixer de la pantalla i del navegador (auditoria 6/9/2026). */
+  /* ⚠ I LA PROTECCIÓ CONTRA DOS APARELLS NO S'ARMAVA MAI EL PRIMER DIA.
+
+     Segona auditoria (8/9/2026). La marca `tasques_base` només s'escrivia si
+     el servidor havia portat com a mínim UNA tasca. Amb la llista buida —el
+     cas de qui encara no n'ha apuntat cap— no s'escrivia, i llavors el desat
+     enviava base='': el servidor ho llegia com «no hi havia res» i entenia
+     que tot el que ell tenia i no arribava a la llista nova era una cosa que
+     la mestra havia esborrat. Amb dos aparells, el primer que apuntava una
+     tasca la perdia.
+
+     La llista pot ser buida i la marca hi ha de ser igual: «buida» també és
+     una versió del full. */
+  if (r.tasques && !_pendentsTe('saveTasques')) {
+    localStorage.setItem('tasques', JSON.stringify(r.tasques));
+    try { localStorage.setItem('tasques_base', String(Date.now())); } catch (e) {}
+  }
   // Calendari
-  if (r.calCats) localStorage.setItem('cal2_cats', JSON.stringify(r.calCats));
-  if (r.calEvents) Object.entries(r.calEvents).forEach(([y, evs]) => {
+  if (r.calCats && !_pendentsTe('saveCalendariCats')) localStorage.setItem('cal2_cats', JSON.stringify(r.calCats));
+  if (r.calEvents && !_pendentsTe('saveCalendari')) Object.entries(r.calEvents).forEach(([y, evs]) => {
     if (evs && evs.length) localStorage.setItem('cal2_events_' + y, JSON.stringify(evs));
   });
   // Sembra el calendari escolar (un cop per mestre; una còpia nova ja el porta)
   if (typeof _calSeedEscola === 'function') _calSeedEscola();
+  // Els ajustos propis (enllaços de la portada, «per agendar»)
+  if (r.ajustos && !_pendentsTe('saveAjustosPropis')) _ajustosAplica(r.ajustos);
   // Assoliments
   if (r.assim) Object.entries(r.assim).forEach(([key, val]) => {
     if (key.startsWith('obj_')) {
@@ -5468,6 +7777,15 @@ function _applyBootstrap(boot) {
   //    UNDEFINED" i dates de 1899 perquè servia codi vell.
   _avisaBackendVell(boot && boot.backendVersio);
 
+  /* Quins documents llegeix aquest servidor. Es el servidor qui ho sap, i
+     fins ara el navegador s ho inventava: el boto «Aspectes generals grup»
+     portava al full «Grups» (segona auditoria, 8/9/2026). */
+  if (boot && boot.docsIds) {
+    config.docsIds = boot.docsIds;
+    try { localStorage.setItem('vedruna_docs_ids', JSON.stringify(boot.docsIds)); } catch (e) {}
+    try { _posaEnllacosDocs(); } catch (e) {}
+  }
+
   // 1) Perfil (i menú d'assignatures)
   if (boot.profile) {
     _perfil = (typeof _perfilMigrar === 'function')
@@ -5482,11 +7800,16 @@ function _applyBootstrap(boot) {
   // 2) Alumnes: prioritza els del grup de tutoria (full "Grups").
   // Protecció: no toquis la llista d'alumnes si l'usuari està editant ara mateix.
   const editant = (typeof _isEditing === 'function') && _isEditing();
-  const teTutoria = boot.tutorGrup && boot.grupAlumnes && boot.grupAlumnes.length;
+  /* Un grup de tutoria BUIT tambe s ha d aplicar: el servidor diu
+     grupAlumnesOk quan ha pogut obrir el full de l escola. Si no es feia,
+     una tutora que canviava de grup al setembre es quedava els alumnes del
+     grup anterior sota el nom del grup nou (auditoria 6/9/2026). */
+  const boot_grupOk = boot.grupAlumnesOk !== false;
+  const teTutoria = boot.tutorGrup && boot.grupAlumnes && (boot.grupAlumnes.length || boot_grupOk);
   if (teTutoria && !editant) {
     if (typeof _aplicaTutoriaAlumnes === 'function') {
       _tutoriaGrup = boot.tutorGrup;
-      _aplicaTutoriaAlumnes(boot.grupAlumnes);
+      _aplicaTutoriaAlumnes(boot.grupAlumnes, boot_grupOk);
       try { localStorage.setItem('tutoriacache_' + boot.tutorGrup, JSON.stringify({ alumnes: boot.grupAlumnes, ts: Date.now(), v: (window.versioApp && window.versioApp.actual) || '' })); } catch(e) {}
     }
   } else if (boot.alumnes && boot.alumnes.length && !editant && !boot.tutorGrup && !_rolDireccio()) {
@@ -5503,7 +7826,7 @@ function _applyBootstrap(boot) {
   }
 
   // 3) Registre i observacions
-  if (boot.registre) { registreItems = boot.registre.items; registreData = boot.registre.data; }
+  if (boot.registre) { const _rr = _registreRemap(boot.registre); registreItems = _rr.items; registreData = _rr.data; }
   // Observacions: prioritza les compartides del full "Grups" (per rowId → id)
   if (boot.grupObs && boot.grupAlumnes && boot.grupAlumnes.length) {
     observacions = {};
@@ -5529,7 +7852,8 @@ function _applyBootstrap(boot) {
   // 6) Post-its
   if (boot.postits && Array.isArray(boot.postits)) {
     try {
-      if (typeof _postits !== 'undefined') _postits = boot.postits;
+      /* Mai per damunt d un post-it que encara no ha pogut pujar */
+      if (typeof _postits !== 'undefined' && !_pendentsTe('savePostits')) _postits = boot.postits;
       localStorage.setItem('postits', JSON.stringify(boot.postits));
     } catch(e) {}
   }
@@ -5599,14 +7923,42 @@ function _renderNotifStatus() {
     btn.textContent = '🔔 No disponible en aquest navegador';
     btn.disabled = true;
   } else if (perm === 'granted') {
-    btn.innerHTML = '🔔 Notificacions activades · <span style="color:#10B981">actives</span> — <u style="cursor:pointer" onclick="cancelNotifications()">desactivar</u>';
+    /* ⚠ Abans deia «actives» a seques i prometia les 7:00 en punt, i no
+       arribava mai res (auditoria 6/9/2026). Ara es diu el que hi ha: qui
+       decideix el moment és el navegador, i només si l'app està
+       instal·lada. Prometre una hora exacta era el problema. */
+    btn.innerHTML = '🔔 Notificacions activades — <u style="cursor:pointer" onclick="cancelNotifications()">desactivar</u>';
+    _pintaNotifDetall();
   } else if (perm === 'denied') {
     btn.textContent = '🔕 Notificacions bloquejades (activa-les al navegador)';
     btn.disabled = true;
   } else {
-    btn.textContent = '🔔 Activar notificacions diàries a les 7:00';
+    btn.textContent = '🔔 Avisar-me al matí del que tinc aquell dia';
     btn.onclick = requestNotifPermission;
   }
+}
+
+/* Diu com està de debò l avís del matí, sense prometre cap hora. */
+async function _pintaNotifDetall() {
+  const btn = document.getElementById('notifToggleBtn');
+  if (!btn) return;
+  let txt;
+  const ok = await _registraSyncDiari();
+  if (ok) {
+    txt = 'T arribarà al matí, quan el navegador el desperti (no a una hora exacta).';
+  } else if (_swReg && _swReg.periodicSync) {
+    txt = 'Per rebre l avís al matí cal tenir l app INSTAL·LADA (menú del navegador → «Instal·lar aplicació»). Mentre no ho estigui, només la veuràs si tens l app oberta.';
+  } else {
+    txt = 'Aquest navegador no sap despertar l app pel seu compte: només veuràs l avís si tens l app oberta. Al Chrome d Android i d ordinador sí que va.';
+  }
+  let p = document.getElementById('notifDetall');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = 'notifDetall';
+    p.className = 'modal-hint';
+    btn.parentNode.insertBefore(p, btn.nextSibling);
+  }
+  p.textContent = txt;
 }
 
 /* Recull totes les coses del dia d'avui */
@@ -5621,7 +7973,13 @@ function _collectTodayItems() {
   // 1. Tasques del dia
   const tasques = JSON.parse(localStorage.getItem('tasques') || '[]');
   tasques.filter(t => !t.feta && t.data === avuiStr).forEach(t => {
-    items.push(`📋 ${t.text}`);
+    /* ⚠ L'AVÍS DEL MATÍ DEIA «📋 undefined».
+
+       Trobat a la segona auditoria (8/9/2026): aquí es demanava `t.text` i
+       el camp d'una tasca es diu `titol`. La mestra rebia l'avís de les 7
+       del matí sense saber de què li parlava. Els events del calendari sí
+       que feien servir el camp bo, per això aquells sortien bé. */
+    items.push(`📋 ${t.titol || t.text || 'Tasca sense títol'}`);
   });
 
   // 2. Alertes del planning (franja amb alerta al dia d'avui)
@@ -5685,8 +8043,34 @@ function _scheduleDaily() {
     body:   items.slice(0, 4).map(i => '• ' + i).join('\n') + (n > 4 ? `\n… i ${n - 4} més` : ''),
     items,
   };
+  payload.avui = avuiStr;
   _swReg.active?.postMessage({ type: 'SCHEDULE_NOTIF', payload });
   localStorage.setItem('notifEnabled', '1');
+  _registraSyncDiari();
+}
+
+/* ⚠ SENSE AIXÒ, L AVÍS DEL MATÍ NO ARRIBA MAI.
+
+   El service worker no pot tenir un temporitzador de dotze hores: el
+   navegador el mata molt abans. L única manera que el Chrome el desperti
+   és el , i ningú no el registrava (auditoria 6/9/2026).
+
+   ⚠ El moment el decideix el navegador: arriba al matí, no a les 7:00 en
+   punt. I només si l app està instal·lada. És el que hi ha; el que no es
+   pot fer és prometre una hora exacta. */
+async function _registraSyncDiari() {
+  try {
+    if (!_swReg || !_swReg.periodicSync) return false;
+    if (navigator.permissions && navigator.permissions.query) {
+      const p = await navigator.permissions.query({ name: 'periodic-background-sync' });
+      if (p.state !== 'granted') return false;
+    }
+    const jaHi = await _swReg.periodicSync.getTags();
+    if (jaHi.indexOf('daily-notif') === -1) {
+      await _swReg.periodicSync.register('daily-notif', { minInterval: 12 * 60 * 60 * 1000 });
+    }
+    return true;
+  } catch (e) { return false; }
 }
 
 /* Envia una notificació de prova immediatament */
@@ -5738,6 +8122,22 @@ async function selectComentAssig(assig, btn) {
   document.querySelectorAll('#comentAssigSelector .trim-sel-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   _comentSeleccions = {};
+  /* ⚠ CANVIAR D'ASSIGNATURA ET DEIXAVA UN ALTRE NEN TRIAT.
+
+     Trobat a l'auditoria del 6/9/2026. L'alumne triat es guarda pel seu
+     número dins de la llista (0, 1, 2…), i cada assignatura pot ser d'un
+     grup diferent. En canviar d'assignatura, `_comentOmpleAlumnes` veia que
+     el número 3 «encara hi era» i el deixava seleccionat —però el número 3
+     de 5è B no és el mateix nen que el número 3 de 4t A. La mestra
+     continuava avaluant creient que parlava del mateix. Ara, en canviar
+     d'assignatura, es deixa sense triar i s'ha de tornar a dir de qui es
+     tracta. */
+  _comentAlumne = null;
+  /* I si la finestra del comentari era oberta, se'n va: era d'un altre alumne
+     i d'una altra assignatura, i quedava a la pantalla com si fos d'aquesta
+     (auditoria 6/9/2026). */
+  const _ov = document.getElementById('comentResultOverlay');
+  if (_ov && _ov.classList.contains('open')) { _comentTextOriginal = ''; _ov.classList.remove('open'); }
   renderComentRubrica();
   try { _comentPintaApunts(); } catch (e) {}
   // Cada assignatura pot ser d'un grup diferent: canvia també els alumnes.
@@ -5754,9 +8154,21 @@ function onComentAlumneChange() {
 }
 
 function renderComentRubrica() {
-  const rubrica = RUBRIQUES[_comentAssig];
+  const rubrica = _comentAssig ? RUBRIQUES[_comentAssig] : null;
   const container = document.getElementById('comentRubrica');
   const genBtn    = document.getElementById('comentGenBtn');
+
+  // Sense perfil no hi ha assignatura: es diu on s'arregla i no s'ensenya res més.
+  if (!_comentAssig) {
+    container.innerHTML =
+      `<div class="tasques-empty" style="margin-top:12px">
+        <p>Encara no has dit quines assignatures fas.<br>
+        Ves a <strong>El meu perfil</strong> i digues-hi què fas i a quins grups: llavors aquí
+        podràs triar l'assignatura i escriure'n els objectius.</p>
+      </div>`;
+    if (genBtn) genBtn.disabled = true;
+    return;
+  }
 
   if (!rubrica || !rubrica.objectius.length) {
     // Abans deia "s'afegirà quan tinguis els objectius definitius": en passiva,
@@ -5835,6 +8247,15 @@ function _buildEsborrany(rubrica, alumne) {
     return frases.map((f, i) => {
       let frase = f.trim();
       frase = frase.charAt(0).toLowerCase() + frase.slice(1);
+      /* ⚠ L'ESBORRANY SORTIA SENSE PUNTS.
+
+         Trobat a l'auditoria del 6/9/2026: els criteris de la rúbrica els
+         escriu la mestra, i molts no acaben en punt («treballa amb autonomia»).
+         Aquí s'enganxaven un darrere l'altre amb un espai, i sortia una
+         paràgraf sense cap punt: «En aquest trimestre, treballa amb autonomia
+         A més, llegeix amb fluïdesa». Sense clau de Gemini, això és el que la
+         mestra copia i enganxa a l'informe. */
+      if (!/[.!?…]$/.test(frase)) frase += '.';
       return connectors[Math.min(i, connectors.length - 1)] + frase;
     }).join(' ');
   }
@@ -5854,18 +8275,50 @@ function _buildEsborrany(rubrica, alumne) {
 }
 
 // Mostra el resultat (esborrany o text final de la IA)
+/* ⚠ EL COMENTARI RETOCAT QUE ES PERDIA.
+
+   Trobat a l'auditoria del 6/9/2026. La caixa del comentari es pot editar, i
+   és el que fa tothom: la IA el redacta i la mestra hi passa deu minuts
+   arreglant-lo. Però clicar «Regenerar» —o tancar la finestra— el
+   substituïa sense dir res, i deu minuts de feina se n'anaven en un clic mal
+   posat. Ara, si l'ha tocat, s'avisa abans. */
+let _comentTextOriginal = '';
+function _comentTeCanvis() {
+  const box = document.getElementById('comentTextBox');
+  if (!box) return false;
+  const ara = (box.innerText || box.textContent || '').trim();
+  return !!ara && ara !== _comentTextOriginal.trim();
+}
+
 function _mostrarComentari(text, rubrica, alumne, ambIA) {
   const consell = ambIA
     ? '✅ Redactat per Gemini. Revisa-ho i edita si cal.'
     : '💡 Esborrany sense IA. Configura la clau Gemini a Configuració per redactar automàticament.';
   const overlay = document.getElementById('comentResultOverlay');
-  document.getElementById('comentResultTitle').textContent = `${rubrica.nom} · ${alumne.nom}`;
+  /* El títol diu de quin TRIMESTRE és: abans no ho deia enlloc i el text
+     parlava d'«aquest trimestre» sense que ningú sabés quin (auditoria
+     6/9/2026). */
+  const _tNom = ['', '1r trimestre', '2n trimestre', '3r trimestre'][
+    (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1] || '';
+  document.getElementById('comentResultTitle').textContent =
+    `${rubrica.nom} · ${nomAlumne(alumne)}` + (_tNom ? ' · ' + _tNom : '');
   document.getElementById('comentTextBox').innerHTML = escapeHtml(text);
   document.getElementById('comentResultConsell').textContent = consell;
+  _comentTextOriginal = String(text || '');
   overlay.classList.add('open');
 }
 
+/* Regenerar amb avís: el que ha escrit la mestra mana per damunt de la IA. */
+function regenerarComentari() {
+  if (_comentTeCanvis() &&
+      !confirm('Has retocat aquest comentari. Si el regeneres, el que has escrit es perdrà.\n\nVols regenerar-lo igualment?')) return;
+  generarComentari();
+}
+
 function closeComentResult() {
+  if (_comentTeCanvis() &&
+      !confirm('Has retocat aquest comentari i encara no l\'has copiat. Si tanques, es perdrà.\n\nVols tancar igualment?')) return;
+  _comentTextOriginal = '';
   document.getElementById('comentResultOverlay').classList.remove('open');
 }
 
@@ -5936,11 +8389,14 @@ function _comentTriaForma() {
 /* ---- Apunts que el mestre ha escrit activitat per activitat ----
    Es recullen de les notes de cada trimestre d'aquesta assignatura. Son
    el material mes valuos que hi ha per al comentari: son seus i concrets. */
-function comentApuntsActivitats(nomAlumne, matKey) {
+function comentApuntsActivitats(nomAlumne, matKey, nomesTrim) {
   if (!nomAlumne || !matKey) return [];
   var out = [];
   var _pos = (typeof _fitxaPosPerNom === 'function') ? _fitxaPosPerNom : null;
-  [1, 2, 3].forEach(function (trim) {
+  /* Nomes el trimestre del qual parla el comentari: si no, al gener hi
+     entraven apunts del maig que encara no han passat (auditoria 6/9/2026). */
+  var trims = nomesTrim ? [nomesTrim] : [1, 2, 3];
+  trims.forEach(function (trim) {
     // Pot estar desat amb grup o sense: mirem les dues formes
     var claus = Object.keys(localStorage).filter(function (k) {
       return k.indexOf('notescache_' + matKey + '_' + trim) === 0;
@@ -6004,8 +8460,10 @@ function _comentPrompt(rubrica, alumne, esborrany) {
   var llarg   = _COMENT_LONG[estil.llargada] || _COMENT_LONG.mitja;
 
   var parts = [];
-  parts.push('Ets un mestre de ' + _comentCursText() + ' a Catalunya i escrius el comentari de l\'informe trimestral ' +
-             'de ' + article + nomCurt + ' per a l\'area de ' + rubrica.nom + '.');
+  var _trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
+  var _trimNom = ['', 'primer', 'segon', 'tercer'][_trim] || 'primer';
+  parts.push('Ets un mestre de ' + _comentCursText() + ' a Catalunya i escrius el comentari del ' +
+             _trimNom + ' trimestre de ' + article + nomCurt + ' per a l\'area de ' + rubrica.nom + '.');
 
   // Exemples del mestre: el que de debo fa que soni a ell
   if (estil.exemples && estil.exemples.trim()) {
@@ -6019,7 +8477,7 @@ function _comentPrompt(rubrica, alumne, esborrany) {
 
   // Apunts que el mestre ha escrit activitat per activitat
   if (estil.usarApunts) {
-    var ap = comentApuntsActivitats(alumne.nom, _comentAssig);
+    var ap = comentApuntsActivitats(alumne.nom, _comentAssig, _trim);
     if (ap.length) {
       parts.push('\nAPUNTS MEUS D\'AQUEST ALUMNE, activitat per activitat. Son observacions ' +
         'que he escrit jo mentre corregia. Fes-los servir per concretar el comentari amb coses ' +
@@ -6065,6 +8523,17 @@ async function generarComentari() {
   const sensAvaluar = rubrica.objectius
     .map((o, i) => _comentSeleccions[i] === undefined ? (i+1) + '. ' + o.nom : null)
     .filter(x => x);
+  /* ⚠ SENSE CAP OBJECTIU AVALUAT, S'OBRIA UNA FINESTRA BUIDA.
+
+     Segona auditoria (8/9/2026). Si no s'havia avaluat res, l'esborrany
+     sortia buit i s'ensenyava igualment: un quadre de text completament en
+     blanc, sense cap explicació. La mestra no sabia si havia petat alguna
+     cosa o si l'app no sabia què dir. Ara es diu el que passa i on es toca. */
+  if (sensAvaluar.length === rubrica.objectius.length) {
+    showToast('Encara no has avaluat cap objectiu d\'aquest alumne. Marca\'n com a mínim un ' +
+              'a la graella de sobre i el comentari ja es podrà escriure sol.', 'error');
+    return;
+  }
   if (sensAvaluar.length > 0) {
     const msg = `Hi ha ${sensAvaluar.length} objectiu${sensAvaluar.length>1?'s':''} sense avaluar:\n\n` +
       sensAvaluar.map(s => '• ' + s).join('\n') +
@@ -6116,11 +8585,16 @@ async function generarComentari() {
     _mostrarComentari(text, rubrica, alumne, true);
   } catch(e) {
     _mostrarComentari(esborrany, rubrica, alumne, false);
+    /* ⚠ Sense clau de Gemini, aixo treia un toast vermell amb text tecnic
+       («…configurada al backend») just quan la finestra ja deia, ben dit, que
+       era un esborrany sense IA. Dues coses alhora, i una en informatic. Ara
+       aquest cas no fa soroll: la finestra ja ho explica (auditoria 6/9/2026). */
+    if (/clau de gemini|no hi ha clau|api key not valid|no s.ha configurat/i.test(String(e && e.message || ''))) return;
     const msg = e.isBusy
       ? "La IA de Google està saturada en aquest moment. T'he deixat l'esborrany de la rúbrica; torna-ho a provar d'aquí un minut."
       : e.is429
       ? 'Gemini: massa peticions seguides. Espera uns segons i torna a intentar-ho.'
-      : 'Error Gemini: ' + e.message;
+      : 'Error Gemini: ' + errorHuma(e);
     showToast(msg, 'error');
   }
 }
@@ -6140,6 +8614,8 @@ function copiarComentari() {
   const box = document.getElementById('comentTextBox');
   if (!box) return;
   const text = box.innerText || box.textContent;
+  // Ja el té: tancar la finestra no li ha de tornar a demanar permís.
+  _comentTextOriginal = String(text || '');
   navigator.clipboard.writeText(text).then(() => showToast('Comentari copiat! ✓', 'success')).catch(() => {
     // Fallback per navegadors antics
     const ta = document.createElement('textarea');
@@ -6149,7 +8625,33 @@ function copiarComentari() {
   });
 }
 
+/* ⚠ EL COMENTARI NO SABIA DE QUIN TRIMESTRE PARLAVA.
+
+   Trobat a l auditoria del 6/9/2026: el generador no demanava el trimestre
+   enlloc, pero el text que en sortia deia «en aquest trimestre» i la nota de
+   context era la MITJANA DELS TRES. Al gener, el comentari del 1r trimestre
+   sortia amb la nota de tot el curs. Ara es tria, i es diu clar. */
+let _comentTrim = null;
+function _comentTrimActual() {
+  if (_comentTrim) return _comentTrim;
+  _comentTrim = (typeof getTrimestreProposat === 'function') ? getTrimestreProposat() : 1;
+  return _comentTrim;
+}
+function selectComentTrim(t, btn) {
+  _comentTrim = t;
+  document.querySelectorAll('#comentTrimSelector .trim-sel-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderComentRubrica();
+}
+function _comentPintaTrim() {
+  const t = _comentTrimActual();
+  document.querySelectorAll('#comentTrimSelector .trim-sel-btn').forEach(b => {
+    b.classList.toggle('active', String(b.dataset.trim) === String(t));
+  });
+}
+
 function initComentaris() {
+  _comentPintaTrim();
   // Botons d'assignatura: des del perfil (grup de tutoria), no una llista fixa.
   // Així no surt "Música" si no la fas, i hi surten les teves (Castellà, L'art
   // del traç…). Les que encara no tenen rúbrica ho indiquen en seleccionar-les.
@@ -6170,10 +8672,18 @@ function initComentaris() {
       });
       if (!entrades.some(e => e.key === _comentAssig)) _comentAssig = entrades[0].key;
       selBar.innerHTML = entrades.map(e =>
-        `<button class="trim-sel-btn${e.key===_comentAssig?' active':''}" data-assig="${e.key}" onclick="selectComentAssig('${e.key}',this)">${escapeHtml(e.label)}</button>`
+        `<button class="trim-sel-btn${e.key===_comentAssig?' active':''}" data-assig="${e.key}" onclick="selectComentAssig('${_idJs(e.key)}',this)">${escapeHtml(e.label)}</button>`
       ).join('');
     } else {
-      // Encara no ha omplert el perfil: no inventem assignatures que no fa.
+      /* ⚠ I L'ASSIGNATURA INVENTADA ES QUEDAVA IGUALMENT.
+
+         Segona auditoria (8/9/2026). L'avís del 6/9 es va posar a la barra de
+         botons, però `_comentAssig` continuava valent «matematiques» per
+         defecte i `renderComentRubrica()` el feia servir igual: la mestra
+         llegia «omple el teu perfil» i, tot seguit, una graella de
+         Matemàtiques on podia escriure objectius d'una assignatura que
+         potser no fa. Ara, sense perfil, no hi ha cap assignatura triada. */
+      _comentAssig = null;
       selBar.innerHTML = '<span class="modal-hint">Omple el teu perfil per triar assignatura.</span>';
     }
   }
@@ -6191,10 +8701,20 @@ function _comentOmpleAlumnes() {
   if (!sel) return;
   const anterior = sel.value;
   sel.innerHTML = '<option value="">— Selecciona un alumne —</option>' +
-    students.map(s => `<option value="${s.id}">${escapeHtml(s.nom)}</option>`).join('');
-  // Manté l'alumne triat si encara hi és
+    students.map(s => `<option value="${s.id}">${escapeHtml(nomAlumne(s))}</option>`).join('');
+  /* ⚠ EL DESPLEGABLE ENSENYAVA UN ALUMNE QUE JA NO ERA D'AQUEST GRUP.
+
+     Segona auditoria (8/9/2026). En canviar d'assignatura, `selectComentAssig`
+     posa `_comentAlumne = null` —ja no hi ha ningú triat—, però aquí es
+     restaurava `sel.value = anterior` i els ids són POSICIONS (0, 1, 2…), que
+     existeixen a tots els grups: el desplegable ensenyava el nom del nen que
+     ara ocupa aquella posició, com si estigués triat, i no ho estava. La
+     mestra clicava «Generar» i no passava res.
+
+     Si no hi ha ningú triat de debò, el desplegable ha de dir que no n'hi ha. */
+  if (!_comentAlumne) { sel.value = ''; return; }
   if (anterior && students.some(s => String(s.id) === String(anterior))) sel.value = anterior;
-  else if (_comentAlumne && !students.some(s => String(s.id) === String(_comentAlumne))) _comentAlumne = null;
+  if (!students.some(s => String(s.id) === String(_comentAlumne))) { _comentAlumne = null; sel.value = ''; }
 }
 
 /* Els alumnes que toquen per a l'assignatura triada, igual que fa Assoliments. */
@@ -6331,6 +8851,43 @@ function _dubteClau(d) {
          (d.text || '') + '|' + (d.tros || '');
 }
 
+/* ⚠ ELS TRES DOCUMENTS DE L'ESCOLA ANAVEN ESCRITS A L'HTML.
+
+   Trobat a l'auditoria del 6/9/2026. Les adreces d'«Aspectes generals grup»,
+   «Desdoblaments grups» i «Llistat d'alumnes per grup» eren tres codis
+   escrits a mà dins de l'index.html. El dia que l'escola en canviï un —o que
+   una altra escola faci servir l'app— els botons portarien a un document que
+   no és, o a un «no tens permís», i no hi hauria manera d'arreglar-ho des de
+   l'app.
+
+   Ara, si el servidor sap el codi de debò (que és el que ja fa servir per
+   llegir-los), el botó hi apunta. Si no en sap, es queda el d'abans: així
+   l'escola d'en Pol no nota cap canvi. */
+function _posaEnllacosDocs() {
+  const posa = (elId, sheetId) => {
+    if (!sheetId) return;
+    const a = document.getElementById(elId);
+    if (!a) return;
+    a.setAttribute('href', 'https://docs.google.com/spreadsheets/d/' + sheetId + '/edit');
+  };
+  /* ⚠ EL BOTO «ASPECTES GENERALS GRUP» PORTAVA AL DOCUMENT EQUIVOCAT.
+
+     Trobat a la segona auditoria (8/9/2026). Aqui s hi posava
+     `config.grupsSheetId`, que es el full «Grups» (el roster), no el
+     document d aspectes que el servidor llegeix. La tutora que seguia la
+     instruccio d un «dubte» («escriu-ho a Aspectes generals») escrivia en un
+     document que el servidor no mira mai, i el dubte li tornava a sortir.
+
+     Ara els identificadors els diu el servidor (`docsIds` del bootstrap),
+     que es l unic que sap quins documents obre. Si el servidor es vell i no
+     els envia, es deixa l adreca que ja hi ha escrita a l HTML: val mes una
+     adreca antiga que una de segur equivocada. */
+  const _ids = (config.docsIds && typeof config.docsIds === 'object') ? config.docsIds : {};
+  posa('docAspectes',      _ids.aspectes || '');
+  posa('docLlistat',       _ids.llistes  || '');
+  posa('docDesdoblaments', config.desdobSheetId || localStorage.getItem('desdob_sheet_id_local'));
+}
+
 /* L'adreça del document surt del botó que ja hi ha a Alumnes, no d'una
    còpia aquí: si algun dia el document canvia de lloc, es canvia en un sol
    lloc i tot hi apunta igual. */
@@ -6358,18 +8915,35 @@ function _dubtesEmToca() {
    codi el desplegable sortia BUIT. En Pol: «obro el desplegable que surt i
    no mostra res». La prova no ho va veure perquè li vaig posar el codi a mà
    als alumnes de mentida: la prova s'assemblava al codi, no a l'app. */
+/* ⚠ DOS NENS QUE ES DIUEN IGUAL SORTIEN COM DUES LÍNIES IDÈNTIQUES.
+
+   Segona auditoria (8/9/2026). Al desplegable dels «dubtes» —on la tutora
+   diu de qui és una fitxa que el lector no ha sabut col·locar— el nom es
+   muntava aquí a mà. `nomAlumne()` és qui hi afegeix el número quan la classe
+   té dos «Marc Puig», i no s'hi passava: la tutora havia de triar a cegues
+   entre dues línies exactament iguals, amb la fitxa d'un nen en joc. */
 function _dubtesAlumnesDelGrup() {
+  const _distingeix = (llista) => {
+    const quants = {};
+    llista.forEach(a => { quants[a.nom] = (quants[a.nom] || 0) + 1; });
+    const vist = {};
+    return llista.map(a => {
+      if (quants[a.nom] < 2) return a;
+      vist[a.nom] = (vist[a.nom] || 0) + 1;
+      return { uid: a.uid, nom: a.nom + ' (' + vist[a.nom] + ')' };
+    });
+  };
   if (typeof _tutoriaAlumnes !== 'undefined' && _tutoriaAlumnes && _tutoriaAlumnes.length) {
-    return _tutoriaAlumnes
+    return _distingeix(_tutoriaAlumnes
       .map(a => ({ uid: a.uid || a.rowId, nom: ((a.nomPila || a.nom || '') + ' ' +
                                                 (a.cognom || a.cognoms || '')).trim() }))
-      .filter(a => a.uid && a.nom);
+      .filter(a => a.uid && a.nom));
   }
   /* Reserva: el codi també viatja com a `rowId` dins de `personal`. */
-  return (typeof students !== 'undefined' ? students : [])
+  return _distingeix((typeof students !== 'undefined' ? students : [])
     .map(s => ({ uid: (typeof personal !== 'undefined' && personal[s.id] &&
                        personal[s.id].rowId) || '', nom: s.nom || '' }))
-    .filter(a => a.uid && a.nom);
+    .filter(a => a.uid && a.nom));
 }
 
 /* Es demana en obrir Alumnes, no en carregar l'app: és una crida al servidor
@@ -6537,6 +9111,6 @@ async function dubteEsAquest(i) {
     } catch (e) {}
     showToast('Fet: ara és a la fitxa de ' + (r.alumne || 'l\'alumne'), 'success');
   } catch (e) {
-    showToast('No s\'ha pogut desar: ' + (e.message || ''), 'error');
+    showToast('No s\'ha pogut desar: ' + (errorHuma(e) || ''), 'error');
   }
 }

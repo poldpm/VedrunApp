@@ -24,7 +24,7 @@ function _reuDataText(d) {
   if (!s) return String(d || '');    // no s'entén: es diu tal qual, no "Undefined NaN"
   const p = s.split('-');
   const dt = new Date(+p[0], +p[1] - 1, +p[2]);
-  return _REU_DIES[dt.getDay()] + ', ' + (+p[2]) + ' de ' + _REU_MESOS[+p[1] - 1];
+  return _REU_DIES[dt.getDay()] + ', ' + (+p[2]) + ' ' + (typeof dePreposicio === 'function' ? dePreposicio(_REU_MESOS[+p[1] - 1]) : 'de ' + _REU_MESOS[+p[1] - 1]);
 }
 function _reuDataCurta(d) {
   const s = _reuNormData(d);
@@ -59,11 +59,60 @@ async function initReunions() {
   cont.innerHTML = '<div class="tasques-empty"><p>Carregant els teus calendaris de reunions…</p></div>';
   try {
     const r = await appsScriptGet({ action: 'reunionsLlista' });
-    _reuCals = (r && r.ok && r.calendaris) ? r.calendaris : [];
+    /* ⚠ UN ERROR DEL SERVIDOR ES VEIA COM «ENCARA NO N'HAS CONVOCAT CAP».
+
+       Trobat a la segona auditoria (8/9/2026). `appsScriptGet` no llança mai
+       —quan falla torna {ok:false}—, o sigui que el `catch` de sota era codi
+       mort i s'arribava aquí amb la llista buida: la mestra amb tres
+       convocatòries obertes i l'enllaç ja enviat a 25 famílies veia la
+       pantalla d'estrena, amb el botó de crear-ne una de nova. El perill no
+       és que no ho vegi: és que en torni a crear una i parteixi les famílies
+       entre dos enllaços.
+
+       «No en tens cap» i «no ho he pogut llegir» s'assemblen a la pantalla i
+       són coses molt diferents. */
+    if (!r || !r.ok) {
+      _reuError(cont, r);
+      return;
+    }
+    _reuCals = r.calendaris || [];
     _renderReunions();
   } catch (e) {
-    cont.innerHTML = '<div class="tasques-empty"><p>No s\'han pogut carregar. Torna-ho a provar.</p></div>';
+    _reuError(cont, e);
   } finally { _reuCarregant = false; }
+}
+
+/* El rètol de «no ho he pogut llegir», amb el botó de tornar-hi. */
+function _reuError(cont, motiu) {
+  const txt = (typeof errorHuma === 'function')
+    ? errorHuma((motiu && (motiu.error || motiu.message)) || '')
+    : 'No ha respost.';
+  cont.innerHTML = '<div class="tasques-empty"><p><strong>No he pogut llegir les teves ' +
+    'convocatòries.</strong><br>' + escapeHtml(txt) + '</p>' +
+    '<p>Les que tinguessis obertes hi continuen sent i les famílies encara hi poden reservar: ' +
+    'el que passa és que ara mateix no les puc ensenyar. <strong>No en creïs una de nova</strong>, ' +
+    'que llavors tindries dos enllaços diferents.</p>' +
+    '<button class="btn btn-secondary" onclick="initReunions()">Tornar-ho a provar</button></div>';
+}
+
+/* ⚠ TOTES LES ACCIONS FALLAVEN EN SILENCI.
+
+   Trobat a la segona auditoria (8/9/2026). `appsScriptPost` llança quan la
+   resposta no és 200, i cap d'aquestes funcions no tenia `catch`: el clic no
+   feia res, no sortia cap rètol i a la consola hi quedava una excepció que no
+   veu ningú. El cas lleig és «Tancar reserves»: la mestra el clica perquè ja
+   no pot rebre ningú més, no passa res, i les famílies segueixen reservant
+   hores que ella no podrà atendre.
+
+   S'embolica cada acció amb això en comptes de posar vuit `try/catch`
+   iguals: així una acció nova que s'hi afegeixi ja queda protegida. */
+async function _reuAccio(nom, fer) {
+  try { return await fer(); }
+  catch (e) {
+    const txt = (typeof errorHuma === 'function') ? errorHuma(e) : (e && e.message) || '';
+    showToast('No s\'ha pogut ' + nom + ': ' + txt, 'error');
+    return null;
+  }
 }
 
 function _renderReunions() {
@@ -103,15 +152,16 @@ function _renderReunions() {
       ${c.descripcio ? `<p class="reu-desc">${escapeHtml(c.descripcio)}</p>` : ''}
 
       <div class="reu-xifres">
-        <span class="reu-xifra"><b>${c.lliures}</b> lliures</span>
-        <span class="reu-xifra"><b>${c.ocupades}</b> reservades</span>
+        <span class="reu-xifra"><b>${c.lliures}</b> ${c.lliures === 1 ? 'lliure' : 'lliures'}</span>
+        <span class="reu-xifra"><b>${c.ocupades}</b> ${c.ocupades === 1 ? 'reservada' : 'reservades'}</span>
+        ${c.ocupadesPassades ? `<span class="reu-xifra"><b>${c.ocupadesPassades}</b> ja ${c.ocupadesPassades === 1 ? 'feta' : 'fetes'}</span>` : ''}
         ${ambError ? `<span class="reu-xifra reu-xifra-avis"><b>${ambError}</b> sense posar al calendari</span>` : ''}
       </div>
 
       ${c.acabat ? '' : `
       <div class="reu-enllac">
         <input class="modal-input" readonly value="${escapeHtml(c.enllac || '')}" onclick="this.select()">
-        <button class="btn btn-primary btn-sm" onclick="copiaReuEnllac('${c.id}', this)">Copiar</button>
+        <button class="btn btn-primary btn-sm" onclick="copiaReuEnllac('${_idJs(c.id)}', this)">Copiar</button>
       </div>
       <p class="modal-hint">Envia aquest enllaç a les famílies. Qui hi entri veurà només les hores que et queden lliures.</p>`}
 
@@ -125,26 +175,27 @@ function _renderReunions() {
       <div class="reu-reserves">
         <div class="reu-reserves-tit">Qui ha reservat</div>
         ${reserves.map(r => `
-          <div class="reu-reserva${r.error ? ' reu-reserva-avis' : ''}">
+          <div class="reu-reserva${r.error ? ' reu-reserva-avis' : ''}${r.passada ? ' reu-reserva-passada' : ''}">
             <div class="reu-reserva-quan">
               <b>${_reuDataCurta(r.data)}</b> ${escapeHtml(r.inici)}–${escapeHtml(r.fi)}
+              ${r.passada ? '<span class="reu-reserva-mail">ja ha passat</span>' : ''}
             </div>
             <div class="reu-reserva-qui">
               ${escapeHtml(r.nom)}${r.email ? `<span class="reu-reserva-mail">${escapeHtml(r.email)}</span>` : ''}
               ${r.error ? `<span class="reu-reserva-err">⚠ No s'ha pogut posar al Google Calendar</span>` : ''}
             </div>
             <div class="reu-reserva-acc">
-              ${r.error ? `<button class="btn btn-ghost btn-sm" onclick="reuReintenta('${c.id}','${r.slotId}')">Tornar-ho a provar</button>` : ''}
-              <button class="btn btn-ghost btn-sm" onclick="reuAllibera('${c.id}','${r.slotId}','${escapeHtml(r.nom).replace(/'/g,'')}')">Alliberar</button>
+              ${r.error ? `<button class="btn btn-ghost btn-sm" onclick="reuReintenta('${_idJs(c.id)}','${_idJs(r.slotId)}')">Tornar-ho a provar</button>` : ''}
+              <button class="btn btn-ghost btn-sm" onclick="reuAllibera('${_idJs(c.id)}','${_idJs(r.slotId)}')">Alliberar</button>
             </div>
           </div>`).join('')}
       </div>` : (c.acabat ? '' : '<p class="modal-hint">Encara no hi ha cap hora reservada.</p>')}
 
       <div class="reu-card-acc">
-        ${c.acabat ? '' : `<button class="btn btn-secondary btn-sm" onclick="obreReuAfegir('${c.id}')">+ Afegir hores</button>`}
-        ${c.acabat ? '' : `<button class="btn btn-ghost btn-sm" onclick="obreReuMissatge('${c.id}')">Missatge de confirmació${c.missatge ? ' ✓' : ''}</button>`}
-        ${c.acabat ? '' : `<button class="btn btn-ghost btn-sm" onclick="reuActiva('${c.id}', ${tancat ? 'true' : 'false'})">${tancat ? 'Tornar a obrir' : 'Tancar reserves'}</button>`}
-        <button class="btn btn-ghost btn-sm reu-del" onclick="reuEsborra('${c.id}')">Esborrar</button>
+        ${c.acabat ? '' : `<button class="btn btn-secondary btn-sm" onclick="obreReuAfegir('${_idJs(c.id)}')">+ Afegir hores</button>`}
+        ${c.acabat ? '' : `<button class="btn btn-ghost btn-sm" onclick="obreReuMissatge('${_idJs(c.id)}')">Missatge de confirmació${c.missatge ? ' ✓' : ''}</button>`}
+        ${c.acabat ? '' : `<button class="btn btn-ghost btn-sm" onclick="reuActiva('${_idJs(c.id)}', ${tancat ? 'true' : 'false'})">${tancat ? 'Tornar a obrir' : 'Tancar reserves'}</button>`}
+        <button class="btn btn-ghost btn-sm reu-del" onclick="reuEsborra('${_idJs(c.id)}')">Esborrar</button>
       </div>
     </div>`;
   }).join('');
@@ -268,7 +319,7 @@ function _reuCalendari(c) {
            class="reucal-cel reucal-te${esAvui ? ' reucal-avui' : ''}${obert === clau ? ' reucal-obert' : ''}"
            aria-pressed="${obert === clau ? 'true' : 'false'}"
            aria-label="${escapeHtml(etiqueta)}"
-           onclick="reuObreDia('${c.id}','${clau}')">
+           onclick="reuObreDia('${_idJs(c.id)}','${_idJs(clau)}')">
            <span class="reucal-dia">${d}</span>
            <span class="reucal-comptes">
              ${lliures ? `<span class="reucal-n reucal-n-lliure">${lliures}</span>` : ''}
@@ -311,7 +362,7 @@ function _reuDetallDia(c, perDia) {
     <div class="reucal-detall-cap">
       <strong>${escapeHtml(_reuDataText(d))}</strong>
       <button type="button" class="reucal-tanca" aria-label="Tancar el dia"
-              onclick="reuObreDia('${c.id}','${d}')">×</button>
+              onclick="reuObreDia('${_idJs(c.id)}','${_idJs(d)}')">×</button>
     </div>
     <div class="reucal-hores">
       ${perDia[d].map(h => h.estat === 'ocupat'
@@ -319,7 +370,7 @@ function _reuDetallDia(c, perDia) {
              ${escapeHtml(h.inici)}<em>${escapeHtml(h.nom || 'reservada')}</em></span>`
         : `<button type="button" class="reucal-h reucal-h-lliure"
              title="Treure les ${escapeHtml(h.inici)}"
-             onclick="reuTreuHora('${c.id}','${h.slotId}','${escapeHtml(_reuDataText(d))}','${escapeHtml(h.inici)}')">
+             onclick="reuTreuHora('${_idJs(c.id)}','${_idJs(h.slotId)}','${escapeHtml(_reuDataText(d))}','${escapeHtml(h.inici)}')">
              ${escapeHtml(h.inici)}<span class="reucal-x" aria-hidden="true">×</span></button>`).join('')}
     </div>
     <p class="modal-hint">Clica una hora lliure per treure-la: deixarà de sortir a les famílies a l'instant.</p>
@@ -331,7 +382,8 @@ function reuObreDia(calId, dia) {
   _renderReunions();
 }
 
-async function reuTreuHora(calId, slotId, dataText, hora) {
+async function reuTreuHora(...args) { return _reuAccio("treure aquesta hora", () => _reuTreuHoraFer(...args)); }
+async function _reuTreuHoraFer(calId, slotId, dataText, hora) {
   if (!confirm('Treure les ' + hora + ' del ' + dataText + '?\n\nDeixarà de sortir a les famílies. Encara no l\'ha reservat ningú.')) return;
   const r = await appsScriptPost({ action: 'reunionsTreuHora', calId, slotId });
   if (r && r.ok) { showToast('Hora treta ✓', 'success'); initReunions(); }
@@ -342,31 +394,72 @@ async function reuTreuHora(calId, slotId, dataText, hora) {
 function copiaReuEnllac(calId, btn) {
   const c = _reuCals.find(x => x.id === calId);
   if (!c || !c.enllac) return;
-  const fet = () => { if (btn) { const t = btn.textContent; btn.textContent = 'Copiat ✓'; setTimeout(() => btn.textContent = t, 1800); } };
-  if (navigator.clipboard) navigator.clipboard.writeText(c.enllac).then(fet).catch(fet);
-  else fet();
+  /* ⚠ Deia «Copiat ✓» encara que no s hagues copiat res: el `.catch(fet)`
+     donava per bo el fracas, i sense `navigator.clipboard` (http, navegador
+     vell) ni s hi provava. La mestra enganxava el que tingues d abans a la
+     carpeta i enviava un enllac que no era (auditoria 6/9/2026). */
+  const digues = (txt, ok) => {
+    if (!btn) { if (typeof showToast === 'function') showToast(txt, ok ? 'success' : 'error'); return; }
+    const t = btn.textContent;
+    btn.textContent = txt;
+    setTimeout(() => { btn.textContent = t; }, 2200);
+  };
+  const perLesBraves = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = c.enllac;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(c.enllac)
+      .then(() => digues('Copiat ✓', true))
+      .catch(() => digues(perLesBraves() ? 'Copiat ✓' : 'No s’ha pogut copiar', perLesBraves));
+  } else {
+    digues(perLesBraves() ? 'Copiat ✓' : 'No s’ha pogut copiar', true);
+  }
 }
 
-async function reuActiva(calId, actiu) {
+async function reuActiva(...args) { return _reuAccio("canviar si les famílies hi poden reservar", () => _reuActivaFer(...args)); }
+async function _reuActivaFer(calId, actiu) {
   const r = await appsScriptPost({ action: 'reunionsActiva', calId, actiu });
   if (r && r.ok) { showToast(actiu ? 'Reserves obertes' : 'Reserves tancades', 'success'); initReunions(); }
   else showToast('No s\'ha pogut canviar', 'error');
 }
 
-async function reuAllibera(calId, slotId, nom) {
+/* ⚠ EL NOM DE LA FAMÍLIA JA NO VIATJA DINS DE L'ONCLICK.
+
+   Trobat a l'auditoria del 6/9/2026: s'hi enganxava el nom després de
+   treure-li els apòstrofs, i n'hi havia prou que acabés en barra invertida
+   perquè l'atribut quedés trencat i el botó no fes RES —ni confirmació, ni
+   avís, ni error. I, de passada, «O'Brien» sortia com a «OBrien». Ara només
+   hi van els identificadors i el nom es busca aquí. */
+async function reuAllibera(...args) { return _reuAccio("alliberar aquesta hora", () => _reuAlliberaFer(...args)); }
+async function _reuAlliberaFer(calId, slotId, nom) {
+  if (!nom) {
+    const _c = _reuCals.find(x => String(x.id) === String(calId));
+    const _r = _c && (_c.reserves || []).find(x => String(x.slotId) === String(slotId));
+    nom = (_r && _r.nom) || 'aquesta família';
+  }
   if (!confirm('Vols alliberar l\'hora de ' + nom + '?\n\nEs treurà del teu Google Calendar i qualsevol altra persona la podrà reservar. ' + nom + ' NO rebrà cap avís: si cal, avisa-l\'en tu.')) return;
   const r = await appsScriptPost({ action: 'reunionsAllibera', calId, slotId });
   if (r && r.ok) { showToast('Hora alliberada', 'success'); initReunions(); }
   else showToast('No s\'ha pogut alliberar', 'error');
 }
 
-async function reuReintenta(calId, slotId) {
+async function reuReintenta(...args) { return _reuAccio("tornar-ho a provar", () => _reuReintentaFer(...args)); }
+async function _reuReintentaFer(calId, slotId) {
   const r = await appsScriptPost({ action: 'reunionsReintenta', calId, slotId });
   if (r && r.ok) { showToast('Ja és al teu Google Calendar ✓', 'success'); initReunions(); }
   else showToast((r && r.error) || 'No s\'ha pogut posar al calendari', 'error');
 }
 
-async function reuEsborra(calId) {
+async function reuEsborra(...args) { return _reuAccio("esborrar la convocatòria", () => _reuEsborraFer(...args)); }
+async function _reuEsborraFer(calId) {
   const c = _reuCals.find(x => x.id === calId);
   if (!c) return;
   const n = (c.reserves || []).length;
@@ -375,8 +468,11 @@ async function reuEsborra(calId) {
     ' i també s\'esborrarà' + (n > 1 ? 'n' : '') + ' del teu Google Calendar. Les famílies no rebran cap avís.';
   if (!confirm(avis)) return;
   const r = await appsScriptPost({ action: 'reunionsEsborra', calId });
-  if (r && r.ok) { showToast('Calendari esborrat', 'success'); initReunions(); }
-  else showToast('No s\'ha pogut esborrar', 'error');
+  /* ⚠ Amb una convocatòria que ja no hi era —esborrada des d'un altre
+     dispositiu— sortia «Calendari esborrat» igualment (auditoria 6/9/2026). */
+  if (r && r.ok && r.jaNoHiEra) { showToast('Aquesta convocatòria ja no hi era.', 'info'); initReunions(); }
+  else if (r && r.ok) { showToast('Calendari esborrat', 'success'); initReunions(); }
+  else showToast((r && r.error) || 'No s\'ha pogut esborrar', 'error');
 }
 
 /* ============================================================
@@ -452,7 +548,8 @@ function _reuPintaAfegir() {
   if (b) b.disabled = !_reuAfegirEstones.length;
 }
 
-async function desaReuAfegir() {
+async function desaReuAfegir(...args) { return _reuAccio("afegir les hores", () => _desaReuAfegirFer(...args)); }
+async function _desaReuAfegirFer() {
   if (!_reuAfegirCal || !_reuAfegirEstones.length) return;
   const b = document.getElementById('reuAfDesa');
   if (b) { b.disabled = true; b.textContent = 'Afegint…'; }
@@ -547,7 +644,8 @@ function _reuMsgCompta() {
   const n = t.value.length;
   c.textContent = n ? n + ' de 600 caràcters' : 'Buit: sortirà el missatge de sempre.';
 }
-async function desaReuMissatge() {
+async function desaReuMissatge(...args) { return _reuAccio("desar el missatge", () => _desaReuMissatgeFer(...args)); }
+async function _desaReuMissatgeFer() {
   if (!_reuMsgCal) return;
   const txt = document.getElementById('reuMsgText').value.trim();
   const b = document.getElementById('reuMsgDesa');
@@ -741,7 +839,8 @@ function _reuCopiaDia(n) {
 }
 
 /* ---------- PAS 2: repassar i treure ---------- */
-async function reuVeurePreview() {
+async function reuVeurePreview(...args) { return _reuAccio("ensenyar-te com ho veuen les famílies", () => _reuVeurePreviewFer(...args)); }
+async function _reuVeurePreviewFer() {
   const titol = document.getElementById('reuTitol').value.trim();
   if (!titol) { showToast('Posa-hi un títol', 'error'); document.getElementById('reuTitol').focus(); return; }
   if (!Object.keys(_reuPerDia).length) { showToast('Marca com a mínim un dia i digues a quina hora', 'error'); return; }
@@ -753,6 +852,10 @@ async function reuVeurePreview() {
     if (!r || !r.ok) { showToast((r && r.error) || 'No s\'han pogut calcular les hores', 'error'); return; }
     if (!r.franges.length) { showToast('Amb aquestes hores i aquesta durada no surt cap reunió', 'error'); return; }
     _reuPreview = r.franges;
+    /* ⚠ El tram es retallava en silenci: 400 dies o 500 hores, i la mestra
+       en veia menys de les que esperava sense saber per què (auditoria
+       6/9/2026). Ara el servidor ho diu i aquí es diu a ella. */
+    if (r.avisTall) showToast(r.avisTall, 'error');
     _reuPintaPreview();
     _reuVesAPas(2);
   } finally {
@@ -783,7 +886,7 @@ function _reuPintaPreview() {
             const xoc = !!f.xoc;
             const cls = 'reu-prev-h' + (xoc ? ' reu-prev-xoc' : (treta ? ' reu-prev-treta' : ''));
             const tit = xoc ? 'Ja tens: ' + escapeHtml(f.xoc) : (treta ? 'Tornar-la a oferir' : 'Treure aquesta hora');
-            return `<button class="${cls}" title="${tit}" ${xoc ? 'disabled' : ''} onclick="_reuToggleExclou('${clau}')">${escapeHtml(f.inici)}</button>`;
+            return `<button class="${cls}" title="${tit}" ${xoc ? 'disabled' : ''} onclick="_reuToggleExclou('${_idJs(clau)}')">${escapeHtml(f.inici)}</button>`;
           }).join('')}
         </div>
       </div>`).join('');
@@ -838,7 +941,7 @@ async function creaReuCalendari() {
       showToast((r && r.error) || 'No s\'ha pogut crear', 'error');
     }
   } catch (e) {
-    showToast('No s\'ha pogut crear: ' + e.message, 'error');
+    showToast('No s\'ha pogut crear: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Crear i generar l\'enllaç'; }
   }
@@ -865,7 +968,7 @@ function _reuMuntaModal() {
         <div id="reuPas1">
           <div class="modal-field">
             <label class="modal-label" for="reuTitol">Títol</label>
-            <input class="modal-input" id="reuTitol" placeholder="Ex: Reunions de tutoria · 1r trimestre">
+            <input class="modal-input" id="reuTitol" maxlength="120" placeholder="Ex: Reunions de tutoria · 1r trimestre">
           </div>
 
           <div class="modal-field">
@@ -908,7 +1011,7 @@ function _reuMuntaModal() {
 
           <div class="modal-field">
             <label class="modal-label" for="reuLloc">On <span class="reu-opc">(opcional)</span></label>
-            <input class="modal-input" id="reuLloc" placeholder="Ex: la meva aula, o un enllaç de videotrucada">
+            <input class="modal-input" id="reuLloc" maxlength="120" placeholder="Ex: la meva aula, o un enllaç de videotrucada">
           </div>
           <div class="modal-field">
             <label class="modal-label" for="reuMissatgeNou">Missatge en confirmar l'hora <span class="reu-opc">(opcional)</span></label>
@@ -918,7 +1021,7 @@ function _reuMuntaModal() {
           </div>
           <div class="modal-field">
             <label class="modal-label" for="reuDesc">Descripció <span class="reu-opc">(opcional)</span></label>
-            <textarea class="modal-input" id="reuDesc" rows="2" placeholder="Ex: Una estona per parlar de com va el curs."></textarea>
+            <textarea class="modal-input" id="reuDesc" maxlength="500" rows="2" placeholder="Ex: Una estona per parlar de com va el curs."></textarea>
           </div>
 
           <label class="gwrite-row">

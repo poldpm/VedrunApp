@@ -42,7 +42,7 @@ async function segEntrCarrega() {
     _segEntrCarregat = true;
     _segEntrEstat('');
   } catch (e) {
-    _segEntrEstat('No s\'ha pogut llegir: ' + e.message + '. Clica Actualitzar per tornar-ho a provar.', 'error');
+    _segEntrEstat('No s\'ha pogut llegir: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') + '. Clica Actualitzar per tornar-ho a provar.', 'error');
   }
   renderSeguimentEntrevistes();
 }
@@ -161,7 +161,7 @@ function _segEntrPintaTaula() {
     const detall = obert ? _segEntrFilaDetall(r.grup) : '';
     return `<tr class="segentr-fila${obert ? ' es-obert' : ''}">
         <th scope="row" class="esm-t-nom">
-          <button type="button" class="segentr-obre" aria-expanded="${obert}" onclick="segEntrObre('${r.grup}')">
+          <button type="button" class="segentr-obre" aria-expanded="${obert}" onclick="segEntrObre('${_idJs(r.grup)}')">
             <span class="segentr-grup">${escapeHtml(r.grup)}</span>
             <span class="segentr-tutor">${escapeHtml(r.tutor || 'sense tutor al llistat')}</span>
           </button>
@@ -258,9 +258,51 @@ function segEntrCopia() {
     });
   const text = linies.join('\n');
   const fet = () => _segEntrEstat('Copiat. Ja el pots enganxar on el necessitis.', 'ok');
+  /* ⚠ SENSE PLA B, EL RESUM NO ES PODIA TREURE D'ENLLOC.
+
+     Segona auditoria (8/9/2026). Aquí es donava per bo el fracàs: si el
+     navegador no deixava el portapapers —passa fora d'HTTPS, i amb algunes
+     polítiques d'empresa— es deia «No s'ha pogut copiar» i s'acabava. El
+     resum no era enlloc més: no hi havia manera de treure'l.
+
+     El pla B (un textarea amagat i `execCommand`) ja el fan Convocar reunions
+     i el generador de comentaris des de l'auditoria del 6/9; aquesta funció
+     és més nova i es va quedar sense. I si tampoc no va, el text es
+     desplega a la pantalla perquè es pugui seleccionar a mà. */
+  const perLesBraves = () => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
+  };
+  const _aMa = () => {
+    _segEntrEstat('Aquest navegador no em deixa copiar sol. Aquí sota tens el resum: ' +
+                  'selecciona\'l i copia\'l tu.', 'error');
+    const cont = document.getElementById('segEntrPanell') || document.body;
+    let box = document.getElementById('segEntrCopiaAMa');
+    if (!box) {
+      box = document.createElement('textarea');
+      box.id = 'segEntrCopiaAMa';
+      box.className = 'modal-textarea';
+      box.setAttribute('aria-label', 'Resum de les entrevistes, per copiar a mà');
+      box.rows = 10;
+      box.style.width = '100%';
+      box.style.marginTop = '12px';
+      cont.appendChild(box);
+    }
+    box.value = text;
+    box.focus(); box.select();
+  };
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(fet, () => _segEntrEstat('No s\'ha pogut copiar.', 'error'));
+    navigator.clipboard.writeText(text).then(fet, () => { if (perLesBraves()) fet(); else _aMa(); });
+  } else if (perLesBraves()) {
+    fet();
   } else {
-    _segEntrEstat('Aquest navegador no deixa copiar sol.', 'error');
+    _aMa();
   }
 }

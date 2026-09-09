@@ -17,10 +17,27 @@ const POSTIT_COLOR_HEX = {
 
 // Inicialitza la pàgina: carrega del cache i després del núvol
 function initPostits() {
+  /* ⚠ LA NOTA TRIADA ES QUEDAVA TRIADA D UNA VISITA A L ALTRA.
+
+     Segona auditoria (8/9/2026). Es toca una nota per moure-la, es canvia de
+     pantalla sense acabar, i en tornar a Notes la tria encara hi era —sense
+     que res ho digués, perque el retol tampoc no es tornava a pintar—: el
+     primer toc a qualsevol altra nota la movia sense voler.
+
+     Entrar a la pantalla es un començament: aqui no hi ha res triat. */
+  _postitTriat = null;
+  if (typeof _postitAvisTria === 'function') { try { _postitAvisTria(); } catch (e) {} }
   // Cache local immediat
   try {
     const cached = JSON.parse(localStorage.getItem('postits') || 'null');
-    if (Array.isArray(cached)) _postits = cached;
+    /* ⚠ UN «null» DINS LA LLISTA DEIXAVA EL TAULELL EN BLANC.
+
+       Segona auditoria (8/9/2026): amb una entrada nul·la, el primer
+       `p.color` de `renderPostits()` llançava i el taulell es quedava buit,
+       sense cap nota i sense dir res. S'hi pot colar per una sincronització a
+       mig fer o per una còpia vella; el que no pot passar és que se
+       n'emporti la pantalla sencera. */
+    if (Array.isArray(cached)) _postits = cached.filter(p => p && typeof p === 'object');
   } catch(e) {}
   renderPostits();
   // Refresca del núvol en segon pla
@@ -32,9 +49,10 @@ async function _postitsLoadFromSheets() {
   if (typeof _recentFullLoad === 'function' && _recentFullLoad()) return; // el bootstrap ja els ha portat
   try {
     const r = await appsScriptGet({ action: 'loadPostits' });
-    if (r.ok && Array.isArray(r.postits)) {
-      _postits = r.postits;
+    if (r.ok && Array.isArray(r.postits) && !(typeof _pendentsTe === 'function' && _pendentsTe('savePostits'))) {
+      _postits = r.postits.filter(p => p && typeof p === 'object');
       try { localStorage.setItem('postits', JSON.stringify(_postits)); } catch(e) {}
+      if (r.base) { try { localStorage.setItem('postits_base', String(r.base)); } catch(e) {} }
       renderPostits();
       _postitsComprovaRecordatoris();
     }
@@ -150,8 +168,9 @@ function renderPostits() {
     const color = POSTIT_COLORS.includes(p.color) ? p.color : 'groc';
     const data = p.ts ? _postitDataCurta(p.ts) : '';
     const recordatori = p.data ? _postitRecordatoriBadge(p.data) : '';
-    return `<div class="postit postit-${color} ${p.important ? 'postit-important' : ''}"
+    return `<div class="postit postit-${color} ${p.important ? 'postit-important' : ''}${_postitTriat === p.id ? ' postit-triat' : ''}"
       draggable="true" data-id="${p.id}"
+      onclick="_postitToca(event,'${_idJs(p.id)}')"
       ondragstart="_postitDragStart(event,'${p.id}')"
       ondragover="_postitDragOver(event,'${p.id}')"
       ondragleave="_postitDragLeave(event)"
@@ -164,10 +183,10 @@ function renderPostits() {
       ${recordatori}
       <div class="postit-data">${data}</div>
       <div class="postit-actions">
-        <button class="postit-act-btn" onclick="postitEditar('${p.id}')" title="Editar">
+        <button class="postit-act-btn" onclick="postitEditar('${_idJs(p.id)}')" title="Editar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         </button>
-        <button class="postit-act-btn" onclick="postitEsborrar('${p.id}')" title="Esborrar">
+        <button class="postit-act-btn" onclick="postitEsborrar('${_idJs(p.id)}')" title="Esborrar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
         </button>
       </div>
@@ -179,6 +198,8 @@ function renderPostits() {
 function _postitRecordatoriBadge(dataStr) {
   try {
     const d = new Date(dataStr + 'T00:00:00');
+    // Una data que no s entén no es pinta (segona auditoria, 8/9/2026).
+    if (isNaN(d.getTime())) return '';
     const avui = new Date(); avui.setHours(0,0,0,0);
     const diff = Math.round((d - avui) / 86400000);
     let classe = 'postit-recordatori', txt = '';
@@ -195,8 +216,15 @@ function _postitRecordatoriBadge(dataStr) {
   } catch(e) { return ''; }
 }
 
+/* ⚠ «NaN/NaN» I «undefined» A LA NOTA.
+
+   Segona auditoria (8/9/2026): amb una data o una marca de temps que no
+   s entenen —una sincronitzacio a mig fer, una copia vella—, aixo pintava
+   etiquetes amb «NaN/NaN» i «undefined» a dins. Val mes no pintar res que
+   pintar una cosa que no vol dir res. */
 function _postitDataCurta(ts) {
   const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
   const avui = new Date();
   const mateixDia = d.toDateString() === avui.toDateString();
   if (mateixDia) return 'Avui ' + d.toTimeString().slice(0, 5);
@@ -254,7 +282,7 @@ function _renderPostitColorSel() {
   sel.innerHTML = POSTIT_COLORS.map(c =>
     `<div class="postit-color-opt ${c === _postitColor ? 'active' : ''}"
       style="background:${POSTIT_COLOR_HEX[c]}"
-      onclick="_postitTriaColor('${c}')"></div>`
+      onclick="_postitTriaColor('${_idJs(c)}')"></div>`
   ).join('');
 }
 
@@ -306,13 +334,26 @@ async function postitEsborrar(id) {
 }
 
 // Desa a cache local i al núvol
+/* Desar un post-it. Abans deia «es desaran quan tornis a tenir connexio»
+   i no era veritat: no hi havia cap cua, i el primer refresc que arribava
+   del servidor —que encara no el portava— l esborrava de la pantalla i del
+   navegador. Ara va per la cua de debo (_desaAlFull). */
 function _postitsPersist() {
   try { localStorage.setItem('postits', JSON.stringify(_postits)); } catch(e) {}
-  if (config.scriptUrl) {
-    appsScriptPost({ action: 'savePostits', postits: _postits })
-      .then(r => { if (r && r.ok === false) showToast('Error desant: ' + r.error, 'error'); })
-      .catch(() => showToast('Els post-its es desaran quan tornis a tenir connexió', 'info'));
+  if (!config.scriptUrl) return;
+  const cos = { action: 'savePostits', postits: _postits };
+  /* Amb la cua si hi és; si no hi fos, desa igualment. Un post-it que deixa
+     de pujar en silenci és justament el que s'intentava arreglar. */
+  /* El  diu al servidor què havia vist aquesta pestanya: sense això,
+     dues pestanyes obertes s esborraven els post-its l una a l altra. */
+  try { cos.base = localStorage.getItem('postits_base') || ''; } catch (e) {}
+  if (typeof _desaAlFull === 'function') {
+    _desaAlFull(cos).then(function (r) {
+      if (r && r.ok && r.ts) { try { localStorage.setItem('postits_base', String(r.ts)); } catch (e) {} }
+    });
   }
+  else appsScriptPost(cos).then(r => { if (r && r.ok === false) showToast('Error desant: ' + r.error, 'error'); })
+                          .catch(() => showToast('No s\'ha pogut desar el post-it', 'error'));
 }
 
 /* ---- Arrossegar per reordenar ---- */
@@ -344,9 +385,21 @@ function _postitDrop(e, targetId) {
   e.preventDefault();
   const el = e.currentTarget;
   if (el) el.classList.remove('postit-dropzone');
-  if (!_postitDragId || _postitDragId === targetId) return;
+  _postitMou(_postitDragId, targetId);
+}
 
-  const drag = _postits.find(p => p.id === _postitDragId);
+/* ⚠ AL MOBIL I A LA TAULETA NO ES PODIA MOURE CAP NOTA.
+
+   Trobat a l auditoria del 6/9/2026: reordenar nomes es podia fer
+   arrossegant, i l arrossegar del navegador (HTML5 drag-and-drop) no existeix
+   a les pantalles tactils. Ara tambe va tocant: toques la nota que vols moure
+   i despres on la vols. Amb el ratoli, l arrossegar de sempre segueix igual.
+
+   La feina de moure viu aqui, en un sol lloc, perque les dues maneres facin
+   exactament el mateix. */
+function _postitMou(quinId, targetId) {
+  if (!quinId || quinId === targetId) return;
+  const drag = _postits.find(p => p.id === quinId);
   const target = _postits.find(p => p.id === targetId);
   if (!drag || !target) return;
 
@@ -364,15 +417,37 @@ function _postitDrop(e, targetId) {
     return (b.ts || 0) - (a.ts || 0);
   });
   // Treu el drag i insereix-lo abans del target
-  const senseDrag = ordreVisual.filter(p => p.id !== _postitDragId);
+  const senseDrag = ordreVisual.filter(p => p.id !== quinId);
   const idx = senseDrag.findIndex(p => p.id === targetId);
   senseDrag.splice(idx, 0, drag);
   // Reassigna ordre seqüencial
   senseDrag.forEach((p, i) => { p.ordre = i; });
 
   _postitDragId = null;
+  _postitTriat = null;
   renderPostits();
   _postitsPersist();
+}
+
+let _postitTriat = null;
+function _postitToca(e, id) {
+  /* Si s ha clicat un boto (editar, esborrar, una casella de la llista) aixo
+     no hi te res a veure. */
+  if (e.target.closest && e.target.closest('button, input, a, label, .postit-item')) return;
+  if (_postitDragId) return;              // s esta arrossegant amb el ratoli
+  if (!_postitTriat) { _postitTriat = id; renderPostits(); _postitAvisTria(); return; }
+  if (_postitTriat === id) { _postitTriat = null; renderPostits(); _postitAvisTria(); return; }
+  _postitMou(_postitTriat, id);
+  _postitAvisTria();
+}
+function _postitAvisTria() {
+  const el = document.getElementById('postitTriaHint');
+  if (!el) return;
+  if (!_postitTriat) { el.textContent = ''; el.style.display = 'none'; return; }
+  const p = _postits.find(x => x.id === _postitTriat);
+  el.textContent = 'Has triat «' + ((p && (p.titol || p.text)) || 'aquesta nota').slice(0, 40) +
+                   '». Ara toca on la vols posar (o torna a tocar-la per deixar-ho estar).';
+  el.style.display = '';
 }
 
 function _postitDragEnd(e) {

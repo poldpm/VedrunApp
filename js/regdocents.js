@@ -22,6 +22,9 @@
 let _regdocItems = [];      // [{ id, nom, tipus:'checkbox'|'text' }]
 let _regdocData  = {};      // { itemId: { 'Laura Vila': true|'text' } }
 let _regdocCarregat = false;
+/* La marca que hem vist: es reenvia en desar, perque el servidor sapiga si
+   l altre director hi ha escrit mentrestant (segona auditoria, 8/9/2026). */
+let _regdocBase = '';
 let _regdocTimer = null;
 
 /* ============================================================
@@ -42,10 +45,11 @@ async function regdocCarrega() {
     if (!r || !r.ok) throw new Error((r && r.error) || 'resposta buida');
     _regdocItems = r.items || [];
     _regdocData  = r.data  || {};
+    _regdocBase  = r.ts || '';
     _regdocCarregat = true;
     _regdocEstat('');
   } catch (e) {
-    _regdocEstat('No s\'ha pogut carregar: ' + e.message + '. Clica Sincronitzar per tornar-ho a provar.', 'error');
+    _regdocEstat('No s\'ha pogut carregar: ' + senseElPuntFinal(typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') + '. Clica Sincronitzar per tornar-ho a provar.', 'error');
   }
   renderRegistreDocents();
 }
@@ -59,14 +63,24 @@ async function regdocSincronitza() {
    una desada que falli no deixa el full a mitges. Com que sempre s'hi envia
    tot, si un desat falla, el següent ja hi torna a portar el que faltava. */
 async function _regdocDesa() {
+  /* ⚠ Mateix cas que la Coordinació (segona auditoria, 8/9/2026): si la
+     lectura ha fallat, `_regdocItems` i `_regdocData` són buits i desar-hi a
+     sobre esborra el registre de tot el claustre —i l'app deia «Desat ✓». */
+  if (!_regdocCarregat) {
+    _regdocEstat('Encara no he pogut llegir el registre que hi ha al full, i no hi vull ' +
+      'escriure a sobre sense saber què hi ha. Clica Sincronitzar.', 'error');
+    return false;
+  }
   if (!config.scriptUrl) { _regdocEstat('Encara no estàs connectat.', 'error'); return false; }
   try {
-    const r = await appsScriptPost({ action: 'saveRegistreDocents', items: _regdocItems, data: _regdocData });
+    const r = await appsScriptPost({ action: 'saveRegistreDocents', items: _regdocItems, data: _regdocData, base: _regdocBase });
+    if (r && r._desactualitzat) { _regdocEstat(r.error, 'error'); return false; }
+    if (r && r.ts) _regdocBase = r.ts;
     if (!r || !r.ok) throw new Error((r && r.error) || 'resposta buida');
     _regdocEstat('Desat ✓', 'ok');
     return true;
   } catch (e) {
-    _regdocEstat('No s\'ha pogut desar: ' + e.message + '. El proper canvi ho tornarà a intentar.', 'error');
+    _regdocEstat('No s\'ha pogut desar: ' + senseElPuntFinal(typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') + '. El proper canvi ho tornarà a intentar.', 'error');
     return false;
   }
 }
@@ -94,7 +108,23 @@ function _regdocEstat(text, tipus) {
 async function regdocAfegeixItem() {
   const camp = document.getElementById('newItemName');
   const nom = (camp ? camp.value : '').trim();
-  if (!nom) { if (camp) camp.focus(); return; }
+  /* ⚠ AQUÍ EL BOTÓ NO FEIA RES I NO DEIA RES.
+
+     Segona auditoria (8/9/2026): amb el nom buit, «Crear ítem» només movia el
+     focus. La direcció clicava, no passava res i no sabia per què. El
+     registre d'aula ja ho diu des de l'auditoria anterior; aquest és codi
+     paral·lel i es va quedar sense. El mateix amb els noms repetits: dues
+     columnes «Formació» i cap manera de saber quina és quina. */
+  if (!nom) {
+    showToast('Posa-li un nom a l\'ítem', 'error');
+    if (camp) camp.focus();
+    return;
+  }
+  if (_regdocItems.some(i => (i.nom || '').trim().toLowerCase() === nom.toLowerCase())) {
+    showToast('Ja hi ha una columna que es diu «' + nom + '». Posa-li un altre nom.', 'error');
+    if (camp) camp.focus();
+    return;
+  }
   // El mateix que fa el registre d'aula, i amb el mateix parany cobert: si
   // el selector no troba res, casella. Sense el `|| 'checkbox'` l'ítem
   // naixia sense tipus i es pintava com a text encara que fos una casella.
@@ -147,6 +177,43 @@ function regdocDocents() {
   return (typeof DOCENTS !== 'undefined') ? DOCENTS : [];
 }
 
+/* ⚠ EL QUE ES GUARDA VA PEL NOM DEL MESTRE.
+
+   Trobat a l'auditoria del 6/9/2026. Si al llistat del claustre es corregeix
+   un nom («Meri Garolera» → «Mercè Garolera»), tot el que hi hagués apuntat es
+   queda desat sota el nom vell i la seva fila surt en blanc: sembla que s'hagi
+   esborrat, i no hi ha manera de veure-ho ni de recuperar-ho.
+
+   Canviar la clau a un identificador voldria migrar tot el que ja hi ha, i
+   això sí que podria perdre dades. El que es fa, que és el que compta, és NO
+   AMAGAR-HO: si hi ha apunts d'algú que ja no surt al claustre, es pinten a
+   sota amb el seu nom d'abans, marcats. Així la direcció ho veu, ho pot
+   copiar a la fila bona i esborrar-ho quan vulgui. */
+function regdocOrfes() {
+  const vius = {};
+  regdocDocents().forEach(d => { vius[d.nom] = true; });
+  const noms = {};
+  Object.keys(_regdocData || {}).forEach(itemId => {
+    Object.keys(_regdocData[itemId] || {}).forEach(nom => {
+      const v = _regdocData[itemId][nom];
+      const teRes = v === true || (v != null && String(v).trim() !== '');
+      if (teRes && !vius[nom]) noms[nom] = true;
+    });
+  });
+  return Object.keys(noms).sort();
+}
+
+/* Esborra tot el que hi havia apuntat d'algú que ja no és al claustre. */
+async function regdocOblidaOrfe(nom) {
+  if (!confirm('Esborrar tot el que hi ha apuntat de «' + nom + '»?' +
+              String.fromCharCode(10, 10) + 'Ja no és al llistat del claustre. No es pot desfer.')) return;
+  Object.keys(_regdocData || {}).forEach(itemId => {
+    if (_regdocData[itemId]) delete _regdocData[itemId][nom];
+  });
+  renderRegistreDocents();
+  await _regdocDesa();
+}
+
 function renderRegistreDocents() {
   const buit  = document.getElementById('regdocEmpty');
   const taula = document.getElementById('regdocTaula');
@@ -165,7 +232,7 @@ function renderRegistreDocents() {
        <div class="reg-th-inner">
          <span>${escapeHtml(i.nom)}</span>
          <button class="reg-th-delete" type="button" title="Eliminar «${escapeHtml(i.nom)}»"
-                 aria-label="Eliminar ${escapeHtml(i.nom)}" onclick="regdocEsborraItem('${i.id}')">
+                 aria-label="Eliminar ${escapeHtml(i.nom)}" onclick="regdocEsborraItem('${_idJs(i.id)}')">
            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
          </button>
        </div>
@@ -179,13 +246,13 @@ function renderRegistreDocents() {
         return `<td class="reg-td-cell">
           <input type="checkbox" class="reg-checkbox"${marcat}
                  aria-label="${escapeHtml(i.nom)} · ${escapeHtml(d.nom)}"
-                 onchange="regdocCanviaCella('${i.id}', ${_regdocNomJS(d.nom)}, this.checked)">
+                 onchange="regdocCanviaCella('${_idJs(i.id)}', ${_regdocNomJS(d.nom)}, this.checked)">
         </td>`;
       }
       return `<td class="reg-td-cell">
         <input type="text" class="reg-text-input" value="${escapeHtml(v == null ? '' : String(v))}" placeholder="—"
                aria-label="${escapeHtml(i.nom)} · ${escapeHtml(d.nom)}"
-               oninput="regdocCanviaCella('${i.id}', ${_regdocNomJS(d.nom)}, this.value)">
+               oninput="regdocCanviaCella('${_idJs(i.id)}', ${_regdocNomJS(d.nom)}, this.value)">
       </td>`;
     }).join('');
     const què = (typeof docentTipus === 'function') ? docentTipus(d) : '';
@@ -194,6 +261,18 @@ function renderRegistreDocents() {
       <td class="reg-td-name">
         <span class="regdoc-nom">${escapeHtml(d.nom)}</span>
         <span class="regdoc-sub">${escapeHtml(sub)}</span>
+      </td>${cels}
+    </tr>`;
+  }).join('') + regdocOrfes().map(nom => {
+    const cels = _regdocItems.map(i => {
+      const v = regdocValor(i.id, nom);
+      const txt = v === true ? '✓' : (v == null ? '' : String(v));
+      return `<td class="reg-td-cell">${escapeHtml(txt)}</td>`;
+    }).join('');
+    return `<tr class="regdoc-orfe">
+      <td class="reg-td-name">
+        <span class="regdoc-nom">${escapeHtml(nom)}</span>
+        <span class="regdoc-sub">Ja no és al claustre — <button type="button" class="regdoc-orfe-treu" onclick="regdocOblidaOrfe('${_idJs(nom)}')">esborrar-ho</button></span>
       </td>${cels}
     </tr>`;
   }).join('');

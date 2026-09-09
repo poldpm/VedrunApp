@@ -266,6 +266,10 @@ function tancaMilloraConfirma() {
 }
 
 async function milloraEnvia() {
+  if (typeof _unSolCop === 'function') return _unSolCop('milloraEnvia', _milloraEnviaFer);
+  return _milloraEnviaFer();
+}
+async function _milloraEnviaFer() {
   const m = _milloraDemanant;
   if (!m) return;
   if (!config.scriptUrl) {
@@ -293,6 +297,6 @@ async function milloraEnvia() {
   } catch (e) {
     /* Si no ha sortit, NO es marca com a demanada: si no, es pensaria que
        en Pol ho sap i no ho sabria ningú. */
-    showToast('No s\'ha pogut enviar: ' + (e.message || 'prova-ho més tard'), 'error');
+    showToast('No s\'ha pogut enviar: ' + ((typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') || 'prova-ho més tard'), 'error');
   }
 }

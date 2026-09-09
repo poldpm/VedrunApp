@@ -45,7 +45,7 @@ function _cacheDel() {
 async function prefetchAllNotes() {
   if (!config.scriptUrl) return;
   const MATS  = ['matematiques','catala','medi','musica','angles'];
-  const trim  = (typeof getTrimestreActual === 'function' ? getTrimestreActual() : null) || 1;
+  const trim  = (typeof getTrimestreProposat === 'function') ? getTrimestreProposat() : 1;
   // Carrega en sèrie suau (una rere l'altra) per no saturar Apps Script
   for (const mat of MATS) {
     const persistKey = 'notescache_' + mat + '_' + trim;
@@ -178,7 +178,7 @@ async function desaComentariNota(text) {
     if (!r.ok) throw new Error(r.error);
     showToast(net ? 'Comentari desat ✓' : 'Comentari esborrat', 'success');
   } catch (e) {
-    showToast('No s\'ha pogut desar el comentari: ' + e.message, 'error');
+    showToast('No s\'ha pogut desar el comentari: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
   }
 }
 
@@ -192,6 +192,23 @@ function getTrimestreActual() {
   if (m === 1 && dia <= 7) return 1;
   if ((m === 1 && dia >= 8) || m === 2 || (m === 3 && dia <= 29)) return 2;
   return 3;
+}
+/* ⚠ AL JULIOL TOT CAIA AL PRIMER TRIMESTRE.
+
+   Trobat a l'auditoria del 6/9/2026. Del 24 de juny al 31 d'agost
+   `getTrimestreActual()` torna `null` —i està bé, perquè no hi ha classe—,
+   però tots els llocs que en necessiten un feien `|| 1`. Resultat: al juliol,
+   quan la mestra repassa el curs que acaba de tancar, l'app li obria el
+   PRIMER trimestre. I si hi escrivia, ho escrivia al trimestre que no era.
+
+   `getTrimestreProposat()` no torna mai buit i proposa el que té sentit:
+   fins al 31 de juliol, el 3r —el que s'acaba de tancar, que és el que es
+   repassa—; des de l'1 d'agost, el 1r, que és el que ve. */
+function getTrimestreProposat() {
+  const t = getTrimestreActual();
+  if (t) return t;
+  const d = new Date(), m = d.getMonth() + 1;
+  return (m === 6 || m === 7) ? 3 : 1;
 }
 function getTrimLabel(t) { return ['','1r Trimestre','2n Trimestre','3r Trimestre'][t] || ''; }
 
@@ -228,8 +245,18 @@ function showTrimAlert(trimActual, trimSel) {
    OBRIR NOTES
    ============================================================ */
 async function openNotesAuto(materia, grup) {
-  const t = getTrimestreActual();
-  openNotes(materia, t !== null ? t : 1, grup);
+  /* ⚠ A L ESTIU PORTAVA AL 1r TRIMESTRE.
+
+     Segona auditoria (8/9/2026). De finals de juny a l agost
+     `getTrimestreActual()` torna null —no hi ha cap trimestre obert— i aqui
+     es queia al 1r, que es el que ja s ha tancat feia mig any. L arranjament
+     del 6/9 va treure aquest «|| 1» de la resta de llocs i aquest es va
+     quedar. `getTrimestreProposat()` ja sap contestar-ho be: fora de curs
+     proposa el que toca. */
+  const t = (typeof getTrimestreProposat === 'function')
+    ? getTrimestreProposat()
+    : (getTrimestreActual() !== null ? getTrimestreActual() : 1);
+  openNotes(materia, t, grup);
 }
 
 async function openNotes(materia, trimestre, grup) {
@@ -319,8 +346,15 @@ async function openNotes(materia, trimestre, grup) {
 }
 
 function _updateNotesHeader(materia, trimestre) {
-  const grupSufix = notesContext.grup ? ' · ' + notesContext.grup : '';
-  document.getElementById('notesTitle').textContent     = (MATERIES[materia] || materia) + grupSufix;
+  /* ⚠ EL GRUP SORTIA DUES VEGADES.
+
+     Trobat a l auditoria del 6/9/2026: l etiqueta d una assignatura del perfil
+     ja porta el grup a dins («Angles · 3r A») i aqui se n hi tornava a
+     enganxar un altre: «Angles · 3r A · 3r A». Ara nomes s hi posa si no hi es. */
+  const _base = (MATERIES[materia] || materia);
+  const _g = notesContext.grup || '';
+  const grupSufix = (_g && _base.indexOf(_g) === -1) ? ' · ' + _g : '';
+  document.getElementById('notesTitle').textContent     = _base + grupSufix;
   document.getElementById('notesTrimLabel').textContent = TRIM_LABELS[String(trimestre)];
   const backBtn = document.getElementById('notesBackBtn');
   if (backBtn) backBtn.onclick = () => showPage('home');
@@ -350,18 +384,51 @@ function _remapValorsPerNom(valors, rowNoms) {
     const st = students.find(s => !usats[s.id] && _norm(s.nom) === n);
     if (st) { posToId[pos] = st.id; usats[st.id] = true; }
   });
+  /* ⚠ UNA FILA DEL FULL QUE NO CASA AMB CAP ALUMNE ATERRAVA SOBRE UN ALTRE NEN.
+
+     Trobat a la segona auditoria (8/9/2026). Aquí, si un nom del full no era
+     a la llista d'ara, es deixava la POSICIÓ com a clau. Però els studentId
+     TAMBÉ són posicions (0, 1, 2…), o sigui que aquella clau òrfena queia
+     just damunt de l'alumne que ara ocupa aquell número: o bé la nota sortia
+     a un altre nen, o bé el valor buit d'aquell nen se la menjava i
+     desapareixia de la pantalla. Passa quan la secretaria corregeix un nom
+     al full «Grups» a mig curs —un accent, un segon cognom—, que és una cosa
+     normal i que ningú no avisa a la mestra.
+
+     Ara una fila que no casa amb ningú es queda fora, i es diu de qui és. La
+     nota no s'ha perdut: continua al full sota el nom vell. */
   const out = {};
+  const orfes = {};
   Object.keys(valors).forEach(itemId => {
     out[itemId] = {};
     Object.keys(valors[itemId]).forEach(pos => {
       const id = posToId[pos];
-      // Si trobem l'alumne pel nom, usa el seu id; si no, manté la posició
-      const key = (id !== undefined) ? id : pos;
-      out[itemId][key] = valors[itemId][pos];
+      if (id === undefined) {
+        const nomFull = (rowNoms[pos] || '').toString().trim();
+        if (nomFull) orfes[nomFull] = true;
+        return;
+      }
+      out[itemId][id] = valors[itemId][pos];
     });
   });
+  const noms = Object.keys(orfes);
+  if (noms.length && !_remapAvisat) {
+    _remapAvisat = true;
+    setTimeout(() => {
+      try {
+        showToast('Al full hi ha notes de ' + noms.slice(0, 3).join(', ') +
+                  (noms.length > 3 ? ' i ' + (noms.length - 3) + ' més' : '') +
+                  ', que ara no són a la teva llista. Potser els han canviat el nom al full de ' +
+                  'l\'escola. Les notes hi continuen; aquí no te les puc ensenyar fins que els ' +
+                  'noms coincideixin.', 'error');
+      } catch (e) {}
+    }, 1200);
+  }
   return out;
 }
+/* Un sol avís per sessió: si un nom no casa, no casarà en tot el dia i
+   repetir-ho a cada assignatura només faria nosa. */
+let _remapAvisat = false;
 
 async function _loadNotesBackground() {
   if (!config.scriptUrl) return;
@@ -402,7 +469,7 @@ async function _loadNotesBackground() {
   } catch (e) {
     _hideNotesLoading();
     updateSync('error', 'Error');
-    showToast('Error carregant notes: ' + e.message, 'error');
+    showToast('Error carregant notes: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
   }
 }
 
@@ -454,9 +521,32 @@ function selectPesByVal(val) {
 
 async function addNotaItem() {
   const nom      = document.getElementById('notaItemNom').value.trim();
-  const maxPunts = parseFloat(document.getElementById('notaItemMax').value) || 10;
-  const pes      = parseFloat(document.getElementById('notaItemPes').value) || 1;
-  if (!nom) { document.getElementById('notaItemNom').focus(); return; }
+  /* ⚠ Abans, un 0 o un negatiu es convertien en 10 sense dir res (el
+     `|| 10` s empassa el zero), i la mestra es trobava una activitat sobre
+     10 quan n havia demanat una altra cosa (auditoria 6/9/2026). */
+  const _maxCru = document.getElementById('notaItemMax').value.trim();
+  const _pesCru = document.getElementById('notaItemPes').value.trim();
+  const maxPunts = _maxCru === '' ? 10 : parseFloat(_maxCru);
+  const pes      = _pesCru === '' ? 1  : parseFloat(_pesCru);
+  if (!nom) { showToast('Posa-li un nom a l activitat', 'error'); document.getElementById('notaItemNom').focus(); return; }
+  /* ⚠ DUES ACTIVITATS AMB EL MATEIX NOM.
+
+     Segona auditoria (8/9/2026): al registre d'aula això ja es bloqueja des
+     de l'auditoria anterior i aquí no s'hi va portar. Dues columnes «Prova»
+     i cap manera de saber quina és quina —ni a la pantalla ni al full. */
+  if (notesItems.some(i => (i.nom || '').trim().toLowerCase() === nom.toLowerCase())) {
+    showToast('Ja hi ha una activitat que es diu «' + nom + '». Posa-li un altre nom.', 'error');
+    document.getElementById('notaItemNom').focus();
+    return;
+  }
+  if (isNaN(maxPunts) || maxPunts <= 0) {
+    showToast('La puntuació màxima ha de ser un número més gran que zero', 'error');
+    document.getElementById('notaItemMax').focus(); return;
+  }
+  if (isNaN(pes) || pes <= 0) {
+    showToast('El pes ha de ser un número més gran que zero', 'error');
+    document.getElementById('notaItemPes').focus(); return;
+  }
   const item = { id: Date.now(), nom, maxPunts, pes };
   notesItems.push(item);
   notesValors[item.id] = {};
@@ -471,13 +561,38 @@ async function addNotaItem() {
     if (!r.ok) throw new Error(r.error);
     updateSync('ok', 'Sincronitzat');
     showToast('Ítem «' + nom + '» creat', 'success');
-  } catch (e) { updateSync('error','Error'); showToast('Error: '+e.message,'error'); }
+  } catch (e) {
+    /* ⚠ LA COLUMNA QUE NOMÉS EXISTIA A LA PANTALLA.
+
+       Trobat a la segona auditoria (8/9/2026). Si el servidor no responia, la
+       columna es quedava pintada, la mestra hi passava les notes de la classe
+       sencera —amb mitjanes i qualificacions— i en refrescar no hi havia res:
+       ni la columna ni cap nota. La cua de canvis pendents es quedava a zero,
+       perquè aquí no hi passa.
+
+       Ara es treu de seguida i es diu per què. NO va a la cua a posta: una
+       columna a mig crear desquadraria les notes que s'hi escriurien a sobre,
+       perquè el full encara no en sap res. És el mateix criteri que ja seguia
+       el registre d'aula. */
+    notesItems = notesItems.filter(i => i.id !== item.id);
+    delete notesValors[item.id];
+    _cacheDel();
+    renderNotesTable();
+    updateSync('error', 'No desat');
+    showToast('No s\'ha pogut crear «' + nom + '»: ' +
+      (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') +
+      ' No l\'he deixada a la taula perquè no hi escrivissis en va.', 'error');
+  }
 }
 
+/* Igual que al registre d aula: el codi arriba com a text i es compara amb
+   String(), perque els codis d ara son numeros pero l item d actitud i el de
+   la Carpeta ja tenen codis de lletres (8/9/2026). */
 async function deleteNotaItem(itemId) {
-  const item = notesItems.find(i => i.id === itemId);
+  const item = notesItems.find(i => String(i.id) === String(itemId));
   if (!item || !confirm('Eliminar «' + item.nom + '» i totes les seves notes?')) return;
-  notesItems = notesItems.filter(i => i.id !== itemId);
+  itemId = item.id;
+  notesItems = notesItems.filter(i => String(i.id) !== String(itemId));
   delete notesValors[itemId];
   _cacheDel();
   renderNotesTable();
@@ -485,7 +600,7 @@ async function deleteNotaItem(itemId) {
   try {
     await appsScriptPost({ action:'deleteNotaItem', materia:notesContext.materia, trimestre:notesContext.trimestre, grup:notesContext.grup, itemId });
     showToast('Ítem eliminat', 'success');
-  } catch (e) { showToast('Error: '+e.message,'error'); }
+  } catch (e) { showToast('Error: '+ (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''),'error'); }
 }
 
 /* ============================================================
@@ -511,7 +626,7 @@ async function updateNota(itemId, studentId, punts) {
       // Si aquesta assignatura està compartida amb el tutor, republica el resum
       // (amb espera: entrant notes es dispararia a cada tecla).
       else if (typeof publicaNotesSiCal === 'function') publicaNotesSiCal();
-    } catch (e) { showToast('Error guardant nota: '+e.message,'error'); }
+    } catch (e) { showToast('Error guardant nota: '+ (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''),'error'); }
   });
 }
 
@@ -554,7 +669,7 @@ async function toggleNoEntregat(item, studentId, inp, chip) {
     const _stNE = students.find(x => x.id === studentId);
     const _nomNE = _stNE ? _stNE.nom : '';
     try { await appsScriptPost({ action:'setNoEntregat', materia:notesContext.materia, trimestre:notesContext.trimestre, grup:notesContext.grup, itemId:item.id, studentId, nom:_nomNE, valor:isNE }); }
-    catch (e) { showToast('Error guardant NE: '+e.message,'error'); }
+    catch (e) { showToast('Error guardant NE: '+ (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''),'error'); }
   }
 }
 
@@ -626,7 +741,7 @@ function renderNotesTable() {
         <div class="notes-th-item-meta">Pes ${item.pes} · automàtic</div>`;
     } else {
       th.className = 'notes-th-item';
-      th.innerHTML = `<button class="notes-del-btn" onclick="deleteNotaItem(${item.id})" title="Eliminar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="notes-th-item-nom">${escapeHtml(item.nom)}</div><div class="notes-th-item-meta">Pes ${item.pes} · sobre ${item.maxPunts}</div>`;
+      th.innerHTML = `<button class="notes-del-btn" aria-label="Eliminar ${escapeHtml(item.nom)}" onclick="deleteNotaItem('${_idJs(item.id)}')" title="Eliminar ${escapeHtml(item.nom)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="notes-th-item-nom" title="${escapeHtml(item.nom)}">${escapeHtml(item.nom)}</div><div class="notes-th-item-meta">Pes ${item.pes} · sobre ${item.maxPunts}</div>`;
     }
     trH.appendChild(th);
   });
@@ -644,7 +759,7 @@ function renderNotesTable() {
     const tr = document.createElement('tr');
     // Nom
     const tdNom = document.createElement('td'); tdNom.className='notes-td-name';
-    tdNom.innerHTML = `<div class="notes-td-name-inner"><div class="student-avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${getInitials(s.nom)}</div><span>${escapeHtml(s.nom)}</span></div>`;
+    tdNom.innerHTML = `<div class="notes-td-name-inner"><div class="student-avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${getInitials(s.nom)}</div><span>${escapeHtml(typeof nomAlumne==='function'?nomAlumne(s):s.nom)}</span></div>`;
     tr.appendChild(tdNom);
 
     notesItems.forEach(item => {
@@ -701,12 +816,17 @@ function renderNotesTable() {
         inp.addEventListener('input', () => {
           clearTimeout(t);
           const v = parseFloat(inp.value.trim());
+          /* ⚠ També per sota de zero. Nomes es mirava el maxim, i un -5 entrava
+             tal qual al full com a nota, mitjana i nota arrodonida
+             (auditoria 6/9/2026). */
+          if (!isNaN(v) && v < 0) { inp.style.borderColor='#EF4444'; showToast('Una nota no pot ser negativa','error'); return; }
           if (!isNaN(v) && v > item.maxPunts) { inp.style.borderColor='#EF4444'; showToast(`Màxim: ${item.maxPunts} punts`,'error'); return; }
           inp.style.borderColor = '';
           t = setTimeout(() => updateNota(item.id, s.id, inp.value.trim()==='' ? '' : v), 400);
         });
         inp.addEventListener('blur', () => {
           const v = parseFloat(inp.value.trim());
+          if (!isNaN(v) && v < 0) { inp.value = 0; inp.style.borderColor=''; updateNota(item.id, s.id, 0); return; }
           if (!isNaN(v) && v > item.maxPunts) { inp.value = item.maxPunts; inp.style.borderColor=''; updateNota(item.id, s.id, item.maxPunts); }
         });
 
@@ -810,10 +930,30 @@ function calcMitjanaActitud(dades) {
   return Math.round(vals.reduce((s,v) => s+v, 0) / vals.length * 100) / 100;
 }
 
+/* Quina actitud ja s ha demanat al full: evita el bucle del repintat. */
+let _actitudDemanat = null;
+
 /* Obre el panel d'actitud */
 function openActitudPanel() {
   const { materia, trimestre } = notesContext;
   if (!materia) return;
+
+  /* ⚠ L'actitud es desava al full i NO es tornava a llegir mai: la funció
+     `_actitudLoadFromSheets` estava escrita i no la cridava ningú. Vivia
+     només al navegador, o sigui que canviant d'ordinador —o buidant-lo—
+     desapareixia i la mitjana de l'alumne canviava sola (auditoria
+     6/9/2026). Es demana en obrir el panell i, quan arriba, es repinta.
+     El guard és perquè el repintat no torni a demanar-ho i entri en bucle. */
+  const _clauAct = materia + '_' + trimestre;
+  if (typeof _actitudLoadFromSheets === 'function' && _actitudDemanat !== _clauAct) {
+    _actitudDemanat = _clauAct;
+    _actitudLoadFromSheets(materia, trimestre).then(() => {
+      const obert = document.getElementById('actitudOverlay');
+      if (obert && obert.classList.contains('open')) {
+        try { openActitudPanel(); } catch (e) {}
+      }
+    }).catch(() => {});
+  }
 
   document.getElementById('actitudTitle').textContent =
     `Actitud · ${MATERIES[materia] || materia} · ${getTrimLabel(trimestre)}`;
@@ -832,7 +972,7 @@ function openActitudPanel() {
     const mitj  = calcMitjanaActitud(dades);
     const q     = mitj !== null ? getQual(mitj) : null;
     html += `<tr>
-      <td class="actitud-td-nom">${escapeHtml(s.nom)}</td>
+      <td class="actitud-td-nom">${escapeHtml(typeof nomAlumne==='function'?nomAlumne(s):s.nom)}</td>
       ${ACTITUD_ASPECTES.map(a => {
         const val = dades[a.id] !== undefined ? dades[a.id] : '';
         return `<td class="actitud-td-inp">
@@ -861,11 +1001,27 @@ function onActitudInput(inp) {
   const sid = parseInt(inp.dataset.sid);
   const asp = inp.dataset.asp;
   const val = parseFloat(inp.value);
-  if (!isNaN(val) && val > 10) { inp.value = 10; return; }
+  /* ⚠ EL PANEL D ACTITUD ACCEPTAVA NUMEROS QUE NO SON NOTES.
 
-  // Recalcula la mitjana en temps real
+     Trobat a l auditoria del 6/9/2026: es podia escriure un negatiu; es
+     desava, i la mitjana l ignorava en silenci (filtra `v >= 0`). La casella
+     ja diu min=1 i max=10: aqui s hi ha de fer cas i no admetre res mes. */
+  if (!isNaN(val) && val > 10) { inp.value = 10; return; }
+  if (!isNaN(val) && val < 1 && inp.value !== '') { inp.value = 1; return; }
+
+  /* ⚠ LA MITJANA QUE ES VEIA MENTRE S'ESCRIVIA ERA FALSA.
+
+     Trobat a l'auditoria del 6/9/2026: es llegia el que hi ha DESAT i s'hi
+     afegia només l'aspecte que s'acabava de teclejar. Els altres que la
+     mestra havia escrit i encara no s'havien desat no comptaven, i el número
+     que veia no era el que li quedaria. Ara es llegeix el que hi ha ARA a la
+     pantalla, que és el que ella està mirant. */
   const { materia, trimestre } = notesContext;
-  const dades = getActitud(materia, trimestre, sid);
+  const dades = {};
+  document.querySelectorAll('#actitudTable input[data-sid="' + sid + '"]').forEach(x => {
+    const v = parseFloat(x.value);
+    if (x.value !== '' && !isNaN(v)) dades[x.dataset.asp] = v;
+  });
   if (inp.value === '') delete dades[asp];
   else if (!isNaN(val)) dades[asp] = val;
 
@@ -883,8 +1039,11 @@ function saveActitud() {
   document.querySelectorAll('.actitud-input').forEach(inp => {
     const sid = parseInt(inp.dataset.sid);
     const asp = inp.dataset.asp;
-    const val = parseFloat(inp.value);
+    let val = parseFloat(inp.value);
     const dades = getActitud(materia, trimestre, sid);
+    /* El mateix sostre que a la casella: aqui es on de debo es desa, i un
+     valor fora de rang que hi arribes per un altre cami es quedaria al full. */
+    if (!isNaN(val)) val = Math.max(1, Math.min(10, val));
     if (inp.value === '' || isNaN(val)) delete dades[asp];
     else dades[asp] = val;
     setActitud(materia, trimestre, sid, dades);
@@ -901,15 +1060,25 @@ function saveActitud() {
 async function _syncActitudToServer() {
   if (!config.scriptUrl) return;
   const { materia, trimestre } = notesContext;
+  /* El GRUP hi ha d anar: la pestanya de notes es diu «1T_Matematiques__2nc_2n C»
+     i sense el grup el servidor buscava «1T_Matematiques__2nc», que no existeix.
+     No la trobava, feia return ok i callava: l app deia que l alumne tenia un 6
+     i el full deia 10 (auditoria 6/9/2026). */
+  const grup = notesContext.grup || ((typeof _grupDeTreball === 'function') ? _grupDeTreball() : '') || '';
   // Recull totes les mitjanes i les envia en UNA sola crida (batch)
   const mitjanes = {};
+  /* El NOM de cada alumne va amb la seva mitjana: al full la fila la mana el
+     nom, no el número, perquè el full de l'escola es reordena sol (segona
+     auditoria, 8/9/2026). */
+  const noms = {};
   students.forEach(s => {
     const mitj = calcMitjanaActitud(getActitud(materia, trimestre, s.id));
-    if (mitj !== null) mitjanes[s.id] = mitj;
+    if (mitj !== null) { mitjanes[s.id] = mitj; noms[s.id] = s.nom; }
   });
   if (!Object.keys(mitjanes).length) return;
   try {
-    await appsScriptPost({ action: 'updateActitudBatch', materia, trimestre, mitjanes });
+    const r = await appsScriptPost({ action: 'updateActitudBatch', materia, trimestre, mitjanes, grup, noms });
+    if (r && r.avis) showToast(r.avis, 'error');
   } catch(e) { /* silenci, ja està al localStorage */ }
 }
 

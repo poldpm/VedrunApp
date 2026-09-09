@@ -26,6 +26,9 @@ let _esmorzars = [];
 // Torns apuntats: { id, data:'2026-09-15' (el dia de la reunió), qui, avisat:'' }
 let _torns = [];
 let _esmCarregat = false;
+/* La marca de temps que hem vist: es reenvia en desar perque el servidor
+   pugui saber si l altre director hi ha escrit mentrestant. */
+let _esmBase = '';
 let _esmDesant = false;
 
 // La proposta que s'està mirant ara al botó "qui li toca la setmana que ve"
@@ -67,24 +70,48 @@ async function initCoordinacio() {
   if (_esmCarregat || !config.scriptUrl) return;
   try {
     const r = await appsScriptGet({ action: 'loadEsmorzars' });
-    if (r && r.ok) { _esmorzars = r.registres || []; _torns = r.torns || []; _esmCarregat = true; }
-    else _esmEstat(_esmMissatgeError(r), 'error');
+    if (r && r.ok) { _esmorzars = r.registres || []; _torns = r.torns || []; _esmCarregat = true; _esmUltimError = null; _esmBase = r.ts || ''; }
+    else _esmUltimError = _esmMissatgeError(r);
   } catch (e) {
-    _esmEstat('No s\'han pogut carregar els esmorzars: ' + e.message + '. Prova de recarregar la pàgina.', 'error');
+    _esmUltimError = 'No s\'han pogut carregar els esmorzars: ' +
+      senseElPuntFinal(typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') + '. Prova de recarregar la pàgina.';
   }
+  /* ⚠ El rètol viu DINS del formulari, i `renderCoordinacio()` el torna a
+     pintar sencer: posant-lo abans, s'esborrava en el mateix instant i la
+     mestra veia «Encara no hi ha cap esmorzar apuntat» sense cap error, amb
+     una temporada sencera al full (segona auditoria, 8/9/2026). Va DESPRÉS. */
   renderCoordinacio();
+  if (_esmUltimError) _esmEstat(_esmUltimError, 'error');
 }
 
 function _esmMissatgeError(r) {
   const base = (r && r.error) ? r.error : 'resposta buida';
   return r && r.needsGrupsSheet
-    ? 'No s\'ha pogut obrir el full compartit de l\'escola: ' + base + '. Mira-ho a Configuració.'
+    ? 'No s\'ha pogut obrir el full compartit de l\'escola: ' + senseElPuntFinal(base) + '. Mira-ho a Configuració.'
     : 'No s\'han pogut carregar els esmorzars: ' + base;
 }
 
 async function _esmDesa() {
   if (!config.scriptUrl) {
     _esmEstat('Encara no estàs connectat: ves a Configuració i enganxa la URL.', 'error');
+    return false;
+  }
+  /* ⚠ ESCRIVIA A SOBRE SENSE HAVER POGUT LLEGIR.
+
+     Trobat a la segona auditoria (8/9/2026), i era de les pitjors. Si la
+     lectura fallava, `_esmorzars` i `_torns` es quedaven buits i la pantalla
+     sortia dient «Encara no hi ha cap esmorzar apuntat» —sense cap error, 
+     perquè el rètol el trepitjava el render de l'instant següent. En tornar
+     la connexió, apuntar UN sol esmorzar escrivia el bloc sencer i deixava el
+     full compartit amb un registre i cap torn, on n'hi havia quatre i un.
+
+     Ara: si no s'ha arribat a llegir, no s'escriu. La feina de tot un curs no
+     es pot jugar a una lectura que no ha anat. */
+  if (!_esmCarregat) {
+    _esmUltimError = 'Encara no he pogut llegir els esmorzars que hi ha al full, ' +
+      'i no hi vull escriure a sobre sense saber què hi ha. Clica «Tornar-ho a provar» ' +
+      'o recarrega la pàgina.';
+    _esmEstat(_esmUltimError, 'error');
     return false;
   }
   _esmDesant = true;
@@ -97,16 +124,31 @@ async function _esmDesa() {
       registres: _esmorzars,
       torns: _torns,
       equip: coordEquip().map(d => ({ nom: d.nom, email: d.email || '' })),
+      base: _esmBase,
     });
+    if (r && r._desactualitzat) {
+      _esmDesant = false;
+      _esmUltimError = r.error;
+      _esmEstat(r.error, 'error');
+      return false;
+    }
     if (!r || !r.ok) throw new Error((r && r.error) || 'resposta buida');
+    if (r.ts) _esmBase = r.ts;
     _esmDesant = false;
     return true;
   } catch (e) {
     _esmDesant = false;
-    _esmEstat('No s\'ha pogut desar: ' + e.message + '. Torna-ho a provar.', 'error');
+    /* ⚠ El rètol viu DINS del formulari, i qui crida això el torna a pintar
+       tot seguit: el missatge sortia i s'esborrava en el mateix instant. La
+       mestra no veia res i, a sobre, se li buidava el que havia escrit
+       (auditoria 6/9/2026). Es recorda i es torna a posar després. */
+    _esmUltimError = 'No s\'ha pogut desar: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') + '. Torna-ho a provar.';
+    _esmEstat(_esmUltimError, 'error');
     return false;
   }
 }
+
+let _esmUltimError = null;
 
 function _esmEstat(text, tipus) {
   const el = document.getElementById('esmEstat');
@@ -210,10 +252,24 @@ function esmProperaData() {
   const avui = new Date(); avui.setHours(0, 0, 0, 0);
   const ultima = totes.length ? _esmData(totes[totes.length - 1]) : null;
   const d = new Date(avui);
-  if (!ultima) { d.setDate(d.getDate() + 7); return _esmISO(d); }
+  if (!ultima) { d.setDate(d.getDate() + 7); return _esmCapDeSetmanaNo(d); }
   let salt = (ultima.getDay() - d.getDay() + 7) % 7;
   if (salt === 0) salt = 7;          // la propera, no la d'avui
   d.setDate(d.getDate() + salt);
+  return _esmCapDeSetmanaNo(d);
+}
+
+/* ⚠ LA REUNIÓ QUE CAIA EN DIUMENGE.
+
+   Trobat a l'auditoria del 6/9/2026: si no hi havia cap esmorzar apuntat, la
+   proposta era «d'avui en set dies» a pèl. Fet un dissabte o un diumenge,
+   proposava una reunió de claustre en cap de setmana. Ara, si cau en dissabte
+   o diumenge, es passa al dilluns següent: cap escola no es reuneix en cap de
+   setmana, i la data la mestra la pot canviar igualment. */
+function _esmCapDeSetmanaNo(d) {
+  const dia = d.getDay();
+  if (dia === 6) d.setDate(d.getDate() + 2);       // dissabte → dilluns
+  else if (dia === 0) d.setDate(d.getDate() + 1);  // diumenge → dilluns
   return _esmISO(d);
 }
 
@@ -228,7 +284,7 @@ const _ESM_DIES = ['diumenge','dilluns','dimarts','dimecres','dijous','divendres
 const _ESM_MESOS = ['gener','febrer','març','abril','maig','juny','juliol','agost','setembre','octubre','novembre','desembre'];
 function _esmDataLlarga(iso) {
   const d = _esmData(iso);
-  return d ? (_ESM_DIES[d.getDay()] + ' ' + d.getDate() + ' de ' + _ESM_MESOS[d.getMonth()]) : (iso || '');
+  return d ? (_ESM_DIES[d.getDay()] + ' ' + d.getDate() + ' ' + (typeof dePreposicio === 'function' ? dePreposicio(_ESM_MESOS[d.getMonth()]) : 'de ' + _ESM_MESOS[d.getMonth()])) : (iso || '');
 }
 
 /* ---------- la targeta del torn ---------- */
@@ -261,6 +317,18 @@ function _esmTornEstat(text, tipus) {
 async function esmApuntaTorn() {
   if (!_esmProposta || !_esmProposta.qui) return;
   if (!_esmProposta.data) { _esmTornEstat('Posa el dia de la reunió.', 'error'); return; }
+  /* ⚠ EL MATEIX TORN APUNTAT DUES VEGADES.
+
+     Trobat a l'auditoria del 6/9/2026: es podia apuntar el mateix esmorzar
+     dues vegades i llavors aquella persona comptava el doble de reunions, o
+     sigui que el torn no li tornava a tocar quan pertocava. Ara, si ja hi és
+     el mateix dia i la mateixa persona, es diu i no s'apunta. */
+  const _jaHiEs = _torns.some(t => t.data === _esmProposta.data && t.qui === _esmProposta.qui);
+  if (_jaHiEs) {
+    _esmTornEstat('Aquest torn ja hi és: ' + _esmProposta.qui + ' el ' +
+                  _esmDataLlarga(_esmProposta.data) + '.', 'error');
+    return;
+  }
   const abans = _torns.slice();
   _torns.push({ id: _esmId('t'), data: _esmProposta.data, qui: _esmProposta.qui, avisat: '' });
   _esmProposta = null;
@@ -288,10 +356,24 @@ async function esmTreuTorn(id) {
 /* Enviar l'avís a mà. El de debò surt sol el dilluns, des de l'Apps Script;
    això és per si el volen avançar o comprovar que arriba. */
 async function esmEnviaAvis(id) {
+  if (typeof _unSolCop === 'function') return _unSolCop('esmEnviaAvis:' + id, () => _esmEnviaAvisFer(id));
+  return _esmEnviaAvisFer(id);
+}
+async function _esmEnviaAvisFer(id) {
   const t = _torns.find(x => x.id === id);
   if (!t) return;
   if (!config.scriptUrl) { _esmTornEstat('Encara no estàs connectat.', 'error'); return; }
-  if (!confirm('Enviar-li ara el correu de l\'esmorzar a ' + t.qui + '?')) return;
+  /* ⚠ EL CORREU QUE SORTIA CADA COP QUE ES CLICAVA.
+
+     Trobat a l'auditoria del 6/9/2026: el botó «Enviar-li l'avís ara» enviava
+     un correu cada vegada que es premia, encara que a sobre hi digués «Ja se
+     li ha enviat l'avís». Tres clics, tres correus a la mateixa persona. Ara
+     s'avisa que ja n'hi ha sortit un i s'ha de dir que sí a posta. */
+  if (t.avisat &&
+      !confirm('A ' + t.qui + ' ja se li ha enviat l\'avís de l\'esmorzar.\n\n' +
+               'Vols enviar-l\'hi UNA ALTRA VEGADA?')) return;
+  if (!t.avisat &&
+      !confirm('Enviar-li ara el correu de l\'esmorzar a ' + t.qui + '?')) return;
   _esmTornEstat('Enviant…');
   try {
     const r = await appsScriptPost({ action: 'enviaAvisEsmorzar', tornId: id });
@@ -300,7 +382,7 @@ async function esmEnviaAvis(id) {
     _esmRenderTorn();
     _esmTornEstat('Enviat a ' + (r.a || t.qui) + '.', 'ok');
   } catch (e) {
-    _esmTornEstat('No s\'ha pogut enviar: ' + e.message, 'error');
+    _esmTornEstat('No s\'ha pogut enviar: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
   }
 }
 
@@ -326,8 +408,8 @@ function _esmRenderTorn() {
           ${avis}
         </div>
         <div class="esm-torn-botons">
-          ${correu ? `<button type="button" class="esm-torn-btn" onclick="esmEnviaAvis('${pendent.id}')">Enviar-li l'avís ara</button>` : ''}
-          <button type="button" class="esm-torn-btn" onclick="esmTreuTorn('${pendent.id}')">Treure el torn</button>
+          ${correu ? `<button type="button" class="esm-torn-btn" onclick="esmEnviaAvis('${_idJs(pendent.id)}')">Enviar-li l'avís ara</button>` : ''}
+          <button type="button" class="esm-torn-btn" onclick="esmTreuTorn('${_idJs(pendent.id)}')">Treure el torn</button>
         </div>
       </div>
       <p class="esm-estat" id="esmTornEstat" role="status" aria-live="polite"></p>`;
@@ -499,10 +581,25 @@ function esmTriaPortat(val) {
 }
 
 async function esmApunta() {
+  if (typeof _unSolCop === 'function') return _unSolCop('esmApunta', _esmApuntaFer);
+  return _esmApuntaFer();
+}
+async function _esmApuntaFer() {
   if (!_esmForm.qui)              { _esmEstat('Primer tria de qui parlem.', 'error'); return; }
   if (_esmForm.portat === null)   { _esmEstat('Digues si l\'ha portat o no.', 'error'); return; }
   if (_esmForm.portat && !_esmForm.nota) { _esmEstat('Posa-li una nota, de l\'1 al 10.', 'error'); return; }
   if (_esmDesant) return;
+
+  /* ⚠ El mateix esmorzar, dues vegades. Trobat a l'auditoria del 6/9/2026:
+     apuntant dos cops la mateixa persona el mateix dia, els comptadors i
+     els gomets sortien doblats i el palmarès quedava fals. */
+  const _dia = _esmForm.data || _esmAvui();
+  const _jaHiEs = _esmorzars.some(r => r.qui === _esmForm.qui && String(r.data) === String(_dia));
+  if (_jaHiEs) {
+    _esmEstat('L\'esmorzar de ' + _esmForm.qui + ' d\'aquell dia ja està apuntat. ' +
+              'Si t\'has equivocat, treu-lo del llistat i torna-l\'hi a posar.', 'error');
+    return;
+  }
 
   const que = document.getElementById('esmQue');
   const registre = {
@@ -530,8 +627,12 @@ async function esmApunta() {
     _esmorzars = abans;
     _torns = tornsAbans;
     renderCoordinacio();
+    /* El repintat s emporta el rètol: es torna a posar. I NO es buida el
+       formulari, que si no li faria tornar a escriure-ho tot. */
+    if (_esmUltimError) _esmEstat(_esmUltimError, 'error');
     return;
   }
+  _esmUltimError = null;
 
   const gomets = esmResum(registre.qui).gomets;
   _esmForm = { qui: '', data: _esmAvui(), portat: null, nota: null };
@@ -625,7 +726,7 @@ function _esmRenderHistorial() {
           ? (r.que ? escapeHtml(r.que) : 'el va portar')
           : 'no el va portar'}</span>
         <span class="esm-hist-nota">${r.portat && typeof r.nota === 'number' ? r.nota + '/10' : '—'}</span>
-        <button type="button" class="esm-hist-treu" onclick="esmTreu('${r.id}')" title="Treure aquest apunt" aria-label="Treure l'apunt de ${escapeHtml(r.qui)}">×</button>
+        <button type="button" class="esm-hist-treu" onclick="esmTreu('${_idJs(r.id)}')" title="Treure aquest apunt" aria-label="Treure l'apunt de ${escapeHtml(r.qui)}">×</button>
       </li>`).join('')}
     </ul>`;
 }

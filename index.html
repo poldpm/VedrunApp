@@ -20,9 +20,13 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v215">
+  <link rel="stylesheet" href="css/main.css?v=v219">
 </head>
 <body>
+  <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
+       contingut. Sense això calia passar 24 elements a cada pantalla
+       (auditoria 6/9/2026). -->
+  <a href="#contingut" class="salta-al-contingut">Salta al contingut</a>
 
   <!-- Botó menú (només mòbil) -->
   <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleSidebar()" aria-label="Obrir menú">
@@ -108,7 +112,7 @@
         <!-- Es genera dinàmicament del perfil (perfilRenderNavAssigs) -->
       </div>
 
-      <div class="nav-section-label nav-section-toggle collapsed" style="margin-top:10px;" onclick="toggleNavSection('eines')" id="einesToggle">
+      <div class="nav-section-label nav-section-toggle collapsed" style="margin-top:10px;" onclick="toggleNavSection('eines')" id="einesToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="einesItems">
         <span>Eines</span>
         <svg class="nav-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
@@ -162,7 +166,7 @@
   </nav>
 
   <!-- MAIN -->
-  <div class="main">
+  <div class="main" id="contingut" role="main" tabindex="-1">
 
 
     <!-- PÀGINA: INICI -->
@@ -312,7 +316,7 @@
             <div class="modal-header-title">Coses del document que no he sabut col·locar</div>
             <div class="modal-header-sub" id="dubtesSub">—</div>
           </div>
-          <button class="modal-close" onclick="tancaDubtes()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="tancaDubtes()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="modal-body">
           <p class="modal-hint" style="margin:0 0 14px">
@@ -333,12 +337,15 @@
       <div class="modal" style="max-width:420px">
         <div class="modal-header">
           <div class="modal-header-title" id="horariCellTitle">Casella</div>
-          <button class="modal-close" onclick="closeHorariCell()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeHorariCell()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="modal-body">
           <div class="modal-field">
             <div class="modal-label">Matèria</div>
-            <input class="modal-input" id="horariCellAssig" list="horariAssigList" placeholder="Ex: Matemàtiques" autocomplete="off">
+            <!-- Enter desa: és un camp sol amb un botó Desar, i prémer Enter
+                 aquí no feia res (segona auditoria, 8/9/2026). Amb 35 caselles
+                 per omplir, haver d'agafar el ratolí a cada una és molta feina. -->
+            <input class="modal-input" id="horariCellAssig" list="horariAssigList" placeholder="Ex: Matemàtiques" autocomplete="off" maxlength="40" aria-label="Matèria" onkeydown="if(event.key==='Enter'){event.preventDefault();desarHorariCell();}">
             <datalist id="horariAssigList"></datalist>
             <div class="modal-hint">Escriu-la o tria'n una de ja existents.</div>
           </div>
@@ -363,7 +370,7 @@
             <div class="modal-header-title">Importar horari</div>
             <div class="modal-header-sub">Enganxa'l i l'app l'omple sol</div>
           </div>
-          <button class="modal-close" onclick="closeImportHorari()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeImportHorari()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="modal-body">
           <div class="modal-field">
@@ -373,7 +380,7 @@
 Exemple:
 Matemàtiques, Català, Medi, Anglès, Matemàtiques
 Català, Matemàtiques, Anglès, Medi, Català
-..."></textarea>
+..." aria-label="Enganxa aquí l horari"></textarea>
             <div class="modal-hint">Pots copiar-lo directament d'un full de càlcul (les columnes s'enganxen amb tabuladors). Cada fila = una franja; cada columna = un dia (dilluns→divendres). No hi posis la fila del pati: la zona de vigilància s'anota després clicant les caselles de pati.</div>
           </div>
           <div id="importHorariPreview" class="import-preview"></div>
@@ -394,7 +401,7 @@ Català, Matemàtiques, Anglès, Medi, Català
             <div class="modal-header-title">Possibles actualitzacions</div>
             <div class="modal-header-sub">Coses que ja funcionen a l'app d'algú altre</div>
           </div>
-          <button class="modal-close" onclick="tancaMillores()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="tancaMillores()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="modal-body">
           <p class="modal-hint" style="margin:0 0 14px">
@@ -417,7 +424,7 @@ Català, Matemàtiques, Anglès, Medi, Català
             <div class="modal-header-title">Demanar-la</div>
             <div class="modal-header-sub" id="milloraConfirmaQue">—</div>
           </div>
-          <button class="modal-close" onclick="tancaMilloraConfirma()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="tancaMilloraConfirma()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="modal-body">
           <div class="modal-field">
@@ -441,7 +448,7 @@ Català, Matemàtiques, Anglès, Medi, Català
             <div class="modal-header-title">L'horari, des del PDF de l'escola</div>
             <div class="modal-header-sub">Adjunta'l i s'omple sol</div>
           </div>
-          <button class="modal-close" onclick="tancaPdfHorari()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="tancaPdfHorari()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="modal-body">
           <div class="modal-field" id="pdfHorariTria">
@@ -469,7 +476,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="tasques-topbar">
             <div class="tasques-filters" id="tasquesFilters">
               <button class="tq-filter active" data-cat="all" onclick="filterTasques('all',this)">Totes</button>
-              <button class="tq-filter" data-cat="tutoria" onclick="filterTasques('tutoria',this)">Tutoria</button>
+              <button class="tq-filter" data-cat="tutoria" data-rol-tutoria onclick="filterTasques('tutoria',this)">Tutoria</button>
               <button class="tq-filter" data-cat="comunicacio" onclick="filterTasques('comunicacio',this)">Comunicació</button>
               <button class="tq-filter" data-cat="altres" onclick="filterTasques('altres',this)">Altres</button>
               <button class="tq-filter tq-filter-fetes" data-cat="fetes" onclick="filterTasques('fetes',this)">✓ Fetes</button>
@@ -483,7 +490,7 @@ Català, Matemàtiques, Anglès, Medi, Català
 
         <!-- Google Tasks ocultes (es carreguen i integren a la llista principal) -->
         <div id="gtasquesList" style="display:none"></div>
-        <button id="gtasquesRefreshBtn" style="display:none" onclick="loadGoogleTasks()"></button>
+        <button id="gtasquesRefreshBtn" style="display:none" onclick="loadGoogleTasks(true)"></button>
       </div>
     </div>
 
@@ -492,24 +499,24 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="modal" style="max-width:460px">
         <div class="modal-header">
           <div><div class="modal-header-title" id="tascaModalTitle">Nova tasca</div></div>
-          <button class="modal-close" onclick="closeTasca()">
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeTasca()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="modal-field">
             <div class="modal-label">Títol *</div>
-            <input class="modal-input" id="tascaTitol" type="text" placeholder="Ex: Enviar circular als pares">
+            <input class="modal-input" id="tascaTitol" type="text" placeholder="Ex: Enviar circular als pares" aria-label="Títol" maxlength="120">
           </div>
           <div class="modal-field">
             <div class="modal-label">Descripció (opcional)</div>
-            <textarea class="modal-textarea" id="tascaDesc" rows="3" placeholder="Detalls, context, notes…"></textarea>
+            <textarea class="modal-textarea" id="tascaDesc" rows="3" placeholder="Detalls, context, notes…" aria-label="Descripció (opcional)" maxlength="2000"></textarea>
           </div>
           <div class="modal-field">
             <div class="modal-label">Categoria</div>
             <div class="tq-cat-btns">
-              <label class="tq-cat-opt">
-                <input type="radio" name="tascaCat" value="tutoria" checked> Tutoria
+              <label class="tq-cat-opt" data-rol-tutoria>
+                <input type="radio" name="tascaCat" value="tutoria" checked aria-label="Categoria"> Tutoria
               </label>
               <label class="tq-cat-opt">
                 <input type="radio" name="tascaCat" value="comunicacio"> Comunicació
@@ -521,7 +528,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           </div>
           <div class="modal-field">
             <div class="modal-label">Data límit (opcional)</div>
-            <input class="modal-input" id="tascaData" type="date">
+            <input class="modal-input" id="tascaData" type="date" aria-label="Data límit (opcional)">
           </div>
         </div>
         <div class="modal-footer">
@@ -608,6 +615,9 @@ Català, Matemàtiques, Anglès, Medi, Català
         <!-- Alumnes pendents d'asseure -->
         <div class="seients-pool">
           <div class="seients-pool-title">Alumnes sense lloc <span id="seientsPoolCount"></span></div>
+          <!-- Amb el dit no es pot arrossegar: es toca el nen i despres el lloc.
+               Aquest rètol diu a qui s'ha triat i com desfer-ho. -->
+          <div class="seients-tria-hint" id="seientsTriaHint" role="status" aria-live="polite" style="display:none"></div>
           <div class="seients-pool-list" id="seientsPool"></div>
         </div>
       </div>
@@ -627,8 +637,8 @@ Català, Matemàtiques, Anglès, Medi, Català
         <!-- Nom -->
         <div class="perfil-card">
           <div class="perfil-card-title">Nom del mestre</div>
-          <input class="modal-input" id="perfilNom" placeholder="El teu nom" oninput="_perfilUpdateAvatar()" style="margin-bottom:8px" required aria-required="true">
-          <input class="modal-input" id="perfilCognom" placeholder="El teu cognom" oninput="_perfilUpdateAvatar()" required aria-required="true">
+          <input class="modal-input" id="perfilNom" placeholder="El teu nom" oninput="_perfilUpdateAvatar()" style="margin-bottom:8px" required aria-required="true" aria-label="Nom del mestre" maxlength="40">
+          <input class="modal-input" id="perfilCognom" placeholder="El teu cognom" oninput="_perfilUpdateAvatar()" required aria-required="true" aria-label="Nom del mestre" maxlength="60">
           <div class="modal-hint" style="margin-top:6px">Tots dos, si us plau: hi ha mestres que es diuen igual de nom.</div>
         </div>
 
@@ -713,9 +723,20 @@ Català, Matemàtiques, Anglès, Medi, Català
           </div>
           <div class="coment-control-field">
             <label class="modal-label">Alumne</label>
-            <select class="modal-input" id="comentAlumneSelect" onchange="onComentAlumneChange()">
+            <select class="modal-input" id="comentAlumneSelect" onchange="onComentAlumneChange()" aria-label="Alumne per a qui vols el comentari">
               <option value="">— Selecciona un alumne —</option>
             </select>
+          </div>
+          <!-- De quin trimestre és el comentari. Abans no es demanava enlloc,
+               i el text deia igualment «en aquest trimestre» amb la nota
+               mitjana dels tres barrejada (auditoria 6/9/2026). -->
+          <div class="coment-control-field">
+            <label class="modal-label">Trimestre</label>
+            <div class="trim-sel-row" id="comentTrimSelector">
+              <button class="trim-sel-btn" data-trim="1" onclick="selectComentTrim(1,this)">1r</button>
+              <button class="trim-sel-btn" data-trim="2" onclick="selectComentTrim(2,this)">2n</button>
+              <button class="trim-sel-btn" data-trim="3" onclick="selectComentTrim(3,this)">3r</button>
+            </div>
           </div>
         </div>
 
@@ -750,7 +771,7 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="modal coment-result-modal">
         <div class="modal-header">
           <h2 class="modal-title" id="comentResultTitle">Comentari generat</h2>
-          <button class="modal-close" onclick="closeComentResult()">×</button>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeComentResult()">×</button>
         </div>
         <div class="modal-body">
           <div class="coment-text-box" id="comentTextBox" contenteditable="true"></div>
@@ -758,7 +779,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" onclick="closeComentResult()">Tancar</button>
-          <button class="btn btn-ghost" onclick="generarComentari()">
+          <button class="btn btn-ghost" onclick="regenerarComentari()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
             Regenerar
           </button>
@@ -781,7 +802,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="grups-config-card" style="margin-bottom:14px">
             <div class="modal-field">
               <div class="modal-label">Assignatura</div>
-              <select class="modal-input" id="grupsAssigSelector" onchange="grupsCanviaAssig()"></select>
+              <select class="modal-input" id="grupsAssigSelector" onchange="grupsCanviaAssig()" aria-label="Assignatura"></select>
               <div class="modal-hint" id="grupsAssigHint"></div>
               <div id="grupsDesdobBar" class="desdob-bar-wrap"></div>
             </div>
@@ -861,13 +882,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           </div>
           <div class="assim-sel-group">
             <label class="assim-sel-label">Assignatura</label>
-            <div class="trim-sel-row" id="assimMateriaSelector">
-              <button class="trim-sel-btn active" data-mat="matematiques" onclick="selectAssimMateria('matematiques',this)">Mates</button>
-              <button class="trim-sel-btn" data-mat="catala" onclick="selectAssimMateria('catala',this)">Català</button>
-              <button class="trim-sel-btn" data-mat="medi" onclick="selectAssimMateria('medi',this)">Medi</button>
-              <button class="trim-sel-btn" data-mat="musica" onclick="selectAssimMateria('musica',this)">Música</button>
-              <button class="trim-sel-btn" data-mat="angles" onclick="selectAssimMateria('angles',this)">Anglès</button>
-            </div>
+            <div class="trim-sel-row" id="assimMateriaSelector"></div>
             <div id="assimDesdobBar" class="desdob-bar-wrap"></div>
           </div>
         </div>
@@ -907,6 +922,8 @@ Català, Matemàtiques, Anglès, Medi, Català
             Nou post-it
           </button>
         </div>
+        <!-- Amb el dit no es pot arrossegar: es toca la nota i despres on la vols. -->
+        <div class="seients-tria-hint" id="postitTriaHint" role="status" aria-live="polite" style="display:none"></div>
         <div class="postits-board" id="postitsBoard"></div>
       </div>
     </div>
@@ -916,23 +933,23 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="modal" style="max-width:460px">
         <div class="modal-header">
           <div class="modal-header-title" id="postitModalTitol">Nou post-it</div>
-          <button class="modal-close" onclick="closePostitModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closePostitModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="modal-body">
           <div class="modal-field">
             <div class="modal-label">Títol (opcional)</div>
-            <input class="modal-input" id="postitTitol" type="text" placeholder="Ex: Trucar a la mare de la Júlia" maxlength="80">
+            <input class="modal-input" id="postitTitol" type="text" placeholder="Ex: Trucar a la mare de la Júlia" maxlength="80" aria-label="Títol (opcional)">
           </div>
           <div class="modal-field">
             <div class="modal-label">Nota</div>
-            <textarea class="modal-textarea" id="postitText" rows="5" placeholder="Escriu la teva idea o recordatori…"></textarea>
+            <textarea class="modal-textarea" id="postitText" rows="5" placeholder="Escriu la teva idea o recordatori…" aria-label="Nota"></textarea>
           </div>
           <div class="modal-field">
             <div class="modal-label">Llista (opcional)</div>
             <div id="postitItemsEdit" class="pt-items-edit"></div>
             <input class="modal-input" id="postitItemNou" type="text" maxlength="120"
                    placeholder="Escriu una cosa i prem Enter"
-                   onkeydown="if(event.key==='Enter'){event.preventDefault();_postitAfegeixItem();}">
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();_postitAfegeixItem();}" aria-label="Nova línia de la llista">
             <div class="modal-hint">Per a coses a fer, idees… Cada línia es podrà marcar des del taulell, sense obrir la nota.</div>
           </div>
           <div class="modal-field">
@@ -941,7 +958,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           </div>
           <div class="modal-field">
             <div class="modal-label">Recordatori (opcional)</div>
-            <input class="modal-input" id="postitData" type="date">
+            <input class="modal-input" id="postitData" type="date" aria-label="Recordatori (opcional)">
             <div class="modal-hint">Si hi poses una data, t'avisarà aquell dia.</div>
           </div>
           <div class="modal-field">
@@ -963,19 +980,19 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="modal" style="max-width:520px">
         <div class="modal-header">
           <div><div class="modal-header-title" id="assimObjTitle">Nou objectiu</div><div class="modal-header-sub" id="assimObjSub"></div></div>
-          <button class="modal-close" onclick="closeAssimObj()">
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeAssimObj()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="modal-field">
             <div class="modal-label">Nom curt <span style="color:var(--text-muted);font-weight:400">(paraules en negreta que apareixeran a la capçalera)</span></div>
-            <input class="modal-input" id="assimObjNom" type="text" placeholder="Ex: Monedes i bitllets">
+            <input class="modal-input" id="assimObjNom" type="text" placeholder="Ex: Monedes i bitllets" aria-label="Ex: Monedes i bitllets">
           </div>
           <div class="modal-field">
             <div class="modal-label">Descripció completa <span style="color:var(--text-muted);font-weight:400">(opcional, visible al botó ⓘ)</span></div>
             <textarea class="modal-textarea" id="assimObjText" rows="3"
-              placeholder="Ex: Reconèixer i utilitzar adequadament les monedes i bitllets d'euros per comptar diners i escollir la quantitat correcta en situacions senzilles de compra."></textarea>
+              placeholder="Ex: Reconèixer i utilitzar adequadament les monedes i bitllets d'euros per comptar diners i escollir la quantitat correcta en situacions senzilles de compra." aria-label="Text de l objectiu"></textarea>
           </div>
         </div>
         <div class="modal-footer">
@@ -1021,7 +1038,7 @@ Català, Matemàtiques, Anglès, Medi, Català
             <div class="modal-header-title" id="planCellTitle">Editar cel·la</div>
             <div class="modal-header-sub" id="planCellSub"></div>
           </div>
-          <button class="modal-close" onclick="closePlanCell()">
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closePlanCell()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -1046,19 +1063,19 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div id="planNormalFields">
             <div class="modal-field">
               <div class="modal-label">Assignatura / Activitat</div>
-              <input class="modal-input" id="planCellAssig" type="text" placeholder="Ex: Matemàtiques">
+              <input class="modal-input" id="planCellAssig" type="text" placeholder="Ex: Matemàtiques" aria-label="Assignatura / Activitat">
             </div>
             <div class="modal-field">
               <div class="modal-label">Subtext (descripció breu)</div>
-              <input class="modal-input" id="planCellSub2" type="text" placeholder="Ex: Prova unitat 3">
+              <input class="modal-input" id="planCellSub2" type="text" placeholder="Ex: Prova unitat 3" aria-label="Subtext (descripció breu)">
             </div>
             <div class="modal-field">
               <div class="modal-label">⚠ Alerta (opcional)</div>
-              <input class="modal-input" id="planCellAlerta" type="text" placeholder="Ex: TEATRE ATLÀNTIDA 10h">
+              <input class="modal-input" id="planCellAlerta" type="text" placeholder="Ex: TEATRE ATLÀNTIDA 10h" aria-label="⚠ Alerta (opcional)">
             </div>
             <div class="modal-field">
               <div class="modal-label">🔗 Enllaç (opcional)</div>
-              <input class="modal-input" id="planCellLink" type="url" placeholder="https://drive.google.com/…">
+              <input class="modal-input" id="planCellLink" type="url" placeholder="https://drive.google.com/…" aria-label="🔗 Enllaç (opcional)">
               <div class="modal-hint">URL a programació o document</div>
             </div>
           </div>
@@ -1067,11 +1084,11 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div id="planSpecialFields" style="display:none">
             <div class="modal-field">
               <div class="modal-label">Nom de l'event</div>
-              <input class="modal-input" id="planCellEvent" type="text" placeholder="Ex: COLÒNIES, FESTA MAJOR…">
+              <input class="modal-input" id="planCellEvent" type="text" placeholder="Ex: COLÒNIES, FESTA MAJOR…" aria-label="Nom de l'event">
             </div>
             <div class="modal-field">
               <div class="modal-label">Nota addicional (opcional)</div>
-              <input class="modal-input" id="planCellEventSub" type="text" placeholder="Ex: Tornada dijous al vespre">
+              <input class="modal-input" id="planCellEventSub" type="text" placeholder="Ex: Tornada dijous al vespre" aria-label="Nota addicional (opcional)">
             </div>
 
             <!-- Selector de durada -->
@@ -1079,7 +1096,7 @@ Català, Matemàtiques, Anglès, Medi, Català
               <div class="modal-label">Durada de l'activitat</div>
               <div class="plan-durada-opts">
                 <label class="plan-durada-opt">
-                  <input type="radio" name="planCellDurada" value="1" checked onchange="updatePlanDurada(this.value)">
+                  <input type="radio" name="planCellDurada" value="1" checked onchange="updatePlanDurada(this.value)" aria-label="Durada de l'activitat">
                   <span>Només aquesta franja</span>
                 </label>
                 <label class="plan-durada-opt">
@@ -1110,7 +1127,7 @@ Català, Matemàtiques, Anglès, Medi, Català
               <span style="font-weight:400;color:var(--text-muted)"> — com ha anat? coses a millorar...</span>
             </div>
             <textarea class="modal-textarea" id="planCellComent" rows="3"
-              placeholder="Ex: Bona participació en general. Cal reforçar la resolució de problemes amb en Joan i la Maria. La propera vegada provar treball en grups petits."></textarea>
+              placeholder="Ex: Bona participació en general. Cal reforçar la resolució de problemes amb en Joan i la Maria. La propera vegada provar treball en grups petits." aria-label="Comentari d aquesta sessió"></textarea>
           </div>
         </div>
         <div class="modal-footer">
@@ -1126,14 +1143,14 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="modal" style="max-width:500px">
         <div class="modal-header">
           <div><div class="modal-header-title">Notes de la setmana</div><div class="modal-header-sub">Coses importants, recordatoris, aniversaris…</div></div>
-          <button class="modal-close" onclick="closePlanNoteWeek()">
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closePlanNoteWeek()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="modal-field">
             <div class="modal-label">Notes (una per línia)</div>
-            <textarea class="modal-textarea" id="planNoteText" rows="6" placeholder="Ex: Claustre dijous a les 18h&#10;Enviar la circular de Nadal&#10;Portar el material de plàstica"></textarea>
+            <textarea class="modal-textarea" id="planNoteText" rows="6" placeholder="Ex: Claustre dijous a les 18h&#10;Enviar la circular de Nadal&#10;Portar el material de plàstica" aria-label="Notes (una per línia)"></textarea>
           </div>
         </div>
         <div class="modal-footer">
@@ -1201,7 +1218,7 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="modal" style="max-width:480px">
         <div class="modal-header">
           <div><div class="modal-header-title" id="cal2EventModalTitle">Nou event</div></div>
-          <button class="modal-close" onclick="closeCal2Event()">
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeCal2Event()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -1209,35 +1226,40 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="modal-row">
             <div class="modal-field">
               <div class="modal-label">Títol</div>
-              <input class="modal-input" id="cal2EvTitol" type="text" placeholder="Ex: Prova català">
+              <input class="modal-input" id="cal2EvTitol" type="text" placeholder="Ex: Prova català" aria-label="Títol" maxlength="120">
             </div>
-            <div class="modal-field" style="max-width:120px">
+            <div class="modal-field" style="max-width:150px">
               <div class="modal-label">Data</div>
-              <input class="modal-input" id="cal2EvData" type="date">
+              <input class="modal-input" id="cal2EvData" type="date" aria-label="Data">
+            </div>
+            <div class="modal-field" style="max-width:150px">
+              <div class="modal-label">Fins al dia (opcional)</div>
+              <input class="modal-input" id="cal2EvDataFi" type="date" aria-label="Fins al dia (opcional)">
+              <div class="modal-hint">Per a les colònies i les sortides de més d'un dia.</div>
             </div>
           </div>
           <div class="modal-row">
             <div class="modal-field">
               <div class="modal-label">Hora (opcional)</div>
-              <input class="modal-input" id="cal2EvHora" type="text" placeholder="Ex: 08:50h">
+              <input class="modal-input" id="cal2EvHora" type="text" placeholder="Ex: 08:50h" aria-label="Hora (opcional)">
             </div>
             <div class="modal-field">
               <div class="modal-label">Fins a (opcional)</div>
-              <input class="modal-input" id="cal2EvHoraFi" type="text" placeholder="Ex: 10:40h">
+              <input class="modal-input" id="cal2EvHoraFi" type="text" placeholder="Ex: 10:40h" aria-label="Fins a (opcional)">
               <div class="modal-hint">Si ho deixes buit, al Google Calendar hi durara 1 hora.</div>
             </div>
             <div class="modal-field">
               <div class="modal-label">Categoria</div>
-              <select class="modal-input" id="cal2EvGrup"></select>
+              <select class="modal-input" id="cal2EvGrup" aria-label="Categoria"></select>
             </div>
           </div>
           <div class="modal-field">
             <div class="modal-label">Descripció</div>
-            <textarea class="modal-textarea" id="cal2EvDesc" rows="3" placeholder="Ex: Unitat 4 i 5 · sala d'actes"></textarea>
+            <textarea class="modal-textarea" id="cal2EvDesc" rows="3" placeholder="Ex: Unitat 4 i 5 · sala d'actes" aria-label="Descripció"></textarea>
           </div>
           <div class="modal-field">
             <div class="modal-label">Enllaç (opcional)</div>
-            <input class="modal-input" id="cal2EvLink" type="url" placeholder="https://drive.google.com/…">
+            <input class="modal-input" id="cal2EvLink" type="url" placeholder="https://drive.google.com/…" aria-label="Enllaç (opcional)">
           </div>
         </div>
         <div class="modal-footer">
@@ -1253,18 +1275,18 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="modal" style="max-width:460px">
         <div class="modal-header">
           <div><div class="modal-header-title">Per agendar</div><div class="modal-header-sub">Propostes i coses pendents de data</div></div>
-          <button class="modal-close" onclick="closeCal2Agendar()">
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeCal2Agendar()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="modal-field">
             <div class="modal-label">Activitat / proposta</div>
-            <input class="modal-input" id="cal2AgTitol" type="text" placeholder="Ex: Intaboo">
+            <input class="modal-input" id="cal2AgTitol" type="text" placeholder="Ex: Intaboo" aria-label="Activitat / proposta">
           </div>
           <div class="modal-field">
             <div class="modal-label">Descripció / proposta de data</div>
-            <textarea class="modal-textarea" id="cal2AgDesc" rows="3" placeholder="Ex: Petició feta, a l'espera de resposta → Proposta: dimarts 10, 17 o 24 de març"></textarea>
+            <textarea class="modal-textarea" id="cal2AgDesc" rows="3" placeholder="Ex: Petició feta, a l'espera de resposta → Proposta: dimarts 10, 17 o 24 de març" aria-label="Descripció / proposta de data"></textarea>
           </div>
         </div>
         <div class="modal-footer">
@@ -1293,15 +1315,15 @@ Català, Matemàtiques, Anglès, Medi, Català
       <!-- Els documents oficials de l'escola. La fitxa de l'alumne només els
            MOSTRA: qui vulgui canviar res, ho fa aquí, que és on manen. -->
       <div class="alumnes-toolbar">
-        <a class="btn btn-ghost" id="docAspectes" href="https://docs.google.com/spreadsheets/d/1RLp-fgU3bz1CZGz4SuHtN6uUDy1tbvapE5TWaWpXf34/edit" target="_blank" rel="noopener">
+        <a class="btn btn-ghost" id="docAspectes" href="https://docs.google.com/spreadsheets/d/1muxIeGoux6wG4gMZ7Xus58ULG-99Wsb0H3yONzCHKUo/edit" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Aspectes generals grup
         </a>
-        <a class="btn btn-ghost" href="https://docs.google.com/spreadsheets/d/1VWsFT7cKdzBkm9ln6bcJ1u3KsFia2SERbrFxmjFu-j0/edit" target="_blank" rel="noopener">
+        <a class="btn btn-ghost" id="docDesdoblaments" href="https://docs.google.com/spreadsheets/d/1VWsFT7cKdzBkm9ln6bcJ1u3KsFia2SERbrFxmjFu-j0/edit" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
           Desdoblaments grups
         </a>
-        <a class="btn btn-ghost" href="https://docs.google.com/spreadsheets/d/1chIqnyNYJ9kIsO_q0LedlHGdCEAeYRHweDAHzgtV6iA/edit" target="_blank" rel="noopener">
+        <a class="btn btn-ghost" id="docLlistat" href="https://docs.google.com/spreadsheets/d/17iWVwC7tHJqAjd-khBRZ1B7WwLKCeuxhKsOh_I0_rtQ/edit" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
           Llistat d'alumnes per grup
         </a>
@@ -1313,6 +1335,15 @@ Català, Matemàtiques, Anglès, Medi, Català
       <!-- Quants n'hi ha, i de quin gènere. Va sota els botons dels documents
            perquè és el resum de la llista que ve a sota. -->
       <p class="alumnes-compte" id="alumnesCompte"></p>
+      <!-- Cercar un alumne per nom. Amb 25 nens i el nom escrit sense
+           accents també l'ha de trobar: qui té pressa no els posa. -->
+      <!-- És un <label>: així tocar la lupa o el buit del costat també posa
+           el cursor al camp (segona auditoria, 8/9/2026). -->
+      <label class="search-box alumnes-cerca" for="alumnesCerca" id="alumnesCercaBox" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="search" id="alumnesCerca" placeholder="Cerca un alumne…" autocomplete="off"
+               maxlength="60" oninput="renderAlumnesList()" aria-label="Cerca un alumne pel nom">
+      </label>
       <!-- El que el lector no ha entès del document. Ho valida el TUTOR del
            grup, que és qui coneix aquells nens. -->
       <div class="dubtes-avis" id="dubtesAvis" style="display:none" role="status">
@@ -1466,11 +1497,11 @@ Català, Matemàtiques, Anglès, Medi, Català
           Alumnes
         </button>
         <div class="fitxa-nav">
-          <button class="btn btn-ghost fitxa-nav-btn" onclick="navFitxa(-1)" id="fitxaPrevBtn" title="Alumne anterior">
+          <button class="btn btn-ghost fitxa-nav-btn" onclick="navFitxa(-1)" id="fitxaPrevBtn" aria-label="Alumne anterior" title="Alumne anterior">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
           <span class="fitxa-nav-pos" id="fitxaNavPos"></span>
-          <button class="btn btn-ghost fitxa-nav-btn" onclick="navFitxa(1)" id="fitxaNextBtn" title="Alumne següent">
+          <button class="btn btn-ghost fitxa-nav-btn" onclick="navFitxa(1)" id="fitxaNextBtn" aria-label="Alumne següent" title="Alumne següent">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </div>
@@ -1482,6 +1513,9 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="fitxa-avatar" id="fitxaAvatar">PP</div>
           <div>
             <h2 class="fitxa-nom" id="fitxaNom">—</h2>
+            <!-- De quin grup és. Només a qui entra a més d'un grup: una
+                 especialista o la direcció. -->
+            <p class="fitxa-meta" id="fitxaGrupSub" style="display:none"></p>
             <p class="fitxa-meta" id="fitxaMeta">Primària</p>
           </div>
         </div>
@@ -1720,12 +1754,12 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="panel-header-title">Gestionar alumnes</div>
           <div class="panel-header-meta" id="panelCount">—</div>
         </div>
-        <button class="panel-close" onclick="closePanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="panel-close" aria-label="Tancar" title="Tancar" onclick="closePanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="panel-toolbar">
         <div class="search-box">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" id="searchInput" placeholder="Cerca alumne…" oninput="filterStudents()">
+          <input type="text" id="searchInput" placeholder="Cerca alumne…" oninput="filterStudents()" aria-label="Cerca alumne…">
         </div>
         <button class="btn btn-primary" onclick="toggleAddForm()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
@@ -1735,7 +1769,7 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="add-form" id="addForm">
         <div class="form-field">
           <label class="form-label">Nom i cognoms</label>
-          <input class="form-input" id="newStudentName" type="text" placeholder="Ex: Aina Serra Puig">
+          <input class="form-input" id="newStudentName" type="text" placeholder="Ex: Aina Serra Puig" aria-label="Ex: Aina Serra Puig" maxlength="80">
         </div>
         <div class="form-field">
           <label class="form-label">Gènere</label>
@@ -1778,7 +1812,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="panel-header-title" id="personalDrawerName">—</div>
           <div class="panel-header-meta">Dades de contacte i informació personal</div>
         </div>
-        <button class="panel-close" onclick="closePersonalDrawer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="panel-close" aria-label="Tancar" title="Tancar" onclick="closePersonalDrawer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="panel-body" style="padding:24px;">
         <p class="nota-mirar">
@@ -1804,7 +1838,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="personal-field"><label class="form-label" for="pCorreu2">Correu del tutor/a 2</label><input class="form-input form-input-nomes-mirar" id="pCorreu2" type="email" placeholder="—" readonly style="width:100%"></div>
         <div class="personal-field"><label class="form-label" for="pTelefons">Telèfons</label><input class="form-input form-input-nomes-mirar" id="pTelefons" type="text" placeholder="—" readonly style="width:100%"></div>
         <div class="personal-section-label" style="margin-top:24px;">Observacions mèdiques</div>
-        <div class="personal-field"><label class="form-label">Informació mèdica rellevant</label><textarea class="modal-textarea form-input-nomes-mirar" readonly id="pObs" placeholder="Ex: Intol·lerància a la lactosa, al·lèrgies…" rows="3" style="width:100%"></textarea></div>
+        <div class="personal-field"><label class="form-label">Informació mèdica rellevant</label><textarea class="modal-textarea form-input-nomes-mirar" readonly id="pObs" placeholder="Ex: Intol·lerància a la lactosa, al·lèrgies…" rows="3" style="width:100%" aria-label="Ex: Intol·lerància a la lactosa, al·lèrgies…"></textarea></div>
 
         <div class="personal-section-label" style="margin-top:24px;">Atenció a la diversitat</div>
         <div class="personal-field">
@@ -1834,14 +1868,14 @@ Català, Matemàtiques, Anglès, Medi, Català
           </label>
           <div id="pEAPWrap" style="display:none;margin:8px 0 4px 26px">
             <div class="form-label" style="margin-bottom:4px">Detalls de l'informe:</div>
-            <textarea class="modal-textarea form-input-nomes-mirar" readonly id="pEAP" placeholder="Ex: Informe de dictamen d'escolarització (2024) · TDAH · Recomanacions de l'EAP…" rows="3" style="width:100%"></textarea>
+            <textarea class="modal-textarea form-input-nomes-mirar" readonly id="pEAP" placeholder="Ex: Informe de dictamen d'escolarització (2024) · TDAH · Recomanacions de l'EAP…" rows="3" style="width:100%" aria-label="Ex: Informe de dictamen d'escolarització (2024) · TDAH · Recomanacions de l'EAP…"></textarea>
           </div>
         </div>
         <div class="modal-hint" style="margin-top:2px">Si no es marca cap opció, l'alumne és normatiu.</div>
 
         <div class="personal-field" style="margin-top:20px">
           <label class="form-label">Aspectes conductuals o necessitats concretes</label>
-          <textarea class="modal-textarea form-input-nomes-mirar" readonly id="pEspecific" placeholder="Ex: Dislèxia i lateralitat creuada · No té drets d'imatge a Instagram…" rows="3" style="width:100%"></textarea>
+          <textarea class="modal-textarea form-input-nomes-mirar" readonly id="pEspecific" placeholder="Ex: Dislèxia i lateralitat creuada · No té drets d'imatge a Instagram…" rows="3" style="width:100%" aria-label="Ex: Dislèxia i lateralitat creuada · No té drets d'imatge a Instagram…"></textarea>
         </div>
 
         <div class="personal-field" style="margin-top:20px">
@@ -1857,7 +1891,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div style="margin-top:14px">
             <div class="form-label" style="margin-bottom:6px">No pot seure al costat de:</div>
             <div id="pSeatIncompatibles" class="seient-incompat-list"></div>
-            <select class="modal-input" id="pSeatIncompatSel" onchange="_afegirIncompatible()" style="margin-top:6px">
+            <select class="modal-input" id="pSeatIncompatSel" onchange="_afegirIncompatible()" style="margin-top:6px" aria-label="Alumne amb qui no pot seure">
               <option value="">+ Afegir company…</option>
             </select>
           </div>
@@ -1888,7 +1922,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="panel-header-title" id="obsDrawerName">—</div>
           <div class="panel-header-meta" id="obsDrawerMeta">Observacions</div>
         </div>
-        <button class="panel-close" onclick="closeObsDrawer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="panel-close" aria-label="Tancar" title="Tancar" onclick="closeObsDrawer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="obs-drawer-toolbar">
         <button class="btn btn-primary" onclick="openAddObsModal(currentObsStudentId)">
@@ -1910,19 +1944,19 @@ Català, Matemàtiques, Anglès, Medi, Català
     <div class="modal">
       <div class="modal-header">
         <div><div class="modal-header-title">Nova observació</div><div class="modal-header-sub">Es guardarà a la columna «Observacions» de la pestanya de l'assignatura</div></div>
-        <button class="modal-close" onclick="closeAddObsModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeAddObsModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body">
-        <div class="modal-field"><div class="modal-label">Alumne</div><select class="modal-input" id="obsAlumne"></select></div>
+        <div class="modal-field"><div class="modal-label">Alumne</div><select class="modal-input" id="obsAlumne" aria-label="Alumne de l observació"></select></div>
         <div class="modal-field"><div class="modal-label">Trimestre</div>
-          <select class="modal-input" id="obsTrimestre">
+          <select class="modal-input" id="obsTrimestre" aria-label="Trimestre">
             <option value="1">1r Trimestre</option>
             <option value="2">2n Trimestre</option>
             <option value="3">3r Trimestre</option>
           </select>
         </div>
         <div class="modal-field"><div class="modal-label">Assignatura</div>
-          <select class="modal-input" id="obsMateria">
+          <select class="modal-input" id="obsMateria" aria-label="Assignatura">
             <option value="general">General</option>
             <option value="matematiques">Matemàtiques</option>
             <option value="catala">Català</option>
@@ -1933,7 +1967,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         </div>
         <div class="modal-field">
           <div class="modal-label">Observació</div>
-          <textarea class="modal-textarea" id="obsText" placeholder="Ex: Confon la p i la d quan llegeix en veu alta…" rows="4"></textarea>
+          <textarea class="modal-textarea" id="obsText" placeholder="Ex: Confon la p i la d quan llegeix en veu alta…" rows="4" aria-label="Observació" maxlength="4000"></textarea>
           <div class="modal-hint">Ctrl+Enter per guardar ràpidament</div>
         </div>
       </div>
@@ -1949,10 +1983,10 @@ Català, Matemàtiques, Anglès, Medi, Català
     <div class="modal">
       <div class="modal-header">
         <div><div class="modal-header-title">Nou ítem de seguiment</div><div class="modal-header-sub" id="newItemSub">Es crearà una nova columna al full «Registres d'aula»</div></div>
-        <button class="modal-close" onclick="closeNewItemModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeNewItemModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body">
-        <div class="modal-field"><div class="modal-label">Nom de l'ítem</div><input class="modal-input" id="newItemName" type="text" placeholder="Ex: Retorn veu de l'alumne"></div>
+        <div class="modal-field"><div class="modal-label">Nom de l'ítem</div><input class="modal-input" id="newItemName" type="text" placeholder="Ex: Retorn veu de l'alumne" aria-label="Ex: Retorn veu de l'alumne" maxlength="80"></div>
         <div class="modal-field">
           <div class="modal-label">Tipus</div>
           <div class="type-selector">
@@ -1979,13 +2013,13 @@ Català, Matemàtiques, Anglès, Medi, Català
     <div class="modal">
       <div class="modal-header">
         <div><div class="modal-header-title">Configuració</div></div>
-        <button class="modal-close" onclick="closeConfig()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeConfig()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body">
 
         <div class="modal-field">
           <div class="modal-label">URL del Web App (Apps Script)</div>
-          <input class="modal-input" id="cfgScriptUrl" type="text" placeholder="https://script.google.com/macros/s/…/exec">
+          <input class="modal-input" id="cfgScriptUrl" type="text" placeholder="https://script.google.com/macros/s/…/exec" aria-label="URL del Web App (Apps Script)">
           <div class="modal-hint">Enganxa la URL i prem "Connectar". La resta es configura sola.</div>
         </div>
 
@@ -1999,7 +2033,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="modal-field">
           <div class="modal-label">Escriure al meu Google</div>
           <label class="gwrite-row">
-            <input type="checkbox" id="cfgGwrite" onchange="gwrite &amp;&amp; gwrite.setActiu(this.checked)">
+            <input type="checkbox" id="cfgGwrite" onchange="gwrite &amp;&amp; gwrite.setActiu(this.checked)" aria-label="Escriure al meu Google">
             <span>Enviar els meus events i tasques al Google Calendar i al Google Tasks</span>
           </label>
           <div class="modal-hint">
@@ -2025,7 +2059,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <summary>Opcions avançades</summary>
           <div class="modal-field" style="margin-top:10px">
             <div class="modal-label">Clau API de Gemini <span style="font-weight:400;color:var(--text-muted)">(opcional)</span></div>
-            <input class="modal-input" id="cfgGeminiKey" type="password" placeholder="Deixa buit per usar la compartida">
+            <input class="modal-input" id="cfgGeminiKey" type="password" placeholder="Deixa buit per usar la compartida" aria-label="Deixa buit per usar la compartida">
           </div>
           <div class="cfg-actions" style="margin-top:10px">
             <button class="btn btn-ghost btn-sm" onclick="_autoSetupInicial(true).then(()=>showToast('Manteniment fet ✓','success'))">Refer manteniment</button>
@@ -2043,8 +2077,8 @@ Català, Matemàtiques, Anglès, Medi, Català
 
         <!-- Camps ocults necessaris per a funcions internes -->
         <div style="display:none">
-          <input id="cfgGrupsSheet" type="text">
-          <input id="cfgDesdobSheet" type="text">
+          <input id="cfgGrupsSheet" type="text" aria-label="Enllaç del full Grups de l escola">
+          <input id="cfgDesdobSheet" type="text" aria-label="Enllaç del full de Desdoblaments">
           <button id="saveGrupsSheetBtn"></button>
           <button id="setupGrupsBtn"></button>
           <button id="protegirFullsBtn"></button>
@@ -2068,17 +2102,17 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="modal-header-title">Nou ítem de notes</div>
           <div class="modal-header-sub">S'afegirà com a columna al full de càlcul de l'assignatura</div>
         </div>
-        <button class="modal-close" onclick="closeNewNotaModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeNewNotaModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body">
         <div class="modal-field">
           <div class="modal-label">Nom de l'ítem</div>
-          <input class="modal-input" id="notaItemNom" type="text" placeholder="Ex: Prova unitat 1">
+          <input class="modal-input" id="notaItemNom" type="text" placeholder="Ex: Prova unitat 1" aria-label="Nom de l'ítem" maxlength="80">
         </div>
         <div class="modal-row">
           <div class="modal-field">
             <div class="modal-label">Puntuació màxima</div>
-            <input class="modal-input" id="notaItemMax" type="number" min="1" step="0.5" value="10" placeholder="10">
+            <input class="modal-input" id="notaItemMax" type="number" min="1" step="0.5" value="10" placeholder="10" aria-label="Puntuació màxima">
             <div class="modal-hint">Sobre quants punts és la prova (ex: 20, 10, 5…)</div>
           </div>
           <div class="modal-field">
@@ -2116,7 +2150,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="modal-header-title" id="actitudTitle">Actitud</div>
           <div class="modal-header-sub">Avaluació dels 5 aspectes per alumne · Pes 2</div>
         </div>
-        <button class="modal-close" onclick="closeActitudPanel()">
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeActitudPanel()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
@@ -2138,13 +2172,13 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="modal-header-title" id="planComentTitle">Comentari de sessió</div>
           <div class="modal-header-sub">Com ha anat? Coses a millorar...</div>
         </div>
-        <button class="modal-close" onclick="closePlanComent()">
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closePlanComent()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
       <div class="modal-body">
         <textarea class="modal-textarea" id="planComentText" rows="4"
-          placeholder="Ex: Bona participació en general. Cal reforçar la resolució de problemes. La propera vegada provar treball en grups petits."></textarea>
+          placeholder="Ex: Bona participació en general. Cal reforçar la resolució de problemes. La propera vegada provar treball en grups petits." aria-label="Comentari de la sessió"></textarea>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="document.getElementById('planComentText').value='';savePlanComent()">Esborrar</button>
@@ -2162,7 +2196,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="modal-header-title">Nota del dia</div>
           <div class="modal-header-sub" id="planNoteDaySub">Cosa a tenir en compte durant tot el dia</div>
         </div>
-        <button class="modal-close" onclick="closePlanNoteDay()">
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closePlanNoteDay()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
@@ -2180,7 +2214,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="modal-field">
           <div class="modal-label">Nota</div>
           <textarea class="modal-textarea" id="planNoteDayText" rows="3"
-            placeholder="Ex: Reunió de coordinació a les 12h. Recordar portar el dossier de tutoria."></textarea>
+            placeholder="Ex: Reunió de coordinació a les 12h. Recordar portar el dossier de tutoria." aria-label="Nota del dia"></textarea>
         </div>
       </div>
       <div class="modal-footer">
@@ -2220,39 +2254,41 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v215"></script>
-  <script defer src="js/pdfhorari.js?v=v215"></script>
-  <script defer src="js/millores.js?v=v215"></script>
-  <script defer src="js/rol.js?v=v215"></script>
-  <script defer src="js/config.local.js?v=v215"></script>
-  <script defer src="js/app.js?v=v215"></script>
-  <script defer src="js/notes.js?v=v215"></script>
-  <script defer src="js/seients.js?v=v215"></script>
-  <script defer src="js/perfil.js?v=v215"></script>
-  <script defer src="js/grupview.js?v=v215"></script>
-  <script defer src="js/postits.js?v=v215"></script>
-  <script defer src="js/horari.js?v=v215"></script>
-  <script defer src="js/vedrunu.js?v=v215"></script>
-  <script defer src="js/gwrite.js?v=v215"></script>
-  <script defer src="js/rubriques.js?v=v215"></script>
-  <script defer src="js/docents.js?v=v215"></script>
-  <script defer src="js/coordinacio.js?v=v215"></script>
-  <script defer src="js/regdocents.js?v=v215"></script>
-  <script defer src="js/segentrevistes.js?v=v215"></script>
-  <script defer src="js/entrevistes.js?v=v215"></script>
-  <script defer src="js/notescomp.js?v=v215"></script>
-  <script defer src="js/reunions.js?v=v215"></script>
-  <script defer src="js/versio.js?v=v215"></script>
+  <script defer src="js/espera.js?v=v219"></script>
+  <script defer src="js/pdfhorari.js?v=v219"></script>
+  <script defer src="js/millores.js?v=v219"></script>
+  <script defer src="js/rol.js?v=v219"></script>
+  <script defer src="js/config.local.js?v=v219"></script>
+  <script defer src="js/app.js?v=v219"></script>
+  <script defer src="js/notes.js?v=v219"></script>
+  <script defer src="js/seients.js?v=v219"></script>
+  <script defer src="js/perfil.js?v=v219"></script>
+  <script defer src="js/grupview.js?v=v219"></script>
+  <script defer src="js/postits.js?v=v219"></script>
+  <script defer src="js/horari.js?v=v219"></script>
+  <script defer src="js/vedrunu.js?v=v219"></script>
+  <script defer src="js/gwrite.js?v=v219"></script>
+  <script defer src="js/rubriques.js?v=v219"></script>
+  <script defer src="js/docents.js?v=v219"></script>
+  <script defer src="js/coordinacio.js?v=v219"></script>
+  <script defer src="js/regdocents.js?v=v219"></script>
+  <script defer src="js/segentrevistes.js?v=v219"></script>
+  <script defer src="js/entrevistes.js?v=v219"></script>
+  <script defer src="js/notescomp.js?v=v219"></script>
+  <script defer src="js/reunions.js?v=v219"></script>
+  <script defer src="js/versio.js?v=v219"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
-       No és al sw.js a posta: si faltés, el cache de la PWA no s'instal·laria. -->
-  <script defer src="js/personal.js?v=v215"></script>
+       SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
+       amb personalitzacions les perdia treballant sense connexió. (Aquest
+       comentari deia el contrari fins al 8/9/2026.) -->
+  <script defer src="js/personal.js?v=v219"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
       <div class="modal" style="max-width:420px">
         <div class="modal-header">
           <div><div class="modal-header-title">Categories</div><div class="modal-header-sub">Afegeix o elimina categories per als events</div></div>
-          <button class="modal-close" onclick="closeCal2Categories()">
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeCal2Categories()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -2261,11 +2297,11 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div style="display:flex;gap:10px;align-items:flex-end">
             <div class="modal-field" style="flex:1;margin-bottom:0">
               <div class="modal-label">Nom</div>
-              <input class="modal-input" id="cal2CatNom" type="text" placeholder="Ex: Reciclatge">
+              <input class="modal-input" id="cal2CatNom" type="text" placeholder="Ex: Reciclatge" aria-label="Nom">
             </div>
             <div class="modal-field" style="margin-bottom:0">
               <div class="modal-label">Color</div>
-              <input type="color" id="cal2CatColor" value="#8B5CF6" style="width:44px;height:38px;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;padding:2px">
+              <input type="color" id="cal2CatColor" value="#8B5CF6" style="width:44px;height:38px;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;padding:2px" aria-label="Color">
             </div>
             <button class="btn btn-primary" onclick="addCal2Category()" style="flex-shrink:0">Afegir</button>
           </div>
@@ -2284,7 +2320,7 @@ Català, Matemàtiques, Anglès, Medi, Català
     }
   </script>
   <!-- VEDRUNU — Assistent IA -->
-  <button class="vedrunu-fab" id="vedrunuFab" onclick="toggleVedrunu()" title="Vedrunu — el teu assistent">
+  <button class="vedrunu-fab" id="vedrunuFab" onclick="toggleVedrunu()" aria-label="Vedrunu, el teu assistent" title="Vedrunu — el teu assistent">
     <img src="img/vedrunu-icon.png" alt="Vedrunu" width="36" height="36">
   </button>
 
@@ -2299,7 +2335,12 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="vedrunu-sub">El teu assistent d'aula</div>
         </div>
       </div>
-      <button class="vedrunu-close" onclick="toggleVedrunu()">
+      <!-- La conversa es guarda en aquest navegador i torna després d'un F5.
+           Aquest botó és el que la deixa neta quan es vol començar de zero. -->
+      <button class="vedrunu-close" onclick="vedrunuBuidaConversa()" aria-label="Començar una conversa nova" title="Començar de nou">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+      </button>
+      <button class="vedrunu-close" onclick="toggleVedrunu()" aria-label="Tancar el Vedrunu" title="Tancar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
@@ -2307,7 +2348,7 @@ Català, Matemàtiques, Anglès, Medi, Català
     <div class="vedrunu-input-row">
       <textarea class="vedrunu-input" id="vedrunuInput" placeholder="Pregunta'm el que vulguis…" rows="1" style="resize:none"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();vedrunuSend();}"
-        oninput="_vedrunuAutosize(this)"></textarea>
+        oninput="_vedrunuAutosize(this)" aria-label="Escriu la teva pregunta al Vedrunu"></textarea>
       <button class="vedrunu-send" id="vedrunuSend" onclick="vedrunuSend()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
@@ -2322,7 +2363,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="modal-header-title" id="grupAlumnesTitle">Alumnes del grup</div>
           <div class="modal-header-sub" id="grupAlumnesSub">Consulta les fitxes i observacions</div>
         </div>
-        <button class="modal-close" onclick="closeGrupAlumnesModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeGrupAlumnesModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body">
         <div class="grupview-list" id="grupviewList"></div>
@@ -2345,7 +2386,7 @@ Català, Matemàtiques, Anglès, Medi, Català
             <div class="modal-header-sub">Fitxa de consulta</div>
           </div>
         </div>
-        <button class="modal-close" onclick="closeGrupviewFitxa()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeGrupviewFitxa()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body" id="grupviewFitxaBody"></div>
       <div class="modal-footer" id="grupviewFitxaFooter" style="display:none">
@@ -2365,7 +2406,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <div class="modal-header-title" id="grupviewAssimName">—</div>
           <div class="modal-header-sub" id="grupviewAssimSub">Assoliments</div>
         </div>
-        <button class="modal-close" onclick="closeGrupviewAssim()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeGrupviewAssim()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body" id="grupviewAssimBody"></div>
     </div>

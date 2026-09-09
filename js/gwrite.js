@@ -86,7 +86,7 @@
             o.events[e.id] = { gId: gId, gCal: gCal, hash: hash, pend: true };  // desar ABANS d'enviar
             canvis.events.push({
               id: e.id, gId: gId, gCal: gCal, titol: e.titol, data: e.data,
-              hora: e.hora, horaFi: e.horaFi, desc: e.desc, link: e.link
+              dataFi: e.dataFi, hora: e.hora, horaFi: e.horaFi, desc: e.desc, link: e.link
             });
           });
         });
@@ -171,7 +171,7 @@
       desaOmbra(o);
     } catch (e) {
       // Sense connexió o error: queda pendent i es reintentarà. L'usuari ho veu.
-      if (typeof showToast === 'function') showToast("No s'ha pogut escriure al Google: " + e.message, 'error');
+      if (typeof showToast === 'function') showToast("No s'ha pogut escriure al Google: " + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
     } finally {
       _enviant = false; _pintaEstat();
     }
@@ -204,6 +204,25 @@
     if (!ids.length) return events;
     return events.filter(function (ev) {
       var s = String(ev && ev.id || '');
+      for (var i = 0; i < ids.length; i++) if (s.indexOf(ids[i]) !== -1) return false;
+      return true;
+    });
+  }
+
+  /* ---- El mateix amb les TASQUES ----
+
+     Trobat a l auditoria del 6/9/2026: amb «Escriure al meu Google» activat,
+     cada tasca sortia DUES vegades a la llista —la de l app i la que tornava
+     del Google Tasks— la bombolla comptava el doble, i marcar-ne una no
+     marcava l'altra. Per als events del calendari ja hi havia
+     `filtraPropis`; per a les tasques no n'hi havia l'equivalent. */
+  function filtraTasquesPropies(tasks) {
+    if (!tasks || !tasks.length) return tasks || [];
+    var o = ombra(), ids = [];
+    Object.keys(o.tasks || {}).forEach(function (k) { if (o.tasks[k].gId) ids.push(o.tasks[k].gId); });
+    if (!ids.length) return tasks;
+    return tasks.filter(function (t) {
+      var s = String((t && t.id) || '');
       for (var i = 0; i < ids.length; i++) if (s.indexOf(ids[i]) !== -1) return false;
       return true;
     });
@@ -245,6 +264,7 @@
     push: push,
     pendents: pendents,
     filtraPropis: filtraPropis,
+    filtraTasquesPropies: filtraTasquesPropies,
     pintaEstat: _pintaEstat
   };
 })();

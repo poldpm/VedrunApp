@@ -48,7 +48,7 @@ function _seientsCanviaGrup() {
   _seientsMarkers = [];
   try {
     const l = JSON.parse(localStorage.getItem(_seientsLS('seients_layout')) || 'null');
-    if (l && Array.isArray(l)) _seientsLayout = l;
+    if (l && Array.isArray(l)) _seientsLayout = _seientsLligaPerCodi(l);
     const m = JSON.parse(localStorage.getItem(_seientsLS('seients_markers')) || 'null');
     if (m && Array.isArray(m)) _seientsMarkers = m;
   } catch(e) {}
@@ -70,6 +70,7 @@ const _MARKER_INFO = {
 
 // Afegeix un marcador al centre del canvas (si no existeix ja)
 function seientsAddMarker(tipus) {
+  if (_seientsCalGrup()) return;
   if (_seientsMarkers.some(m => m.tipus === tipus)) {
     showToast('Aquest marcador ja hi és. Arrossega\'l per moure\'l.', 'info');
     return;
@@ -98,7 +99,7 @@ function seientsRemoveMarker(tipus) {
 function _seientsPersistMarkers() {
   try { localStorage.setItem(_seientsLS('seients_markers'), JSON.stringify(_seientsMarkers)); } catch(e) {}
   if (config.scriptUrl) {
-    appsScriptPost({ action: 'saveSeients', grup: _seientsGrup(), markers: JSON.stringify(_seientsMarkers) }).catch(() => {});
+    _desaAlFull({ action: 'saveSeients', grup: _seientsGrup(), markers: JSON.stringify(_seientsMarkers) });
   }
 }
 
@@ -153,7 +154,9 @@ function _neighborPairs(g) {
   const seats = g.seats;
   for (let i = 0; i < seats.length - 1; i++) {
     const a = seats[i].studentId, b = seats[i+1].studentId;
-    if (a && b) pairs.push([a, b]);
+    // 0 és un alumne: amb `if (a && b)` el primer de la llista no comptava mai
+    // com a parella i se li repetia el company curs rere curs.
+    if (a != null && a !== '' && b != null && b !== '') pairs.push([a, b]);
   }
   return pairs;
 }
@@ -166,13 +169,58 @@ function _savePairHistory(h) {
   _seientsSyncToSheets(); // persisteix també al Google Sheets
 }
 
+/* ⚠ EL PLÀNOL ES BARREJAVA SOL.
+
+   Trobat a la segona auditoria (8/9/2026). Cada seient guardava
+   `studentId`, que és la POSICIÓ de l'alumne dins de `students` —el propi
+   codi ho deia: «0 és un alumne, el primer de la llista». El full «Grups» de
+   l'escola es reordena sol cada quart d'hora, i quan ho feia el plànol
+   sencer es desmuntava: cada nen acabava en un altre lloc. És feina de tot
+   el curs, i l'historial de parelles (el que evita repetir company) hi anava
+   al darrere.
+
+   Ara cada seient hi porta també el CODI PERMANENT (`rowId`), que és el que
+   no canvia mai. Es desa afegit —`studentId` es manté— perquè un plànol
+   guardat abans es pugui seguir llegint, i en carregar-lo es torna a lligar
+   cada nen pel codi. */
+function _seientsPosaCodis(layout) {
+  (layout || []).forEach(g => (g.seats || []).forEach(s => {
+    if (s.studentId == null || s.studentId === '') { delete s.rowId; return; }
+    const al = students.find(x => String(x.id) === String(s.studentId));
+    const codi = al && al.rowId !== undefined && al.rowId !== null && al.rowId !== '' ? al.rowId : null;
+    if (codi !== null) s.rowId = codi;
+  }));
+  return layout;
+}
+
+/* En carregar: cada seient torna al seu nen pel codi, passi el que passi amb
+   l'ordre de la llista. Un plànol antic (sense codis) es deixa tal com està:
+   no es pot fer res millor, i estripar-lo seria pitjor. */
+function _seientsLligaPerCodi(layout) {
+  if (!Array.isArray(layout) || !students.length) return layout;
+  const perCodi = {};
+  students.forEach(s => {
+    if (s.rowId !== undefined && s.rowId !== null && s.rowId !== '') perCodi[String(s.rowId)] = s.id;
+  });
+  if (!Object.keys(perCodi).length) return layout;   // aquest grup no porta codis
+  layout.forEach(g => (g.seats || []).forEach(s => {
+    if (!s.rowId) return;                            // seient buit o plànol antic
+    const idAra = perCodi[String(s.rowId)];
+    if (idAra !== undefined) s.studentId = idAra;
+    else { s.studentId = null; delete s.rowId; }     // ja no és al grup
+  }));
+  return layout;
+}
+
 // Desa layout + historial al Google Sheets (en segon pla, sense bloquejar)
 function _seientsSyncToSheets() {
   if (!config.scriptUrl) return;
-  const layout  = _seientsLayout;
+  const layout  = _seientsPosaCodis(_seientsLayout);
   const history = _loadPairHistory();
-  appsScriptPost({ action: 'saveSeients', grup: _seientsGrup(), layout: JSON.stringify(layout), history: JSON.stringify(history) })
-    .catch(() => { /* silenciós; ja hi ha còpia local */ });
+  /* Per la cua: si no es pot desar ara, s'apunta i es torna a provar sol.
+     Abans queia en un `catch` buit i el plànol es quedava només en aquest
+     ordinador sense que ho digués ningú. */
+  _desaAlFull({ action: 'saveSeients', grup: _seientsGrup(), layout: JSON.stringify(layout), history: JSON.stringify(history) });
 }
 
 function initSeients() {
@@ -180,7 +228,7 @@ function initSeients() {
   if (!_seientsLayout.length) {
     try {
       const saved = JSON.parse(localStorage.getItem(_seientsLS('seients_layout')) || 'null');
-      if (saved && Array.isArray(saved)) _seientsLayout = saved;
+      if (saved && Array.isArray(saved)) _seientsLayout = _seientsLligaPerCodi(saved);
     } catch(e) {}
   }
   // Marcadors de l'aula
@@ -225,8 +273,9 @@ async function _seientsLoadFromSheets(forcat) {
 function _applySeientsData(r) {
   if (!r) return;
   if (r.layout && Array.isArray(r.layout) && r.layout.length) {
-    _seientsLayout = r.layout;
-    try { localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(r.layout)); } catch(e) {}
+    // Cada nen torna al seu lloc pel codi permanent, no per la posició.
+    _seientsLayout = _seientsLligaPerCodi(r.layout);
+    try { localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(_seientsPosaCodis(_seientsLayout))); } catch(e) {}
   }
   // Només aplica els marcadors remots si en porten. Si el full encara no en té
   // (loadSeients retorna []), NO s'han de buidar els que ja tenim a la pantalla:
@@ -252,17 +301,68 @@ function _seientsSetOrient(o) {
   document.getElementById('orientV').classList.toggle('active', o === 'v');
 }
 function _newSeat() { return { id: 's' + Date.now() + Math.random().toString(36).slice(2,6), studentId: null }; }
+/* Quant ocupa una fila de taules al taulell, en píxels. Ha d'anar de la mà
+   del CSS: un seient fa 72×56, la separació entre seients és de 5 i la fila
+   té 8 de coixí a cada costat. */
+function _seientsMida(g) {
+  const n = ((g && g.seats) || []).length || 1;
+  const llarg = 16 + n * 72 + (n - 1) * 5;   // fila horitzontal
+  const alt   = 16 + n * 56 + (n - 1) * 5;   // fila vertical
+  return (g && g.orient === 'vertical')
+    ? { w: 16 + 72, h: alt }
+    : { w: llarg,   h: 16 + 56 };
+}
+
+/* ⚠ LES FILES NOVES SORTIEN UNES DAMUNT DE LES ALTRES.
+
+   Trobat a la segona auditoria (8/9/2026). Aquí les files s'esglaonaven 40 px
+   en horitzontal i 30 en vertical, quan una fila de quatre seients en fa 321
+   d'ample i 74 d'alt: quedaven encavalcades. Amb tres files i els alumnes
+   repartits, 8 dels 12 tenien el centre tapat per la fila de sobre i no es
+   podien ni tocar ni arrossegar —ni amb el dit ni amb el ratolí—, o sigui que
+   no es podien moure ni intercanviar. El comentari deia «esglaonada perquè no
+   se solapin»; els números no ho aconseguien.
+
+   Ara la fila nova es posa SOTA de tot el que ja hi ha, amb una separació de
+   debò, i quan el taulell s'acaba per avall comença una columna nova a la
+   dreta. Cap fila nova no en tapa una altra. */
+/* A direcció, sense grup triat el plànol no és de ningú.
+
+   ⚠ Segona auditoria (8/9/2026): la Distribució de l'aula deixava muntar
+   taules, repartir-hi els alumnes i desar-ho tot sense haver triat cap grup.
+   El plànol s'anava a la clau base (`seients_layout`, sense grup) i, en triar
+   un grup després, desapareixia: la feina no era enlloc. Registres d'aula ja
+   ho para des de l'auditoria anterior i diu exactament això. */
+function _seientsCalGrup() {
+  if (typeof esDireccio !== 'function' || !esDireccio()) return false;
+  if (_seientsGrup()) return false;
+  showToast('Primer tria el grup a dalt: sense grup no sé de quina aula és aquest plànol.', 'error');
+  return true;
+}
+
 function seientsAddRow() {
+  if (_seientsCalGrup()) return;
   const n = _seientsNum;
-  // Posició inicial esglaonada perquè no se solapin
-  const count = _seientsLayout.length;
   const grup = {
     id: 'g' + Date.now() + Math.random().toString(36).slice(2,6),
     orient: _seientsOrient,
-    x: 20 + (count % 4) * 40,
-    y: 20 + (count % 6) * 30,
+    x: 20,
+    y: 20,
     seats: Array.from({ length: n }, _newSeat),
   };
+  const SEP = 16;
+  const mida = _seientsMida(grup);
+  const taulell = document.getElementById('seientsBoard');
+  const altMax = Math.max(320, (taulell && taulell.clientHeight) || 600);
+  // Sota de tot el que ja hi ha; si no hi cap, columna nova a la dreta.
+  let baix = 20, dreta = 20;
+  (_seientsLayout || []).forEach(g => {
+    const m = _seientsMida(g);
+    baix  = Math.max(baix,  (g.y || 0) + m.h + SEP);
+    dreta = Math.max(dreta, (g.x || 0) + m.w + SEP);
+  });
+  if (baix + mida.h <= altMax) { grup.y = baix; }
+  else { grup.x = dreta; grup.y = 20; }
   _seientsLayout.push(grup);
   renderSeients();
   _seientsSyncToSheets();
@@ -271,23 +371,32 @@ function seientsDeleteGroup(gid) {
   // Esborrar una fila de taules també treu del plànol els alumnes que hi
   // seien, i es desa a l'instant. Val més preguntar-ho.
   const g = _seientsLayout.find(x => x.id === gid);
-  const ocupats = g ? (g.seats || []).filter(s => s && s.studentId).length : 0;
+  const ocupats = g ? (g.seats || []).filter(s => s && s.studentId != null && s.studentId !== '').length : 0;
   const detall = ocupats ? ' Els ' + ocupats + ' alumnes que hi seuen tornaran a la llista.' : '';
   if (!confirm('Vols esborrar aquesta fila de taules?' + detall)) return;
   _seientsLayout = _seientsLayout.filter(x => x.id !== gid);
   renderSeients();
   _seientsSyncToSheets();
 }
+/* Desa el taulell: al navegador I al full. Abans hi havia llocs que
+   nomes feien una de les dues coses —repartir no en feia cap— i el
+   taulell tornava a com estava en recarregar (auditoria 6/9/2026). */
+function _seientsDesaTaulell() {
+  try { localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(_seientsLayout)); } catch(e) {}
+  _seientsSyncToSheets();
+}
+
 function seientsClearLayout() {
   if (!_seientsLayout.length) return;
   if (!confirm('Segur que vols buidar tot el taulell? Els alumnes tornaran a la llista.')) return;
   _seientsLayout = [];
   renderSeients();
-  _seientsSyncToSheets();
+  _seientsDesaTaulell();
 }
 
 /* ---- Repartiment automàtic tenint MOLT en compte les condicions ---- */
 function seientsAutoAssign() {
+  if (_seientsCalGrup()) return;
   const totalSeats = _seientsLayout.reduce((n, g) => n + g.seats.length, 0);
   if (totalSeats === 0) { showToast('Primer crea alguna fila de taules', 'error'); return; }
 
@@ -348,6 +457,16 @@ function seientsAutoAssign() {
   renderSeients();
 
   // Avís de condicions no complertes
+  /* ⚠ Amb 0 alumnes deia «Alumnes repartits tenint en compte totes les
+     condicions ✓» (auditoria 6/9/2026). */
+  if (!totsAlumnes.length) {
+    showToast('No hi ha cap alumne per repartir.', 'error');
+    return;
+  }
+  if (!totalSeats) {
+    showToast('No hi ha cap lloc on asseure ningú. Afegeix taules amb «Afegir al taulell».', 'error');
+    return;
+  }
   const incompliments = _seientsComprovaIncompliments(seatGeom);
   const sobren = totsAlumnes.length - totalSeats;
   if (incompliments > 0) {
@@ -357,6 +476,7 @@ function seientsAutoAssign() {
   } else {
     showToast('Alumnes repartits tenint en compte totes les condicions ✓', 'success');
   }
+  _seientsDesaTaulell();   // sense aixo el repartiment es perdia en recarregar
 }
 
 // Nombre de condicions de seient d'un alumne (per prioritzar-lo)
@@ -524,11 +644,25 @@ function _seientsComprovaIncompliments(seatGeom) {
 
 /* ---- Desar ---- */
 function seientsSave() {
+  if (_seientsCalGrup()) return;
   localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(_seientsLayout));
   try { localStorage.setItem(_seientsLS('seients_markers'), JSON.stringify(_seientsMarkers)); } catch(e) {}
   // Desa també al núvol (layout + marcadors)
   if (config.scriptUrl) {
-    appsScriptPost({ action: 'saveSeients', grup: _seientsGrup(), layout: _seientsLayout, markers: _seientsMarkers }).catch(()=>{});
+    _desaAlFull({ action: 'saveSeients', grup: _seientsGrup(), layout: _seientsLayout, markers: _seientsMarkers });
+  }
+  /* ⚠ Amb 0 taules i 0 alumnes deia «Distribucio desada i parelles
+     registrades ✓», que no es veritat: no hi ha res a desar ni cap parella.
+     La mestra ho donava per fet (auditoria 6/9/2026). */
+  const _asseguts = _seientsLayout.reduce((t, g) =>
+    t + (g.seats || []).filter(s => s.studentId != null && s.studentId !== '').length, 0);
+  if (!_seientsLayout.length) {
+    showToast('Encara no hi ha cap taula al plànol. Afegeix-ne una amb «Afegir al taulell».', 'error');
+    return;
+  }
+  if (!_asseguts) {
+    showToast('No hi seu ningú: no hi ha cap parella per registrar. Reparteix els alumnes o posa-n’hi tu.', 'error');
+    return;
   }
   const history = _loadPairHistory();
   _seientsLayout.forEach(g => {
@@ -562,23 +696,31 @@ function renderSeients() {
   let html = '';
   _seientsLayout.forEach(g => {
     const seatsHtml = g.seats.map((seat, idx) => {
-      if (!seat.studentId) {
+      /* ⚠ `seat.studentId` pot valer 0, i 0 és un alumne —el primer de la
+         llista—, no pas un lloc buit. Amb `if (!seat.studentId)` es pintava
+         com a buit tot i estar-hi assegut, es quedava a «Alumnes sense lloc»
+         i, si l'arrossegaves, acabava assegut a dos llocs alhora i en feia
+         desaparèixer un altre del plànol (auditoria 6/9/2026). */
+      if (seat.studentId == null || seat.studentId === '') {
         return `<div class="seient buit" data-seat="${seat.id}"
           ondragover="_seientsDragOver(event,'${seat.id}')" ondragleave="_seientsDragLeave(event)"
-          ondrop="_seientsDrop(event,'${seat.id}')">buit</div>`;
+          ondrop="_seientsDrop(event,'${seat.id}')"
+          onclick="_seientsToca(event,'buit',null,'${_idJs(seat.id)}')">buit</div>`;
       }
       const nom = nameById(seat.studentId);
       const primer = nom.split(' ')[0];
       // Només mira els veïns immediats (anterior i següent de la fila)
       const veins = [];
-      if (idx > 0 && g.seats[idx-1].studentId) veins.push(g.seats[idx-1].studentId);
-      if (idx < g.seats.length-1 && g.seats[idx+1].studentId) veins.push(g.seats[idx+1].studentId);
+      if (idx > 0 && g.seats[idx-1].studentId != null) veins.push(g.seats[idx-1].studentId);
+      if (idx < g.seats.length-1 && g.seats[idx+1].studentId != null) veins.push(g.seats[idx+1].studentId);
       const repeteix = veins.some(v => (history[_pairKey(seat.studentId, v)] || 0) > 0);
-      return `<div class="seient ocupat" data-seat="${seat.id}" draggable="true"
+      const _triat = _seientsTriat && _seientsTriat.from === 'seat' && _seientsTriat.seatId === seat.id;
+      return `<div class="seient ocupat${_triat ? ' seient-triat' : ''}" data-seat="${seat.id}" draggable="true"
         ondragstart="_seientsDragStart(event,'seat','${seat.studentId}','${seat.id}')"
         ondragend="_seientsDragEnd(event)"
         ondragover="_seientsDragOver(event,'${seat.id}')" ondragleave="_seientsDragLeave(event)"
         ondrop="_seientsDrop(event,'${seat.id}')"
+        onclick="_seientsToca(event,'seat','${_idJs(seat.studentId)}','${_idJs(seat.id)}')"
         title="${escapeHtml(nom)}">
         <span class="seient-avatar">${_initials(seat.studentId)}</span>
         ${repeteix ? '<span class="seient-warn">⚠</span>' : ''}
@@ -591,7 +733,7 @@ function renderSeients() {
       <div class="seients-group-handle" title="Arrossega per moure">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>
       </div>
-      <div class="seients-group-del" onmousedown="event.stopPropagation()" onclick="seientsDeleteGroup('${g.id}')" title="Treure fila">×</div>
+      <div class="seients-group-del" onmousedown="event.stopPropagation()" onclick="seientsDeleteGroup('${_idJs(g.id)}')" title="Treure fila">×</div>
       ${seatsHtml}
     </div>`;
   });
@@ -604,7 +746,7 @@ function renderSeients() {
       onmousedown="_seientsMarkerDragStart(event,'${m.tipus}')" title="${info.nom} — arrossega per moure">
       <span class="seients-marker-emoji">${info.emoji}</span>
       <span class="seients-marker-nom">${info.nom}</span>
-      <span class="seients-marker-del" onmousedown="event.stopPropagation()" onclick="seientsRemoveMarker('${m.tipus}')" title="Treure">×</span>
+      <span class="seients-marker-del" onmousedown="event.stopPropagation()" onclick="seientsRemoveMarker('${_idJs(m.tipus)}')" title="Treure">×</span>
     </div>`;
   });
   // Preserva l'element buit
@@ -615,14 +757,17 @@ function renderSeients() {
 
   // Pool
   const asseguts = new Set();
-  _seientsLayout.forEach(g => g.seats.forEach(s => { if (s.studentId) asseguts.add(String(s.studentId)); }));
+  /* Igual que a dalt: l alumne 0 tambe seu. Amb el falsy es quedava sempre
+     a la llista d Alumnes sense lloc encara que tingues cadira. */
+  _seientsLayout.forEach(g => g.seats.forEach(s => { if (s.studentId != null && s.studentId !== '') asseguts.add(String(s.studentId)); }));
   const pool = students.filter(s => !asseguts.has(String(s.id)));
   const poolEl = document.getElementById('seientsPool');
   if (poolEl) {
     poolEl.innerHTML = pool.length ? pool.map(s =>
-      `<div class="seients-pool-item" draggable="true"
-        ondragstart="_seientsDragStart(event,'pool','${s.id}',null)" ondragend="_seientsDragEnd(event)">
-        <span class="seients-pool-avatar">${_initials(s.id)}</span>${escapeHtml(s.nom)}
+      `<div class="seients-pool-item${_seientsTriat && _seientsTriat.from === 'pool' && String(_seientsTriat.studentId) === String(s.id) ? ' seients-pool-triat' : ''}" draggable="true"
+        ondragstart="_seientsDragStart(event,'pool','${s.id}',null)" ondragend="_seientsDragEnd(event)"
+        onclick="_seientsToca(event,'pool','${_idJs(s.id)}',null)">
+        <span class="seients-pool-avatar">${_initials(s.id)}</span>${escapeHtml(typeof nomAlumne==='function'?nomAlumne(s):s.nom)}
       </div>`
     ).join('') : '<div class="seients-pool-empty">Tots asseguts 🎉</div>';
   }
@@ -670,7 +815,94 @@ function _seientsGroupMouseDown(ev, gid) {
 }
 
 /* ---- Drag & drop d'alumnes ---- */
+/* ⚠ EL PLÀNOL DE L'AULA NO ES PODIA FER SERVIR AMB EL DIT.
+
+   Trobat a l'auditoria del 6/9/2026. Moure un alumne de lloc només es podia
+   fer arrossegant, i l'arrossegar del navegador (HTML5 drag-and-drop) NO
+   existeix a les pantalles tàctils. Una mestra amb tauleta —que és
+   precisament qui es passeja per l'aula amb el plànol a la mà— podia mirar
+   el plànol i prou: tocava un nen, no passava res, i no hi havia cap altra
+   manera de moure'l.
+
+   Ara també va tocant: toques el nen (o el seu lloc), es marca, i toques on
+   el vols. Torna a tocar-lo per deixar-ho estar. Amb el ratolí funciona
+   igual, i l'arrossegar de sempre no s'ha tocat. */
+let _seientsTriat = null;
+
+function _seientsAvisTria() {
+  const el = document.getElementById('seientsTriaHint');
+  if (!el) return;
+  if (!_seientsTriat) { el.textContent = ''; el.style.display = 'none'; return; }
+  const _s = students.find(x => String(x.id) === String(_seientsTriat.studentId));
+  const nom = _s ? (typeof nomAlumne === 'function' ? nomAlumne(_s) : _s.nom) : 'aquest alumne';
+  el.textContent = 'Has triat ' + nom + '. Ara toca el lloc on el vols (o torna a tocar-lo per deixar-ho estar).';
+  el.style.display = '';
+}
+
+/* ⚠ ELS CODIS ARA VIATGEN ENTRE COMETES, I PER TANT ARRIBEN COM A TEXT.
+
+   Segona auditoria (8/9/2026): aquests tres `onclick` eren els únics de l'app
+   que enganxaven el codi cru dins de l'atribut —la resta (77 llocs) ja hi
+   passa per `_idJs()`. És el patró que va deixar els Assoliments morts.
+
+   Ara van entre cometes, i aquí es torna a fer número el que ho era: la
+   posició de l'alumne dins de `students` és un número i es desa així al
+   plànol; guardar-hi text el trencaria en comparar-lo. */
+function _seientsNum_(v) {
+  if (v === null || v === undefined || v === '') return v;
+  return /^-?\d+$/.test(String(v)) ? parseInt(v, 10) : v;
+}
+
+function _seientsToca(ev, from, studentId, seatId) {
+  ev.stopPropagation();
+  studentId = _seientsNum_(studentId);
+  /* Si s'estava arrossegant amb el ratolí, el click de després no ha de
+     desfer-ho: el drag ja ha fet la feina. */
+  if (_seientsDragData) return;
+
+  // Res triat encara: es tria (només si hi ha algú)
+  if (!_seientsTriat) {
+    if (studentId == null || studentId === '') return;   // un lloc buit no es tria
+    _seientsTriat = { from, studentId, seatId };
+    renderSeients();
+    _seientsAvisTria();
+    return;
+  }
+
+  // Tornar a tocar el mateix: es deixa estar
+  if (_seientsTriat.from === from &&
+      String(_seientsTriat.studentId) === String(studentId) &&
+      String(_seientsTriat.seatId) === String(seatId)) {
+    _seientsTriat = null;
+    renderSeients();
+    _seientsAvisTria();
+    return;
+  }
+
+  // Hi ha algú triat i s'ha tocat un lloc: es mou (o s'intercanvia)
+  if (!seatId) { _seientsTriat = null; renderSeients(); _seientsAvisTria(); return; }
+  const desti = _findSeat(seatId);
+  if (!desti) { _seientsTriat = null; _seientsAvisTria(); return; }
+
+  if (_seientsTriat.from === 'pool') {
+    desti.studentId = _seientsTriat.studentId;
+  } else {
+    const origen = _findSeat(_seientsTriat.seatId);
+    if (origen) {
+      const tmp = desti.studentId;
+      desti.studentId = _seientsTriat.studentId;
+      origen.studentId = tmp;
+    }
+  }
+  _seientsTriat = null;
+  localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(_seientsLayout));
+  _seientsSyncToSheets();
+  renderSeients();
+  _seientsAvisTria();
+}
+
 function _seientsDragStart(ev, from, studentId, seatId) {
+  _seientsTriat = null;   // arrossegant es mana: es deixa el que s'hagi triat
   _seientsDragData = { from, studentId, seatId };
   ev.dataTransfer.effectAllowed = 'move';
   ev.target.classList.add('dragging');

@@ -14,7 +14,21 @@
   --surface-tint: #FBF8F9;
   --text-main:    #1A1014;
   --text-sub:     #6B5560;
-  --text-muted:   #A08090;
+  /* ⚠ Era #A08090: 3,2:1 sobre blanc, per sota del 4,5:1 que demana la norma
+     (auditoria 6/9/2026). Es va pujar a #8A6B7A i es va donar per bo… mesurant
+     -ho sobre BLANC pur, que en aquesta app gairebé no es fa servir.
+
+     La segona auditoria (8/9/2026) ho va tornar a mesurar sobre els fons de
+     debò i encara no hi arribava: 4,30:1 sobre el fons de pàgina (#F7F4F5),
+     4,46:1 sobre les targetes (#FBF8F9) i 4,05:1 sobre el granat clar
+     (#FBEAED). Són 140 aparicions per sota del mínim en 16 pantalles, i és el
+     to de tot el text secundari: rètols, pistes, hores del planning,
+     comptadors, dates.
+
+     Aquest to arriba a 5,06 / 5,24 / 4,77 sobre aquells tres fons i continua
+     essent el mateix gris granatós. Si algun dia es torna a tocar, s'ha de
+     mesurar contra #F7F4F5, no contra el blanc. */
+  --text-muted:   #7E6070;
   --border:       #E8DFE3;
   --border-strong:#D4C3CA;
   --r-sm:   8px;
@@ -407,6 +421,10 @@ body {
   border: none; background: transparent;
   font-size: 13px; color: var(--text-main);
   outline: none; width: 100%;
+  /* Tota l'alçada de la caixa: tocar-ne la vora o el buit de sota posava el
+     cursor enlloc, quan qualsevol caixa de cerca s'espera que respongui
+     sencera (segona auditoria, 8/9/2026). */
+  height: 100%;
   font-family: 'Inter', sans-serif;
 }
 .search-box input::placeholder { color: var(--text-muted); }
@@ -639,7 +657,13 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  overflow: hidden;
+  /* ⚠ Aquí hi deia overflow:hidden, i era el que impedia que la capçalera
+     s enganxés: qualsevol overflow que no sigui visible converteix l element
+     en el contenidor de scroll de tot el que hi ha a dins, i com que no té
+     alçada, el position:sticky de les capçaleres no s activava mai
+     (auditoria 6/9/2026). El retallat de les cantonades el fa ara el fill
+     que sí que fa scroll. */
+  overflow: visible;
   max-width: 100%;
 }
 
@@ -654,7 +678,16 @@ body {
 }
 .registre-empty p { font-size: 13.5px; line-height: 1.7; }
 
-.registre-scroll { overflow-x: auto; }
+/* La graella de registres fa scroll ELLA, en els dos sentits, i amb una
+   alçada màxima. Així la capçalera i la columna dels noms s hi poden
+   enganxar: sense un contenidor amb alçada, «sticky» no té respecte a què
+   quedar-se quiet. */
+.registre-scroll {
+  overflow: auto;
+  max-height: min(70vh, 620px);
+  border-radius: var(--r-lg);
+  -webkit-overflow-scrolling: touch;
+}
 
 .reg-table {
   width: 100%;
@@ -672,8 +705,25 @@ body {
   text-transform: uppercase;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
-  position: sticky; top: 0;
+  position: sticky; top: 0; z-index: 2;
 }
+
+/* ⚠ EL NOM DE L ALUMNE NO POT MARXAR MAI DE LA PANTALLA.
+   Amb 26 alumnes i 12 activitats, desplaçant-se cap a la dreta la taula es
+   convertia en una paret de caselles anònimes: la mestra marcava a cegues.
+   Ara la columna dels noms es queda enganxada a l esquerra, com ja feien les
+   Notes. Cal fons opac: si no, el que passa per sota es veu a través. */
+.reg-table th.reg-th-name,
+.reg-table td.reg-td-name {
+  position: sticky; left: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.reg-table th.reg-th-name {
+  background: var(--surface-alt);
+  z-index: 3;
+}
+.reg-table tbody tr:hover td.reg-td-name { background: var(--surface-tint); }
 .reg-table th.reg-th-name { min-width: 160px; }
 .reg-table th.reg-th-item { min-width: 120px; text-align: center; }
 
@@ -697,6 +747,23 @@ body {
   width: 18px; height: 18px;
   accent-color: var(--crimson);
   cursor: pointer;
+}
+
+/* ⚠ Al mòbil, 18×18 px és massa poc per al dit: se n erra i marca la casella
+   del costat, que vol dir marcar un altre alumne o una altra activitat. Es fa
+   més gran la CASELLA i la zona que l envolta, sense tocar la densitat de
+   l escriptori. */
+/* ⚠ I A LA TAULETA TORNAVA A FER 18 px.
+
+   Segona auditoria (8/9/2026): l engrandiment estava dins d un
+   `max-width: 640px`, i una tauleta —que es un aparell de DIT— no hi entra.
+   Passar la llista amb el dit a la tauleta tornava a ser marcar la casella
+   del costat. El que mana no es l amplada de la pantalla, es si hi ha
+   ratoli o no: per aixo ara va per `hover: none`. */
+@media (max-width: 640px), (hover: none) {
+  .reg-checkbox { width: 24px; height: 24px; }
+  .reg-table td.reg-td-cell { padding: 12px 10px; min-width: 44px; }
+  .reg-table td, .reg-table th { padding-top: 12px; padding-bottom: 12px; }
 }
 
 /* Text input dins la taula */
@@ -1034,6 +1101,20 @@ body {
 .alumne-card-btn svg        { width: 14px; height: 14px; }
 .alumne-card-btn:hover      { border-color: var(--crimson); color: var(--crimson); }
 .alumne-card-btn.active     { border-color: var(--crimson-soft); color: var(--crimson); background: #fdf2f5; }
+/* ⚠ AL MÒBIL S'OBRIA EL BOTÓ DEL COSTAT.
+
+   Segona auditoria (8/9/2026): els dos botons de cada targeta fan 30×30 px i
+   estan de costat amb 4 px pel mig. Amb el dit és molt fàcil obrir les dades
+   personals d'un nen volent obrir-ne les observacions.
+
+   Amb dit es fan de 44×44 (el mínim recomanat) i se separen més. Amb ratolí
+   es queden com estaven: allà 30 px ja s'encerten bé i la targeta és més
+   compacta. */
+@media (hover: none) {
+  .alumne-card-btn { width: 44px; height: 44px; border-radius: 9px; }
+  .alumne-card-btn svg { width: 17px; height: 17px; }
+  .alumne-card-actions { gap: 10px; }
+}
 
 /* ============================================================
    PÀGINA FITXA ALUMNE
@@ -1491,6 +1572,12 @@ body {
 .ne-btn:hover            { opacity: 1; border-color: #EF4444; color: #EF4444; background: #FFF5F5; }
 .ne-btn.ne-active        { border-color: #991B1B !important; background: #FEE2E2 !important; color: #991B1B !important; opacity: 1 !important; }
 .ne-btn.ne-active:hover  { border-color: #7F1D1D !important; background: #FECaca !important; }
+/* El botó «NE» fa 24×18 px i està al 35% d opacitat: amb el dit no s hi
+   encerta i gairebé no es veu (segona auditoria, 8/9/2026). Amb dit, més
+   gran i visible; amb ratolí, com estava. */
+@media (hover: none) {
+  .ne-btn { font-size: 10px; padding: 6px 8px; opacity: 0.7; top: 3px; right: 3px; }
+}
 
 /* Banner NE a la fitxa */
 .fitxa-ne-banner {
@@ -1844,6 +1931,18 @@ body {
   overflow: hidden; text-overflow: ellipsis; cursor: pointer;
 }
 .cal2-event-more { font-size: 10px; color: var(--text-muted); }
+/* ⚠ AMB EL DIT NO ES PODIA OBRIR CAP EVENT DE LA GRAELLA.
+
+   Segona auditoria (8/9/2026): les etiquetes de la graella del mes fan 14 px
+   d'alt, pensades per al ratolí. Al mòbil no s'hi encerta mai. Es fan més
+   altes quan no hi ha ratolí —la graella del mes hi cap igual— i la llista
+   de sota continua essent el camí còmode per editar-los. */
+@media (hover: none) {
+  .cal2-event-dot {
+    font-size: 11px; padding: 5px 6px; margin-bottom: 3px;
+    min-height: 26px; display: flex; align-items: center;
+  }
+}
 
 /* Llegenda */
 .cal2-legend {
@@ -2010,9 +2109,12 @@ body {
 .tq-check-done svg { stroke: #fff; }
 
 .tq-item-body  { flex: 1; min-width: 0; }
-.tq-item-titol { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 3px; }
+/* `overflow-wrap: anywhere`: un títol amb un enllaç llarg i sense espais no
+   tenia on partir-se i estirava tota la pàgina de costat al mòbil (segona
+   auditoria, 8/9/2026). */
+.tq-item-titol { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 3px; overflow-wrap: anywhere; }
 .tq-item-feta .tq-item-titol { text-decoration: line-through; }
-.tq-item-desc  { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; line-height: 1.5; }
+.tq-item-desc  { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; line-height: 1.5; overflow-wrap: anywhere; }
 .tq-item-meta  { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .tq-cat-pill {
@@ -2515,6 +2617,24 @@ body {
 }
 .plan-cell:hover .plan-cell-coment-dot { opacity: 0.6; }
 .plan-cell-coment-dot.has-coment:hover { opacity: 1; }
+/* ⚠ AL MÒBIL NO S'HI PODIA ARRIBAR.
+
+   Segona auditoria (8/9/2026): el botó del comentari feia 14×16 px i estava
+   al 30% d'opacitat, i només es feia visible passant-hi el ratoli per sobre
+   —una cosa que al mòbil no existeix. És el mateix cas dels botons dels
+   post-its que es van arreglar a la v218 i que aquí no es va tocar.
+
+   Amb dit: una zona de toc de 44×44 (el mínim recomanat) i prou opacitat per
+   veure'l sense tocar res. La icona no creix: només la zona que la rodeja. */
+@media (hover: none) {
+  .plan-cell-coment-dot {
+    opacity: 0.75;
+    bottom: 0; right: 0;
+    min-width: 44px; min-height: 44px;
+    display: flex; align-items: flex-end; justify-content: flex-end;
+    padding: 0 5px 4px 0;
+  }
+}
 
 /* Nota del dia al planning */
 .plan-th-dia-top { display: flex; align-items: center; gap: 4px; justify-content: center; }
@@ -2915,11 +3035,17 @@ body {
 .nav-section-toggle.collapsed .nav-section-chevron { transform: rotate(-90deg); }
 .nav-section-items {
   overflow: hidden;
-  max-height: 200px;
-  transition: max-height 0.25s ease, opacity 0.2s;
+  /* 200px eren just les cinc eines d ara: una de sisena quedava tallada i
+     inclicable. */
+  max-height: 420px;
+  transition: max-height 0.25s ease, opacity 0.2s, visibility 0.2s;
   opacity: 1;
+  visibility: visible;
 }
-.nav-section-items.collapsed { max-height: 0; opacity: 0; }
+/* ⚠ Plegat ha de voler dir INVISIBLE de debò. Amb nomes max-height i opacity
+   els cinc enllacos seguien rebent el focus del tabulador estant amagats: amb
+   el teclat anaves a parar a pantalles que no es veien (auditoria 6/9/2026). */
+.nav-section-items.collapsed { max-height: 0; opacity: 0; visibility: hidden; }
 
 /* Manual d'ús + Configuració de costat al peu */
 .sidebar-footer-row { display: flex; gap: 6px; }
@@ -3561,6 +3687,12 @@ body {
   text-align: center; padding: 8px 6px; line-height: 1.3;
 }
 .plan-festa-tag-sm { font-size: 12px; font-weight: 600; color: var(--garnet-mid); }
+/* «Aquí sota hi tenies feina planificada»: es diu perquè el rowspan de la
+   festa la tapa i, si no, sembla perduda (segona auditoria, 8/9/2026). */
+.plan-festa-sota {
+  font-size: 11px; font-weight: 500; color: var(--text-sub); line-height: 1.35;
+  text-align: center; padding: 0 8px 8px; max-width: 190px; margin: 0 auto;
+}
 
 /* ── Escriure al Google (Calendar + Tasks) ── */
 .gwrite-row {
@@ -4314,6 +4446,9 @@ body {
   padding: 8px 10px; border-radius: var(--r-sm); background: var(--bg-alt, #FAF7F8); margin-bottom: 6px;
 }
 .reu-reserva-avis { background: #FEF3C7; }
+/* Les entrevistes que ja s'han fet: hi són, però apagades, perquè no es
+   confonguin amb les que encara han de venir (segona auditoria, 8/9/2026). */
+.reu-reserva-passada { opacity: 0.62; }
 .reu-reserva-quan { font-size: 13px; min-width: 118px; color: var(--garnet-text); }
 .reu-reserva-qui { flex: 1; min-width: 160px; font-size: 13.5px; display: flex; flex-direction: column; }
 .reu-reserva-mail { font-size: 12px; color: var(--text-muted); }
@@ -5109,4 +5244,243 @@ body.app-ocupada { cursor: progress; }
   .dubtes-avis-text { flex: 1 1 100%; order: 2; }
   .dubtes-avis .btn { order: 3; margin-left: auto; }
   .dubte-botons .btn { flex: 1 1 auto; }
+}
+
+/* ============================================================
+   ACCESSIBILITAT — el que va sortir a l'auditoria del 6/9/2026
+   ============================================================ */
+
+/* ⚠ ELS BOTONS D'UN POST-IT NO ES VEIEN AL MÒBIL.
+   Només sortien amb `:hover`, i al mòbil i a la tauleta no hi ha hover:
+   editar i esborrar un post-it eren invisibles i, per tant, inexistents. */
+@media (hover: none), (pointer: coarse) {
+  .postit-actions { opacity: 1; }
+  .postit-act-btn { width: 36px; height: 36px; }
+}
+
+/* ⚠ RESPECTAR «REDUIR EL MOVIMENT» DE DEBÒ.
+   Hi havia sis blocs que només cobrien components afegits tard: les 29
+   finestres seguien fent l'animació d'entrada i hi havia 207 elements amb
+   `transition: all`. Qui ho té activat sol ser qui ho necessita. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ⚠ ON SOC? Cap punt de referència: ni un enllaç per saltar al contingut,
+   ni res que digués quina pàgina és l'activa. Amb el teclat calia passar 24
+   elements del menú a cada pantalla. */
+.salta-al-contingut {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--garnet-deep); color: #fff;
+  padding: 10px 16px; border-radius: 0 0 var(--r-sm) 0;
+  z-index: 9999; font-weight: 600; text-decoration: none;
+}
+.salta-al-contingut:focus {
+  left: 0; outline: 3px solid var(--crimson); outline-offset: 2px;
+}
+
+/* ⚠ EL FOCUS S'HA DE VEURE SEMPRE. Hi havia onze camps amb `outline:none`
+   i cinc controls sense cap senyal de focus. */
+:focus-visible {
+  outline: 3px solid var(--crimson);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   ELS NOMS LLARGS D ITEM QUE ESTIRAVEN LA TAULA
+   ------------------------------------------------------------
+   Trobat a l auditoria del 6/9/2026: un item de registre o una activitat de
+   notes amb un nom llarg ("Control de les taules de multiplicar del 6 al 9")
+   feia una columna d un pam. La taula s estirava fins a fora de la pantalla,
+   la mestra havia de fer scroll horitzontal per marcar una casella i el nom
+   dels alumnes deixava de servir de referencia.
+
+   Ara la columna te un sostre: el nom s hi encabeix en dues linies i, si
+   encara no hi cap, es talla amb punts suspensius. El nom sencer no es perd:
+   es queda al title, o sigui que sortint-hi el ratoli per damunt es llegeix.
+   ============================================================ */
+.reg-table th.reg-th-item,
+.notes-table th.notes-th-item {
+  max-width: 190px;
+}
+.reg-th-inner > span,
+.notes-th-item-nom {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+/* Al mobil encara mes estret: el que compta es poder marcar la casella. */
+@media (max-width: 640px) {
+  .reg-table th.reg-th-item,
+  .notes-table th.notes-th-item { max-width: 130px; }
+}
+
+/* Triar un alumne tocant-lo (plànol de l aula amb el dit) */
+.seient-triat, .seients-pool-triat {
+  outline: 2px solid var(--crimson);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(122, 30, 46, 0.14);
+}
+.seients-tria-hint {
+  margin: 6px 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-tint, #FBEAED);
+  color: var(--text-main);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.seient, .seients-pool-item { cursor: pointer; }
+
+/* ============================================================
+   EL MOBIL DE DEBO: BARRES, ARREES SEGURES I RESPOSTA AL TOC
+   ------------------------------------------------------------
+   Trobat a l auditoria del 6/9/2026:
+
+   · Tot es media amb 100vh, que al mobil val l alcada SENSE comptar la
+     barra d adreces. Resultat: el peu del calaix «Dades personals» —on hi
+     ha el boto de desar— quedava per sota de la barra del navegador i no
+     s hi podia arribar. `dvh` es l alcada que queda de debo.
+   · Sense `overscroll-behavior`, arribar al final d una finestra continuava
+     desplacant la pagina de sota: es tancava el calaix sense voler.
+   · Sense `-webkit-tap-highlight-color`, tocar un boto al mobil no donava
+     cap senyal: es tocava dues i tres vegades pensant que no havia anat.
+   ============================================================ */
+@supports (height: 100dvh) {
+  .sidebar,
+  .app-shell,
+  body { min-height: 100dvh; }
+  .panel-drawer,
+  .drawer { max-height: 100dvh; }
+  .modal { max-height: calc(100dvh - 48px); }
+  .vedrunu-panel { max-height: calc(100dvh - 110px); }
+}
+.modal, .panel-drawer, .drawer, .vedrunu-panel, .sidebar {
+  overscroll-behavior: contain;
+}
+/* Prou espai per sota, on hi ha la barra del sistema (iPhone amb osca) */
+.modal-footer, .panel-footer, .drawer-footer {
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+}
+button, .btn, a, [role="button"], input, select, textarea {
+  -webkit-tap-highlight-color: rgba(122, 30, 46, 0.16);
+}
+
+/* ⚠ Els camps que es menjaven l anell del focus.
+   Dotze menes de camp feien `outline: none` i cinc no hi posaven res a
+   canvi: qui va amb el teclat no sabia on era. `:focus-visible` nomes surt
+   quan de debo es navega amb el teclat, o sigui que amb el ratoli no canvia
+   res del que ja hi havia. */
+input:focus-visible, select:focus-visible, textarea:focus-visible,
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
+[contenteditable="true"]:focus-visible {
+  outline: 2px solid var(--crimson);
+  outline-offset: 2px;
+}
+
+/* ⚠ L apartat EINES del menu tenia sostre per a cinc eines just justes: amb
+   una mes, la darrera quedava tallada i no s hi podia clicar. Ara s ajusta
+   al que hi hagi. */
+.nav-section-items:not(.collapsed) { max-height: none; }
+
+/* ⚠ Un post-it amb molt text creixia sense limit i s enduia el taulell.
+   Ara te un sostre i el text de mes es llegeix obrint-lo.
+
+   ⚠ Però es tallava a mitja línia i res no deia que hi hagués més text
+   (segona auditoria, 8/9/2026): semblava que la nota s'hagués guardat a
+   mitges. Ara el final s'esvaeix, que és el senyal que tothom entén de «això
+   continua», i la nota es pot seguir obrint per llegir-la sencera. */
+.postit-text {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  /* `line-clamp` i no `max-height`: talla per línia sencera i hi posa els
+     punts suspensius ELL SOL, i només quan de debò sobra text. Amb una nota
+     curta no es nota gens. 10 línies ≈ els 210 px d'abans. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 10;
+  line-clamp: 10;
+}
+
+/* ⚠ Un missatge llarg sense espais (una adreca enganxada) desbordava el
+   panell del Vedrunu cap a la dreta i tapava el boto de tancar. */
+.vedrunu-msg, .vedrunu-action-detail, .vedrunu-action-title {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* La nota triada per moure-la tocant (mobil i tauleta) */
+.postit-triat {
+  outline: 2px solid var(--crimson);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(122, 30, 46, 0.14);
+}
+
+/* Els apunts d una mestra que ja no surt al claustre: es veuen, marcats,
+   per no perdre res en silenci quan es corregeix un nom. */
+.regdoc-orfe { opacity: 0.72; }
+.regdoc-orfe .reg-td-name { font-style: italic; }
+.regdoc-orfe-treu {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--crimson); text-decoration: underline; font: inherit;
+}
+
+/* La cerca de la pantalla d Alumnes */
+.alumnes-cerca {
+  max-width: 340px;
+  margin: 0 0 14px;
+}
+
+/* ============================================================
+   LES DUES QUE NO CABIEN A LA PANTALLA
+   ------------------------------------------------------------
+   Trobat a l auditoria del 6/9/2026:
+   · el quadre de la «penyora» fa 460 px de fons + 6 px de vora per banda:
+     en un mobil de 390 px la vora groga quedava tallada pels dos costats;
+   · a 320 px d amplada, Assoliments feia desbordar el document 11 px.
+   ============================================================ */
+.esm-penyora .esm-penyora-box {
+  max-width: min(460px, calc(100vw - 28px));
+  box-sizing: border-box;
+}
+@media (max-width: 420px) {
+  .esm-penyora .esm-penyora-box { padding: 24px 18px; border-width: 4px; }
+  .esm-penyora-titol { font-size: 30px; }
+  .esm-penyora-emoji { font-size: 36px; }
+}
+/* Assoliments a les pantalles molt estretes */
+@media (max-width: 360px) {
+  .assim-table-scroll { overflow-x: auto; max-width: 100%; }
+  .assim-th-obj { min-width: 76px; }
+  .page-content { padding-left: 12px; padding-right: 12px; }
+}
+
+/* ============================================================
+   ZONES DE TOC — pantalles de dit
+   ------------------------------------------------------------
+   ⚠ Segona auditoria (8/9/2026): al mòbil, els botons del selector
+   d'assignatura i de trimestre feien 27 px d'alt, les etiquetes del perfil
+   29, i la × de treure un grup 24×24. Amb el dit no s'hi encerta i es toca
+   el del costat —que vol dir canviar de trimestre o treure el grup que no
+   toca. La recomanació (WCAG 2.5.5) és 44×44.
+
+   Va per `hover: none` i no per amplada: el que mana és si hi ha ratolí o
+   no, i una tauleta és un aparell de dit encara que sigui ampla. Amb ratolí
+   tot es queda tal com està.
+   ============================================================ */
+@media (hover: none) {
+  .trim-sel-btn        { padding: 11px 16px; font-size: 13px; min-height: 44px; }
+  .perfil-assig-chip   { padding: 11px 15px; font-size: 13px; min-height: 44px; }
+  .perfil-grup-remove  { width: 40px; height: 40px; font-size: 18px; }
 }

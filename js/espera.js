@@ -126,7 +126,23 @@
 
     /* Xarxa penjada: el vel no pot quedar-se per sempre o l'app seria
        inservible i s'hauria de tancar. `appsScriptGet` talla als 45 s. */
-    var mort = setTimeout(function () { treu(); }, MAXIM);
+    /* ⚠ EL VEL SE N'ANAVA I L'APP ES QUEDAVA MORTA.
+
+       Trobat a l'auditoria del 6/9/2026. Amb la connexió PENJADA (no tallada:
+       penjada) una operació pot trigar fins a 91 segons —45 del primer intent
+       més 45 del reintent—, i el vel se n'anava als 50. Quaranta segons
+       d'app sense vel, sense barra i sense resposta: la mestra la donava per
+       morta, la tancava, i el que estava fent es quedava a mig fer.
+
+       Ara, quan es treu per temps, es diu que allò encara està en marxa. */
+    var mort = setTimeout(function () {
+      var seguiaObert = mostrat && !acabat;
+      treu();
+      if (seguiaObert && typeof window.showToast === 'function') {
+        window.showToast('Això triga més del compte. Segueix provant-ho en segon pla: ' +
+                         'no tanquis l\'app encara, i si no arriba et diré què ha passat.', 'error');
+      }
+    }, MAXIM);
 
     function treu() {
       if (acabat) return;
