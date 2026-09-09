@@ -9258,6 +9258,32 @@ function comAnem() {
   l.push('Codi de la biblioteca: ' + BACKEND_VERSIO);
   l.push('');
 
+  /* 0. EL MANIFEST. El `appsscript.json` no viatja amb el `Codi.gs`: és un
+     fitxer a part, amagat per defecte, i es queda enrere sense que ho vegi
+     ningú (en Pol, 4/9/2026). Des del 6/9 hi ha el permís `userinfo.email`,
+     i sense ell `Session.getActiveUser().getEmail()` torna buit i el pany de
+     `_nomesJo_()` —el que impedeix que un visitant de la pàgina de les
+     famílies cridi les eines de l'editor amb `google.script.run`— es queda
+     OBERT sense dir-ho. Executant això des de l'editor el correu hi ha de
+     ser: si no hi és, el manifest és vell. */
+  l.push('ELS PERMISOS (el fitxer appsscript.json)');
+  mira('els permisos', function () {
+    var jo = '';
+    try { jo = String(Session.getActiveUser().getEmail() || '').trim(); } catch (e) {}
+    if (jo) {
+      l.push('  ✔ el manifest és al dia (et reconec: ' + jo + ')');
+    } else {
+      l.push('  ✗ EL MANIFEST ÉS VELL: hi falta el permís userinfo.email');
+      l.push('    Mentre hi falti, el pany que impedeix que un visitant de la');
+      l.push("    pàgina de les famílies executi les eines de l'editor no tanca.");
+      cal.push('Enganxa el appsscript.json nou en AQUEST projecte: Configuració del ' +
+               'projecte (la roda dentada) → marca «Mostra el fitxer de manifest ' +
+               "appsscript.json a l'editor» → obre'l, esborra-ho i enganxa-hi el bo → " +
+               'Desa, torna a executar comAnem() i accepta el permís.');
+    }
+  });
+  l.push('');
+
   /* 1. Les credencials */
   l.push('ELS FULLS');
   mira('els fulls', function () {
