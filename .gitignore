@@ -12,3 +12,4 @@ node_modules/
 # Es generen amb  node eines/fes-biblioteca.js
 biblioteca/
 pont/
+.qa/

@@ -5256,6 +5256,15 @@ body.app-ocupada { cursor: progress; }
 @media (hover: none), (pointer: coarse) {
   .postit-actions { opacity: 1; }
   .postit-act-btn { width: 36px; height: 36px; }
+
+  /* ⚠ Els apartats del menú feien 34 px d'alt. Amb el dit, el mínim que
+     s'encerta sense errar-la són 44 px: els de sobre i sota es fallen sovint,
+     i ho paga qui va amb presa entre classe i classe. A l'ordinador no canvia
+     res —aquest bloc només val per a pantalles tàctils— o sigui que el menú
+     de sempre es queda igual de compacte. Trobat al QA del 10/9/2026
+     mesurant-los un per un al mòbil. */
+  .sidebar .nav-item,
+  .sidebar .nav-item-half { min-height: 44px; }
 }
 
 /* ⚠ RESPECTAR «REDUIR EL MOVIMENT» DE DEBÒ.

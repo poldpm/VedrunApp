@@ -4074,8 +4074,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Marca Inici com actiu per defecte
   document.querySelector('.nav-item')?.classList.add('active');
   _initHistoryNav(); // gestió del botó "enrere" del mòbil
-  if (config.scriptUrl) loadAll();
-  else updateSync('','No configurat');
+  /* ⚠ SEMPRE, també sense connexió configurada. El loadAll() ja sap què fer
+     quan encara no n'hi ha (ho diu i para), i és ell qui treu el rètol
+     d'arrencada. Amb la condició aquí a fora, una app acabada d'instal·lar es
+     quedava per sempre amb el rètol granat tapant-ho tot: la mestra no podia
+     ni arribar a Configuració per connectar-la, i no hi havia cap sortida.
+     Trobat al QA del 10/9/2026 obrint l'app com la veu una mestra el primer
+     dia. Veure eines/comprova-arrencada.js. */
+  loadAll();
 });
 
 /* ============================================================

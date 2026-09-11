@@ -1,8 +1,9 @@
 {
-  "versio": "v219",
-  "data": "2026-09-09",
+  "versio": "v221",
+  "data": "2026-09-11",
   "titol": "Novetats d aquesta versió",
   "canvis": [
+    "L'app ja s'obre el primer dia. En una instal·lació acabada de fer es quedava per sempre a la pantalla granada de benvinguda, sense deixar clicar res: ni tan sols es podia arribar a Configuració per connectar-la.",
     "Els Assoliments tornen a funcionar: clicar una casella de la graella no feia absolutament res. Si darrerament hi vas provar i vas pensar que anava malament, no eres tu.",
     "El que apuntes va al nen que toca, sempre. El full de l'escola es reordena sol cada quart d'hora, i fins ara això podia fer que una nota d'actitud, l'esborrat d'una observació o el plànol de l'aula acabessin en un altre alumne.",
     "Corregir una observació que has posat al nen equivocat: canvia l'alumne (o l'assignatura, o el trimestre) al desplegable i es MOU de debò. Abans aquells desplegables es veien actius i no servien de res.",
