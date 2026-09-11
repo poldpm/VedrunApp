@@ -8802,7 +8802,19 @@ function _avisaBackendVell(versioServidor) {
     '<span class="avis-backend-com">No has de fer res: això s\'arregla des d\'un' +
     ' sol lloc per a tota l\'escola i et vindrà sol. Si demà encara hi és,' +
     ' digues-ho en Pol.</span>';
-  document.body.insertBefore(d, document.body.firstChild);
+  /* ⚠ DINS DEL CONTINGUT, no al body. El body de l'app és un flex en FILA
+     (barra lateral | contingut): una franja penjada del body hi entra com
+     un element més de la fila i, en comptes d'una banda a dalt, es
+     converteix en una COLUMNA de tota l'alçada que empeny l'app fora de la
+     pantalla —mesurat: 997 × 1453 px, amb el contingut reduït a 0 d'ample.
+
+     I això passa justament el primer dia d'una app nova, abans d'enganxar
+     la biblioteca, que és quan més falta fa poder-la fer servir. Trobat al
+     QA de l'11/9/2026 obrint l'app d'especialistes. Dins de #contingut, el
+     `position: sticky` del CSS fa el que s'havia pensat: quedar-se a dalt
+     mentre es baixa. */
+  const _host = document.getElementById('contingut') || document.body;
+  _host.insertBefore(d, _host.firstChild);
 }
 
 /* ⚠ Aquí hi havia «Portar les llistes de l'escola» i «Alumnes que l'app no
