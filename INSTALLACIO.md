@@ -175,7 +175,7 @@ arriba a l'app de la mestra sense enganxar res i sense desplegar res.**
 ### Un cop per a tota l'escola: la biblioteca
 
 1. Un full de càlcul nou («Vedruna — Biblioteca») → **Extensions → Apps Script**.
-2. Enganxa-hi `biblioteca/BIBLIOTECA.gs` i l'`appsscript.json`. Desa.
+2. Enganxa-hi `VedrunApp/biblioteca/BIBLIOTECA.gs` i l'`appsscript.json`. Desa.
 3. **Configuració del projecte** → copia **l'ID de l'script**.
 4. Comparteix el projecte amb **permís d'edició** per a totes les mestres.
    Cal per a la referència en mode HEAD; sense edició, cada mestra hauria de
@@ -183,7 +183,7 @@ arriba a l'app de la mestra sense enganxar res i sense desplegar res.**
 
 ### Un cop per mestra: el pont
 
-1. Al seu Apps Script: esborra-ho tot i enganxa-hi `pont/PONT.gs` i
+1. Al seu Apps Script: esborra-ho tot i enganxa-hi `VedrunApp/pont/PONT.gs` i
    l'`appsscript.json`.
 2. **Omple les quatre credencials** de dalt del pont (`GRUPS_ID`,
    `DESDOB_ID`, `GEMINI_KEY`, `APP_TOKEN`).
@@ -202,7 +202,7 @@ projecte de sempre. Les credencials, els disparadors i el full no es toquen.
 
 1. **Guarda't el `Code.gs` que hi ha ara** en un fitxer a part. És la marxa
    enrere: si res no va, l'enganxes i tornes on eres.
-2. Al seu Apps Script: **esborra-ho tot** i enganxa-hi `pont/PONT.gs`. Les
+2. Al seu Apps Script: **esborra-ho tot** i enganxa-hi `VedrunApp/pont/PONT.gs`. Les
    quatre credencials, **deixa-les buides**: ja són a les Script Properties
    i `configuraTot()` no les toca (diu «ja hi eren»).
 3. **Biblioteques → +** → l'ID → **HEAD (desenvolupament)** → `Vedruna`. Desa.
@@ -235,7 +235,7 @@ Un canvi al `Code.gs` de la mare:
 node eines/fes-biblioteca.js
 ```
 
-i enganxar `biblioteca/BIBLIOTECA.gs` a la biblioteca. **A totes les mestres els
+i enganxar `VedrunApp/biblioteca/BIBLIOTECA.gs` a la biblioteca. **A totes les mestres els
 arriba sol.**
 
 ### Tres coses que s'han de tenir presents
