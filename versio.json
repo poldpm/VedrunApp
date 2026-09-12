@@ -1,27 +1,16 @@
 {
-  "versio": "v222",
-  "data": "2026-09-11",
+  "versio": "v224",
+  "data": "2026-09-12",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Quan el servidor va endarrerit, l avis groc torna a ser una banda a dalt. Tapava l app sencera i no es podia fer res: sortia justament el primer dia, abans de connectar-la del tot.",
-    "L'app ja s'obre el primer dia. En una instal·lació acabada de fer es quedava per sempre a la pantalla granada de benvinguda, sense deixar clicar res: ni tan sols es podia arribar a Configuració per connectar-la.",
-    "Els Assoliments tornen a funcionar: clicar una casella de la graella no feia absolutament res. Si darrerament hi vas provar i vas pensar que anava malament, no eres tu.",
-    "El que apuntes va al nen que toca, sempre. El full de l'escola es reordena sol cada quart d'hora, i fins ara això podia fer que una nota d'actitud, l'esborrat d'una observació o el plànol de l'aula acabessin en un altre alumne.",
-    "Corregir una observació que has posat al nen equivocat: canvia l'alumne (o l'assignatura, o el trimestre) al desplegable i es MOU de debò. Abans aquells desplegables es veien actius i no servien de res.",
-    "Si tanques una observació a mig escriure —amb la ×, amb Escape o amb el gest d'enrere del mòbil— ara t'ho pregunta abans de llençar-la.",
-    "El puntet de baix ja no diu «Sincronitzat» quan hi ha coses sense desar. I el que va quedar pendent ahir puja sol en obrir l'app, sense que hagis de fer res.",
-    "Passar la llista amb la roda del ratolí ja no canvia la nota que hi ha sota el cursor. Abans la canviava i la desava sense que ho veiessis.",
-    "Les colònies i la setmana cultural surten TOTS els dies al planning, no només el primer. També a la portada mentre s'estan fent.",
-    "El botó «Aspectes generals grup» porta al document que el servidor llegeix de debò. Fins ara obria el full de grups, i el que hi escrivies no servia de res.",
-    "Les assignatures del PI i de l'AM ja no es poden clicar: hi són per mirar-les. Un clic sense voler en treia una del document que veu tot el claustre.",
-    "Desar la fitxa d'un alumne ja no li esborra de la pantalla els contactes de la família, els drets d'imatge ni el trastorn.",
-    "Si dues mestres apunteu una observació al mateix nen alhora, hi són totes dues. Abans la segona esborrava la primera sense dir res.",
-    "Quan una cosa NO s'ha pogut desar, l'app ho desfà i t'ho diu, amb el text a punt per tornar-ho a provar. Val per a les observacions, les creus del registre i les notes.",
-    "Convocar reunions: si el servidor falla ho diu, en comptes de fer veure que no tens cap convocatòria. I tots els botons avisen quan una cosa no s'ha pogut fer.",
-    "Les entrevistes que ja s'han fet continuen a la llista, apagades, i els números quadren.",
-    "El botó ↺ Regenerar dels grups heterogenis ara dona un repartiment diferent cada vegada.",
-    "Les files de taules noves surten separades i tots els alumnes es poden tocar. Abans sortien unes damunt de les altres.",
-    "Amb la tauleta i el mòbil: les caselles del registre, els botons de les targetes d'alumne i els del planning i el calendari s'han fet prou grossos per al dit.",
-    "El text gris de tota l'app es llegeix millor, i el dels dies festius del calendari, encara més."
+    "ARRANJAT: el calendari podia perdre actes si el fas servir des de dos aparells. Apuntaves una cosa des de casa i el primer desat des de l escola te la feia desaparèixer, sense dir-te res.",
+    "ARRANJAT: els contactes de la família ja no es poden buidar sols. Si el full de secretaria deixava de dir res d un grup, l app li buidava els tutors, els correus i els telèfons a tota la classe. Ara, si d un alumne no en sap res, li deixa el que ja tenia.",
+    "ARRANJAT: treure un alumne ja no desplaça les dades dels altres. Abans, l observació, el PI i l AM es quedaven a la fila de qui hi havia sobre.",
+    "La paperera de Gestionar alumnes ja no treu ningú quan la llista surt del full de l escola: t ho diu i t explica que ho has de demanar a secretaria.",
+    "L actitud ja va lligada a cada alumne i no a la seva posició a la llista: si el grup es reordena, les puntuacions ja no ballen.",
+    "Al Planning, les sessions especials i les sortides ara ho diuen amb lletres, no només amb el color.",
+    "A la tauleta: els botons de cada alumne, la creu de treure una columna de Registres i una dotzena de botons petits ja es poden tocar bé amb el dit.",
+    "Es llegeixen millor el botó NE i els botons d assoliment, que gairebé desapareixien.",
+    "Millores per a qui fa servir lector de pantalla: s anuncien els avisos, les finestres diuen com es diuen i les caselles de Registres diuen de quin alumne i de quina cosa són."
   ]
 }

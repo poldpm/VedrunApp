@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v222">
+  <link rel="stylesheet" href="css/main.css?v=v224">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -987,7 +987,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="modal-body">
           <div class="modal-field">
             <div class="modal-label">Nom curt <span style="color:var(--text-muted);font-weight:400">(paraules en negreta que apareixeran a la capçalera)</span></div>
-            <input class="modal-input" id="assimObjNom" type="text" placeholder="Ex: Monedes i bitllets" aria-label="Ex: Monedes i bitllets">
+            <input class="modal-input" id="assimObjNom" type="text" placeholder="Ex: Monedes i bitllets" aria-label="Nom curt">
           </div>
           <div class="modal-field">
             <div class="modal-label">Descripció completa <span style="color:var(--text-muted);font-weight:400">(opcional, visible al botó ⓘ)</span></div>
@@ -1769,7 +1769,7 @@ Català, Matemàtiques, Anglès, Medi, Català
       <div class="add-form" id="addForm">
         <div class="form-field">
           <label class="form-label">Nom i cognoms</label>
-          <input class="form-input" id="newStudentName" type="text" placeholder="Ex: Aina Serra Puig" aria-label="Ex: Aina Serra Puig" maxlength="80">
+          <input class="form-input" id="newStudentName" type="text" placeholder="Ex: Aina Serra Puig" aria-label="Nom i cognoms" maxlength="80">
         </div>
         <div class="form-field">
           <label class="form-label">Gènere</label>
@@ -1838,7 +1838,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="personal-field"><label class="form-label" for="pCorreu2">Correu del tutor/a 2</label><input class="form-input form-input-nomes-mirar" id="pCorreu2" type="email" placeholder="—" readonly style="width:100%"></div>
         <div class="personal-field"><label class="form-label" for="pTelefons">Telèfons</label><input class="form-input form-input-nomes-mirar" id="pTelefons" type="text" placeholder="—" readonly style="width:100%"></div>
         <div class="personal-section-label" style="margin-top:24px;">Observacions mèdiques</div>
-        <div class="personal-field"><label class="form-label">Informació mèdica rellevant</label><textarea class="modal-textarea form-input-nomes-mirar" readonly id="pObs" placeholder="Ex: Intol·lerància a la lactosa, al·lèrgies…" rows="3" style="width:100%" aria-label="Ex: Intol·lerància a la lactosa, al·lèrgies…"></textarea></div>
+        <div class="personal-field"><label class="form-label">Informació mèdica rellevant</label><textarea class="modal-textarea form-input-nomes-mirar" readonly id="pObs" placeholder="Ex: Intol·lerància a la lactosa, al·lèrgies…" rows="3" style="width:100%" aria-label="Informació mèdica rellevant"></textarea></div>
 
         <div class="personal-section-label" style="margin-top:24px;">Atenció a la diversitat</div>
         <div class="personal-field">
@@ -1868,14 +1868,14 @@ Català, Matemàtiques, Anglès, Medi, Català
           </label>
           <div id="pEAPWrap" style="display:none;margin:8px 0 4px 26px">
             <div class="form-label" style="margin-bottom:4px">Detalls de l'informe:</div>
-            <textarea class="modal-textarea form-input-nomes-mirar" readonly id="pEAP" placeholder="Ex: Informe de dictamen d'escolarització (2024) · TDAH · Recomanacions de l'EAP…" rows="3" style="width:100%" aria-label="Ex: Informe de dictamen d'escolarització (2024) · TDAH · Recomanacions de l'EAP…"></textarea>
+            <textarea class="modal-textarea form-input-nomes-mirar" readonly id="pEAP" placeholder="Ex: Informe de dictamen d'escolarització (2024) · TDAH · Recomanacions de l'EAP…" rows="3" style="width:100%" aria-label="Detalls de l'informe"></textarea>
           </div>
         </div>
         <div class="modal-hint" style="margin-top:2px">Si no es marca cap opció, l'alumne és normatiu.</div>
 
         <div class="personal-field" style="margin-top:20px">
           <label class="form-label">Aspectes conductuals o necessitats concretes</label>
-          <textarea class="modal-textarea form-input-nomes-mirar" readonly id="pEspecific" placeholder="Ex: Dislèxia i lateralitat creuada · No té drets d'imatge a Instagram…" rows="3" style="width:100%" aria-label="Ex: Dislèxia i lateralitat creuada · No té drets d'imatge a Instagram…"></textarea>
+          <textarea class="modal-textarea form-input-nomes-mirar" readonly id="pEspecific" placeholder="Ex: Dislèxia i lateralitat creuada · No té drets d'imatge a Instagram…" rows="3" style="width:100%" aria-label="Aspectes conductuals o necessitats concretes"></textarea>
         </div>
 
         <div class="personal-field" style="margin-top:20px">
@@ -1986,7 +1986,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="closeNewItemModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="modal-body">
-        <div class="modal-field"><div class="modal-label">Nom de l'ítem</div><input class="modal-input" id="newItemName" type="text" placeholder="Ex: Retorn veu de l'alumne" aria-label="Ex: Retorn veu de l'alumne" maxlength="80"></div>
+        <div class="modal-field"><div class="modal-label">Nom de l'ítem</div><input class="modal-input" id="newItemName" type="text" placeholder="Ex: Retorn veu de l'alumne" aria-label="Nom de l'ítem" maxlength="80"></div>
         <div class="modal-field">
           <div class="modal-label">Tipus</div>
           <div class="type-selector">
@@ -2059,7 +2059,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <summary>Opcions avançades</summary>
           <div class="modal-field" style="margin-top:10px">
             <div class="modal-label">Clau API de Gemini <span style="font-weight:400;color:var(--text-muted)">(opcional)</span></div>
-            <input class="modal-input" id="cfgGeminiKey" type="password" placeholder="Deixa buit per usar la compartida" aria-label="Deixa buit per usar la compartida">
+            <input class="modal-input" id="cfgGeminiKey" type="password" placeholder="Deixa buit per usar la compartida" aria-label="Clau API de Gemini (opcional)">
           </div>
           <div class="cfg-actions" style="margin-top:10px">
             <button class="btn btn-ghost btn-sm" onclick="_autoSetupInicial(true).then(()=>showToast('Manteniment fet ✓','success'))">Refer manteniment</button>
@@ -2248,40 +2248,44 @@ Català, Matemàtiques, Anglès, Medi, Català
     </div>
   </div>
 
-  <div class="toast" id="toast">
+  <!-- role/aria-live: és l'únic canal de retorn de l'app (hi aboquen 42 punts,
+       i també TOTS els errors de validació dels formularis). Sense això, qui
+       fa servir lector de pantalla desa una cosa i no sent ni que ha anat bé
+       ni què li falta. Auditoria de l'11/9/2026. -->
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
     <span id="toastMsg"></span>
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v222"></script>
-  <script defer src="js/pdfhorari.js?v=v222"></script>
-  <script defer src="js/millores.js?v=v222"></script>
-  <script defer src="js/rol.js?v=v222"></script>
-  <script defer src="js/config.local.js?v=v222"></script>
-  <script defer src="js/app.js?v=v222"></script>
-  <script defer src="js/notes.js?v=v222"></script>
-  <script defer src="js/seients.js?v=v222"></script>
-  <script defer src="js/perfil.js?v=v222"></script>
-  <script defer src="js/grupview.js?v=v222"></script>
-  <script defer src="js/postits.js?v=v222"></script>
-  <script defer src="js/horari.js?v=v222"></script>
-  <script defer src="js/vedrunu.js?v=v222"></script>
-  <script defer src="js/gwrite.js?v=v222"></script>
-  <script defer src="js/rubriques.js?v=v222"></script>
-  <script defer src="js/docents.js?v=v222"></script>
-  <script defer src="js/coordinacio.js?v=v222"></script>
-  <script defer src="js/regdocents.js?v=v222"></script>
-  <script defer src="js/segentrevistes.js?v=v222"></script>
-  <script defer src="js/entrevistes.js?v=v222"></script>
-  <script defer src="js/notescomp.js?v=v222"></script>
-  <script defer src="js/reunions.js?v=v222"></script>
-  <script defer src="js/versio.js?v=v222"></script>
+  <script defer src="js/espera.js?v=v224"></script>
+  <script defer src="js/pdfhorari.js?v=v224"></script>
+  <script defer src="js/millores.js?v=v224"></script>
+  <script defer src="js/rol.js?v=v224"></script>
+  <script defer src="js/config.local.js?v=v224"></script>
+  <script defer src="js/app.js?v=v224"></script>
+  <script defer src="js/notes.js?v=v224"></script>
+  <script defer src="js/seients.js?v=v224"></script>
+  <script defer src="js/perfil.js?v=v224"></script>
+  <script defer src="js/grupview.js?v=v224"></script>
+  <script defer src="js/postits.js?v=v224"></script>
+  <script defer src="js/horari.js?v=v224"></script>
+  <script defer src="js/vedrunu.js?v=v224"></script>
+  <script defer src="js/gwrite.js?v=v224"></script>
+  <script defer src="js/rubriques.js?v=v224"></script>
+  <script defer src="js/docents.js?v=v224"></script>
+  <script defer src="js/coordinacio.js?v=v224"></script>
+  <script defer src="js/regdocents.js?v=v224"></script>
+  <script defer src="js/segentrevistes.js?v=v224"></script>
+  <script defer src="js/entrevistes.js?v=v224"></script>
+  <script defer src="js/notescomp.js?v=v224"></script>
+  <script defer src="js/reunions.js?v=v224"></script>
+  <script defer src="js/versio.js?v=v224"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v222"></script>
+  <script defer src="js/personal.js?v=v224"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
@@ -2349,7 +2353,7 @@ Català, Matemàtiques, Anglès, Medi, Català
       <textarea class="vedrunu-input" id="vedrunuInput" placeholder="Pregunta'm el que vulguis…" rows="1" style="resize:none"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();vedrunuSend();}"
         oninput="_vedrunuAutosize(this)" aria-label="Escriu la teva pregunta al Vedrunu"></textarea>
-      <button class="vedrunu-send" id="vedrunuSend" onclick="vedrunuSend()">
+      <button class="vedrunu-send" id="vedrunuSend" aria-label="Enviar la pregunta" title="Enviar" onclick="vedrunuSend()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>

@@ -1324,11 +1324,14 @@ function _perfilUpdateGreeting() {
   const el = document.getElementById('heroGreeting');
   if (!el) return;
   const nom = (_perfil.nom || '').trim().split(/\s+/)[0] || ''; // només el nom
-  const salutacio = _nomEsFemeni(nom) ? 'Benvinguda' : 'Benvingut';
   if (nom) {
-    el.innerHTML = salutacio + ', <em>' + escapeHtml(nom) + '!</em>';
+    el.innerHTML = (_nomEsFemeni(nom) ? 'Benvinguda' : 'Benvingut') + ', <em>' + escapeHtml(nom) + '!</em>';
   } else {
-    el.textContent = salutacio + '!';
+    /* ⚠ Sense nom, `_nomEsFemeni('')` és fals i sortia «Benvingut!».
+       La primera pantalla que veu una mestra que s'acaba de donar d'alta
+       —i encara no ha omplert el perfil— la tractava en masculí. L'HTML ja
+       porta el neutre; aquí només cal no trepitjar-lo. Auditoria 11/9/2026. */
+    el.textContent = 'Benvingut/da!';
   }
 }
 

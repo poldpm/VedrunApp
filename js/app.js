@@ -2802,6 +2802,25 @@ async function toggleStudentGenere(id) {
    Ara els dos diccionaris es tornen a muntar amb els ids nous, alhora que
    la llista. */
 async function deleteStudent(id, jaPreguntat) {
+  /* ⚠ HI HAVIA DOS CAMINS PER TREURE UN ALUMNE I NOMÉS UN ESTAVA PROTEGIT.
+
+     Trobat a l'auditoria del 11/9/2026. Des de la fitxa
+     (`_esborraDesDelCalaix`) l'app es nega a treure ningú quan els alumnes
+     surten del full de l'escola, i ho explica. Però l'escombraria de la
+     llista «Gestionar alumnes» anava directa aquí: preguntava només
+     «Eliminar aquest alumne?», el treia, renumerava tots els id i acabava
+     dient «Canvis guardats». La llista li tornava a la següent
+     sincronització —el full de l'escola mana—, però mentrestant li havia
+     reescrit el seu full `Alumnes` amb una llista desquadrada.
+
+     El guard ha de ser aquí, que és per on passen tots dos camins. */
+  const _delFullCompartit = (typeof _grupDeTreball === 'function' && _grupDeTreball()) ||
+                            (typeof _tutoriaGrup !== 'undefined' && _tutoriaGrup);
+  if (_delFullCompartit) {
+    showToast('Els alumnes de ' + _delFullCompartit + ' surten del full de l\'escola: des d\'aquí no se\'n pot treure cap. ' +
+              'Si algú ja no és a la classe, digues-ho a secretaria i desapareixerà sol.', 'error');
+    return;
+  }
   if (!jaPreguntat && !confirm('Eliminar aquest alumne?')) return;
   const queden = students.filter(s => s.id !== id);
   const nouId = {};                       // id vell → id nou
@@ -2926,8 +2945,8 @@ function renderObsDrawerContent(studentId) {
       div.innerHTML = `
         <div class="obs-entry-header">
           <span class="obs-materia-badge" style="background:${c.bg};color:${c.text}">${MATERIES[mat]||mat}</span>
-          <button class="obs-entry-edit" onclick="editObservacio(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          <button class="obs-entry-delete" onclick="deleteObservacioMateria(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          <button class="obs-entry-edit" aria-label="Editar aquesta observació" title="Editar" onclick="editObservacio(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="obs-entry-delete" aria-label="Esborrar aquesta observació" title="Esborrar" onclick="deleteObservacioMateria(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
         <div class="obs-entry-text">${escapeHtml(text)}</div>`;
       list.appendChild(div);
@@ -3405,10 +3424,15 @@ function renderRegistre() {
     registreItems.forEach(item=>{
       const td=document.createElement('td'); td.className='reg-td-cell';
       const val=(registreData[item.id]||{})[s.id];
-      if (item.tipus==='checkbox'){ const cb=document.createElement('input'); cb.type='checkbox'; cb.className='reg-checkbox'; cb.checked=val===true||val==='TRUE'; cb.addEventListener('change',()=>updateRegistreCell(item.id,s.id,cb.checked)); td.appendChild(cb); }
+      if (item.tipus==='checkbox'){ const cb=document.createElement('input'); cb.type='checkbox'; cb.className='reg-checkbox'; cb.checked=val===true||val==='TRUE';
+        /* Sense això un lector de pantalla deia «casella de verificació» i prou:
+           ni de quin nen ni de quina cosa. Trobat al QA de l'11/9/2026. */
+        cb.setAttribute('aria-label', item.nom + ' — ' + s.nom);
+        cb.addEventListener('change',()=>updateRegistreCell(item.id,s.id,cb.checked)); td.appendChild(cb); }
       else {
         const inp=document.createElement('input'); inp.type='text'; inp.className='reg-text-input';
         inp.value=val||''; inp.placeholder='—';
+        inp.setAttribute('aria-label', item.nom + ' — ' + s.nom);
         /* ⚠ El text s'esperava 800 ms abans de sortir cap al full, i si
            mentrestant la mestra canviava de grup o de pantalla —o
            recarregava— es perdia sense dir res (auditoria 6/9/2026).
@@ -3566,6 +3590,17 @@ function _finestraSObre(el) {
   el.dataset._a11y = 'fet';
   if (!el.getAttribute('role')) el.setAttribute('role', 'dialog');
   el.setAttribute('aria-modal', 'true');
+  /* ⚠ Les 29 finestres s'anunciaven totes igual: «diàleg», i prou.
+     El títol hi és, però com a `div`, o sigui que el lector no el lliga amb
+     la finestra. Auditoria de l'11/9/2026: se li dona un id si no en té i
+     s'hi apunta amb `aria-labelledby`, i així cadascuna diu com es diu. */
+  if (!el.getAttribute('aria-labelledby') && !el.getAttribute('aria-label')) {
+    const t = el.querySelector('.modal-header-title, .panel-header-title, .panel-title');
+    if (t) {
+      if (!t.id) t.id = 'ttl-' + (el.id || Math.random().toString(36).slice(2, 8));
+      el.setAttribute('aria-labelledby', t.id);
+    }
+  }
 }
 
 function _finestraEntraFocus(el) {
@@ -4042,6 +4077,10 @@ function showToast(msg,type='info') {
      `<img onerror=…>` perquè s'executés. Hi aboquen 42 punts de l'app, o
      sigui que el lloc on s'ha d'arreglar és aquest, no cadascun d'ells. */
   t.innerHTML=icons[type]+'<span>'+escapeHtml(msg)+'</span>';
+  /* Un error s'ha d'interrompre la lectura; un «desat» pot esperar torn.
+     Amb `role` fix, el lector no distingia l'un de l'altre. */
+  t.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  t.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
   t.className='toast show'+(type==='success'?' success':type==='error'?' error':'');
   // Els errors solen tenir instruccions: es mostren més estona per poder-los llegir
   const durada = (type === 'error' && msg.length > 60) ? 8000 : 3500;
@@ -4815,6 +4854,7 @@ function renderPlanCell(data, key, isPati, calEvs) {
   if (data.tipus === 'especial') {
     return `<td class="plan-cell plan-cell-especial" onclick="openPlanCell('${_idJs(key)}')">
       ${calHtml}
+      <div class="plan-cell-mena">Especial</div>
       <div class="plan-cell-event-name">${escapeHtml(data.event || '')}</div>
       ${data.eventSub ? `<div class="plan-cell-event-sub">${escapeHtml(data.eventSub)}</div>` : ''}
     </td>`;
@@ -4822,6 +4862,7 @@ function renderPlanCell(data, key, isPati, calEvs) {
   if (data.tipus === 'sortida') {
     return `<td class="plan-cell plan-cell-sortida" onclick="openPlanCell('${_idJs(key)}')">
       ${calHtml}
+      <div class="plan-cell-mena">Sortida</div>
       <div class="plan-cell-event-name">${escapeHtml(data.event || '')}</div>
       ${data.eventSub ? `<div class="plan-cell-event-sub">${escapeHtml(data.eventSub)}</div>` : ''}
     </td>`;
@@ -7612,6 +7653,14 @@ async function _calLoadFromSheets(year) {
       appsScriptGet({ action: 'loadCalendariCats' }),
     ]);
     if (evR.ok && evR.data && evR.data.length) localStorage.setItem('cal2_events_' + year, JSON.stringify(evR.data));
+    /* La marca de fins on hem llegit. Va SEMPRE que el servidor contesti,
+       encara que no porti cap acte: si no, el primer desat d'aquest aparell
+       surt amb base='' i el servidor entén que tot el que ell té i no li
+       arriba és cosa esborrada. És el mateix que es va arreglar per a les
+       tasques el 8/9/2026. */
+    if (evR.ok && !_pendentsTe('saveCalendari')) {
+      try { localStorage.setItem('cal_base_' + year, String(evR.base || Date.now())); } catch (e) {}
+    }
     if (catR.ok && catR.data) localStorage.setItem('cal2_cats', JSON.stringify(catR.data));
     _lastCalLoad = Date.now();
   } catch(e) {}
@@ -7667,9 +7716,17 @@ function _actitudSaveToSheets(materia, trimestre) {
   if (!config.scriptUrl) return;
   debounce('actitud_' + materia + '_' + trimestre, () => {
     const data = {};
+    /* Pel codi permanent de l'alumne, no per la seva posició (veure
+       `_actitudKey` a js/notes.js). I es desa l'actitud de TOTS, encara que
+       algun no en tingui: si només s'hi posaven els que sí, un aparell amb
+       la memòria neta que desés abans d'haver carregat esborrava la de la
+       resta de la classe, perquè aquesta acció substitueix el farcell
+       sencer. Trobat al QA de l'11/9/2026. */
     students.forEach(s => {
-      const v = localStorage.getItem(`actitud_${materia}_${trimestre}_${s.id}`);
-      if (v) data[s.id] = JSON.parse(v);
+      const sid = _assimSid(s);
+      const v = localStorage.getItem(`actitud_${materia}_${trimestre}_${sid}`) ||
+                localStorage.getItem(`actitud_${materia}_${trimestre}_${s.id}`);
+      if (v) data[sid] = JSON.parse(v);
     });
     _desaAlFull({ action: 'saveActitud', materia, trimestre, data });
   });
@@ -7747,6 +7804,15 @@ function _processAppData(r) {
   if (r.calEvents && !_pendentsTe('saveCalendari')) Object.entries(r.calEvents).forEach(([y, evs]) => {
     if (evs && evs.length) localStorage.setItem('cal2_events_' + y, JSON.stringify(evs));
   });
+  /* I la marca del calendari, igual que la de les tasques: sempre, i també
+     per a l'any en curs encara que el servidor no n'hagi portat cap acte.
+     Sense això la fusió del calendari no protegeix res i el segon aparell
+     esborra el que ha apuntat el primer (auditoria 11/9/2026). */
+  if (!_pendentsTe('saveCalendari')) {
+    const _anys = new Set(Object.keys(r.calEvents || {}));
+    _anys.add(String(new Date().getFullYear()));
+    _anys.forEach(y => { try { localStorage.setItem('cal_base_' + y, String(Date.now())); } catch (e) {} });
+  }
   // Sembra el calendari escolar (un cop per mestre; una còpia nova ja el porta)
   if (typeof _calSeedEscola === 'function') _calSeedEscola();
   // Els ajustos propis (enllaços de la portada, «per agendar»)

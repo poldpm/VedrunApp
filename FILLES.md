@@ -17,14 +17,30 @@ no barrejar-se amb la resta de coses del dia a dia:
 
 ```
 C:\Escorial\VedrunApp\
-├── VedrunApp-Tutors\          ← l'APP MARE (la plantilla, aquesta carpeta)
+│
+│   LES TRES PLANTILLES, a l'arrel. No són de cap mestra.
+├── VedrunApp-Tutors\          ← l'APP MARE: el taller, i la plantilla
+│                                dels tutors. NO es mou mai: hi viuen les
+│                                eines, les converses i la memòria.
 ├── VedrunApp-Especialistes\   ← plantilla del rol especialista
 ├── VedrunApp-Direccio\        ← plantilla del rol direcció
-└── VedrunApp-<Mestra>\        ← l'app de cada mestra
+│
+│   LES APPS DE LES MESTRES, cadascuna a la carpeta del seu rol.
+├── tutors\
+│   └── VedrunApp-<Mestra>\
+├── direccio\
+│   └── VedrunApp-<Mestra>\
+├── especialistes\
+│   └── VedrunApp-<Mestra>\
+│
+│   I el codi del servidor, que és de tota l'escola.
+├── biblioteca\BIBLIOTECA.gs   ← s'enganxa al projecte compartit
+└── pont\PONT.gs             ← s'enganxa al projecte de cada mestra
 ```
 
-`nova-filla.js` crea cada app nova **al costat de la mare**, o sigui que les
-mestres noves cauen aquí dins soles: no s'ha de dir on van.
+`nova-filla.js` crea cada app nova **dins de la carpeta del seu rol**, o sigui
+que no s'ha de dir on va: hi cau sola. Si naixessin totes a l'arrel, amb vuit
+apps allò ja no es podria mirar, i ningú no ho reorganitza després.
 
 Els camins només són escrits a mà a `filles.json`. Les eines es localitzen
 soles, així que si un dia es torna a moure tot, només s'ha de tocar aquell
@@ -145,8 +161,8 @@ el `sync` no l'hi toca mai.
 Es manté com qualsevol altra filla:
 
 ```bash
-node eines/sync-filla.js "C:/Escorial/VedrunApp/VedrunApp-Especialistes" --prova
-node eines/sync-filla.js "C:/Escorial/VedrunApp/VedrunApp-Especialistes"
+node eines/sync-filla.js "C:/Escorial/VedrunApp/especialistes/VedrunApp-Especialistes" --prova
+node eines/sync-filla.js "C:/Escorial/VedrunApp/especialistes/VedrunApp-Especialistes"
 ```
 
 Tot el que canvia entre els rols viu a la mare, darrere `esEspecialista()`.

@@ -477,6 +477,9 @@ body {
 .student-name   { font-size: 13.5px; font-weight: 500; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .student-meta   { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 .student-actions{ display: flex; gap: 4px; opacity: 0; transition: opacity var(--ease); }
+/* ⚠ Amb el teclat el focus hi aterrava damunt d'uns botons transparents: no
+   se sabia on eres. Auditoria de l'11/9/2026; el bloc tàctil és més avall. */
+.student-item:focus-within .student-actions { opacity: 1; }
 
 .action-btn {
   width: 28px; height: 28px;
@@ -795,6 +798,7 @@ body {
   opacity: 0;
 }
 .reg-table th:hover .reg-th-delete { opacity: 1; }
+.reg-table th:focus-within .reg-th-delete { opacity: 1; }
 .reg-th-delete:hover { color: #EF4444; }
 .reg-th-delete svg { width: 12px; height: 12px; }
 
@@ -1567,7 +1571,13 @@ body {
   color: var(--text-muted); cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
   letter-spacing: 0.04em; line-height: 1.4;
-  opacity: 0.35;
+  /* ⚠ AL 35% D OPACITAT NO ES LLEGIA: 1,64:1 DE CONTRAST (el mínim és 4,5).
+     Trobat al QA de l 11/9/2026 mesurant-lo. És un control del dia a dia dins
+     de Notes, i ha de seguir sent secundari SENSE ser il·legible: per això la
+     discreció la fa ara la vora fina i el fons, no la transparència. */
+  opacity: 1;
+  border-color: #E8DFE3;
+  color: #7E6070;
 }
 .ne-btn:hover            { opacity: 1; border-color: #EF4444; color: #EF4444; background: #FFF5F5; }
 .ne-btn.ne-active        { border-color: #991B1B !important; background: #FEE2E2 !important; color: #991B1B !important; opacity: 1 !important; }
@@ -1576,7 +1586,7 @@ body {
    encerta i gairebé no es veu (segona auditoria, 8/9/2026). Amb dit, més
    gran i visible; amb ratolí, com estava. */
 @media (hover: none) {
-  .ne-btn { font-size: 10px; padding: 6px 8px; opacity: 0.7; top: 3px; right: 3px; }
+  .ne-btn { font-size: 11px; padding: 8px 10px; min-width: 44px; min-height: 36px; top: 3px; right: 3px; }
 }
 
 /* Banner NE a la fitxa */
@@ -2690,7 +2700,7 @@ body {
 /* Bombolla de tasques pendents a la pàgina d'inici */
 .home-badge {
   position: absolute; top: 6px; right: 6px;
-  background: #EF4444; color: #fff;
+  background: #C81E1E; color: #fff;
   font-size: 11px; font-weight: 700;
   min-width: 18px; height: 18px;
   border-radius: 9px; padding: 0 5px;
@@ -2876,7 +2886,7 @@ body {
   padding: 2px 6px; border-radius: 4px; margin-left: 4px;
 }
 .alumne-badge-pi { background: #2563EB; color: #fff; }  /* blau viu */
-.alumne-badge-am { background: #EA580C; color: #fff; }  /* taronja */
+.alumne-badge-am { background: #B94708; color: #fff; }  /* taronja */
 
 /* Tags dins l'àrea d'avisos de la fitxa */
 .fitxa-avis-tag {
@@ -2887,7 +2897,7 @@ body {
 .fitxa-avis-medic { background: #FBEAED; color: #7A1E2E; }
 .fitxa-avis-espec { background: #FEF3C7; color: #92400E; }
 .fitxa-avis-pi    { background: #2563EB; color: #fff; }
-.fitxa-avis-am    { background: #EA580C; color: #fff; }
+.fitxa-avis-am    { background: #B94708; color: #fff; }
 .fitxa-avis-eap   { background: #7C3AED; color: #fff; }
 /* Les categories que vénen del document de fitxes de l'escola. Cadascuna
    amb el seu color: barrejades, la mestra no distingeix un diagnòstic
@@ -3382,9 +3392,15 @@ body {
   color: var(--text-muted); font-family: inherit; transition: all 0.12s;
 }
 .gva-btn:hover { border-color: var(--garnet-mid); }
-.gva-btn.gva-a.active { background: #16A34A; border-color: #16A34A; color: #fff; }
-.gva-btn.gva-as.active { background: #EAB308; border-color: #EAB308; color: #fff; }
-.gva-btn.gva-na.active { background: #DC2626; border-color: #DC2626; color: #fff; }
+/* ⚠ EL BOTÓ TRIAT ES QUEDAVA BUIT: LES LLETRES NO ES LLEGIEN.
+   Auditoria de l'11/9/2026. Blanc sobre el groc #EAB308 són 1,92:1 (el mínim
+   és 4,5): en marcar «AS» el botó es tornava groc i les lletres desapareixien.
+   El verd anava igual de just (3,30:1). Es fan servir les MATEIXES parelles
+   que ja hi ha a `js/notes.js` per a aquests mateixos valors, que sí que
+   compleixen; a més, així els dos llocs de l'app diuen el mateix color. */
+.gva-btn.gva-a.active  { background: #D1FAE5; border-color: #065F46; color: #065F46; }
+.gva-btn.gva-as.active { background: #FEF3C7; border-color: #92400E; color: #92400E; }
+.gva-btn.gva-na.active { background: #FEE2E2; border-color: #991B1B; color: #991B1B; }
 .gva-btn.gva-clear.active { background: var(--text-muted); border-color: var(--text-muted); color: #fff; }
 
 /* Grup al costat de l'assignatura al menú */
@@ -5257,6 +5273,38 @@ body.app-ocupada { cursor: progress; }
   .postit-actions { opacity: 1; }
   .postit-act-btn { width: 36px; height: 36px; }
 
+  /* ⚠ EL MATEIX ERROR, A DOS LLOCS MÉS QUE ES VAN QUEDAR FORA.
+     Auditoria de l'11/9/2026. A «Gestionar alumnes», els botons de dades
+     personals, observacions i eliminar estaven a `opacity:0` i només
+     sortien amb hover: a la tauleta —que és aparell d'ús— no existien.
+     I a Registres d'aula passava igual amb la creu de treure una columna:
+     no hi havia manera de treure un ítem de seguiment sense ratolí. */
+  .student-actions { opacity: 1; }
+  .reg-th-delete   { opacity: 1; }
+
+  /* ⚠ VUIT CONTROLS QUE ES QUEDAVEN PER SOTA DELS 44 px.
+     Els arranjaments tàctils anteriors (6/9 i 8/9) van anar component-los un
+     per un i aquests es van quedar fora. Amidats al QA de l'11/9/2026: entre
+     16 i 34 px. Amb el dit no s'encerten, i el de sobre i el de sota sí: es
+     clica el que no toca, i això amb «eliminar» pel mig fa mal. Aquí només
+     creix la zona de toc; a l'ordinador no canvia res. */
+  .action-btn,
+  .btn-obs,
+  .btn-personal,
+  .gva-btn,
+  .plan-durada-num-btn,
+  .nota-com-btn,
+  .seients-group-del,
+  .seients-marker-del,
+  .modal-close,
+  .panel-close,
+  .reg-th-delete {
+    min-width: 44px; min-height: 44px;
+  }
+  /* Els de dins d'una capçalera de taula no poden créixer tant sense
+     desmuntar-la: se'ls eixampla la zona amb `padding`, que no ocupa lloc. */
+  .reg-th-delete { min-width: 0; min-height: 0; padding: 14px; }
+
   /* ⚠ Els apartats del menú feien 34 px d'alt. Amb el dit, el mínim que
      s'encerta sense errar-la són 44 px: els de sobre i sota es fallen sovint,
      i ho paga qui va amb presa entre classe i classe. A l'ordinador no canvia
@@ -5493,3 +5541,14 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
   .perfil-assig-chip   { padding: 11px 15px; font-size: 13px; min-height: 44px; }
   .perfil-grup-remove  { width: 40px; height: 40px; font-size: 18px; }
 }
+
+/* ⚠ Al Planning, «especial» i «sortida» només es distingien pel color (groc
+   i verd) i amb el mateix marcatge: si la mestra hi escrivia «Teatre», res
+   no deia de quina mena era. El cas «festa» sí que se'n sortia perquè porta
+   el text «FESTA». Trobat al QA de l'11/9/2026. */
+.plan-cell-mena {
+  font-size: 8.5px; font-weight: 800; letter-spacing: 0.07em;
+  text-transform: uppercase; opacity: 0.75; margin-bottom: 2px;
+}
+.plan-cell-especial .plan-cell-mena { color: #92400E; }
+.plan-cell-sortida  .plan-cell-mena { color: #065F46; }

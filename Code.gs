@@ -366,7 +366,19 @@ function _entrLlegeix_(ss, grup) {
 function _entrLlegeixSegur_(ss, grup) {
   var r = _capMalament_(_jsonDeCela_(ss, '_AppData', _entrClauDet_(grup)),
                         'les entrevistes de ' + grup);
-  return (r.hi && r.dades) ? r.dades : {};
+  var d = (r.hi && r.dades) ? r.dades : {};
+  /* ⚠ DEIA «LA MATEIXA LECTURA» I NO HO ERA: AQUÍ FALTAVA EL `_reclau_`.
+
+     Trobat al QA de l'11/9/2026. `saveEntrevista` fa servir aquesta versió i
+     hi escriu amb la clau nova (el codi de l'alumne). Si aquell grup encara
+     tenia entrevistes indexades pel número de fila, el farcell es quedava
+     amb LES DUES claus per al mateix nen; a la lectura següent `_reclau_`
+     les col·lapsava i les velles desapareixien de la pantalla.
+
+     Tradueix igual que `_entrLlegeix_`: així les dues lectures parteixen
+     sempre del mateix i no hi ha manera de forquillar-les. */
+  var gss = getGrupsSpreadsheet(ss);
+  return gss ? _reclau_(gss, grup, d) : d;
 }
 
 function loadEntrevistes(ss, grup) {
@@ -2445,8 +2457,29 @@ function grupsAfegeixColumnes(ss) {
     if (falten.length) {
       var desDe = 1;
       while (desDe <= cap.length && String(cap[desDe - 1] || "").trim()) desDe++;
-      sh.getRange(1, desDe, 1, falten.length).setValues([falten])
-        .setFontWeight("bold").setBackground("#FBEAED").setFontColor("#7A1E2E");
+      /* ⚠ PODIA ESCRIURE CAPÇALERES A SOBRE D'ALTRES QUE JA HI EREN.
+
+         Trobat al QA de l'11/9/2026. El pas 2 buida els duplicats de més
+         enllà de la 15 i hi deixa un forat; aquí es buscava el primer forat
+         i s'hi escrivia tot el que faltava de cop, sense mirar quantes
+         columnes hi cabien. Amb un forat d'una columna i dues capçaleres a
+         posar, la segona es menjava el rètol de la columna del costat i
+         deixava les seves dades sota un nom que no és el seu. A partir
+         d'aquí `_colsDe_` aparella el nom amb dades alienes i la passada
+         següent de contactes hi escriu a sobre.
+
+         Ara es van posant d'una en una i només allà on de debò no hi ha
+         res. Si una columna ja té rètol, se salta i es prova la següent. */
+      var posades = [], fila = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), desDe + falten.length)).getValues()[0];
+      falten.forEach(function (h) {
+        var c = desDe;
+        while (c <= fila.length && String(fila[c - 1] || "").trim()) c++;
+        sh.getRange(1, c).setValue(h)
+          .setFontWeight("bold").setBackground("#FBEAED").setFontColor("#7A1E2E");
+        fila[c - 1] = h;
+        posades.push(h);
+      });
+      falten = posades;
       canvis.push("afegides: " + falten.join(", "));
     }
     if (canvis.length) fets.push(g + " → " + canvis.join(" · "));
@@ -3691,17 +3724,47 @@ function saveGrupObs(ss, grup, rowId, materia, text, base, afegit) {
   return { ok:true, fusionat: fusionat, text: (d[materia] || '') };
 }
 function setAlumnes(ss, alumnes) {
+  /* ⚠ MOVIA ELS NOMS I DEIXAVA LES DADES QUIETES.
+
+     Trobat al QA de l'11/9/2026. Aquí només s'escrivia la columna A (noms) i
+     la G (gènere). Però l'observació important, el PI, l'AM i els aspectes
+     específics viuen a les columnes F, H, I i J d'aquesta mateixa fila, i
+     `savePersonal` i `getAllPersonal` hi van pel NÚMERO DE FILA. Treure un
+     alumne del mig feia pujar tots els noms de sota una fila i deixava
+     l'observació, el PI i l'AM de cadascú a la fila del nen de sobre: la
+     Clara es quedava amb l'al·lèrgia d'en Bernat. I el `clearContent` de la
+     cua arribava fins a la columna 7, o sigui que el PI/AM/específic de la
+     fila sobrant quedaven orfes i el pròxim alumne nou els heretava.
+
+     Ara la fila viatja SENCERA amb el seu nom: es llegeix el que hi ha,
+     s'aparella pel nom i es torna a escriure tot el bloc de cop. Qui és nou
+     entra amb la fila en blanc, i el que sobra s'esborra fins al final de
+     debò, no fins a la columna 7. */
   var sh = getOrCreateAlumnesSheet(ss), lr = sh.getLastRow();
+  var lc = Math.max(sh.getLastColumn(), 10);
+
+  var abans = (lr >= 2) ? sh.getRange(2, 1, lr - 1, lc).getValues() : [];
+  var perNom = {};
+  abans.forEach(function (f) {
+    var n = String(f[0] || '').trim();
+    if (n && !perNom[n]) perNom[n] = f;
+  });
+
   if (alumnes.length > 0) {
-    // Col A = nom
-    sh.getRange(2, 1, alumnes.length, 1).setValues(alumnes.map(function(a){ return [a.nom]; }));
-    // Col G = gènere (només si l'alumne en porta; si no, manté el que hi havia)
-    alumnes.forEach(function(a, i) {
-      if (a.genere) sh.getRange(i+2, 7).setValue(a.genere === 'f' ? 'f' : 'm');
+    var bloc = alumnes.map(function (a) {
+      var nom = String(a.nom || '').trim();
+      // La seva fila d'abans, si hi era; si no, una de nova en blanc.
+      var f = perNom[nom] ? perNom[nom].slice() : new Array(lc).fill('');
+      f[0] = a.nom;
+      if (a.genere) f[6] = (a.genere === 'f' ? 'f' : 'm');
+      while (f.length < lc) f.push('');
+      return f.slice(0, lc);
     });
+    sh.getRange(2, 1, bloc.length, lc).setValues(bloc);
   }
-  var old = lr >= 2 ? lr-1 : 0;
-  if (old > alumnes.length) sh.getRange(alumnes.length+2, 1, old-alumnes.length, 7).clearContent();
+
+  var old = lr >= 2 ? lr - 1 : 0;
+  if (old > alumnes.length) sh.getRange(alumnes.length + 2, 1, old - alumnes.length, lc).clearContent();
   return { ok:true };
 }
 /* Retorna totes les dades personals de cop (una crida per tota la classe) */
@@ -4408,7 +4471,7 @@ function updateNota(ss, materia, trimestre, itemId, studentId, punts, grup, nom)
   colorNota(cellN,nota);
 
   recalcMitjana(sh,rowP);
-  if(materia==='carpeta') propagaCarpeta(ss,trimestre,si,sh,rowP);
+  if(materia==='carpeta') propagaCarpeta(ss,trimestre,nom,sh,rowP,grup);
   // Centra i aplica Nunito a la fila afectada
   var lc2=sh.getLastColumn();
   sh.getRange(rowP,1,2,lc2)
@@ -4479,7 +4542,19 @@ function moveCarpetaBeforeMitjana(sh) {
   sh.autoResizeColumn(mCol); if(sh.getColumnWidth(mCol)<80)sh.setColumnWidth(mCol,80);
 }
 
-function propagaCarpeta(ss, trimestre, si, carpetaSh, rowP) {
+/* ⚠ AIXO REBIA UNA VARIABLE SENSE VALOR I ANAVA PER POSICIO.
+
+   Trobat al QA de l'11/9/2026. El qui crida li passava `si`, que pel cami
+   normal —el nom es troba, que es el cas des de l'arranjament del 6/9— val
+   `undefined`: `si*2+DATA_ROW` donava NaN i `getRange(NaN, …)` petava. I
+   quan `si` si que hi era, escrivia a les altres pestanyes PER POSICIO, que
+   es justament el que es va treure de tota la resta de l'app el 6/9.
+
+   Ara hi va el NOM i el GRUP: la fila de cada pestanya de desti es busca pel
+   nom, i si no hi es, no s'hi escriu (abans s'hi hauria escrit a sobre d'un
+   altre nen). La pestanya de desti tambe es busca amb el grup, com la
+   d'origen; abans s'ignorava i anava a parar a la pestanya d'un altre grup. */
+function propagaCarpeta(ss, trimestre, nom, carpetaSh, rowP, grup) {
   // Calcula la mitjana de Carpeta per aquest alumne (lectura batch)
   var lc=carpetaSh.getLastColumn();
   var metas=carpetaSh.getRange(1,1,1,lc).getNotes()[0];
@@ -4496,7 +4571,7 @@ function propagaCarpeta(ss, trimestre, si, carpetaSh, rowP) {
   var mitjanaCarpeta=sumP>0?Math.round(sumV/sumP*100)/100:'';
 
   MATERIES_AMB_CARPETA.forEach(function(mat){
-    var sh=ss.getSheetByName(trimestre+'T_'+MATERIA_NOM[mat]); if(!sh)return;
+    var sh=ss.getSheetByName(_notesTabName(trimestre, MATERIA_NOM[mat], grup)); if(!sh)return;
     var lc2=sh.getLastColumn();
     var hdrs2=lc2>0?sh.getRange(1,1,1,lc2).getValues()[0]:[];
     var mts2=lc2>0?sh.getRange(1,1,1,lc2).getNotes()[0]:[];
@@ -4517,7 +4592,7 @@ function propagaCarpeta(ss, trimestre, si, carpetaSh, rowP) {
       sh.autoResizeColumn(ins); if(sh.getColumnWidth(ins)<90)sh.setColumnWidth(ins,90);
       cCol=ins;
     }
-    var rp=si*2+DATA_ROW, rn=rp+1;
+    var rp=_trobaFilaAlumne(sh, nom); if(rp===-1)return; var rn=rp+1;
     try{sh.getRange(rp,cCol,2,1).breakApart();}catch(ex){}
     sh.getRange(rp,cCol).setValue('').setFontColor('#AAAAAA').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('bottom');
     var cellN=sh.getRange(rn,cCol);
@@ -4987,6 +5062,20 @@ function updateActitudBatch(ss, materia, trimestre, mitjanes, grup, noms) {
    ============================================================ */
 function syncAssoliments(ss, trimestre, data) {
   var tabName = trimestre + 'T_Assoliments';
+  /* ⚠ S'ESBORRAVA LA PESTANYA ABANS DE MIRAR SI HI HAVIA RES A POSAR-HI.
+     Amb `data` buida —o amb totes les assignatures sense objectius— la
+     mestra es trobava la pestanya destruïda i refeta en blanc. El que hi
+     ha de debò viu a `_AppData_Assim`, o sigui que no es perdia res, però
+     veure-ho en blanc fa pensar que sí. Trobat al QA de l'11/9/2026. */
+  var teFeina = false;
+  Object.keys(data || {}).forEach(function (k) {
+    var v = data[k];
+    if (v && (Array.isArray(v) ? v.length : Object.keys(v).length)) teFeina = true;
+  });
+  if (!teFeina) {
+    return { ok: true, buit: true,
+             error: 'No hi ha cap objectiu d assoliment en aquest trimestre: no he tocat la pestanya.' };
+  }
   var sh = ss.getSheetByName(tabName);
   if (sh) ss.deleteSheet(sh);
   sh = ss.insertSheet(tabName);
@@ -5118,7 +5207,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v222';
+var BACKEND_VERSIO = 'v224';
 
 var MAX_CELA = 45000;
 
@@ -5520,8 +5609,23 @@ function saveCalendari(ss, year, data, base) {
 }
 
 function loadCalendari(ss, year) {
+  /* ⚠ SENSE `base`, LA FUSIÓ DEL CALENDARI NO PROTEGIA RES.
+
+     Trobat a l'auditoria del 11/9/2026, provant-ho amb dos aparells. Aquí
+     hi ha `_fusionaPerId_` com al planning, les tasques i els post-its,
+     però tota la seva protecció penja de `base`: amb `base` buit,
+     `if (nBase && quan > nBase)` no és mai cert i tot el que el full tingui
+     i no arribi al paquet nou es dona per esborrat.
+
+     `loadTasques` i `loadPostits` ja tornaven `base`; aquesta es va quedar
+     fora. Resultat comprovat: apuntes un acte des de casa i el primer desat
+     des de l'escola —que encara no l'havia carregat— el feia desaparèixer
+     del full, sense cap error i sense que ho veiés ningú.
+
+     Com a les altres dues: «buit» també és una versió del full, o sigui
+     que la marca es torna SEMPRE, encara que no hi hagi cap acte. */
   var v = sheetGetJSON(ss, '_AppData', 'cal_events_' + year);
-  return { ok: true, data: v ? JSON.parse(v) : [] };
+  return { ok: true, data: v ? JSON.parse(v) : [], base: Date.now() };
 }
 
 function saveCalendariCats(ss, data) {
@@ -6859,6 +6963,13 @@ function _uidNou_() {
   var lletres = 'abcdefghijkmnpqrstuvwxyz23456789';   // sense l/1/o/0, que es confonen
   var s = '';
   for (var i = 0; i < 10; i++) s += lletres.charAt(Math.floor(Math.random() * lletres.length));
+  /* ⚠ Un codi tot de xifres es confondria amb un número de fila.
+     `_filaDeClau_` entén que una clau `/^\d+$/` és una fila de les d'abans
+     dels codis, i llavors escriuria fora de lloc. De 32 caràcters n'hi ha 8
+     de xifra: la probabilitat és d'1 entre un milió per alumne, però costa
+     una línia evitar-ho i el preu de l'atzar aquí és escriure les dades
+     d'un nen a la fila d'un altre. Trobat al QA de l'11/9/2026. */
+  if (/^\d+$/.test(s)) return _uidNou_();
   return s;
 }
 
@@ -9470,7 +9581,16 @@ function _contactesTxt_(prova) {
     l.push('');
     l.push('ALUMNES SENSE FILA AL FULL DE CONTACTES (' + r.sensContactes.length + '):');
     r.sensContactes.forEach(function (x) { l.push('  ' + x); });
-    l.push('  → es queden amb els contactes buits fins que la secretaria els hi posi.');
+    l.push('  → es queden amb els contactes que ja tinguessin. No se ls buida.');
+  }
+  /* Un grup saltat s'ha de dir SEMPRE i ben clar: vol dir que aquell grup
+     no s'ha actualitzat, i callar-ho faria pensar que sí. */
+  if (r.saltats && r.saltats.length) {
+    l.push('');
+    l.push('GRUPS QUE NO S HAN TOCAT (' + r.saltats.length + '):');
+    r.saltats.forEach(function (x) { l.push('  ' + x.grup + ' — ' + x.motiu); });
+    l.push('  → abans aixo els hauria buidat els contactes a tots. Ara no s hi toca.');
+    l.push('  → mira aquell grup al full de contactes de secretaria.');
   }
   var txt = l.join('\n');
   Logger.log(txt);
@@ -9978,7 +10098,7 @@ function contactesAplica(ss, prova, nomesGrup) {
   catch (e) { return { ok: false, error: 'Hi ha una altra feina en marxa.' }; }
 
   try {
-    var total = { alumnes: 0, camps: 0, iguals: 0 }, perGrup = [], senseParella = [], sensContactes = [];
+    var total = { alumnes: 0, camps: 0, iguals: 0 }, perGrup = [], senseParella = [], sensContactes = [], saltats = [];
 
     Object.keys(doc.perGrup).forEach(function (g) {
       if (nomesGrup && g !== nomesGrup) return;
@@ -10019,15 +10139,44 @@ function contactesAplica(ss, prova, nomesGrup) {
         toca[par[1]] = {};
       });
 
+      /* ⚠ AIXÒ PODIA BUIDAR ELS CONTACTES DE TOTA UNA CLASSE.
+
+         Trobat al QA de l'11/9/2026. Aquest full és un mirall del document
+         de secretaria, i el mirall no tenia terra: l'únic guard era global
+         («si no trobo CAP grup, no toco res»). Per grup no n'hi havia cap.
+         N'hi havia prou que un bloc del document es quedés sense files
+         llegibles —o que el nom d'un grup hi sortís dues vegades, que la
+         línia de dalt descarta— perquè `seu` quedés buit i els cinc camps
+         de TOTS els alumnes d'aquell grup s'omplissin de res. Sense error,
+         sense avís, i cada quart d'hora tot sol.
+
+         Dos talls, i el segon és el que de debò ho tanca:
+           1) si el document no diu res d'aquest grup, no s'hi toca;
+           2) un alumne que NO surt al document no es toca mai. Que no hi
+              sigui vol dir «no en sé res», no «esborra-li el telèfon».
+         Quan l'alumne SÍ que hi surt i el camp hi és buit, sí que es buida:
+         allò és secretaria dient que aquell contacte ja no hi és. */
+      if (!(doc.perGrup[g] || []).length) {
+        saltats.push({ grup: g, motiu: 'el document de contactes no en diu res' });
+        return;
+      }
+      if (alumnes.length && !Object.keys(seu).length) {
+        saltats.push({ grup: g, motiu: 'cap fila del document no encaixa amb cap alumne del grup' });
+        return;
+      }
+
       alumnes.forEach(function (a) {
         var meu = seu[a.i] || {};
-        if (!seu[a.i]) sensContactes.push(g + ' · ' + a.sencer);
+        var elTincAlDoc = !!seu[a.i];
+        if (!elTincAlDoc) sensContactes.push(g + ' · ' + a.sencer);
         var canviat = false;
         [['tutor1', cols.tutor1], ['correu1', cols.correu1], ['tutor2', cols.tutor2],
          ['correu2', cols.correu2], ['telefons', cols.telefons]].forEach(function (par) {
           var nou = meu[par[0]] || '';
           var vell = String(d[a.i][par[1] - 1] == null ? '' : d[a.i][par[1] - 1]).trim();
           if (vell === nou) { if (nou) c.iguals++; return; }
+          // Res a dir d'aquest alumne i el full ja hi té una cosa: es queda.
+          if (!elTincAlDoc && !nou && vell) return;
           toca[par[1]][a.i + 2] = nou;
           c.camps++; canviat = true;
         });
@@ -10049,7 +10198,7 @@ function contactesAplica(ss, prova, nomesGrup) {
 
     if (!prova) SpreadsheetApp.flush();
     return { ok: true, prova: !!prova, total: total, perGrup: perGrup,
-             senseParella: senseParella, sensContactes: sensContactes };
+             senseParella: senseParella, sensContactes: sensContactes, saltats: saltats };
   } finally { if (tinc) lock.releaseLock(); }
 }
 

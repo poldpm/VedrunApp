@@ -910,12 +910,36 @@ const ACTITUD_ASPECTES = [
   { id: 'realitzacio',   nom: 'Realització activitats' },
 ];
 
+/* ⚠ L'ACTITUD ANAVA INDEXADA PER POSICIÓ, NO PEL CODI DE L'ALUMNE.
+
+   Trobat al QA de l'11/9/2026. `s.id` és la posició dins la llista del grup,
+   no el codi permanent. Qualsevol cosa que canviï l'ordre o el nombre de
+   files amb nom —ordenar el grup, una fila que es queda sense nom, una
+   incorporació— reassignava la puntuació d'actitud de cada nen a un altre.
+   I l'actitud pesa 2 a la mitjana, o sigui que no és un detall.
+
+   Els assoliments es van arreglar el 6/9 amb `_assimSid`; a l'actitud no s'hi
+   va portar. Ara fa servir el mateix, i segueix llegint la clau vella si la
+   nova encara no hi és, per no perdre el que ja hi hagi apuntat. */
+function _actitudSid(studentId) {
+  return (typeof _assimSid === 'function') ? _assimSid(studentId) : studentId;
+}
 function _actitudKey(materia, trimestre, studentId) {
+  return `actitud_${materia}_${trimestre}_${_actitudSid(studentId)}`;
+}
+function _actitudKeyVella(materia, trimestre, studentId) {
   return `actitud_${materia}_${trimestre}_${studentId}`;
 }
 
 function getActitud(materia, trimestre, studentId) {
-  const v = localStorage.getItem(_actitudKey(materia, trimestre, studentId));
+  const nova = _actitudKey(materia, trimestre, studentId);
+  let v = localStorage.getItem(nova);
+  if (v === null) {
+    // Encara amb la clau d'abans: es llegeix i es passa a la nova.
+    const vella = _actitudKeyVella(materia, trimestre, studentId);
+    v = localStorage.getItem(vella);
+    if (v !== null && vella !== nova) { try { localStorage.setItem(nova, v); } catch (e) {} }
+  }
   return v ? JSON.parse(v) : {};
 }
 
