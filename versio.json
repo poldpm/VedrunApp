@@ -1,9 +1,8 @@
 {
-  "versio": "v225",
+  "versio": "v227",
   "data": "2026-09-16",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Les al·lèrgies, intoleràncies, dietes i qualsevol cosa de salut dels alumnes surten ara del full d'al·lèrgies de direcció, que és on es porta el control. A la fitxa de cada alumne ho trobaràs a l'apartat de salut.",
-    "Si hi veus un error o hi falta alguna cosa, s'ha de dir a direcció: el document d'Aspectes generals ja no es fa servir per a la salut."
+    "Les notes de Tallers (i de les assignatures d'un altre grup, com l'Anglès d'un altre curs) de vegades no sortien a la pantalla, tot i estar ben desades al full. Ara surten sempre."
   ]
 }

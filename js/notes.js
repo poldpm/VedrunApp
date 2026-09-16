@@ -259,6 +259,41 @@ async function openNotesAuto(materia, grup) {
   openNotes(materia, t, grup);
 }
 
+/* ⚠ LES NOTES DE TALLERS NO SORTIEN (en Pol, 16/9/2026).
+
+   «La setmana passada vaig entrar notes a Tallers de 3r. Al full de càlcul
+   em queden ben entrades, però a l'app no es mostren.» Les notes es casen
+   per NOM amb la llista d'alumnes de la pantalla. Amb una assignatura d'un
+   altre grup (Tallers, Anglès de 3r A…) aquesta llista arriba per un camí
+   més lent que les notes. Si les notes arribaven primer, es casaven amb la
+   llista d'ABANS —la tutoria— i no n'encaixava cap; quan després arribava la
+   llista bona, només es tornava a pintar, sense tornar-les a casar. La
+   pantalla quedava en blanc amb les notes ben desades al full.
+
+   Ara el context de les notes porta la promesa de la llista: la càrrega de
+   notes l'espera abans de casar-les, i quan la llista arriba es tornen a
+   casar les que ja hi havia a la memòria. */
+function _esperaAlumnes(promesa) {
+  const ctx = notesContext;
+  ctx.alumnesPendents = true;
+  ctx.alumnes = Promise.resolve(promesa).catch(() => {}).then(() => {
+    if (notesContext !== ctx) return;
+    ctx.alumnesPendents = false;
+    try {
+      const c = _cacheGet();
+      if (c) {
+        notesItems  = sortCarpetaLast(c.items || []);
+        notesValors = c.rowNoms ? _remapValorsPerNom(c.valors || {}, c.rowNoms) : (c.valors || {});
+        noEntregats = c.rowNoms ? _remapValorsPerNom(c.noEntregats || {}, c.rowNoms) : (c.noEntregats || {});
+        notesComentaris = c.rowNoms ? _remapValorsPerNom(c.comentaris || {}, c.rowNoms) : (c.comentaris || {});
+        _injectActitudItem(ctx.materia, parseInt(ctx.trimestre));
+      }
+    } catch (e) {}
+    if (typeof renderNotesTable === 'function') { try { renderNotesTable(); } catch (e) {} }
+  });
+  return ctx.alumnes;
+}
+
 async function openNotes(materia, trimestre, grup) {
   const trimActual = getTrimestreActual();
   if (trimActual !== null && parseInt(trimestre) !== trimActual && !trimAlertSuprimida()) {
@@ -281,34 +316,17 @@ async function openNotes(materia, trimestre, grup) {
     if (typeof _renderDesdobControl === 'function') {
       _renderDesdobControl('notesDesdobBar', dd, () => {
         if (typeof _grupStudentsCarregat !== 'undefined') _grupStudentsCarregat = null;
-        _loadDesdobStudents(dd.curs, dd.assig).then(() => {
-          // El nou grup té altres alumnes: cal re-remapejar les notes pel nom, si no
-          // surten en blanc. Pintem del cache a l'instant i refresquem en segon pla.
-          try {
-            const cached = (typeof _cacheGet === 'function') ? _cacheGet() : null;
-            if (cached && typeof _remapValorsPerNom === 'function') {
-              notesItems  = sortCarpetaLast(cached.items || []);
-              notesValors = _remapValorsPerNom(cached.valors || {}, cached.rowNoms);
-              noEntregats = _remapValorsPerNom(cached.noEntregats || {}, cached.rowNoms);
-              _injectActitudItem(notesContext.materia, parseInt(notesContext.trimestre));
-            }
-          } catch(e) {}
-          if (typeof renderNotesTable === 'function') { try { renderNotesTable(); } catch(e) {} }
-          if (typeof _loadNotesBackground === 'function') _loadNotesBackground();
-        });
+        // El nou grup té altres alumnes: cal re-remapejar les notes pel nom, si no
+        // surten en blanc. Pintem del cache a l'instant i refresquem en segon pla.
+        _esperaAlumnes(_loadDesdobStudents(dd.curs, dd.assig));
+        if (typeof _loadNotesBackground === 'function') _loadNotesBackground();
       });
     }
-    _loadDesdobStudents(dd.curs, dd.assig).then(() => {
-      if (typeof renderNotesTable === 'function') { try { renderNotesTable(); } catch(e) {} }
-    });
+    _esperaAlumnes(_loadDesdobStudents(dd.curs, dd.assig));
   } else if (notesContext.grup && typeof _ensureGrupStudents === 'function') {
     // Assignatura d'un grup concret: carrega'n els alumnes en segon pla (amb cache).
     const _nb = document.getElementById('notesDesdobBar'); if (_nb) _nb.innerHTML = '';
-    _ensureGrupStudents(notesContext.grup, materia).then(() => {
-      if (notesContext.grup === (grup || notesContext.grup) && typeof renderNotesTable === 'function') {
-        try { renderNotesTable(); } catch(e) {}
-      }
-    });
+    _esperaAlumnes(_ensureGrupStudents(notesContext.grup, materia));
   } else {
     // Assignatura de tutoria: assegura't que els alumnes actius són els del grup propi.
     const _nb = document.getElementById('notesDesdobBar'); if (_nb) _nb.innerHTML = '';
@@ -412,7 +430,9 @@ function _remapValorsPerNom(valors, rowNoms) {
     });
   });
   const noms = Object.keys(orfes);
-  if (noms.length && !_remapAvisat) {
+  // Amb la llista d'alumnes encara de camí, no casar és normal: no és cap avís.
+  const llistaAPunt = !(typeof notesContext !== 'undefined' && notesContext && notesContext.alumnesPendents);
+  if (noms.length && llistaAPunt && !_remapAvisat) {
     _remapAvisat = true;
     setTimeout(() => {
       try {
@@ -432,14 +452,21 @@ let _remapAvisat = false;
 
 async function _loadNotesBackground() {
   if (!config.scriptUrl) return;
+  const ctx = notesContext;
   try {
     const r = await appsScriptGet({
       action: 'getNotes',
-      materia: notesContext.materia,
-      grup: notesContext.grup,
-      trimestre: notesContext.trimestre,
+      materia: ctx.materia,
+      grup: ctx.grup,
+      trimestre: ctx.trimestre,
     });
     if (!r.ok) throw new Error(r.error);
+    /* Les notes es casen per NOM amb la llista d'alumnes. Si aquesta llista
+       encara no ha arribat (Tallers, una assignatura d'un altre grup), s'ha
+       d'esperar: casar-les amb la d'abans les deixava totes en blanc. */
+    if (ctx.alumnes) { try { await ctx.alumnes; } catch (e) {} }
+    // Mentre s'esperava, la mestra ha obert una altra cosa: això ja no toca.
+    if (notesContext !== ctx) return;
     const newItems  = sortCarpetaLast(r.items || []);
     // Guarda al cache els valors ORIGINALS (per posició) + rowNoms.
     // El remapatge per nom es fa en aplicar (aquí sota i en obrir des de cache).
