@@ -5207,7 +5207,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v225';
+var BACKEND_VERSIO = 'v226';
 
 var MAX_CELA = 45000;
 
@@ -10381,6 +10381,19 @@ function _salutGrup_(txt) {
   return SALUT_CURSOS[m[1]] + ' ' + m[2].toUpperCase();
 }
 
+/* Dos noms s'assemblen si comparteixen algun mot de debò (tres lletres o
+   més), comptant com a iguals els que només es diferencien en una lletra.
+   Tolerant a posta: s'equivoca cap al costat de protegir. Un cognom comú
+   compartit fa que el grup no es buidi, que és molt millor que al revés. */
+function _salutSemblen_(a, b) {
+  var A = _motsUtils_(a), B = _motsUtils_(b);
+  return A.some(function (m) {
+    return m.length >= 3 && B.some(function (t) {
+      return m === t || (m.length >= 4 && t.length >= 4 && _distancia1_(m, t));
+    });
+  });
+}
+
 /* «El Jarroudi , Sami» → «Sami El Jarroudi». Els que ja van «Nom Cognoms»
    es deixen com estan. L'aparellament no mira l'ordre, però l'informe sí
    que el llegeix una persona. */
@@ -10540,9 +10553,20 @@ function salutAplica(ss, prova, nomesGrup) {
       files.forEach(function (x) {
         var toca = alumnes.filter(function (a) { return _contacteEncaixa_(x.qui, a.sencer); });
         if (toca.length !== 1) {
-          senseParellaAqui++;
+          /* Per al TALL 4 (més avall): una fila sense parella només protegeix
+             el grup si pot ser d'algun nen d'AQUEST grup. N'encaixen dos → sí.
+             No n'encaixa cap però comparteix algun mot amb un alumne («Maikel
+             Fajardo Calvo» / «Maikel Alexis Fajardo Villalta», «Damilola
+             Rasheed Ifeoluwa» / «Rasheed Damilola Lawal») → sí: és un nom mal
+             escrit d'un nen que hi és. No s'assembla a NINGÚ → no: és d'un nen
+             que ja no hi és. En Pol, 16/9/2026: «Seyf ja no hi és». Sense
+             això, la seva fila deixava 2n C congelat per sempre. */
+          var potSerDaqui = toca.length > 1 || alumnes.some(function (a) { return _salutSemblen_(x.qui, a.sencer); });
+          if (potSerDaqui) senseParellaAqui++;
           senseParella.push({ grup: g, qui: x.qui, text: x.text,
-                              motiu: toca.length ? 'n\'encaixen ' + toca.length : 'no el trobo al grup' });
+                              motiu: toca.length ? 'n\'encaixen ' + toca.length
+                                   : (potSerDaqui ? 'no el trobo al grup (el nom s\'assembla a algun alumne: potser està mal escrit)'
+                                                  : 'no s\'assembla a cap alumne del grup: segurament ja no hi és') });
           return;
         }
         var k = toca[0].i;
@@ -10586,7 +10610,18 @@ function salutAplica(ss, prova, nomesGrup) {
 
       if (!prova && Object.keys(toca).length) {
         if (Object.keys(vell).length) {
-          try { _copiaSeguretat_(gss, 'salut_' + g, JSON.stringify(vell)); }
+          /* ⚠ AMB L'HORA. `_copiaSeguretat_` fa una clau per dia i grup: si el
+             mateix dia s'escrivia dues vegades al mateix grup, la segona
+             còpia trepitjava la primera. El 16/9/2026, la de l'activació era
+             l'ÚNICA constància de set informacions de salut que el full de
+             direcció no porta (les convulsions del Malang, els desmais del
+             Roc…): n'hi hauria hagut prou que direcció toqués el 4t B aquell
+             mateix vespre perquè es perdessin. Amb l'hora al darrere cada
+             còpia és una fila pròpia i no se'n trepitja cap. */
+          try {
+            _copiaSeguretat_(gss, 'salut_' + g + '_' +
+                             Utilities.formatDate(new Date(), _gTz_(), 'HHmmss'), JSON.stringify(vell));
+          }
           catch (e) {
             c.error = 'no he pogut desar la còpia de seguretat, o sigui que no toco res: ' + e.message;
             perGrup.push(c);
