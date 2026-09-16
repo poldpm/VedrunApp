@@ -1,5 +1,5 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v228';
+const CACHE = 'vedruna-v229';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
   './js/espera.js', './js/pdfhorari.js', './js/millores.js', './js/rol.js', './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/vedrunu.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js', './img/vedrunu-icon.png',
@@ -16,7 +16,18 @@ const ASSETS = [
 ];
 
 /* ── Instal·lació i activació ── */
-self.addEventListener('install',  e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())));
+/* ⚠ LA VERSIÓ NOVA ES GUARDAVA AMB ELS FITXERS VELLS (16/9/2026).
+
+   `addAll(ASSETS)` demana els fitxers passant pel cache HTTP del navegador, i
+   GitHub Pages els deixa guardar-hi deu minuts. Si la versió nova s'instal·lava
+   dins d'aquests deu minuts, la caixa «vedruna-v228» s'omplia amb l'index.html
+   de la v227 i, com que després se serveix tot de la caixa, l'app es quedava
+   amb el codi vell fins a la versió següent. Li va passar a en Pol amb
+   l'arranjament de les notes de Tallers. `cache: 'reload'` obliga a anar a
+   la xarxa. */
+self.addEventListener('install',  e => e.waitUntil(caches.open(CACHE)
+  .then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' }))))
+  .then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 
 /* ── Cache-first per assets, mai per Apps Script ── */
