@@ -134,7 +134,8 @@ async function _perfilLoadFromSheets() {
   if (!config.scriptUrl) return;
   if (typeof _recentFullLoad === 'function' && _recentFullLoad()) return; // el bootstrap ja l'ha portat
   try {
-    const r = await appsScriptGet({ action: 'loadProfile' });
+    // El perfil ja es veu (del navegador): el refresc no el tapa amb el vel.
+    const r = await appsScriptGet({ action: 'loadProfile', _fons: true });
     if (r.ok && r.profile) {
       _perfil = _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{}, altres:{}, desdobGrup:{} }, r.profile));
       localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil));

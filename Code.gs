@@ -2661,6 +2661,13 @@ function _disparadorSaVeure_() {
   } catch (e) { /* mai, mai no pot trencar una peticio de l app */ }
 }
 
+/* Escriptures que deixen el mateix resultat encara que arribin dues vegades
+   (escriuen un valor a una casella, no afegeixen res): no agafen el pany. */
+var _OP_SENSE_PANY_ = {
+  desaCaselles: true, updateNota: true, setNoEntregat: true, updateRegistreCell: true,
+  saveNotaComentari: true, updateActitudBatch: true, saveProfile: true
+};
+
 function handleRequest(e) {
   try {
     var body, action;
@@ -2773,13 +2780,24 @@ function handleRequest(e) {
           return ContentService.createTextOutput(_fet).setMimeType(ContentService.MimeType.JSON);
         }
         /* El reintent sol arribar amb el primer encara treballant: s'espera
-           el torn i llavors ja hi troba el resultat. */
-        _opPany = LockService.getScriptLock();
-        try { _opPany.waitLock(120000); _opTinc = true; } catch (e) {}
-        var _fet2 = _opCache.get(_opClau);
-        if (_fet2) {
-          if (_opTinc) { try { _opPany.releaseLock(); } catch (e) {} }
-          return ContentService.createTextOutput(_fet2).setMimeType(ContentService.MimeType.JSON);
+           el torn i llavors ja hi troba el resultat.
+
+           ⚠ EXCEPTE PER A LES ESCRIPTURES QUE ES PODEN REPETIR SENSE PERILL.
+           En Pol, 16/9/2026: «entrant notes de tant en tant em surt l'error de
+           que està trigant massa o errors guardant». Cada nota agafava el pany
+           de TOT el servidor mentre es desava: si una altra feina el tenia
+           (aplicar fitxes, salut o contactes, publicar notes, una altra nota),
+           la nota s'esperava, el navegador tallava als 45 s i sortia l'error.
+           Posar un 7 dues vegades a la mateixa casella deixa un 7: el pany no
+           hi protegeix res, i en canvi ho feia tot més lent. */
+        if (!_OP_SENSE_PANY_[action]) {
+          _opPany = LockService.getScriptLock();
+          try { _opPany.waitLock(120000); _opTinc = true; } catch (e) {}
+          var _fet2 = _opCache.get(_opClau);
+          if (_fet2) {
+            if (_opTinc) { try { _opPany.releaseLock(); } catch (e) {} }
+            return ContentService.createTextOutput(_fet2).setMimeType(ContentService.MimeType.JSON);
+          }
         }
       } catch (e) { _opCache = null; }
     }
@@ -2830,6 +2848,7 @@ function handleRequest(e) {
       case 'getNotesResum':        result = getNotesResum(ss, (body&&body.grup)||p.grup); break;
       case 'addNotaItem':          result = addNotaItem(ss, body.materia, body.trimestre, body.item, body.alumnes, body.grup); break;
       case 'deleteNotaItem':       result = deleteNotaItem(ss, body.materia, body.trimestre, body.itemId, body.grup); break;
+      case 'desaCaselles':         result = desaCaselles(ss, body); break;
       case 'updateNota':           result = updateNota(ss, body.materia, body.trimestre, body.itemId, body.studentId, body.punts, body.grup, body.nom); break;
       case 'setNoEntregat':        result = setNoEntregat(ss, body.materia, body.trimestre, body.itemId, body.studentId, body.valor, body.grup, body.nom); break;
       case 'updateActitud':         result = updateActitud(ss, body.materia, body.trimestre, body.studentId, body.mitja, body.nomAlumne); break;
@@ -4482,6 +4501,168 @@ function updateNota(ss, materia, trimestre, itemId, studentId, punts, grup, nom)
 }
 
 /* ============================================================
+   DESAR MOLTES CASELLES D'UN SOL COP
+   ------------------------------------------------------------
+   En Pol, 16/9/2026: «tot el procés d'introduir notes, obrir coses... és
+   molt lent... ha de ser una app molt fluida». Cada nota era una crida al
+   servidor, i cada crida costa ~1,6 s abans de fer res: una columna de 25
+   notes eren més d'un minut de desar. Ara el navegador les agrupa i les envia
+   juntes: el full s'obre un cop, la capçalera i els noms es llegeixen un cop,
+   i les mitjanes es calculen amb el que ja hi ha a la memòria.
+
+   Fa EXACTAMENT el que feien `updateNota`, `setNoEntregat` i
+   `updateRegistreCell` una a una (la mateixa fila per nom, els mateixos
+   formats): el que canvia és quantes vegades s'obre el full.
+   ============================================================ */
+function desaCaselles(ss, b) {
+  b = b || {};
+  var canvis = Array.isArray(b.canvis) ? b.canvis : [];
+  if (b.tipus === 'notes')    return updateNotesLot(ss, b.materia, b.trimestre, b.grup, canvis);
+  if (b.tipus === 'registre') return updateRegistreLot(ss, b.grup, canvis);
+  return { ok:false, error:'No sé desar aquest tipus de caselles: ' + b.tipus };
+}
+
+function updateNotesLot(ss, materia, trimestre, grup, canvis) {
+  var nomBase = _materiaNomBase(materia); if (!nomBase) return { ok:false, error:'Materia desconeguda' };
+  var sh = ss.getSheetByName(_notesTabName(trimestre, nomBase, grup));
+  if (!sh) return { ok:false, error:'Pestanya no trobada' };
+  if (!canvis.length) return { ok:true, resultats: [] };
+
+  var lc = sh.getLastColumn();
+  var lr = sh.getLastRow();
+  var hdr  = sh.getRange(1, 1, 1, lc).getValues()[0];
+  var meta = sh.getRange(1, 1, 1, lc).getNotes()[0];
+  var dades = sh.getRange(1, 1, Math.max(lr, DATA_ROW), lc).getValues();
+
+  var colDe = {};
+  meta.forEach(function (m, i) {
+    var p = (m || '').split('|');
+    if (p.length === 3 && !isNaN(parseInt(p[2]))) colDe[String(parseInt(p[2]))] = i + 1;
+  });
+  // Primera fila de cada nom, com `_trobaFilaAlumne`.
+  var filaDe = {};
+  for (var r = DATA_ROW; r <= lr; r++) {
+    var v = (dades[r - 1][0] || '').toString().trim();
+    if (!v) continue;
+    var k = _normNom(v);
+    if (!(k in filaDe)) filaDe[k] = r;
+  }
+  var ultimaFila = lr;
+  function filaBuida() { var f = []; for (var i = 0; i < lc; i++) f.push(''); return f; }
+  function asseguraFila(n) { while (dades.length < n) dades.push(filaBuida()); }
+
+  var resultats = [], tocades = {}, carpeta = [];
+  canvis.forEach(function (c, i) {
+    var col = colDe[String(parseInt(c.itemId))];
+    if (!col) { resultats.push({ i: i, ok: false, error: 'Columna no trobada: ' + c.itemId }); return; }
+
+    var rowP = -1;
+    var clauNom = c.nom ? _normNom(c.nom) : '';
+    if (clauNom && filaDe[clauNom]) rowP = filaDe[clauNom];
+    if (rowP === -1 && c.nom) {
+      // Com a `updateNota`: si l'alumne no hi és, se li fa la fila al final.
+      var novaFila = Math.max(DATA_ROW, ultimaFila + 1);
+      if ((novaFila - DATA_ROW) % 2 !== 0) novaFila++;
+      sh.getRange(novaFila, 1).setValue(c.nom).setVerticalAlignment('middle');
+      sh.getRange(novaFila + 1, 1).setValue('').setBackground('#FFFFFF');
+      try { sh.getRange(novaFila, 1, 2, 1).merge(); } catch (e) {}
+      asseguraFila(novaFila + 1);
+      dades[novaFila - 1][0] = c.nom;
+      filaDe[clauNom] = novaFila;
+      ultimaFila = novaFila + 1;
+      rowP = novaFila;
+    }
+    if (rowP === -1) rowP = parseInt(c.studentId) * 2 + DATA_ROW;
+    asseguraFila(rowP + 1);
+    var rowN = rowP + 1;
+    var maxP = parseFloat((meta[col - 1] || '10|1|0').split('|')[0]);
+    var cur = dades[rowP - 1][col - 1];
+
+    if (c.ne === true) {
+      sh.getRange(rowP, col).setValue('NE').setFontColor('#991B1B').setFontWeight('bold')
+        .setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('bottom').setBackground(null);
+      colorNota(sh.getRange(rowN, col).setValue(0).setNumberFormat('0.00')
+        .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center').setVerticalAlignment('top'), 0);
+      dades[rowP - 1][col - 1] = 'NE'; dades[rowN - 1][col - 1] = 0;
+    } else {
+      var punts = c.punts;
+      /* Com a `updateNota`: una casella amb NE que rep un 0 o un buit és una
+         crida de rebot, no la mestra. Només si NO ve de treure el NE. */
+      if (c.ne !== false && cur === 'NE' && (punts === 0 || punts === '' || punts === null || punts === undefined)) {
+        resultats.push({ i: i, ok: true }); return;
+      }
+      var val = (punts === '' || punts === null || punts === undefined) ? '' : parseFloat(punts);
+      if (val !== '' && isNaN(val)) val = '';
+      var nota = (val !== '' && maxP > 0) ? Math.round(val / maxP * 10 * 100) / 100 : '';
+      var celP = sh.getRange(rowP, col).setValue(val === '' ? '' : val)
+        .setFontColor('#AAAAAA').setFontSize(9).setHorizontalAlignment('center')
+        .setVerticalAlignment('bottom').setBackground(null);
+      // Treure el NE: com a setNoEntregat(false), la lletra deixa de ser negreta.
+      if (c.ne === false) celP.setFontWeight('normal');
+      var cellN = sh.getRange(rowN, col);
+      cellN.setValue(nota === '' ? '' : nota).setNumberFormat('0.00')
+        .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('center').setVerticalAlignment('top');
+      colorNota(cellN, nota);
+      dades[rowP - 1][col - 1] = val; dades[rowN - 1][col - 1] = nota;
+    }
+    tocades[rowP] = true;
+    if (materia === 'carpeta' && c.nom) carpeta.push({ nom: c.nom, rowP: rowP });
+    resultats.push({ i: i, ok: true });
+  });
+
+  Object.keys(tocades).forEach(function (k) {
+    var rowP = parseInt(k);
+    _escriuMitjana_(sh, rowP, _mitjanaFila_(hdr, meta, dades[rowP - 1], dades[rowP]));
+    sh.getRange(rowP, 1, 2, lc).setHorizontalAlignment('center').setVerticalAlignment('middle').setFontFamily('Nunito');
+  });
+  carpeta.forEach(function (x) { try { propagaCarpeta(ss, trimestre, x.nom, sh, x.rowP, grup); } catch (e) {} });
+  return { ok: true, resultats: resultats };
+}
+
+function updateRegistreLot(ss, grup, canvis) {
+  var sh = ss.getSheetByName(_nomFullRegistre(grup)); if (!sh) return { ok:false, error:'no sheet' };
+  var lc = sh.getLastColumn(), lr = sh.getLastRow();
+  var foraDeLloc = 'Aquesta columna ja no hi és: algú l\'ha esborrada (potser tu, en una altra pestanya). ' +
+                   'Refresca la pàgina per veure el registre tal com és ara.';
+  var colDe = {};
+  if (lc >= 2) {
+    sh.getRange(1, 2, 1, lc - 1).getNotes()[0].forEach(function (n, i) {
+      var id = parseInt((n || '').split('|')[1]);
+      if (!isNaN(id)) colDe[String(id)] = i + 2;   // l'última, com updateRegistreCell
+    });
+  }
+  var filaDe = {};
+  if (lr >= 2) {
+    sh.getRange(2, 1, lr - 1, 1).getValues().forEach(function (x, i) {
+      var k = _normNomComp_(x[0]);
+      if (k && !(k in filaDe)) filaDe[k] = i + 2;
+    });
+  }
+  var resultats = [];
+  canvis.forEach(function (c, i) {
+    var col = colDe[String(parseInt(c.itemId))];
+    if (!col) { resultats.push({ i: i, ok: false, _foraDeLloc: true, error: foraDeLloc }); return; }
+    var fila = -1;
+    if (c.nomAlumne) {
+      var k = _normNomComp_(c.nomAlumne);
+      if (k && filaDe[k]) fila = filaDe[k];
+      if (fila === -1) {
+        resultats.push({ i: i, ok: false, _noTrobat: true,
+          error: 'No he trobat "' + c.nomAlumne + '" al full de registres d\'aquest grup. No s\'ha desat res.' });
+        return;
+      }
+    } else {
+      fila = parseInt(c.studentId) + 2;
+    }
+    var cel = sh.getRange(fila, col);
+    if (typeof c.value === 'string' && c.value !== '') { try { cel.setNumberFormat('@'); } catch (e) {} }
+    cel.setValue(c.value);
+    resultats.push({ i: i, ok: true, fila: fila });
+  });
+  return { ok: true, resultats: resultats };
+}
+
+/* ============================================================
    NO ENTREGAT
    ============================================================ */
 function setNoEntregat(ss, materia, trimestre, itemId, studentId, valor, grup, nom) {
@@ -4624,7 +4805,14 @@ function recalcMitjana(sh, rowP, cap) {
   if(lc<2)return;
   var rowPData = sh.getRange(rowP,1,1,lc).getValues()[0];
   var rowNData = sh.getRange(rowP+1,1,1,lc).getValues()[0];
+  _escriuMitjana_(sh, rowP, _mitjanaFila_(hdrData, metaData, rowPData, rowNData));
+}
 
+/* La mitjana d'un alumne a partir de les seves dues files, SENSE llegir el
+   full: així el desat d'un lot de notes la pot calcular amb el que ja té a la
+   memòria, en lloc de tornar a llegir cada fila (cada lectura obliga el Google
+   a escriure tot el que hi havia pendent, i és el que ho feia lent). */
+function _mitjanaFila_(hdrData, metaData, rowPData, rowNData) {
   var items=[],mCol=-1,notaCol=-1;
   hdrData.forEach(function(h,i){
     var m=(metaData[i]||'').toString(), hn=(h||'').toString().trim();
@@ -4660,7 +4848,11 @@ function recalcMitjana(sh, rowP, cap) {
   var sumV=0,sumP=0;
   items.forEach(function(it){if(it.nota!==null){sumV+=it.nota*it.pes;sumP+=it.pes;}});
   var mitj=sumP>0?Math.round(sumV/sumP*100)/100:'';
+  return { mitj: mitj, mCol: mCol, notaCol: notaCol };
+}
 
+function _escriuMitjana_(sh, rowP, calc) {
+  var mitj = calc.mitj, mCol = calc.mCol, notaCol = calc.notaCol;
   if(mCol!==-1){
     try{sh.getRange(rowP,mCol,2,1).merge();}catch(e){}
     var cm=sh.getRange(rowP,mCol);
@@ -5207,7 +5399,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v226';
+var BACKEND_VERSIO = 'v230';
 
 var MAX_CELA = 45000;
 

@@ -714,6 +714,7 @@ function _hiHaFeinaAMigDesar() {
   if (typeof _regPendents !== 'undefined' && _regPendents.size) return true;
   if (_fitxaDesaTemps || _fitxaDesant) return true;
   if (typeof _pendents !== 'undefined' && _pendents.length) return true;
+  if (typeof _casellesHiHa === 'function' && _casellesHiHa()) return true;
   /* ⚠ UNA OBSERVACIÓ A MIG ESCRIURE ES PERDIA EN RECARREGAR SENSE DIR RES.
 
      Segona auditoria (8/9/2026). Aquí es miraven el registre, la fitxa i la
@@ -1425,6 +1426,10 @@ const _getEnMarxa = new Map();      // clau → promesa que encara no ha tornat
 function _oblidaLectures() { _getGuardat.clear(); }
 
 async function appsScriptGet(params, _retry = true) {
+  /* `_fons: true` = refresc de coses que ja es veuen a la pantalla: només la
+     ratlla de dalt, sense vel. No viatja al servidor ni entra a la clau. */
+  const _fons = !!(params && params._fons);
+  if (params && '_fons' in params) { params = Object.assign({}, params); delete params._fons; }
   const clau = JSON.stringify(params);
   const esLectura = _GET_ES_LECTURA.has(params.action);
 
@@ -1439,7 +1444,7 @@ async function appsScriptGet(params, _retry = true) {
   const jaHiVa = _getEnMarxa.get(clau);
   if (jaHiVa) return jaHiVa;
 
-  const p = _appsScriptGetXarxa(params, _retry).then(r => {
+  const p = _appsScriptGetXarxa(params, _retry, _fons).then(r => {
     if (esLectura && r && r.ok) _getGuardat.set(clau, { ts: Date.now(), dades: r });
     return r;
   }).finally(() => { _getEnMarxa.delete(clau); });
@@ -1469,10 +1474,10 @@ function _ambSenyalDEspera(fer, text) {
   return p;
 }
 
-async function _appsScriptGetXarxa(params, _retry = true) {
+async function _appsScriptGetXarxa(params, _retry = true, _fons = false) {
   /* `getPersonal` es demana just en obrir el calaix d'un alumne: el calaix
      ja és a la pantalla i tapar-l'hi amb un vel seria estrany. */
-  const _sensVel = params && params.action === 'getPersonal';
+  const _sensVel = _fons || (params && params.action === 'getPersonal');
   return _ambSenyalDEspera(() => _appsScriptGetFetch(params, _retry),
                            _sensVel ? false : 'Carregant…');
 }
@@ -1581,7 +1586,13 @@ const _POST_NO_TOCA_LECTURES = new Set(['saveProfile']);
 
    Aquestes escriptures segueixen sortint a la ratlla de dalt (es veu que
    hi ha feina) i el rètol del peu de la fitxa diu com ha anat. El vel, no. */
-const _POST_SENSE_VEL = new Set(['saveGrupGenere', 'saveGrupPersonal', 'savePersonal']);
+/* I les caselles (notes, NE, creus del registre, actitud, comentari d'una
+   nota) i el que va darrere seu: es desen soles mentre la mestra continua
+   escrivint. En Pol, 16/9/2026: el vel a cada nota feia l'entrada de notes
+   «molt lenta». */
+const _POST_SENSE_VEL = new Set(['saveGrupGenere', 'saveGrupPersonal', 'savePersonal',
+  'desaCaselles', 'updateNota', 'setNoEntregat', 'updateRegistreCell', 'updateActitudBatch',
+  'saveNotaComentari', 'publicaNotesResum', 'syncAssoliments']);
 
 async function appsScriptPost(body, _retry = true) {
   const accio = body && body.action;
@@ -3331,8 +3342,10 @@ async function deleteRegistreItem(itemId) {
   if (!item||!confirm('Eliminar «'+item.nom+'»?')) return;
   itemId = item.id;   // el de debo, del tipus que sigui
   registreItems=registreItems.filter(i=>String(i.id)!==String(itemId)); delete registreData[itemId];
+  // Les creus d'aquesta columna que encara viatjaven ja no tenen on anar.
+  if (typeof _caselles !== 'undefined') { _caselles = _caselles.filter(x => !(x.tipus === 'registre' && String(x.canvi.itemId) === String(itemId))); _casellesGuarda(); }
   renderRegistre();
-  if (config.scriptUrl){ try{ await appsScriptPost({action:'deleteRegistreItem',itemId,grup:_registreGrup()}); showToast('Ítem eliminat','success'); } catch(e){ showToast('Error: '+ errorHuma(e),'error'); } }
+  if (config.scriptUrl){ await _casellesBuida(); try{ await appsScriptPost({action:'deleteRegistreItem',itemId,grup:_registreGrup()}); showToast('Ítem eliminat','success'); } catch(e){ showToast('Error: '+ errorHuma(e),'error'); } }
 }
 /* Lliga el que ve del full amb els alumnes PEL NOM, no per la posició.
 
@@ -3348,6 +3361,12 @@ function _registreRemap(rr) {
   return rr;
 }
 
+/* La creu (o el text) es pinta a l'instant i s'apunta a la cua de caselles:
+   surt cap al full en segon pla, agrupada amb les del costat. Abans cada
+   creu era una crida pròpia i totes anaven en paral·lel fent cua al pany del
+   servidor (QA de rendiment, 16/9/2026). Si no arriba, es queda apuntada i es
+   torna a provar sola; i si el full diu que aquella columna ja no hi és, es
+   desfà (_casellesFalla). */
 async function updateRegistreCell(itemId,studentId,value) {
   if (!registreData[itemId]) registreData[itemId]={};
   registreData[itemId][studentId]=value;
@@ -3355,41 +3374,23 @@ async function updateRegistreCell(itemId,studentId,value) {
      li digui el número, i el número canvia cada cop que algú reordena el full. */
   const _st = students.find(s => String(s.id) === String(studentId));
   const nomAlumne = _st ? _st.nom : '';
-  if (config.scriptUrl){
-    try{
-      const r = await appsScriptPost({action:'updateRegistreCell',itemId,studentId,value,grup:_registreGrup(),nomAlumne});
-      /* Una escriptura que no ha anat enlloc no es pot quedar pintada com si
-         sí: la mestra ha de saber que allò NO s'ha desat. */
-      if (r && r.ok === false) {
-        showToast(r.error || 'No s\'ha pogut desar aquesta casella', 'error');
-        updateSync('error', 'No desat');
-        /* La columna ja no hi és (l'ha esborrada una altra pestanya): la creu
-           que s'acaba de pintar no és de ningú. Es treu i es torna a demanar
-           el registre, perquè la pantalla digui la veritat. */
-        if (r._foraDeLloc) {
-          if (registreData[itemId]) delete registreData[itemId][studentId];
-          registreItems = registreItems.filter(i => String(i.id) !== String(itemId));
-          delete registreData[itemId];
-          renderRegistre();
-        }
-      }
-    } catch(e){
-      /* ⚠ AMB EL SERVIDOR CAIGUT, LES CREUS ES PERDIEN EN REFRESCAR.
+  if (!config.scriptUrl) return;
+  _casellesPosa('registre', { grup: _registreGrup() }, itemId + '|' + (nomAlumne || studentId),
+                { itemId, studentId, value, nomAlumne });
+}
 
-         Segona auditoria (8/9/2026). Aquí es feia `appsScriptPost` a pèl: si
-         no arribava, sortia el toast i prou. La creu es quedava pintada, no
-         s'apuntava a la cua de pendents —que sí que cobreix la fitxa i les
-         observacions— i el primer refresc se l'emportava. La mestra havia
-         passat la llista sencera i no en quedava res.
-
-         Ara va a la cua: es tornarà a provar sola quan torni la connexió, i
-         mentrestant la ratlla de baix diu els canvis que hi ha sense desar. */
-      _desaAlFull({ action:'updateRegistreCell', itemId, studentId, value,
-                    grup:_registreGrup(), nomAlumne }, { callat: true });
-      showToast('Això encara no s\'ha desat al full. Ho tornaré a provar sol quan torni la connexió.', 'error');
-      updateSync('error', 'No desat');
-    }
-  }
+/* El que hi ha apuntat i encara no ha arribat al full es pinta a sobre del
+   que ve del servidor: si no, un refresc esborraria de la pantalla creus que
+   la mestra acaba de marcar. */
+function _registreAmbPendents() {
+  if (typeof _casellesDe !== 'function' || typeof _registreGrup !== 'function') return;
+  _casellesDe('registre', { grup: _registreGrup() }).forEach(e => {
+    const c = e.canvi;
+    const st = c.nomAlumne ? students.find(s => s.nom === c.nomAlumne) : null;
+    const id = st ? st.id : c.studentId;
+    if (!registreData[c.itemId]) registreData[c.itemId] = {};
+    registreData[c.itemId][id] = c.value;
+  });
 }
 async function syncRegistre(){
   // A l'app dels especialistes el registre és el del grup triat, no el del
@@ -3408,6 +3409,7 @@ async function syncRegistre(){
 }
 
 function renderRegistre() {
+  try { _registreAmbPendents(); } catch (e) {}
   const empty=document.getElementById('registreEmpty'), table=document.getElementById('registreTable');
   const tbody=document.getElementById('regTableBody'), thead=document.querySelector('.reg-table thead tr');
   while(thead.children.length>1) thead.removeChild(thead.lastChild);
@@ -3901,12 +3903,245 @@ function _pendentsEngegaRellotge() {
   if (_pendentsTimer) return;
   _pendentsTimer = setInterval(() => { if (!document.hidden) _pendentsProva(); }, 120000);
 }
+
+/* ============================================================
+   LES CASELLES ES DESEN SOLES: AGRUPADES, SENSE VEL I SENSE PERDRE'N CAP
+   ------------------------------------------------------------
+   En Pol, 16/9/2026: «ara que tenim la capa amb el cartell de carregant...
+   fa que tot el procés d'introduir notes, obrir coses... sigui molt lent...
+   de tant en tant em surt l'error de que està trigant massa o errors
+   guardant... ha de ser una app molt fluida».
+
+   Tres coses feien mal alhora:
+
+     1. UNA crida per casella. Qualsevol crida al servidor costa ~1,6 s abans
+        de fer res (mesurat al seu servidor): 25 notes, més d'un minut.
+     2. EL VEL. Escrius un 7 i cliques la casella del nen següent: el clic i
+        el desat queien dins dels 400 ms que el vel entén com «la mestra
+        espera», i la pantalla es tapava fins que el servidor contestava.
+     3. SI FALLAVA, ES PERDIA. La nota fallada només deia «Error guardant» i
+        el primer refresc la treia de la pantalla. Les creus del registre
+        anaven en paral·lel, totes fent cua al pany del servidor.
+
+   Ara cada casella que es toca s'apunta aquí (i al navegador, o sigui que
+   sobreviu a tancar l'app). Mig segon després de l'última, surten TOTES les
+   del mateix full en UNA crida (`desaCaselles`), en segon pla: la ratlla de
+   dalt es mou, però no hi ha vel. Si no arriba, es queden apuntades i es
+   torna a provar sol, cada cop amb més espai; i mentrestant el refresc de
+   les notes no les trepitja, perquè el que es pinta sempre porta el que hi
+   ha apuntat a sobre.
+
+   Amb un servidor que encara no sap `desaCaselles` (la biblioteca d'abans),
+   es desen una a una com sempre: no es trenca res si la biblioteca s'enganxa
+   més tard.
+   ============================================================ */
+const _CASELLES_CLAU = 'vedruna_caselles';
+const _CASELLES_ESPERA = 600;        // ms des de l'última casella fins a enviar
+const _CASELLES_PER_CRIDA = 60;
+const _CASELLES_REINTENTS = [2000, 5000, 15000, 30000, 60000];
+let _caselles = [];
+let _casellesTemps = null;
+let _casellesEnviant = null;         // la promesa de l'enviament en marxa
+let _casellesFallades = 0;
+let _casellesAvisat = false;
+let _casellesServidorVell = false;
+let _casellesSeq = 0;
+
+function _casellesGuarda() {
+  try { localStorage.setItem(_CASELLES_CLAU, JSON.stringify(_caselles)); } catch (e) {}
+}
+function _casellesCarrega() {
+  try { _caselles = JSON.parse(localStorage.getItem(_CASELLES_CLAU) || '[]') || []; }
+  catch (e) { _caselles = []; }
+  if (_caselles.length) { _casellesPinta(); _casellesProgrameu(1500); }
+}
+function _casellesCtxClau(tipus, ctx) { return tipus + '|' + JSON.stringify(ctx); }
+
+/* Apunta una casella. `clauCasella` diu quina és (ítem + alumne): si ja n'hi
+   havia una d'apuntada, la nova la substitueix —el que val és l'últim valor. */
+function _casellesPosa(tipus, ctx, clauCasella, canvi) {
+  const lot = _casellesCtxClau(tipus, ctx);
+  const clau = lot + '|' + clauCasella;
+  const entrada = { clau, lot, tipus, ctx, canvi, v: (++_casellesSeq) + '.' + Date.now() };
+  const i = _caselles.findIndex(x => x.clau === clau);
+  if (i >= 0) _caselles[i] = entrada; else _caselles.push(entrada);
+  _casellesGuarda();
+  _casellesPinta();
+  _casellesProgrameu(_CASELLES_ESPERA);
+}
+
+/* Les apuntades d'un full concret, per pintar-les a sobre del que arriba. */
+function _casellesDe(tipus, ctx) {
+  const lot = _casellesCtxClau(tipus, ctx);
+  return _caselles.filter(x => x.lot === lot);
+}
+function _casellesHiHa() { return _caselles.length > 0 || !!_casellesEnviant; }
+
+function _casellesPinta() {
+  try {
+    if (_caselles.length) {
+      if (_casellesFallades >= 2) {
+        updateSync('error', _caselles.length === 1 ? '1 canvi sense desar' : _caselles.length + ' canvis sense desar');
+      } else {
+        updateSync('syncing', 'Desant…');
+      }
+    } else if (typeof _pendents !== 'undefined' && _pendents.length) {
+      _pendentsPinta();
+    } else {
+      updateSync('ok', 'Sincronitzat'); updateStatSync();
+    }
+  } catch (e) {}
+}
+
+function _casellesProgrameu(ms) {
+  if (_casellesTemps) clearTimeout(_casellesTemps);
+  _casellesTemps = setTimeout(() => { _casellesTemps = null; _casellesEnvia(); }, ms);
+}
+
+/* Envia ara el que hi hagi. Si ja n'hi ha un en marxa, s'hi afegeix al final. */
+function _casellesEnvia() {
+  if (_casellesEnviant) return _casellesEnviant;
+  if (!_caselles.length || !config.scriptUrl) return Promise.resolve();
+  if (_casellesTemps) { clearTimeout(_casellesTemps); _casellesTemps = null; }
+  _casellesEnviant = (async () => {
+    let totBe = true;
+    try {
+      while (_caselles.length) {
+        const lot = _caselles[0].lot;
+        const tros = _caselles.filter(x => x.lot === lot).slice(0, _CASELLES_PER_CRIDA);
+        const r = await _casellesEnviaTros(tros);
+        if (r === 'xarxa') { totBe = false; break; }
+      }
+    } finally {
+      _casellesEnviant = null;
+    }
+    if (totBe) {
+      _casellesFallades = 0;
+      if (_casellesAvisat) {
+        _casellesAvisat = false;
+        showToast('Ja s\'ha desat tot el que estava pendent ✓', 'success');
+      }
+    } else {
+      _casellesFallades++;
+      const ms = _CASELLES_REINTENTS[Math.min(_casellesFallades - 1, _CASELLES_REINTENTS.length - 1)];
+      if (_casellesFallades === 2 && !_casellesAvisat) {
+        _casellesAvisat = true;
+        showToast('Els canvis encara no han arribat al full. Queden guardats en aquest aparell ' +
+                  'i els torno a enviar sol; no has de tornar-los a escriure.', 'error');
+      }
+      _casellesProgrameu(ms);
+    }
+    _casellesPinta();
+  })();
+  return _casellesEnviant;
+}
+
+/* Treu de la cua les entrades enviades, però NOMÉS si no s'han tornat a
+   tocar mentre viatjaven: si la mestra ha canviat el 7 per un 8 a mig
+   enviament, el 8 s'ha de quedar per al viatge següent. */
+function _casellesTreu(enviades) {
+  const v = new Map(enviades.map(e => [e.clau, e.v]));
+  _caselles = _caselles.filter(x => !(v.has(x.clau) && v.get(x.clau) === x.v));
+  _casellesGuarda();
+}
+
+async function _casellesEnviaTros(tros) {
+  const primer = tros[0];
+  const canvis = tros.map(e => e.canvi);
+  let r;
+  if (!_casellesServidorVell) {
+    try {
+      r = await appsScriptPost(Object.assign({ action: 'desaCaselles', tipus: primer.tipus, canvis }, primer.ctx));
+    } catch (e) { return 'xarxa'; }
+    if (r && r.ok === false && /acci[oó] desconeguda/i.test(String(r.error || ''))) {
+      _casellesServidorVell = true;
+    }
+  }
+  if (_casellesServidorVell) return _casellesUnaAUna(tros);
+
+  if (!r || r._networkError) return 'xarxa';
+  if (r._authError) return 'xarxa';          // es reintentarà; l'avís de clau ja surt sol
+  if (r.ok === false) {
+    // El full sencer no hi és: cap d'aquestes caselles es podrà desar mai.
+    _casellesTreu(tros);
+    showToast('No s\'han pogut desar ' + tros.length + (tros.length === 1 ? ' canvi' : ' canvis') +
+              ': ' + (r.error || 'el full no hi és') + '. Refresca la pàgina.', 'error');
+    return 'fet';
+  }
+  const res = Array.isArray(r.resultats) ? r.resultats : [];
+  tros.forEach((e, i) => { const x = res[i]; if (x && x.ok === false) _casellesFalla(e, x); });
+  _casellesTreu(tros);
+  _casellesDesat(primer.tipus);
+  return 'fet';
+}
+
+/* Amb la biblioteca d'abans: les mateixes accions de sempre, una a una. */
+async function _casellesUnaAUna(tros) {
+  for (const e of tros) {
+    const c = e.canvi, x = e.ctx;
+    let r;
+    try {
+      if (e.tipus === 'notes') {
+        if (c.ne === true || c.ne === false) {
+          r = await appsScriptPost({ action: 'setNoEntregat', materia: x.materia, trimestre: x.trimestre, grup: x.grup,
+                                     itemId: c.itemId, studentId: c.studentId, nom: c.nom, valor: c.ne });
+        }
+        if (c.ne !== true && !(c.ne === false && (c.punts === '' || c.punts === undefined)) && (!r || r.ok !== false)) {
+          r = await appsScriptPost({ action: 'updateNota', materia: x.materia, trimestre: x.trimestre, grup: x.grup,
+                                     itemId: c.itemId, studentId: c.studentId, nom: c.nom, punts: c.punts });
+        }
+      } else {
+        r = await appsScriptPost({ action: 'updateRegistreCell', itemId: c.itemId, studentId: c.studentId,
+                                   value: c.value, grup: x.grup, nomAlumne: c.nomAlumne });
+      }
+    } catch (err) { return 'xarxa'; }
+    if (!r || r._networkError || r._authError) return 'xarxa';
+    if (r.ok === false) _casellesFalla(e, r);
+    _casellesTreu([e]);
+  }
+  _casellesDesat(tros[0].tipus);
+  return 'fet';
+}
+
+/* Una casella que el servidor ha dit que NO pot desar (no és cap fallada de
+   xarxa: repetir-la no l'arreglaria). Es diu, i es desfà el que es veia. */
+function _casellesFalla(e, x) {
+  if (e.tipus === 'registre') {
+    showToast(x.error || 'No s\'ha pogut desar aquesta casella', 'error');
+    if (x._foraDeLloc && typeof registreItems !== 'undefined') {
+      registreItems = registreItems.filter(i => String(i.id) !== String(e.canvi.itemId));
+      delete registreData[e.canvi.itemId];
+      try { renderRegistre(); } catch (err) {}
+    }
+    return;
+  }
+  showToast('La nota de ' + (e.canvi.nom || 'un alumne') + ' no s\'ha pogut desar: ' +
+            (x.error || 'el servidor no l\'ha acceptada') + '.', 'error');
+}
+
+function _casellesDesat(tipus) {
+  if (tipus === 'notes' && typeof publicaNotesSiCal === 'function') {
+    try { publicaNotesSiCal(); } catch (e) {}
+  }
+}
+
+/* Abans d'una cosa que canvia l'estructura del full (crear o esborrar una
+   columna), el que hi ha apuntat ha d'haver arribat: si no, una nota podria
+   anar a parar a la columna que s'acaba de moure. */
+async function _casellesBuida(maxMs) {
+  const fi = Date.now() + (maxMs || 20000);
+  while (_casellesHiHa() && Date.now() < fi) {
+    const antes = _caselles.length;
+    await _casellesEnvia();
+    if (_caselles.length && _caselles.length === antes && _casellesFallades) break;   // sense xarxa: no esperem més
+  }
+}
 /* El «ja torno a tenir xarxa» del navegador. Va protegit perquè les eines de
    comprovació carreguen l'app dins d'un navegador de mentida que no sempre
    porta addEventListener, i una excepció aquí impediria carregar tot el
    fitxer. */
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  window.addEventListener('online', () => _pendentsProva());
+  window.addEventListener('online', () => { _pendentsProva(); if (_caselles.length) _casellesEnvia(); });
 
   /* ⚠ LA RODA DEL RATOLÍ CANVIAVA LES NOTES, I LES DESAVA.
 
@@ -4103,6 +4338,7 @@ function showToast(msg,type='info') {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   _pendentsCarrega();     // el que va quedar sense desar l altre dia
+  _casellesCarrega();     // les notes i les creus que no havien arribat al full
   document.addEventListener('focusin', _finestraRecordaFocus, true);
   _finestraVigila();      // Escape, focus a dins i focus que torna, a totes les finestres
   _teclatVigila();        // que a les graelles s hi pugui arribar amb el tabulador
@@ -5510,7 +5746,8 @@ async function _loadGCalEvents(year, month) {
   if (cached && Date.now() - cached < 120000) return;
 
   try {
-    const r = await appsScriptGet({ action: 'getGCalEvents', year, month: month + 1 });
+    // El mes ja es veu amb el que hi ha al navegador: el Google arriba al darrere, sense vel.
+    const r = await appsScriptGet({ action: 'getGCalEvents', year, month: month + 1, _fons: true });
     if (r.ok && r.events) {
       // Treu els events que hem escrit NOSALTRES al Google: si no, es veurien
       // dos cops (el de l'app i el mateix tornant de Google).
@@ -6128,7 +6365,7 @@ function deleteTasca() {
 async function loadGoogleTasksSilent() {
   if (!config.scriptUrl) return;
   try {
-    const r = await appsScriptGet({ action: 'getGoogleTasks' });
+    const r = await appsScriptGet({ action: 'getGoogleTasks', _fons: true });
     if (r.ok && r.tasks) {
       _integrateGTasksInList(r.tasks);
       updateTasquesBadge();
@@ -6152,7 +6389,8 @@ async function loadGoogleTasks(hoHaDemanat) {
   const btn = document.getElementById('gtasquesRefreshBtn');
   if (btn) btn.textContent = '↺ Carregant…';
   try {
-    const r = await appsScriptGet({ action: 'getGoogleTasks' });
+    // Si s'obre sola en entrar a Tasques, la llista ja hi és: sense vel.
+    const r = await appsScriptGet({ action: 'getGoogleTasks', _fons: !hoHaDemanat });
     if (r && r.ok && r.tasks) {
       _renderGoogleTasks(r.tasks);
       if (hoHaDemanat) showToast('Tasques del Google al dia', 'success');

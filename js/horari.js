@@ -43,7 +43,8 @@ async function _horariLoadFromSheets() {
   if (!config.scriptUrl) return;
   if (typeof _recentFullLoad === 'function' && _recentFullLoad()) return; // el bootstrap ja l'ha portat
   try {
-    const r = await appsScriptGet({ action: 'loadHorari' });
+    // L'horari ja es veu (del navegador): el refresc no el tapa amb el vel.
+    const r = await appsScriptGet({ action: 'loadHorari', _fons: true });
     if (r.ok && r.horari && typeof r.horari === 'object') {
       _horari = r.horari;
       try { localStorage.setItem('horari', JSON.stringify(_horari)); } catch(e) {}

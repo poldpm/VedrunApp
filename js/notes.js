@@ -11,8 +11,6 @@ let notesComentaris = {};
 let notesContext = { materia: null, trimestre: null };
 
 /* --- Cua de guardament serial (evita pèrdues) --- */
-let _saveQueue  = Promise.resolve();
-let _pendingMap = {};
 
 /* --- Cache local per assignatura+trimestre (TTL 10 min, persistent) --- */
 const _cache   = {};
@@ -34,6 +32,29 @@ function _cacheSet(d) {
   const entry = { ...d, ts: Date.now() };
   _cache[_cacheKey()] = entry;
   try { localStorage.setItem(_cachePersistKey(), JSON.stringify(entry)); } catch(e) {}
+}
+/* ⚠ CADA NOTA ESBORRAVA EL CACHE DE L'ASSIGNATURA (QA de rendiment, 16/9/2026).
+   Després d'entrar notes, tornar a obrir aquella assignatura ja no tenia res
+   per ensenyar de seguida: havia d'esperar el Google (~2 s) amb el vel a sobre.
+   Ara la nota s'escriu també al cache, a la fila del mateix NOM: la taula surt
+   a l'instant i el refresc de fons la posa al dia igualment. Si no es pot saber
+   de quina fila és (sense noms, un nom repetit, un alumne que encara no hi és),
+   es fa com abans i s'esborra: val més esperar que ensenyar-la al nen que no és. */
+function _notesCacheEscriu(itemId, studentId, canvi) {
+  let c = null;
+  try { c = _cacheGet(); } catch (e) {}
+  if (!c) return;
+  const st = students.find(x => x.id === studentId);
+  const norm = s => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const nom = st ? norm(st.nom) : '';
+  const files = (c.rowNoms || []).map(norm);
+  const pos = nom ? files.indexOf(nom) : -1;
+  if (pos < 0 || files.indexOf(nom, pos + 1) >= 0) { _cacheDel(); return; }
+  const valors = c.valors || {}, ne = c.noEntregats || {};
+  if (!valors[itemId]) valors[itemId] = {};
+  if (canvi.ne === true) { valors[itemId][pos] = 0; if (!ne[itemId]) ne[itemId] = {}; ne[itemId][pos] = true; }
+  else { valors[itemId][pos] = canvi.punts; if (ne[itemId]) delete ne[itemId][pos]; }
+  _cacheSet({ items: c.items || [], valors, noEntregats: ne, comentaris: c.comentaris || {}, rowNoms: c.rowNoms });
 }
 function _cacheDel() {
   delete _cache[_cacheKey()];
@@ -453,6 +474,11 @@ function _remapValorsPerNom(valors, rowNoms) {
    repetir-ho a cada assignatura només faria nosa. */
 let _remapAvisat = false;
 
+function _notesEsVeuen() {
+  const w = document.getElementById('notesTableWrap');
+  return !!(w && w.style.display !== 'none' && notesItems && notesItems.length);
+}
+
 async function _loadNotesBackground() {
   if (!config.scriptUrl) return;
   const ctx = notesContext;
@@ -462,6 +488,9 @@ async function _loadNotesBackground() {
       materia: ctx.materia,
       grup: ctx.grup,
       trimestre: ctx.trimestre,
+      /* Si la taula ja es veu (del cache), el refresc no la tapa amb el vel:
+         la mestra pot començar a escriure mentre arriba. */
+      _fons: _notesEsVeuen(),
     });
     if (!r.ok) throw new Error(r.error);
     /* Les notes es casen per NOM amb la llista d'alumnes. Si aquesta llista
@@ -585,12 +614,18 @@ async function addNotaItem() {
   closeNewNotaModal();
   renderNotesTable();
   if (!config.scriptUrl) return;
+  // Una columna nova mou les del costat: les notes apuntades han d'arribar abans.
+  await _casellesBuida();
   updateSync('syncing', 'Creant ítem…');
   try {
     const r = await appsScriptPost({ action:'addNotaItem', materia:notesContext.materia, trimestre:notesContext.trimestre, grup:notesContext.grup, item, alumnes:students });
     if (!r.ok) throw new Error(r.error);
     updateSync('ok', 'Sincronitzat');
     showToast('Ítem «' + nom + '» creat', 'success');
+    /* El cache s'ha esborrat en crear la columna: es torna a portar ara, en
+       segon pla, perquè tornar a obrir l'assignatura sigui a l'instant i no
+       hagi d'esperar el Google amb el vel (QA de rendiment, 16/9/2026). */
+    _loadNotesBackground();
   } catch (e) {
     /* ⚠ LA COLUMNA QUE NOMÉS EXISTIA A LA PANTALLA.
 
@@ -624,12 +659,17 @@ async function deleteNotaItem(itemId) {
   itemId = item.id;
   notesItems = notesItems.filter(i => String(i.id) !== String(itemId));
   delete notesValors[itemId];
+  // Les notes d'aquesta columna que encara viatjaven ja no tenen on anar.
+  _caselles = _caselles.filter(x => !(x.tipus === 'notes' && String(x.canvi.itemId) === String(itemId)));
+  _casellesGuarda();
   _cacheDel();
   renderNotesTable();
   if (!config.scriptUrl) return;
+  await _casellesBuida();
   try {
     await appsScriptPost({ action:'deleteNotaItem', materia:notesContext.materia, trimestre:notesContext.trimestre, grup:notesContext.grup, itemId });
     showToast('Ítem eliminat', 'success');
+    _loadNotesBackground();   // el cache torna a ser bo, en segon pla
   } catch (e) { showToast('Error: '+ (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''),'error'); }
 }
 
@@ -640,23 +680,50 @@ async function updateNota(itemId, studentId, punts) {
   if (!notesValors[itemId]) notesValors[itemId] = {};
   notesValors[itemId][studentId] = punts;
   refreshStudentRow(studentId);
-  _cacheDel();
+  _notesCacheEscriu(itemId, studentId, { punts });
   if (typeof _notesResumCache !== 'undefined') _notesResumCache = null; // invalida resum fitxa
   if (typeof _notesResumMats !== 'undefined') _notesResumMats = null;
   if (!config.scriptUrl) return;
   const _st = students.find(x => x.id === studentId);
   const _nom = _st ? _st.nom : '';
-  const key = String(itemId) + '_' + studentId;
-  _pendingMap[key] = { itemId, studentId, punts, nom: _nom };
-  _saveQueue = _saveQueue.then(async () => {
-    const p = _pendingMap[key]; if (!p) return; delete _pendingMap[key];
-    try {
-      const r = await appsScriptPost({ action:'updateNota', materia:notesContext.materia, trimestre:notesContext.trimestre, grup:notesContext.grup, itemId:p.itemId, studentId:p.studentId, nom:p.nom, punts:p.punts });
-      if (r && !r.ok) showToast('Error guardant: '+r.error,'error');
-      // Si aquesta assignatura està compartida amb el tutor, republica el resum
-      // (amb espera: entrant notes es dispararia a cada tecla).
-      else if (typeof publicaNotesSiCal === 'function') publicaNotesSiCal();
-    } catch (e) { showToast('Error guardant nota: '+ (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''),'error'); }
+  /* A la cua de caselles (app.js): surt en segon pla, agrupada amb les notes
+     del costat, i no es perd si falla. Abans era una crida per nota, amb vel,
+     i si fallava només sortia «Error guardant» (QA de rendiment, 16/9/2026).
+     Si aquella casella venia de treure un NE, s'hi manté la marca: el servidor
+     ha de saber que el buit és de debò i no un rebot. */
+  const ctx = _notesCtxCua();
+  const clau = itemId + '|' + (_nom || studentId);
+  const abans = _casellesDe('notes', ctx).find(e => e.clau.endsWith('|' + clau));
+  const canvi = { itemId, studentId, nom: _nom, punts };
+  if (abans && abans.canvi.ne === false) canvi.ne = false;
+  _casellesPosa('notes', ctx, clau, canvi);
+}
+
+/* De quin full són les notes que es desen ara. El trimestre sempre com a
+   text: de vegades arriba com a número i de vegades com a text, i dues
+   claus diferents per al mateix full partirien les notes en dos viatges. */
+function _notesCtxCua() {
+  return { materia: notesContext.materia, trimestre: String(notesContext.trimestre),
+           grup: notesContext.grup || null };
+}
+
+/* El que hi ha apuntat i encara no ha arribat al full, a sobre del que ve del
+   servidor. Sense això, el refresc de fons esborrava de la pantalla notes
+   que la mestra acabava d'escriure. Es casa pel NOM: si la llista s'ha
+   reordenat, el número ja no seria el mateix nen. */
+function _notesAmbPendents() {
+  if (typeof _casellesDe !== 'function' || !notesContext || !notesContext.materia) return;
+  _casellesDe('notes', _notesCtxCua()).forEach(e => {
+    const c = e.canvi;
+    const st = c.nom ? students.find(s => s.nom === c.nom) : null;
+    const id = st ? st.id : c.studentId;
+    if (!notesValors[c.itemId]) notesValors[c.itemId] = {};
+    if (!noEntregats[c.itemId]) noEntregats[c.itemId] = {};
+    if (c.ne === true) { noEntregats[c.itemId][id] = true; notesValors[c.itemId][id] = 0; }
+    else {
+      if (c.ne === false) noEntregats[c.itemId][id] = false;
+      notesValors[c.itemId][id] = c.punts;
+    }
   });
 }
 
@@ -691,15 +758,16 @@ async function toggleNoEntregat(item, studentId, inp, chip) {
     notesValors[item.id][studentId] = '';
   }
   refreshStudentRow(studentId);
-  _cacheDel();
+  _notesCacheEscriu(item.id, studentId, isNE ? { ne: true } : { punts: '' });
 
-  // Envia NOMÉS setNoEntregat al servidor (que ja fa el recalc intern)
-  // NO crida updateNota per evitar que sobreescrigui el valor 'NE'
+  // A la cua de caselles, com les notes. Marcar NE deixa la casella en «NE»;
+  // treure'l la deixa buida de debò (`ne:false` + buit).
   if (config.scriptUrl) {
     const _stNE = students.find(x => x.id === studentId);
     const _nomNE = _stNE ? _stNE.nom : '';
-    try { await appsScriptPost({ action:'setNoEntregat', materia:notesContext.materia, trimestre:notesContext.trimestre, grup:notesContext.grup, itemId:item.id, studentId, nom:_nomNE, valor:isNE }); }
-    catch (e) { showToast('Error guardant NE: '+ (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''),'error'); }
+    const canvi = isNE ? { itemId: item.id, studentId, nom: _nomNE, ne: true }
+                       : { itemId: item.id, studentId, nom: _nomNE, ne: false, punts: '' };
+    _casellesPosa('notes', _notesCtxCua(), item.id + '|' + (_nomNE || studentId), canvi);
   }
 }
 
@@ -743,6 +811,7 @@ function refreshStudentRow(sid) {
    RENDERITZA LA TAULA COMPLETA
    ============================================================ */
 function renderNotesTable() {
+  try { _notesAmbPendents(); } catch (e) {}
   const empty = document.getElementById('notesEmpty');
   const wrap  = document.getElementById('notesTableWrap');
   const thead = document.getElementById('notesTableHead');

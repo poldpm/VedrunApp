@@ -1,10 +1,11 @@
 {
-  "versio": "v229",
+  "versio": "v230",
   "data": "2026-09-16",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Les notes de Tallers no sortien a l'app encara que fossin ben desades al full. Ara surten.",
-    "A Tallers també pots triar el trimestre, com a la resta d'assignatures.",
-    "En actualitzar-se, l'app ja no es pot quedar amb una part de la versió d'abans."
+    "Entrar notes és molt més ràpid: ja no surt la pantalla de «Desant…» a cada nota. Pots passar la nota de tota la classe seguida i es desen soles, totes juntes.",
+    "El mateix amb els NE i amb les creus del registre d'aula.",
+    "Si la connexió falla mentre entres notes, ja no es perden: queden guardades a l'aparell i s'envien soles quan torna.",
+    "En obrir unes notes que ja havies mirat, la taula surt de seguida i ja no es tapa mentre es posa al dia."
   ]
 }
