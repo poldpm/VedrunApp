@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v224">
+  <link rel="stylesheet" href="css/main.css?v=v225">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -1838,7 +1838,8 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="personal-field"><label class="form-label" for="pCorreu2">Correu del tutor/a 2</label><input class="form-input form-input-nomes-mirar" id="pCorreu2" type="email" placeholder="—" readonly style="width:100%"></div>
         <div class="personal-field"><label class="form-label" for="pTelefons">Telèfons</label><input class="form-input form-input-nomes-mirar" id="pTelefons" type="text" placeholder="—" readonly style="width:100%"></div>
         <div class="personal-section-label" style="margin-top:24px;">Observacions mèdiques</div>
-        <div class="personal-field"><label class="form-label">Informació mèdica rellevant</label><textarea class="modal-textarea form-input-nomes-mirar" readonly id="pObs" placeholder="Ex: Intol·lerància a la lactosa, al·lèrgies…" rows="3" style="width:100%" aria-label="Informació mèdica rellevant"></textarea></div>
+        <div class="personal-field"><label class="form-label" for="pObs">Al·lèrgies, intoleràncies, dieta i salut</label><textarea class="modal-textarea form-input-nomes-mirar" readonly id="pObs" placeholder="Res al full de salut de direcció" rows="3" style="width:100%"></textarea>
+          <div class="modal-hint" style="margin-top:6px">Ho porta el full d'al·lèrgies i salut de direcció. Si hi ha cap error o hi falta res, digues-ho a direcció.</div></div>
 
         <div class="personal-section-label" style="margin-top:24px;">Atenció a la diversitat</div>
         <div class="personal-field">
@@ -2258,34 +2259,34 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v224"></script>
-  <script defer src="js/pdfhorari.js?v=v224"></script>
-  <script defer src="js/millores.js?v=v224"></script>
-  <script defer src="js/rol.js?v=v224"></script>
-  <script defer src="js/config.local.js?v=v224"></script>
-  <script defer src="js/app.js?v=v224"></script>
-  <script defer src="js/notes.js?v=v224"></script>
-  <script defer src="js/seients.js?v=v224"></script>
-  <script defer src="js/perfil.js?v=v224"></script>
-  <script defer src="js/grupview.js?v=v224"></script>
-  <script defer src="js/postits.js?v=v224"></script>
-  <script defer src="js/horari.js?v=v224"></script>
-  <script defer src="js/vedrunu.js?v=v224"></script>
-  <script defer src="js/gwrite.js?v=v224"></script>
-  <script defer src="js/rubriques.js?v=v224"></script>
-  <script defer src="js/docents.js?v=v224"></script>
-  <script defer src="js/coordinacio.js?v=v224"></script>
-  <script defer src="js/regdocents.js?v=v224"></script>
-  <script defer src="js/segentrevistes.js?v=v224"></script>
-  <script defer src="js/entrevistes.js?v=v224"></script>
-  <script defer src="js/notescomp.js?v=v224"></script>
-  <script defer src="js/reunions.js?v=v224"></script>
-  <script defer src="js/versio.js?v=v224"></script>
+  <script defer src="js/espera.js?v=v225"></script>
+  <script defer src="js/pdfhorari.js?v=v225"></script>
+  <script defer src="js/millores.js?v=v225"></script>
+  <script defer src="js/rol.js?v=v225"></script>
+  <script defer src="js/config.local.js?v=v225"></script>
+  <script defer src="js/app.js?v=v225"></script>
+  <script defer src="js/notes.js?v=v225"></script>
+  <script defer src="js/seients.js?v=v225"></script>
+  <script defer src="js/perfil.js?v=v225"></script>
+  <script defer src="js/grupview.js?v=v225"></script>
+  <script defer src="js/postits.js?v=v225"></script>
+  <script defer src="js/horari.js?v=v225"></script>
+  <script defer src="js/vedrunu.js?v=v225"></script>
+  <script defer src="js/gwrite.js?v=v225"></script>
+  <script defer src="js/rubriques.js?v=v225"></script>
+  <script defer src="js/docents.js?v=v225"></script>
+  <script defer src="js/coordinacio.js?v=v225"></script>
+  <script defer src="js/regdocents.js?v=v225"></script>
+  <script defer src="js/segentrevistes.js?v=v225"></script>
+  <script defer src="js/entrevistes.js?v=v225"></script>
+  <script defer src="js/notescomp.js?v=v225"></script>
+  <script defer src="js/reunions.js?v=v225"></script>
+  <script defer src="js/versio.js?v=v225"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v224"></script>
+  <script defer src="js/personal.js?v=v225"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

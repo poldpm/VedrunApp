@@ -1,16 +1,9 @@
 {
-  "versio": "v224",
-  "data": "2026-09-12",
+  "versio": "v225",
+  "data": "2026-09-16",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "ARRANJAT: el calendari podia perdre actes si el fas servir des de dos aparells. Apuntaves una cosa des de casa i el primer desat des de l escola te la feia desaparèixer, sense dir-te res.",
-    "ARRANJAT: els contactes de la família ja no es poden buidar sols. Si el full de secretaria deixava de dir res d un grup, l app li buidava els tutors, els correus i els telèfons a tota la classe. Ara, si d un alumne no en sap res, li deixa el que ja tenia.",
-    "ARRANJAT: treure un alumne ja no desplaça les dades dels altres. Abans, l observació, el PI i l AM es quedaven a la fila de qui hi havia sobre.",
-    "La paperera de Gestionar alumnes ja no treu ningú quan la llista surt del full de l escola: t ho diu i t explica que ho has de demanar a secretaria.",
-    "L actitud ja va lligada a cada alumne i no a la seva posició a la llista: si el grup es reordena, les puntuacions ja no ballen.",
-    "Al Planning, les sessions especials i les sortides ara ho diuen amb lletres, no només amb el color.",
-    "A la tauleta: els botons de cada alumne, la creu de treure una columna de Registres i una dotzena de botons petits ja es poden tocar bé amb el dit.",
-    "Es llegeixen millor el botó NE i els botons d assoliment, que gairebé desapareixien.",
-    "Millores per a qui fa servir lector de pantalla: s anuncien els avisos, les finestres diuen com es diuen i les caselles de Registres diuen de quin alumne i de quina cosa són."
+    "Les al·lèrgies, intoleràncies, dietes i qualsevol cosa de salut dels alumnes surten ara del full d'al·lèrgies de direcció, que és on es porta el control. A la fitxa de cada alumne ho trobaràs a l'apartat de salut.",
+    "Si hi veus un error o hi falta alguna cosa, s'ha de dir a direcció: el document d'Aspectes generals ja no es fa servir per a la salut."
   ]
 }

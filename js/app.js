@@ -9107,7 +9107,7 @@ function _dubtesRender() {
         '<p class="dubte-motiu">No sé a quin apartat de la fitxa va, i per això no l\'he ' +
         'posat a ningú. Si és important, escriu-ho a ' +
         _dubtesDocEnllac('Aspectes generals') + ' dins d\'un apartat que l\'app ja conegui ' +
-        '(per exemple «Família» o «Intoleràncies»), o digues-ho a en Pol.</p>' +
+        '(per exemple «Família» o «Relació entre iguals»), o digues-ho a en Pol.</p>' +
         '<div class="dubte-botons">' +
           '<button type="button" class="btn btn-secondary btn-sm" onclick="dubteAmaga(' + i + ')">Ja ho he mirat</button>' +
         '</div>' +

@@ -5207,7 +5207,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v224';
+var BACKEND_VERSIO = 'v225';
 
 var MAX_CELA = 45000;
 
@@ -6812,6 +6812,17 @@ function grupsSincronitzaAuto() {
       }
     } catch (e) { falla.contactes = e.message; Logger.log('grupsSincronitzaAuto (contactes) ha petat: ' + e.message); }
 
+    /* I EL FULL DE SALUT DE DIRECCIÓ: al·lèrgies, intoleràncies, dietes i
+       salut, al camp mèdic. Try a part, com les altres. No fa res fins que
+       en Pol l'ha aplicat un cop a mà (veure salutAplicaSiCal). */
+    try {
+      var sa = salutAplicaSiCal(ss);
+      if (sa && sa.ok === false) falla.salut = sa.error || 'no ha anat bé';
+      if (!(sa && sa.ok && sa.calia === false)) {
+        Logger.log('grupsSincronitzaAuto (salut): ' + JSON.stringify(sa && sa.total ? sa.total : sa));
+      }
+    } catch (e) { falla.salut = e.message; Logger.log('grupsSincronitzaAuto (salut) ha petat: ' + e.message); }
+
     _syncDeixaDit_(ss, falla);
   } catch (e) { Logger.log('grupsSincronitzaAuto ha petat: ' + e.message); }
 }
@@ -7759,6 +7770,12 @@ var FITXES_ID = '1muxIeGoux6wG4gMZ7Xus58ULG-99Wsb0H3yONzCHKUo';
    —vint-i-tantes visites per un ID. Aquí es canvia un cop i arriba a totes. */
 var CONTACTES_ID_ESCOLA = '1RaISWEPb-7q0VlIfM_n-lNK6fhV1FoMr5Zt_ak6ckQA';
 
+/* El full de salut, al·lèrgies i dietes de direcció (la còpia d'en Pol, que
+   s'actualitza sola quan direcció toca l'original). Va aquí, com el de
+   contactes: és un de sol per a tota l'escola i canviant-lo aquí arriba a
+   totes les apps alhora. Veure SALUT, AL·LÈRGIES I DIETES més avall. */
+var SALUT_ID_ESCOLA = '1xIqNlwPt6wTGFGjjAus6dKAHCGZ6v4iQYy1mk0XB7yE';
+
 function _fnorm_(s) {
   return String(s == null ? '' : s)
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -8534,12 +8551,19 @@ function _hashCurt_(s) {
      Altres observacions          → Aspectes específics (conductuals)
      Relació entre iguals         → Aspectes específics
      Família                      → Aspectes específics
-     Intoleràncies, al·lèrgies    → Observació important (la MÈDICA)
+     Intoleràncies, al·lèrgies    → RES. Des del 16/9/2026 el mèdic surt
+                                    del full de salut de direcció
 
    ⚠ El que hi havia abans posava les observacions de conducta al camp
    MÈDIC. A la fitxa, "Pares separats molt mala relació" sortia amb la
    creueta ✚ al costat de les al·lèrgies. */
-var FITXA_CAMPS = ['obs', 'pi', 'am', 'asp', 'eap', 'trastorns', 'acollida', 'drets', 'emvic'];
+/* ⚠ SENSE 'obs'. Des del 16/9/2026 el camp MÈDIC no el toca aquest lector:
+   surt NOMÉS del full de salut de direcció (veure SALUT, AL·LÈRGIES I
+   DIETES). Si 'obs' fos aquí, el mirall de les fitxes el buidaria a cada
+   passada —Aspectes generals ja no en diu res— i les dues sincronitzacions
+   es trepitjarien cada quart d'hora. I el repàs (fitxesNeteja) també faria
+   fora les al·lèrgies que hi ha escrit direcció. */
+var FITXA_CAMPS = ['pi', 'am', 'asp', 'eap', 'trastorns', 'acollida', 'drets', 'emvic'];
 
 /* De la clau interna al nom de la columna al full. */
 var FITXA_COL_NOM = {
@@ -8874,7 +8898,10 @@ function _fitxaPerAlumne_(f, prep, alies) {
     var on = null, ambText = true;
     if (e.indexOf("drets d imatge") === 0) { on = "drets"; }
     else if (e.indexOf("emvic") === 0) { on = "emvic"; ambText = false; }
-    else if (e.indexOf("intoler") === 0 || e.indexOf("al lerg") === 0) { on = "obs"; }
+    /* «Intoleràncies, al·lèrgies» ja no va enlloc: en Pol, 16/9/2026, «tot el
+       tema d'intoleràncies i al·lèrgies, l'app ho ha de mirar del full de
+       direcció» i «ja no cal mirar res de salut del full d'aspectes
+       generals». S'ignora a posta (_fitxaRetolAPosta_). */
     else if (e.indexOf("relacio entre iguals") === 0) { on = "asp"; }
     else if (e.indexOf("familia") === 0) { on = "asp"; }
     /* Rètols que només fa servir un grup, però que diuen coses de família
@@ -9259,7 +9286,10 @@ function fitxesAplica(ss, prova, nomesGrup) {
    és allà on ho ha de mirar, no a la memòria.
    ============================================================ */
 var EINES_LLIURES = {
-  /* 1: 'provaContactes',   ← així s'assigna una casella */
+  /* El full de salut de direcció (16/9/2026): primer es mira què faria i
+     després s'aplica. Un cop aplicat, va sol cada quart d'hora. */
+  1: 'provaSalut',
+  2: 'aplicaSalutDEBO',
 };
 var DISPARADORS_LLIURES = {
   /* 1: 'repassaLesFitxes', */
@@ -9468,6 +9498,35 @@ function comAnem() {
       l.push('  ✔ els contactes estan al dia');
     } else {
       perAplicar('els contactes', 'el full de la secretaria, o el codi, han canviat');
+    }
+  });
+
+  /* 4b. El full de salut de direcció */
+  l.push('');
+  l.push('EL FULL DE SALUT I AL·LÈRGIES DE DIRECCIÓ');
+  mira('el full de salut', function () {
+    var gss = getGrupsSpreadsheet(ss);
+    var doc = _salutTots_(ss);
+    l.push('  Pestanyes llegides: ' + doc.pestanyes.length + ' · nens amb alguna cosa: ' + doc.files);
+    if (doc.senseGrup.length) l.push('  ⚠ ' + doc.senseGrup.length + ' fila(es) amb una classe que no entenc');
+    var activa = '';
+    try { activa = gss ? String(sheetGetJSON(gss, '_AppData', 'salut_activa') || '') : ''; } catch (e) {}
+    if (activa !== 'si') {
+      l.push('  ✗ encara no s\'ha aplicat mai: el camp mèdic és el d\'abans');
+      cal.push('Executa  eina1  (mira què faria el full de salut) i, si el registre et sembla bé,  eina2  (l\'aplica i a partir d\'aquí va sol).');
+      return;
+    }
+    l.push('  Mirat per última vegada: ' + _quanText_(sheetGetJSON(gss, '_AppData', 'salut_mirat')));
+    var res = null;
+    try { res = JSON.parse(sheetGetJSON(gss, '_AppData', 'salut_aplicat') || 'null'); } catch (e) {}
+    if (res && res.senseParella && res.senseParella.length) {
+      l.push('  ⚠ ' + res.senseParella.length + ' nen(s) del full de direcció que no sé qui són (NO surten a l\'app):');
+      res.senseParella.slice(0, 25).forEach(function (x) { l.push('      ' + x.grup + ' · ' + x.qui + ' — ' + x.motiu); });
+    }
+    if (_salutEmpremta_(doc, gss) === sheetGetJSON(gss, '_AppData', 'salut_empremta')) {
+      l.push('  ✔ el camp mèdic està al dia');
+    } else {
+      perAplicar('el camp mèdic', 'el full de direcció, les llistes o el codi han canviat');
     }
   });
 
@@ -9720,7 +9779,11 @@ function _fitxaRetolConegut_(camp) {
    de cap alumne i no han d'anar a la fitxa de ningú. */
 function _fitxaRetolAPosta_(camp) {
   var e = _fnorm_(_fitxaEtiq_(camp));
-  return e.indexOf('pagament porteria') === 0 || e.indexOf('pares delegats') === 0;
+  return e.indexOf('pagament porteria') === 0 || e.indexOf('pares delegats') === 0 ||
+         /* Des del 16/9/2026, la salut surt del full de direcció. Si no fos
+            aquí, el que hi hagi escrit sortiria cada dia a la llista de
+            dubtes del tutor com si calgués fer-hi alguna cosa. */
+         e.indexOf('intoler') === 0 || e.indexOf('al lerg') === 0;
 }
 
 function fitxesDubtes(ss, nomesGrup) {
@@ -10254,6 +10317,440 @@ function contactesAplicaSiCal(ss) {
   if (r && r.ok) { try { sheetSetJSON(gss, '_AppData', 'contactes_empremta', ara); } catch (e) {} }
   if (r) { r.calia = true; r.empremta = ara; }
   return r;
+}
+
+/* ============================================================
+   SALUT, AL·LÈRGIES I DIETES: EL FULL DE DIRECCIÓ
+   ------------------------------------------------------------
+   En Pol, 16/9/2026: «direcció ha elaborat un document d'intoleràncies i
+   al·lèrgies on hi ha registrats tots els nens que tenen alguna cosa...
+   necessito que tot el tema d'intoleràncies i al·lèrgies, l'app ho miri
+   directament d'aquest full i no del full anomenat aspectes generals».
+
+   I en veure que el full no porta només al·lèrgies —hi ha l'espina bífida,
+   convulsions, diabetis, asma, dietes—: «doncs tot a l'apartat mèdic i ja
+   no cal mirar res de salut del full d'aspectes generals».
+
+   O sigui:
+     · El camp MÈDIC de la fitxa (columna «Observació important» del full
+       de grups) surt NOMÉS d'aquest full. Aspectes generals ja no hi escriu
+       res: la seva casella «Intoleràncies» s'ignora a posta
+       (veure _fitxaRetolAPosta_).
+     · Una sola font: no hi pot haver cap duplicat entre dos apartats.
+     · És un MIRALL, i aquí sí que BUIDA. El full de direcció és la llista
+       sencera dels nens que tenen alguna cosa: un nen que no hi surt vol
+       dir «no en té cap». És el contrari dels contactes, on no sortir al
+       full de secretaria vol dir «no en sé res».
+     · També les dietes («No porc», «Vegetarià»): en Pol va dir que sí,
+       que importen al menjador i a les sortides.
+
+   Com és el full (setembre 2026): una pestanya per curs, amb la capçalera
+   «Alumne/a | Classe | Pare/mare | Telèfon | Observacions | REVISAT |
+   Data». A la pestanya de 4t la primera es diu «Columna 1». La classe porta
+   la tutora al darrere: «1r C- Marta Salarich», «4rt A- Gemma Muntadas».
+   Els noms, uns «Nom Cognoms» i uns altres «Cognoms, Nom». I a la de 1r,
+   «NO PORC» està escrit a la columna Data: en Pol va decidir llegir-ho
+   igualment.
+
+   ⚠ Tres talls perquè un full trencat no esborri al·lèrgies de debò:
+     1) si del full no en surt NI UN nen, no es toca res enlloc;
+     2) si falta la pestanya d'un curs, els grups d'aquell curs no es toquen;
+     3) si el full parla d'un grup però no n'encaixa cap nom, aquell grup
+        no es toca (el que falla són els noms, no els nens).
+   I abans d'escriure a sobre d'un camp que no era buit, es desa una còpia.
+
+   ⚠ NO VA SOL FINS QUE EN POL L'HA APLICAT UN COP A MÀ. La primera passada
+   reescriu el camp mèdic de tota l'escola i és de dades de salut de nens:
+   s'ha de mirar abans (provaSalut) i aplicar-la ell (aplicaSalutDEBO).
+   Mentrestant, el camp es queda com estava.
+   ============================================================ */
+
+function _resolSalutId(ss) {
+  var propi = sheetGetJSON(ss, '_AppData', 'salut_sheet_id');
+  if (propi && propi.toString().trim()) return propi.toString().trim();
+  return SALUT_ID_ESCOLA || '';
+}
+
+/* «1r C- Marta Salarich» → «1r C» · «4rt A- Gemma Muntadas» → «4t A».
+   Torna null si no hi ha cap grup que s'entengui. */
+var SALUT_CURSOS = { '1': '1r', '2': '2n', '3': '3r', '4': '4t', '5': '5è', '6': '6è' };
+function _salutGrup_(txt) {
+  var m = String(txt == null ? '' : txt)
+    .match(/^\s*([1-6])\s*[a-zàèéíòóú]{0,2}\.?\s*[-.]?\s*([ABC])(?![a-zàèéíòóú])/i);
+  if (!m) return null;
+  return SALUT_CURSOS[m[1]] + ' ' + m[2].toUpperCase();
+}
+
+/* «El Jarroudi , Sami» → «Sami El Jarroudi». Els que ja van «Nom Cognoms»
+   es deixen com estan. L'aparellament no mira l'ordre, però l'informe sí
+   que el llegeix una persona. */
+function _salutNom_(v) {
+  var t = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  if (!t) return '';
+  var p = t.split(',');
+  if (p.length === 2 && p[0].trim() && p[1].trim()) t = p[1].trim() + ' ' + p[0].trim();
+  return t;
+}
+
+/* La columna Data. Si hi ha una data («2025», «feb 2025», «Novembre»,
+   «Gener 2026»), no és cap informació del nen i es deixa estar. Si hi ha
+   text que no és una data —«NO PORC» a la pestanya de 1r—, sí que ho és.
+
+   ⚠ Els mesos es comparen SENCERS, no pel començament: «Marisc» o «Setmana»
+   començarien com un mes i es perdrien. */
+var SALUT_MOTS_DATA = {
+  gener: 1, gen: 1, febrer: 1, feb: 1, febr: 1, marc: 1, mar: 1, abril: 1, abr: 1,
+  maig: 1, juny: 1, jun: 1, juliol: 1, jul: 1, agost: 1, ago: 1, setembre: 1,
+  set: 1, sep: 1, octubre: 1, oct: 1, novembre: 1, nov: 1, desembre: 1, des: 1,
+  de: 1, del: 1, d: 1,
+};
+function _salutEsData_(v) {
+  if (v == null || v === '') return true;
+  if (Object.prototype.toString.call(v) === '[object Date]') return true;
+  var t = _fnorm_(v).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!t) return true;
+  if (/\d/.test(t)) return true;
+  return t.split(' ').every(function (m) { return SALUT_MOTS_DATA[m] === 1; });
+}
+
+/* Llegeix el full sencer: totes les pestanyes que tinguin «Classe» i
+   «Observacions» a la capçalera.
+   Torna { perGrup: {'1r A': [{qui, text}]}, files, pestanyes, cursos, senseGrup }. */
+function _salutTots_(ss) {
+  var id = _resolSalutId(ss);
+  if (!id) throw new Error('Falta l\'ID del full de salut de direcció.');
+  var perGrup = {}, files = 0, pestanyes = [], cursos = {}, senseGrup = [];
+
+  SpreadsheetApp.openById(id).getSheets().forEach(function (sh) {
+    var lr = sh.getLastRow(), lc = sh.getLastColumn();
+    /* Una pestanya amb la capçalera i cap nen es llegeix igual: així, si
+       direcció la buida, el missatge diu «no hi ha cap alumne» i no pas
+       «no trobo la capçalera», que faria buscar el problema on no és. */
+    if (lr < 1 || lc < 2) return;
+    var d = sh.getRange(1, 1, lr, lc).getValues();
+
+    var capFila = -1, on = {};
+    for (var i = 0; i < Math.min(d.length, 10); i++) {
+      var ks = d[i].map(function (c) { return _fnorm_(c); });
+      var teClasse = ks.indexOf('classe') >= 0;
+      var teObs = ks.some(function (k) { return k.indexOf('observacions') === 0; });
+      if (!teClasse || !teObs) continue;
+      capFila = i;
+      ks.forEach(function (k, j) {
+        if (k === 'classe' && on.classe === undefined) on.classe = j;
+        else if (k.indexOf('observacions') === 0 && on.obs === undefined) on.obs = j;
+        else if (k === 'data' && on.data === undefined) on.data = j;
+        else if (k.indexOf('alumne') === 0 && on.nom === undefined) on.nom = j;
+      });
+      break;
+    }
+    if (capFila < 0) return;          // una pestanya que no és d'això
+    /* El nom és la primera columna encara que la capçalera no ho digui: a la
+       pestanya de 4t es diu «Columna 1». */
+    if (on.nom === undefined) on.nom = 0;
+    pestanyes.push(sh.getName());
+
+    for (var r = capFila + 1; r < d.length; r++) {
+      var f = d[r];
+      var qui = _salutNom_(f[on.nom]);
+      if (!qui) continue;
+      var parts = [];
+      var o = String(f[on.obs] == null ? '' : f[on.obs]).replace(/\s+/g, ' ').trim();
+      if (o) parts.push(o);
+      if (on.data !== undefined && !_salutEsData_(f[on.data])) {
+        parts.push(String(f[on.data]).replace(/\s+/g, ' ').trim());
+      }
+      var text = parts.join(' · ');
+      var grup = _salutGrup_(f[on.classe]);
+      if (!grup) {
+        if (text) senseGrup.push({ qui: qui, classe: String(f[on.classe] == null ? '' : f[on.classe]).trim(), text: text });
+        continue;
+      }
+      cursos[grup.split(' ')[0]] = true;
+      if (!text) continue;
+      if (!perGrup[grup]) perGrup[grup] = [];
+      perGrup[grup].push({ qui: qui, text: text });
+      files++;
+    }
+  });
+
+  if (!pestanyes.length) {
+    throw new Error('No trobo la capçalera del full de salut a cap pestanya (hi busco «Classe» i «Observacions»).');
+  }
+  return { perGrup: perGrup, files: files, pestanyes: pestanyes, cursos: cursos, senseGrup: senseGrup };
+}
+
+/* ============================================================
+   PORTAR-HO AL FULL DE GRUPS
+   ------------------------------------------------------------
+   Amb prova=true no escriu res: només diu què faria.
+   ============================================================ */
+function salutAplica(ss, prova, nomesGrup) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var doc;
+  try { doc = _salutTots_(ss); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut llegir el full de salut de direcció: ' + e.message }; }
+  /* Tall 1: si no en surt NI UN nen, alguna cosa no va (una pestanya buidada,
+     el full canviat de lloc). Buidar el camp mèdic de tota l'escola seria el
+     pitjor que podria passar. */
+  if (!doc.files) {
+    return { ok: false, error: 'Al full de salut de direcció no hi he trobat cap alumne: no toco res.' };
+  }
+
+  var lock = LockService.getScriptLock(), tinc = false;
+  try { lock.waitLock(60000); tinc = true; }
+  catch (e) { return { ok: false, error: 'Hi ha una altra feina en marxa.' }; }
+
+  try {
+    var total = { alumnes: 0, iguals: 0, buidats: 0, omplerts: 0, protegits: 0 };
+    var perGrup = [], senseParella = [], saltats = [], canvis = [];
+
+    GRUPS_PRIMARIA.forEach(function (g) {
+      if (nomesGrup && g !== nomesGrup) return;
+      var sh = gss.getSheetByName(g);
+      if (!sh) return;
+      var lr = sh.getLastRow();
+      if (lr < 2) return;
+
+      /* Tall 2: sense la pestanya del curs no se sap res d'aquells nens. */
+      var curs = g.split(' ')[0];
+      if (!doc.cursos[curs]) {
+        saltats.push({ grup: g, motiu: 'al full de salut no hi ha cap pestanya amb els de ' + curs });
+        return;
+      }
+
+      var cols = _colsDe_(sh);
+      var colObs = cols.obs || 8;
+      var ample = Math.max(cols._ample || 0, colObs, cols.uid || 0);
+      var d = sh.getRange(2, 1, lr - 1, ample).getValues();
+      var alumnes = [];
+      d.forEach(function (f, i) {
+        var nom = String(f[0] || '').trim(), cog = String(f[1] || '').trim();
+        if (!nom && !cog) return;
+        alumnes.push({ i: i, sencer: (nom + ' ' + cog).trim(),
+                       uid: cols.uid ? String(f[cols.uid - 1] || '').trim() : '' });
+      });
+
+      /* Cada fila del full de direcció, a un alumne i només un. Si n'encaixen
+         dos, no se n'escull cap: una al·lèrgia al nen equivocat és pitjor
+         que no tenir-la. */
+      var files = doc.perGrup[g] || [];
+      var seu = {}, senseParellaAqui = 0;
+      files.forEach(function (x) {
+        var toca = alumnes.filter(function (a) { return _contacteEncaixa_(x.qui, a.sencer); });
+        if (toca.length !== 1) {
+          senseParellaAqui++;
+          senseParella.push({ grup: g, qui: x.qui, text: x.text,
+                              motiu: toca.length ? 'n\'encaixen ' + toca.length : 'no el trobo al grup' });
+          return;
+        }
+        var k = toca[0].i;
+        seu[k] = seu[k] ? seu[k] + ' · ' + x.text : x.text;
+      });
+
+      /* Tall 3: el full parla d'aquest grup però no n'encaixa cap nom. */
+      if (files.length && !Object.keys(seu).length) {
+        saltats.push({ grup: g, motiu: 'cap nom del full de salut no encaixa amb cap alumne del grup' });
+        return;
+      }
+
+      var c = { grup: g, alumnes: 0, iguals: 0 };
+      var toca = {}, vell = {};
+      alumnes.forEach(function (a) {
+        var nou = seu[a.i] || '';
+        var abans = String(d[a.i][colObs - 1] == null ? '' : d[a.i][colObs - 1]).trim();
+        /* ⚠ TALL 4: si en aquest grup hi ha alguna fila del full de direcció
+           que no s'ha sabut de qui és, NO es buida ningú del grup.
+
+           Trobat en fer la passada en sec amb les dades de debò (16/9/2026):
+           la Damilola de 3r B surt al full de direcció com «Damilola Rasheed
+           Ifeoluwa» i al de grups com «Rasheed Damilola Lawal». No encaixa, i
+           fa bé de no endevinar-ho. Però sense aquest tall passava el pitjor:
+           la seva al·lèrgia PLV del full de direcció no arribava, i la que
+           tenia d'abans s'esborrava pel mirall. La nena quedava sense cap
+           al·lèrgia a l'app.
+
+           Aquella fila perduda pot ser de qualsevol nen del grup que ja tingui
+           alguna cosa. Mentre no se sàpiga de qui és, no se li treu res a
+           ningú; els que sí que encaixen s'omplen igualment. Quan es corregeixi
+           el nom al full de direcció, la passada següent ja ho deixa bé. */
+        if (!nou && abans && senseParellaAqui) { total.protegits++; return; }
+        if (abans === nou) { if (nou) c.iguals++; return; }
+        toca[a.i + 2] = nou;
+        if (abans) vell[a.uid || a.sencer] = abans;
+        c.alumnes++;
+        if (nou) total.omplerts++; else total.buidats++;
+        if (canvis.length < 400) canvis.push({ grup: g, alumne: a.sencer, abans: abans, ara: nou });
+      });
+
+      if (!prova && Object.keys(toca).length) {
+        if (Object.keys(vell).length) {
+          try { _copiaSeguretat_(gss, 'salut_' + g, JSON.stringify(vell)); }
+          catch (e) {
+            c.error = 'no he pogut desar la còpia de seguretat, o sigui que no toco res: ' + e.message;
+            perGrup.push(c);
+            return;
+          }
+        }
+        Object.keys(toca).forEach(function (fila) {
+          sh.getRange(Number(fila), colObs).setValue(toca[fila]);
+        });
+      }
+      total.alumnes += c.alumnes; total.iguals += c.iguals;
+      perGrup.push(c);
+    });
+
+    if (!prova) SpreadsheetApp.flush();
+    return { ok: true, prova: !!prova, total: total, perGrup: perGrup, canvis: canvis,
+             senseParella: senseParella, senseGrup: doc.senseGrup, saltats: saltats,
+             files: doc.files, pestanyes: doc.pestanyes };
+  } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
+}
+
+/* L'empremta. Hi entren el full de direcció, la versió del codi i les
+   LLISTES de l'escola: si un nen canvia de grup o n'arriba un de nou, el que
+   diu el full de salut s'ha de tornar a repartir encara que direcció no
+   l'hagi tocat. */
+function _salutEmpremta_(doc, gss) {
+  var trossos = ['@codi=' + BACKEND_VERSIO];
+  try { trossos.push('@llistes=' + (sheetGetJSON(gss, '_AppData', 'grups_empremta') || '')); } catch (e) {}
+  Object.keys(doc.cursos).sort().forEach(function (c) { trossos.push('%' + c); });
+  Object.keys(doc.perGrup).sort().forEach(function (g) {
+    trossos.push('#' + g);
+    doc.perGrup[g].forEach(function (x) { trossos.push(x.qui + '|' + x.text); });
+  });
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, trossos.join('\n'), Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+/* El que va passar l'última vegada, perquè el comAnem() ho pugui dir sense
+   haver de tornar-ho a calcular. Sobretot els nens que no s'han sabut
+   aparellar: la seva al·lèrgia NO surt a l'app, i això s'ha de veure. */
+function _salutDesaResum_(gss, r) {
+  try {
+    sheetSetJSON(gss, '_AppData', 'salut_aplicat', JSON.stringify({
+      quan: Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'),
+      total: r.total,
+      senseParella: (r.senseParella || []).slice(0, 60).map(function (x) {
+        return { grup: x.grup, qui: x.qui, motiu: x.motiu };
+      }),
+      senseGrup: (r.senseGrup || []).length,
+      saltats: (r.saltats || []).map(function (x) { return x.grup + ': ' + x.motiu; }),
+    }));
+  } catch (e) {}
+}
+
+/* ============================================================
+   ES MIRA SOL, CADA QUART D'HORA (un cop en Pol l'ha aplicat)
+   ============================================================ */
+function salutAplicaSiCal(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  /* Abans de llegir res: si encara no s'ha aplicat mai a mà, no es fa
+     res i tampoc no es llegeix el full (cap cost cada quart d'hora). */
+  var activa = '';
+  try { activa = String(sheetGetJSON(gss, '_AppData', 'salut_activa') || ''); } catch (e) {}
+  if (activa !== 'si') return { ok: true, calia: false, inactiu: true };
+
+  var doc;
+  try { doc = _salutTots_(ss); }
+  catch (e) { return { ok: false, error: 'No s\'ha pogut llegir el full de salut de direcció: ' + e.message }; }
+  if (!doc.files) {
+    return { ok: false, error: 'Al full de salut de direcció no hi he trobat cap alumne: no toco res.' };
+  }
+  var ara = _salutEmpremta_(doc, gss), abans = null;
+  try { abans = sheetGetJSON(gss, '_AppData', 'salut_empremta') || null; } catch (e) {}
+  try {
+    sheetSetJSON(gss, '_AppData', 'salut_mirat',
+                 Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'));
+  } catch (e) {}
+  if (abans === ara) return { ok: true, calia: false, empremta: ara };
+
+  var r = salutAplica(ss, false);
+  if (r && r.ok) {
+    try { sheetSetJSON(gss, '_AppData', 'salut_empremta', ara); } catch (e) {}
+    _salutDesaResum_(gss, r);
+  }
+  if (r) { r.calia = true; r.empremta = ara; }
+  return r;
+}
+
+/* ============================================================
+   LES DUES EINES D'EN POL (caselles eina1 i eina2 del pont)
+   ============================================================ */
+function provaSalut() { return _salutTxt_(true); }
+function aplicaSalutDEBO() {
+  _nomesJo_('Aplicar el full de salut'); return _salutTxt_(false); }
+
+function _salutTxt_(prova) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var r = salutAplica(ss, prova);
+  if (!r.ok) { Logger.log('ERROR: ' + r.error); return 'ERROR: ' + r.error; }
+
+  /* Aplicat a mà i ha anat bé: a partir d'ara ja va sol. */
+  if (!prova) {
+    var gss = getGrupsSpreadsheet(ss);
+    if (gss) {
+      try {
+        sheetSetJSON(gss, '_AppData', 'salut_activa', 'si');
+        sheetSetJSON(gss, '_AppData', 'salut_empremta', _salutEmpremta_(_salutTots_(ss), gss));
+        sheetSetJSON(gss, '_AppData', 'salut_mirat',
+                     Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm'));
+      } catch (e) {}
+      _salutDesaResum_(gss, r);
+    }
+  }
+
+  var l = [];
+  l.push(prova ? 'AIXÒ ÉS EL QUE FARIA (no he tocat res)' : 'FET — a partir d\'ara es manté sol cada quart d\'hora');
+  l.push('======================================');
+  l.push('Pestanyes llegides del full de direcció: ' + r.pestanyes.join(', '));
+  l.push('Nens amb alguna cosa al full de direcció: ' + r.files);
+  l.push('');
+  l.push('Alumnes amb el camp mèdic a canviar ...... ' + r.total.alumnes);
+  l.push('   · que passen a tenir el que diu direcció: ' + r.total.omplerts);
+  l.push('   · que es queden SENSE res (no surten al full de direcció): ' + r.total.buidats);
+  l.push('Alumnes que ja estaven bé ................ ' + r.total.iguals);
+  if (r.total.protegits) {
+    l.push('Alumnes que NO es buiden perquè al seu grup hi ha noms sense aparellar: ' + r.total.protegits);
+    l.push('   (es queden amb el que tenien fins que es corregeixi el nom al full de direcció)');
+  }
+
+  if (r.canvis.length) {
+    l.push('');
+    l.push('ALUMNE PER ALUMNE:');
+    r.canvis.forEach(function (x) {
+      l.push('  ' + x.grup + ' · ' + x.alumne);
+      if (x.abans) l.push('      abans: ' + x.abans);
+      l.push('      ara:   ' + (x.ara || '(res)'));
+    });
+  }
+  /* Aquestes llistes surten SEMPRE que hi hagi res: són nens amb una
+     al·lèrgia al full de direcció que NO surt a l'app. */
+  if (r.senseParella.length) {
+    l.push('');
+    l.push('⚠ DEL FULL DE DIRECCIÓ, NO SÉ DE QUIN ALUMNE SÓN (' + r.senseParella.length + '):');
+    r.senseParella.forEach(function (x) {
+      l.push('  ' + x.grup + ' · ' + x.qui + ' — ' + x.motiu);
+      l.push('      diu: ' + x.text);
+    });
+    l.push('  → NO surten a l\'app. Mira si el nom és ben escrit al full de direcció');
+    l.push('    o si el nen és en un altre grup.');
+  }
+  if (r.senseGrup.length) {
+    l.push('');
+    l.push('⚠ FILES AMB UNA CLASSE QUE NO ENTENC (' + r.senseGrup.length + '):');
+    r.senseGrup.forEach(function (x) { l.push('  «' + x.classe + '» · ' + x.qui + ' — ' + x.text); });
+  }
+  if (r.saltats.length) {
+    l.push('');
+    l.push('GRUPS QUE NO S\'HAN TOCAT (' + r.saltats.length + '):');
+    r.saltats.forEach(function (x) { l.push('  ' + x.grup + ' — ' + x.motiu); });
+  }
+  var txt = l.join('\n');
+  Logger.log(txt);
+  return txt;
 }
 
 /* ============================================================
