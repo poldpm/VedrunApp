@@ -308,9 +308,12 @@ async function openNotes(materia, trimestre, grup) {
   // La casella de compartir amb el tutor: és per assignatura+grup
   if (typeof initCompartirNotes === 'function') { try { initCompartirNotes(); } catch (e) {} }
 
-  // Tallers (rotatori) no s'avalua per trimestres: amaga els chips de trimestre.
+  /* Els botons de trimestre hi són SEMPRE, també a Tallers. Abans s'amagaven
+     a les assignatures rotatòries, però les notes es desen per trimestre igual:
+     al gener l'app hauria obert el 2n trimestre i no hi hauria hagut manera de
+     tornar a les del 1r. En Pol, 16/9/2026: «vull continuar podent triar el trimestre». */
   const _trimSel = document.getElementById('notesTrimSelector');
-  if (_trimSel) _trimSel.style.display = (dd && dd.rotatori) ? 'none' : 'flex';
+  if (_trimSel) _trimSel.style.display = 'flex';
 
   if (dd && typeof _loadDesdobStudents === 'function') {
     if (typeof _renderDesdobControl === 'function') {

@@ -1479,7 +1479,18 @@ async function _appsScriptGetXarxa(params, _retry = true) {
 
 async function _appsScriptGetFetch(params, _retry = true) {
   const url = new URL(config.scriptUrl);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  /* ⚠ UN VALOR BUIT ARRIBAVA AL SERVIDOR COM EL TEXT «null».
+
+     En Pol, 16/9/2026: les notes de Tallers eren al full i l'app no les
+     ensenyava. Tallers no té grup (`grup: null`), i a l'adreça hi anava
+     `grup=null`: el servidor buscava la pestanya «1T_Tallers_3r_null», que no
+     existeix, i tornava la llista buida. Desar no passa per aquí (va per POST,
+     on null és null), per això les notes sí que eren al full. Ara el que és
+     buit no s'envia, que és el que el servidor entén com «sense grup». */
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === null || v === undefined) return;
+    url.searchParams.set(k, v);
+  });
   if (APP_TOKEN) url.searchParams.set('token', APP_TOKEN);
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), 45000); // 45s timeout
