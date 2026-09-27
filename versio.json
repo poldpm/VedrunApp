@@ -1,8 +1,8 @@
 {
-  "versio": "v238",
+  "versio": "v239",
   "data": "2026-09-27",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Avisar la família d'una incidència: el correu ja troba les adreces de la família de la fitxa. Abans deia que l'alumne no en tenia cap, encara que les hi veiessis."
+    "Aquesta versió no canvia res del que veus: només la clau de seguretat amb què l'app parla amb el teu full de càlcul."
   ]
 }
