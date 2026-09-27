@@ -2854,6 +2854,7 @@ function handleRequest(e) {
       case 'addNotaItem':          result = addNotaItem(ss, body.materia, body.trimestre, body.item, body.alumnes, body.grup); break;
       case 'deleteNotaItem':       result = deleteNotaItem(ss, body.materia, body.trimestre, body.itemId, body.grup); break;
       case 'desaCaselles':         result = desaCaselles(ss, body); break;
+      case 'qaTempsNotes':         result = qaTempsNotes(ss, (body&&body.materia)||p.materia, (body&&body.trimestre)||p.trimestre, (body&&body.grup)||p.grup); break;
       case 'updateNota':           result = updateNota(ss, body.materia, body.trimestre, body.itemId, body.studentId, body.punts, body.grup, body.nom); break;
       case 'setNoEntregat':        result = setNoEntregat(ss, body.materia, body.trimestre, body.itemId, body.studentId, body.valor, body.grup, body.nom); break;
       case 'updateActitud':         result = updateActitud(ss, body.materia, body.trimestre, body.studentId, body.mitja, body.nomAlumne); break;
@@ -4565,6 +4566,87 @@ function updateNota(ss, materia, trimestre, itemId, studentId, punts, grup, nom)
 }
 
 /* ============================================================
+   ON SE'N VA EL TEMPS EN CREAR UNA COLUMNA — eina de diagnòstic
+   ------------------------------------------------------------
+   En Pol, 27/9/2026: «mira d'on surten aquests 7 segons». Crear una activitat
+   al seu full trigava 7,6 s i les suposicions ja m'havien fallat un cop, o
+   sigui que això ho cronometra DINS del servidor, tros a tros.
+
+   ⚠ No deixa res escrit: insereix una columna i la torna a treure, i la resta
+   són lectures o reescriptures del mateix valor (format i mitjanes). Es pot
+   executar sempre que calgui.
+
+   ⚠ Cada tros acaba amb `SpreadsheetApp.flush()`. Sense això el Google
+   s'espera a escriure de debò fins al final i els temps serien mentida: tot
+   sortiria a zero menys l'últim pas.
+   ============================================================ */
+function qaTempsNotes(ss, materia, trimestre, grup) {
+  var nomBase = _materiaNomBase(materia); if (!nomBase) return { ok:false, error:'Materia desconeguda' };
+  var tab = _notesTabName(trimestre, nomBase, grup);
+  var passos = [];
+  var t0 = new Date().getTime();
+  function fita(nom) { var ara = new Date().getTime(); passos.push([nom, ara - t0]); t0 = ara; }
+  function acaba(nom) { SpreadsheetApp.flush(); fita(nom); }
+
+  var sh = ss.getSheetByName(tab);
+  if (!sh) return { ok:false, error:'Pestanya no trobada: ' + tab };
+  fita('obrir la pestanya');
+
+  var lr = sh.getLastRow(), lc = sh.getLastColumn();
+  fita('mides del full (' + lr + ' files × ' + lc + ' columnes)');
+
+  var ultima = _ultimaFilaAmbNom_(sh);
+  fita('buscar l\'últim alumne (fila ' + ultima + ')');
+
+  var hdrs = sh.getRange(1,1,1,lc).getValues()[0];
+  var metas = sh.getRange(1,1,1,lc).getNotes()[0];
+  fita('llegir la capçalera');
+
+  sh.getRange(1, 1, Math.max(lr, DATA_ROW), lc).getValues();
+  fita('llegir tot el bloc de dades');
+
+  // On aniria la columna nova (com a addNotaItem)
+  var ins = lc + 1;
+  for (var i = 0; i < hdrs.length; i++) {
+    var hn = (hdrs[i]||'').toString().trim(), mn = (metas[i]||'').toString();
+    if (mn===CARPETA_NOTE||hn==='Mitjana'||hn==='Nota'||hn===COL_OBS) { ins = i+1; break; }
+  }
+  sh.insertColumnsBefore(ins, 1);
+  acaba('inserir la columna');
+
+  var c1 = sh.getRange(1, ins);
+  c1.setValue('QA temps').setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setBackground(GARNET_HEADER).setFontColor(GARNET_TEXT).setFontFamily('Nunito');
+  c1.setNote('10|1|0');
+  sh.getRange(2,ins).setValue('Pes: 1').setFontSize(9).setBackground(GARNET_SUBHEAD).setFontColor(GARNET_TEXT_MID);
+  sh.getRange(3,ins).setValue('/10 pts').setFontSize(9).setBackground(GARNET_SUBHEAD).setFontColor(GARNET_TEXT_MID);
+  acaba('escriure la capçalera de la columna');
+
+  sh.autoResizeColumn(ins); if (sh.getColumnWidth(ins) < 80) sh.setColumnWidth(ins, 80);
+  acaba('ajustar l\'amplada (autoResizeColumn)');
+
+  var numA = Math.max(0, Math.floor((ultima - DATA_ROW) / 2) + 1);
+  for (var si = 0; si < numA; si++) sh.getRange(si*2+DATA_ROW+1, ins).setFontColor('#CCCCCC').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  acaba('preparar les ' + numA + ' files de la columna (una crida per alumne)');
+
+  refreshMitjanaColumn(sh, true);
+  acaba('assegurar les columnes Mitjana i Nota');
+
+  applyFormatToNotesSheet(sh);
+  acaba('pintar el full (applyFormatToNotesSheet)');
+
+  sh.deleteColumn(ins);
+  acaba('treure la columna de prova');
+
+  refreshMitjanaColumn(sh);
+  acaba('recalcular TOTES les mitjanes (no es fa en crear)');
+
+  var total = 0; passos.forEach(function (p) { total += p[1]; });
+  return { ok:true, pestanya: tab, files: lr, columnes: lc, alumnes: numA,
+           passos: passos, totalMs: total };
+}
+
+/* ============================================================
    DESAR MOLTES CASELLES D'UN SOL COP
    ------------------------------------------------------------
    En Pol, 16/9/2026: «tot el procés d'introduir notes, obrir coses... és
@@ -5512,7 +5594,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v233';
+var BACKEND_VERSIO = 'v234';
 
 var MAX_CELA = 45000;
 

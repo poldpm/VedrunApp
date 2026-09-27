@@ -1,10 +1,8 @@
 {
-  "versio": "v233",
+  "versio": "v234",
   "data": "2026-09-16",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Crear una activitat de notes va molt més ràpid: el servidor ja no recalcula totes les mitjanes per una columna que encara és buida.",
-    "Als fulls amb milers de files buides, crear columnes i llegir notes ja no les arrossega.",
-    "Crear i esborrar columnes no fa esperar la pantalla i no pot fer columnes duplicades."
+    "Res de nou a la pantalla: aquesta versió només porta una eina interna per mesurar on se'n va el temps quan es crea una activitat."
   ]
 }
