@@ -5686,7 +5686,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v242';
+var BACKEND_VERSIO = 'v243';
 
 var MAX_CELA = 45000;
 
@@ -7035,6 +7035,7 @@ function _nomClau_(nom, cognoms) {
 function _llistesAparella_(llistes) {
   var perClau = {};
   llistes.getSheets().forEach(function (sh) {
+    if (_pestanyaCopia_(sh.getName())) return;   // veure _pestanyaCopia_
     perClau[_nomClau_(sh.getName(), '')] = sh;
   });
   var parelles = {}, sense = [];
@@ -10499,6 +10500,30 @@ function _contacteEsTelefon_(cap) { return /^tel/.test(_fnorm_(cap)); }
 
    Es mira pel NOM i no per ser l'última: el dia que la moguin de lloc o
    n'afegeixin una altra al darrere, això seguiria valent. */
+/* ⚠ LES PESTANYES COPIADES DELS FULLS DE L'ESCOLA (27/9/2026).
+
+   En Pol manté còpies seves dels documents oficials de l'escola, que s'hi
+   sincronitzen amb un `onEdit` + `copyTo`. Aquell mecanisme va deixant
+   pestanyes «Còpia de …» i «… (sync-temp)» que ningú no esborra: el dia que
+   ho vam mirar, el full de salut de direcció en tenia **45 de còpia i 4 de
+   temporals** al costat de les 6 bones.
+
+   I nosaltres les llegíem totes. Cada alumne comptava una vegada per còpia,
+   i el camp mèdic de la seva fitxa acabava dient «Fructosa estricte ·
+   Fructosa estricte · …» vint vegades (en Pol ho va veure a la primera
+   fitxa que va obrir).
+
+   Treure els repetits del text ja ho tapa, però no n'hi ha prou: una còpia
+   VELLA porta dades velles, i llavors els textos són DIFERENTS i hi
+   entrarien tots dos. Una al·lèrgia que direcció ha esborrat tornaria a
+   sortir a la fitxa. Per això aquí no es llegeixen: només es mira el que hi
+   ha de debò. */
+function _pestanyaCopia_(nom) {
+  var n = _fnorm_(nom);
+  return n.indexOf('copia de') === 0 || n.indexOf('copy of') === 0 ||
+         n.indexOf('sync-temp') >= 0 || n.indexOf('sync temp') >= 0;
+}
+
 function _contacteEsPestanyaResum_(nom) {
   var n = _fnorm_(nom);
   return n.indexOf('1r') >= 0 && n.indexOf('6') >= 0;
@@ -10579,6 +10604,7 @@ function _contactesTots_(ss) {
   var perGrup = {}, files = 0, pestanyes = 0, repetits = [], resum = [];
 
   SpreadsheetApp.openById(id).getSheets().forEach(function (sh) {
+    if (_pestanyaCopia_(sh.getName())) return;   // veure _pestanyaCopia_
     if (_contacteEsPestanyaResum_(sh.getName())) { resum.push(sh.getName()); return; }
     var lr = sh.getLastRow(), lc = sh.getLastColumn();
     if (lr < 2 || lc < 2) return;
@@ -10953,6 +10979,7 @@ function _salutTots_(ss) {
   var perGrup = {}, files = 0, pestanyes = [], cursos = {}, senseGrup = [];
 
   SpreadsheetApp.openById(id).getSheets().forEach(function (sh) {
+    if (_pestanyaCopia_(sh.getName())) return;   // veure _pestanyaCopia_
     var lr = sh.getLastRow(), lc = sh.getLastColumn();
     /* Una pestanya amb la capçalera i cap nen es llegeix igual: així, si
        direcció la buida, el missatge diu «no hi ha cap alumne» i no pas

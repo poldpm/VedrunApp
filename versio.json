@@ -1,9 +1,9 @@
 {
-  "versio": "v242",
+  "versio": "v243",
   "data": "2026-09-27",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El camp mèdic de la fitxa: si al full de direcció hi ha la mateixa línia repetida, ara hi surt un sol cop. Abans es veia «Fructosa estricte · Fructosa estricte · …» vint vegades i no hi havia manera de llegir-lo.",
-    "Les coses DIFERENTS d'un mateix alumne s'hi segueixen veient totes."
+    "El camp mèdic ja no llegeix les pestanyes «Còpia de…» del full de direcció. Eren 45 còpies velles al costat de les 6 bones: per això cada cosa sortia repetida vint vegades, i una al·lèrgia esborrada podia tornar a aparèixer.",
+    "I si al full hi ha la mateixa línia dues vegades, a la fitxa hi surt un sol cop."
   ]
 }
