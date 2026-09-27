@@ -4204,7 +4204,11 @@ function getNotes(ss, materia, trimestre, grup) {
 
   if (MATERIES_AMB_CARPETA.indexOf(materia)!==-1) moveCarpetaBeforeMitjana(sh);
 
-  var lc = sh.getLastColumn(), lr = sh.getLastRow();
+  var lc = sh.getLastColumn();
+  /* Només fins a l'últim alumne amb nom: als fulls que arrosseguen milers de
+     files buides, llegir-les totes (i tornar-les al navegador) era la meitat
+     del temps d'obrir unes notes (26/9/2026). */
+  var lr = Math.min(sh.getLastRow(), _ultimaFilaAmbNom_(sh) + 1);
   if (lc < 2) return { ok:true, items:[], valors:{}, noEntregats:{} };
 
   // UNA SOLA LECTURA de tot el rang (capçaleres + totes les dades)
@@ -4931,9 +4935,41 @@ function _escriuMitjana_(sh, rowP, calc) {
   }
 }
 
+/* ⚠ EL FULL TÉ MILERS DE FILES BUIDES I ES TRACTAVEN COM A ALUMNES.
+
+   En Pol, 26/9/2026: «generava un ítem nou i tardava molt a fer-ho». Al seu
+   full de Tallers hi ha 2.005 files (mil parells buits que va deixar-hi una
+   inicialització d'abans). Crear una columna recalculava la mitjana de MIL
+   alumnes que no existeixen, i cada recàlcul són dues lectures del full: més
+   de dos mil viatges a Google per a 22 alumnes de debò. Per això passava dels
+   45 segons i el navegador es cansava.
+
+   Aquí es mira quina és l'última fila amb NOM i s'acaba. Una sola lectura de
+   la columna A, i prou. */
+function _ultimaFilaAmbNom_(sh) {
+  var lr = sh.getLastRow();
+  if (lr < DATA_ROW) return DATA_ROW - 1;
+  var noms = sh.getRange(DATA_ROW, 1, lr - DATA_ROW + 1, 1).getValues();
+  for (var i = noms.length - 1; i >= 0; i--) {
+    if ((noms[i][0] || '').toString().trim()) return DATA_ROW + i;
+  }
+  return DATA_ROW - 1;
+}
+
 function refreshMitjanaColumn(sh) {
-  var lr=sh.getLastRow();
-  for(var si=0;;si++){var r=si*2+DATA_ROW;if(r>lr)break;recalcMitjana(sh,r);}
+  /* Les mitjanes, amb UNA lectura de tot el bloc i els càlculs a la memòria:
+     abans eren dues lectures per alumne (i per cada fila buida del full). */
+  var ultima = _ultimaFilaAmbNom_(sh);
+  var lcAra = sh.getLastColumn();
+  if (ultima >= DATA_ROW && lcAra >= 2) {
+    var hdr = sh.getRange(1, 1, 1, lcAra).getValues()[0];
+    var meta = sh.getRange(1, 1, 1, lcAra).getNotes()[0];
+    var dades = sh.getRange(1, 1, ultima + 1, lcAra).getValues();
+    for (var r = DATA_ROW; r <= ultima; r += 2) {
+      if (!(dades[r - 1][0] || '').toString().trim()) continue;
+      _escriuMitjana_(sh, r, _mitjanaFila_(hdr, meta, dades[r - 1], dades[r] || []));
+    }
+  }
   // Assegura que existeixen les columnes Mitjana i Nota
   var lc=sh.getLastColumn();
   var hdrs=sh.getRange(1,1,1,lc).getValues()[0];
@@ -4989,15 +5025,23 @@ function colorNotaArrod(cell,nota){
    ============================================================ */
 function initAlumnesRows(sh, alumnes, tabName) {
   if(!alumnes||!alumnes.length)return;
+  /* La columna A, d'UNA lectura. Abans es preguntava fila per fila: amb 25
+     alumnes, 25 viatges a Google cada cop que es creava una columna. */
+  var lrAra = sh.getLastRow();
+  var colA = lrAra >= 1 ? sh.getRange(1, 1, lrAra, 1).getValues() : [];
+  var teNom = function (fila) {
+    var v = colA[fila - 1] ? colA[fila - 1][0] : '';
+    return !!(v !== null && v !== undefined && v.toString().trim());
+  };
   alumnes.forEach(function(a,i){
     var rp=i*2+DATA_ROW,rn=rp+1;
-    if(!sh.getRange(rp,1).getValue()){
+    if(!teNom(rp)){
       sh.getRange(rp,1).setValue(a.nom).setVerticalAlignment('middle');
       sh.getRange(rn,1).setValue('').setBackground('#FFFFFF');
       try{sh.getRange(rp,1,2,1).merge();}catch(e){}
     }
   });
-  if(!sh.getRange(1,1).getValue()){
+  if(!teNom(1)){
     var nom=tabName.replace(/^\d+T_/,'');
     try{sh.getRange(1,1,3,1).merge();}catch(e){}
     sh.getRange(1,1).setValue(nom).setFontWeight('bold').setFontSize(12)
@@ -5091,7 +5135,10 @@ var READONLY_BG     = '#F7F7F7'; // Fons cel·les de només lectura (mitjana, no
 /* Aplica format complet al full: Nunito + centrat H/V a totes les cel·les +
    colors granat a capçaleres i a columnes especials. */
 function applyFormatToNotesSheet(sh) {
-  var lc = sh.getLastColumn(), lr = sh.getLastRow();
+  var lc = sh.getLastColumn();
+  /* Fins on hi ha alumnes de debò: pintar dues mil files buides costa el
+     mateix que pintar-ne vint-i-dues de plenes, i no es veu (26/9/2026). */
+  var lr = Math.min(sh.getLastRow(), _ultimaFilaAmbNom_(sh) + 1);
   if (lc < 1 || lr < 1) return;
 
   // 1) Tot el full: Nunito + centrat horitzontal i vertical
@@ -5458,7 +5505,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v231';
+var BACKEND_VERSIO = 'v232';
 
 var MAX_CELA = 45000;
 

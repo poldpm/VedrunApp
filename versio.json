@@ -1,10 +1,10 @@
 {
-  "versio": "v231",
+  "versio": "v232",
   "data": "2026-09-16",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Crear (o esborrar) una activitat de notes o una columna del registre ja no fa esperar: surt a l'instant i l'app l'envia al full en segon pla.",
-    "Si el servidor va lent, ja no es poden crear dues columnes iguals per haver clicat dues vegades: el full només en fa una.",
-    "Si al full hi havia quedat una columna repetida d'un intent anterior, l'app hi apunta les notes en comptes de fer-ne una altra."
+    "Crear una activitat de notes ja no triga: als fulls que arrosseguen milers de files buides, el servidor només mira les files amb alumne de debò.",
+    "Obrir unes notes també va més ràpid pel mateix motiu.",
+    "Crear i esborrar columnes no fa esperar la pantalla i no pot fer columnes duplicades."
   ]
 }
