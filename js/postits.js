@@ -48,7 +48,8 @@ async function _postitsLoadFromSheets() {
   if (!config.scriptUrl) return;
   if (typeof _recentFullLoad === 'function' && _recentFullLoad()) return; // el bootstrap ja els ha portat
   try {
-    const r = await appsScriptGet({ action: 'loadPostits' });
+    // Els post-its ja es veuen: el refresc no ha de tapar la pantalla.
+    const r = await appsScriptGet({ action: 'loadPostits', _fons: true });
     if (r.ok && Array.isArray(r.postits) && !(typeof _pendentsTe === 'function' && _pendentsTe('savePostits'))) {
       _postits = r.postits.filter(p => p && typeof p === 'object');
       try { localStorage.setItem('postits', JSON.stringify(_postits)); } catch(e) {}

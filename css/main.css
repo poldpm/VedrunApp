@@ -5313,6 +5313,34 @@ body.app-ocupada { cursor: progress; }
      mesurant-los un per un al mòbil. */
   .sidebar .nav-item,
   .sidebar .nav-item-half { min-height: 44px; }
+
+  /* ⚠ I LES DUES CASELLES QUE MÉS ES TOQUEN DE TOTA L'APP.
+     QA del 27/9/2026, amidades al mòbil: la casella de posar la nota feia
+     28 px d'alt i la creu del registre 24. Són justament les que una mestra
+     pica vint-i-cinc vegades seguides, i les files van una sota l'altra: si
+     s'erra, escriu la nota al nen del costat. Amb el dit calen 44 px.
+     A l'ordinador no canvia res: aquest bloc només val per a pantalles
+     tàctils, i la taula es continua veient igual de compacta amb ratolí. */
+  .notes-input-punts { min-height: 44px; font-size: 16px; }
+  .ne-btn { min-height: 44px; }
+  .reg-checkbox { width: 28px; height: 28px; }
+  /* La creu és petita a posta (és un quadrat), però la casella que l'envolta
+     sí que pot ser gran: així el dit encerta encara que no hi caigui al mig. */
+  .reg-td-cell { padding: 10px 6px; }
+}
+
+/* ⚠ I ELS CHROMEBOOKS AMB PANTALLA TÀCTIL (QA del 27/9/2026).
+   Als portàtils tàctils —els que fan servir les mestres— el punter principal
+   és el ratolí, o sigui que el bloc de dalt NO s'hi aplica… però la mestra hi
+   toca la pantalla igualment. «any-pointer: coarse» vol dir «aquest aparell TÉ
+   alguna manera tàctil», encara que no sigui la principal. Només s'hi
+   eixamplen les caselles que es piquen vint-i-cinc vegades seguides; a un
+   ordinador sense pantalla tàctil no canvia absolutament res. */
+@media (any-pointer: coarse) {
+  .notes-input-punts { min-height: 44px; font-size: 16px; }
+  .ne-btn { min-height: 44px; }
+  .reg-checkbox { width: 28px; height: 28px; }
+  .reg-td-cell { padding: 10px 6px; }
 }
 
 /* ⚠ RESPECTAR «REDUIR EL MOVIMENT» DE DEBÒ.

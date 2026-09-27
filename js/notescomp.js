@@ -64,7 +64,7 @@ async function initCompartirNotes() {
   _pintaCompartirInfo();
 
   try {
-    const r = await appsScriptGet({ action: 'loadCompartirNotes', grup: c.grup, matKey: c.matKey });
+    const r = await appsScriptGet({ action: 'loadCompartirNotes', grup: c.grup, matKey: c.matKey, _fons: true });
     if (r && r.ok) {
       _compartirEstat[clau] = !!r.compartir;
       cb.checked = !!r.compartir;
@@ -142,7 +142,7 @@ async function carregaNotesCompartides(grup, forca) {
   if (!grup || !config.scriptUrl) return [];
   if (!forca && _notesCompCache && Date.now() - _notesCompTs < 120000) return _notesCompCache;
   try {
-    const r = await appsScriptGet({ action: 'getNotesCompartides', grup: grup });
+    const r = await appsScriptGet({ action: 'getNotesCompartides', grup: grup, _fons: true });
     if (r && r.ok) { _notesCompCache = r.assignatures || []; _notesCompTs = Date.now(); }
     return _notesCompCache || [];
   } catch (e) { return _notesCompCache || []; }

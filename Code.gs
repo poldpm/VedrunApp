@@ -2667,10 +2667,20 @@ function _disparadorSaVeure_() {
    dues columnes encara que arribin dues vegades (miren si ja hi és), i el pany
    els feia esperar darrere de la sincronització fins que el navegador es
    cansava —que és el que li feia crear columnes duplicades a en Pol. */
+/* ⚠ QUI HI ÉS I QUI NO (revisat a l'auditoria del 27/9/2026).
+
+   Aquí només hi poden ser les escriptures que toquen el VALOR d'una casella:
+   repetir-les deixa el mateix resultat i no es trepitgen entre elles.
+
+   Crear i esborrar columnes van sortir d'aquesta llista el 26/9 per anar més
+   ràpid, i era un error meu: canvien la GEOMETRIA del full (insereixen o
+   treuen una columna). Dos aparells fent-ho alhora es poden menjar la
+   capçalera l'un de l'altre. Ara hi tornen a tenir el pany: com que van en
+   segon pla i a la cua, la mestra no espera igualment, i el pany ja no li pot
+   fer perdre la petició (que era el problema de debò del 26/9). */
 var _OP_SENSE_PANY_ = {
   desaCaselles: true, updateNota: true, setNoEntregat: true, updateRegistreCell: true,
-  saveNotaComentari: true, updateActitudBatch: true, saveProfile: true,
-  addNotaItem: true, addRegistreItem: true, deleteNotaItem: true, deleteRegistreItem: true
+  saveNotaComentari: true, updateActitudBatch: true, saveProfile: true
 };
 
 function handleRequest(e) {
@@ -4737,7 +4747,19 @@ function updateNotesLot(ss, materia, trimestre, grup, canvis) {
       ultimaFila = novaFila + 1;
       rowP = novaFila;
     }
-    if (rowP === -1) rowP = parseInt(c.studentId) * 2 + DATA_ROW;
+    if (rowP === -1) {
+      /* ⚠ SENSE NOM NO S'ESCRIU A CEGUES (auditoria del 27/9/2026).
+         Caure a la posició quan el full JA té una llista de noms vol dir posar
+         la nota al nen que ara ocupi aquell número, i el full es reordena sol.
+         Si el full encara no té noms (pestanya acabada de fer), la posició és
+         l'únic que hi ha i sí que val. */
+      if (_teLlistaDeNoms_(sh)) {
+        resultats.push({ i: i, ok: false, _noTrobat: true,
+          error: 'No sé de quin alumne és aquesta nota i el full ja té la llista feta: no l\'escric enlloc.' });
+        return;
+      }
+      rowP = parseInt(c.studentId) * 2 + DATA_ROW;
+    }
     asseguraFila(rowP + 1);
     var rowN = rowP + 1;
     var maxP = parseFloat((meta[col - 1] || '10|1|0').split('|')[0]);
@@ -4780,7 +4802,32 @@ function updateNotesLot(ss, materia, trimestre, grup, canvis) {
     _escriuMitjana_(sh, rowP, _mitjanaFila_(hdr, meta, dades[rowP - 1], dades[rowP]));
     sh.getRange(rowP, 1, 2, lc).setHorizontalAlignment('center').setVerticalAlignment('middle').setFontFamily('Nunito');
   });
-  carpeta.forEach(function (x) { try { propagaCarpeta(ss, trimestre, x.nom, sh, x.rowP, grup); } catch (e) {} });
+  /* ⚠ I ARA, QUE LES COLUMNES SIGUIN LES MATEIXES QUE EREN (27/9/2026).
+     Aquest desat no agafa el pany (ha de ser ràpid). Si mentre escrivia algú
+     ha esborrat o afegit una columna des d'un altre aparell, les notes haurien
+     anat a la columna del costat sense que ningú se n'assabentés. Es torna a
+     llegir la fila de capçaleres —una sola lectura— i, si ha canviat, es diu
+     que no s'han desat: el navegador les té apuntades i les torna a enviar. */
+  var metaAra = sh.getRange(1, 1, 1, sh.getLastColumn()).getNotes()[0];
+  var haCanviat = false;
+  Object.keys(colDe).forEach(function (id) {
+    var c2 = colDe[id];
+    var p2 = (metaAra[c2 - 1] || '').toString().split('|');
+    if (p2.length !== 3 || String(parseInt(p2[2])) !== String(id)) haCanviat = true;
+  });
+  if (haCanviat) {
+    return { ok: false, _columnesMogudes: true,
+      error: 'Mentre desava, algú ha afegit o esborrat una columna d\'aquesta assignatura ' +
+             '(potser tu, en un altre aparell). No dono les notes per desades: es tornaran a enviar.' };
+  }
+  carpeta.forEach(function (x) {
+    /* Si la Carpeta Viatgera no s'ha pogut propagar a les altres matèries, la
+       mestra ho ha de saber: abans es quedava en un `catch` buit i la resposta
+       deia que tot havia anat bé (auditoria del 27/9/2026). */
+    try { propagaCarpeta(ss, trimestre, x.nom, sh, x.rowP, grup); }
+    catch (e) { resultats.push({ i: -1, ok: false, error: 'La nota de Carpeta Viatgera de ' + x.nom +
+      ' s\'ha desat aquí, però no s\'ha pogut copiar a les altres matèries: ' + e.message }); }
+  });
   return { ok: true, resultats: resultats };
 }
 
@@ -5227,12 +5274,29 @@ function getOrCreateRegistreSheet(ss, alumnes, grup){
     s=ss.insertSheet(nom);_protegirFull(s);s.getRange(1,1).setValue('Alumne').setFontWeight('bold');
     if(alumnes&&alumnes.length)s.getRange(2,1,alumnes.length,1).setValues(alumnes.map(function(a){return [a.nom];}));
   } else if (alumnes && alumnes.length) {
-    // Els noms de la columna A han de ser els d'aquest grup: les creus es
-    // desen per numero de fila, i si la llista no hi es (o ha canviat)
-    // acabarien a l'alumne equivocat.
-    s.getRange(2,1,alumnes.length,1).setValues(alumnes.map(function(a){return [a.nom];}));
-    var lr=s.getLastRow(), sobren=lr-1-alumnes.length;
-    if(sobren>0) s.getRange(alumnes.length+2,1,sobren,1).clearContent();
+    /* ⚠ AIXÒ REESCRIVIA ELS NOMS I DEIXAVA LES CREUS ON ERES (QA del 27/9/2026).
+       El comentari d'abans deia que les creus es desen «per número de fila»:
+       ja no és cert des del 8/9/2026, es desen pel NOM. Però aquí es
+       reescrivia la columna A amb l'ordre que enviava el navegador sense moure
+       les creus, i el full «Grups» de l'escola es reordena sol cada quart
+       d'hora. Resultat: crear un ítem de registre podia deixar totes les creus
+       a l'alumne del costat. És el mateix bug que ja es va arreglar a
+       `syncAlumnesARegistre`, que sí que fa viatjar cada fila amb el seu nom.
+
+       Ara, si el full ja té noms, NO se'n toca cap: només s'hi afegeixen al
+       final els alumnes que encara no hi siguin. Posar la llista al dia (i
+       moure les dades amb cada nen) és feina de `syncAlumnesARegistre`. */
+    var lrAra = s.getLastRow();
+    var nomsAra = lrAra >= 2 ? s.getRange(2, 1, lrAra - 1, 1).getValues().map(function (x) { return _normNomComp_(x[0]); }) : [];
+    var teNoms = nomsAra.some(function (n) { return !!n; });
+    if (!teNoms) {
+      s.getRange(2, 1, alumnes.length, 1).setValues(alumnes.map(function (a) { return [a.nom]; }));
+    } else {
+      var falten = alumnes.filter(function (a) { return nomsAra.indexOf(_normNomComp_(a.nom)) === -1; });
+      if (falten.length) {
+        s.getRange(lrAra + 1, 1, falten.length, 1).setValues(falten.map(function (a) { return [a.nom]; }));
+      }
+    }
   }
   return s;
 }
@@ -5622,7 +5686,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v236';
+var BACKEND_VERSIO = 'v237';
 
 var MAX_CELA = 45000;
 
@@ -5735,11 +5799,16 @@ function savePlanning(ss, weekId, data, base) {
   if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { data = {}; } }
   data = data || {};
 
-  var vell = {};
-  try {
-    var guardat = sheetGetJSON(ss, '_AppData_Planning', weekId);
-    if (guardat) vell = JSON.parse(guardat) || {};
-  } catch (e) { vell = {}; }
+  /* ⚠ SI EL QUE HI HA DESAT NO ES POT LLEGIR, NO S'HI ESCRIU A SOBRE.
+     Abans aquí hi havia un `catch` que deixava `vell = {}`: amb la setmana
+     il·legible (una cel·la tallada pel límit, un caràcter estrany, una
+     escriptura a mitges), tot el que no vingués en aquest paquet es donava per
+     esborrat i la setmana quedava reduïda al que el navegador acabava
+     d'enviar. El projecte ja tenia `_capMalament_` fet per a això: peta, no
+     desa res, i el navegador s'ho apunta a la cua i ho torna a provar
+     (QA del 27/9/2026). */
+  var _r = _capMalament_(_jsonDeCela_(ss, '_AppData_Planning', weekId), 'el planning d\'aquesta setmana');
+  var vell = (_r && _r.dades) ? _r.dades : {};
 
   var ts = vell.__ts || {};
   delete vell.__ts;
@@ -5767,9 +5836,11 @@ function savePlanning(ss, weekId, data, base) {
 }
 
 function loadPlanning(ss, weekId) {
-  var v = sheetGetJSON(ss, '_AppData_Planning', weekId);
-  var d = {};
-  try { d = v ? (JSON.parse(v) || {}) : {}; } catch (e) { d = {}; }
+  /* Llegir una setmana il·legible i tornar-la BUIDA feia que la pantalla es
+     veiés buida i que el primer desat consolidés la pèrdua. Val més dir que no
+     es pot llegir (QA del 27/9/2026). */
+  var _rp = _capMalament_(_jsonDeCela_(ss, '_AppData_Planning', weekId), 'el planning d\'aquesta setmana');
+  var d = (_rp && _rp.dades) ? _rp.dades : {};
   delete d.__ts;                     // les marques de temps no són dades de la mestra
   /* `base` = el moment en què aquest navegador ha vist la setmana. El torna
      a enviar en desar, i així se sap què havia vist i què no. */
@@ -5890,10 +5961,14 @@ function loadSeients(ss, grup) {
    a una clau al costat, perquè el format de la llista no canviï.
    ============================================================ */
 function _fusionaPerId_(ss, clau, nous, base) {
-  var vell = [];
-  try { var v = sheetGetJSON(ss, '_AppData', clau); if (v) vell = JSON.parse(v) || []; } catch (e) { vell = []; }
-  var ts = {};
-  try { var t = sheetGetJSON(ss, '_AppData', clau + '__ts'); if (t) ts = JSON.parse(t) || {}; } catch (e) { ts = {}; }
+  /* Mateix criteri que al planning: amb la llista desada il·legible no s'hi
+     escriu a sobre (s'hi perdrien les tasques, els post-its o els actes del
+     calendari que no vinguessin en aquest paquet). QA del 27/9/2026. */
+  var _rv = _capMalament_(_jsonDeCela_(ss, '_AppData', clau), 'la llista de «' + clau + '»');
+  var vell = (_rv && _rv.dades) ? _rv.dades : [];
+  if (!Array.isArray(vell)) vell = [];
+  var _rt = _capMalament_(_jsonDeCela_(ss, '_AppData', clau + '__ts'), 'les marques de temps de «' + clau + '»');
+  var ts = (_rt && _rt.dades) ? _rt.dades : {};
 
   nous = nous || [];
   var ara = Date.now(), nBase = Number(base || 0);

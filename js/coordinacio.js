@@ -69,7 +69,7 @@ async function initCoordinacio() {
   renderCoordinacio();
   if (_esmCarregat || !config.scriptUrl) return;
   try {
-    const r = await appsScriptGet({ action: 'loadEsmorzars' });
+    const r = await appsScriptGet({ action: 'loadEsmorzars', _fons: true });
     if (r && r.ok) { _esmorzars = r.registres || []; _torns = r.torns || []; _esmCarregat = true; _esmUltimError = null; _esmBase = r.ts || ''; }
     else _esmUltimError = _esmMissatgeError(r);
   } catch (e) {

@@ -36,7 +36,8 @@ async function segEntrCarrega() {
   if (!config.scriptUrl) { _segEntrEstat('Encara no estàs connectat: ves a Configuració i enganxa la URL.', 'error'); return; }
   _segEntrEstat('Llegint els 18 grups… pot trigar uns segons.');
   try {
-    const r = await appsScriptGet({ action: 'resumEntrevistes' });
+    // La pantalla ja diu «Llegint els 18 grups…»: el vel hi sobrava.
+    const r = await appsScriptGet({ action: 'resumEntrevistes', _fons: true });
     if (!r || !r.ok) throw new Error((r && r.error) || 'resposta buida');
     _segEntrGrups = r.grups || [];
     _segEntrCarregat = true;

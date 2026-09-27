@@ -58,7 +58,8 @@ async function initReunions() {
   _reuCarregant = true;
   cont.innerHTML = '<div class="tasques-empty"><p>Carregant els teus calendaris de reunions…</p></div>';
   try {
-    const r = await appsScriptGet({ action: 'reunionsLlista' });
+    // La pantalla ja diu «Carregant els teus calendaris…»: el vel hi sobrava.
+    const r = await appsScriptGet({ action: 'reunionsLlista', _fons: true });
     /* ⚠ UN ERROR DEL SERVIDOR ES VEIA COM «ENCARA NO N'HAS CONVOCAT CAP».
 
        Trobat a la segona auditoria (8/9/2026). `appsScriptGet` no llança mai

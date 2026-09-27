@@ -81,10 +81,10 @@
     if (typeof config === 'undefined' || !config.scriptUrl) return;
     carregades[mat] = true;
     try {
-      var r = await appsScriptGet({ action: 'loadRubrica', materia: mat });
+      var r = await appsScriptGet({ action: 'loadRubrica', materia: mat, _fons: true });
       // Si amb la clau nova el full no en té, prova la clau antiga (veure clauAntiga)
       if ((!r || !r.ok || !r.data || !(r.data.objectius || []).length) && clauAntiga(mat)) {
-        var r2 = await appsScriptGet({ action: 'loadRubrica', materia: clauAntiga(mat) });
+        var r2 = await appsScriptGet({ action: 'loadRubrica', materia: clauAntiga(mat), _fons: true });
         if (r2 && r2.ok && r2.data && (r2.data.objectius || []).length) r = r2;
       }
       if (r && r.ok && r.data) {

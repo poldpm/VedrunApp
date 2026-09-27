@@ -1078,14 +1078,14 @@ function _obreFullDesdob(event) {
 async function _loadGrupsSheetCfg() {
   if (!config.scriptUrl) return;
   try {
-    const rM = await appsScriptGet({ action: 'getMainSheetId' });
+    const rM = await appsScriptGet({ action: 'getMainSheetId', _fons: true });
     if (rM.ok && rM.id) {
       config.mainSheetId = rM.id;
       try { localStorage.setItem('main_sheet_id', rM.id); } catch(e) {}
     }
   } catch(e) {}
   try {
-    const r = await appsScriptGet({ action: 'getGrupsSheetId' });
+    const r = await appsScriptGet({ action: 'getGrupsSheetId', _fons: true });
     const el = document.getElementById('cfgGrupsSheet');
     if (r.ok && r.id) {
       if (el) el.value = r.id;
@@ -1094,7 +1094,7 @@ async function _loadGrupsSheetCfg() {
     }
   } catch(e) {}
   try {
-    const r2 = await appsScriptGet({ action: 'getDesdobSheetId' });
+    const r2 = await appsScriptGet({ action: 'getDesdobSheetId', _fons: true });
     const el2 = document.getElementById('cfgDesdobSheet');
     if (r2.ok && r2.id) {
       if (el2) el2.value = r2.id;
@@ -1590,7 +1590,22 @@ const _POST_NO_TOCA_LECTURES = new Set(['saveProfile']);
    nota) i el que va darrere seu: es desen soles mentre la mestra continua
    escrivint. En Pol, 16/9/2026: el vel a cada nota feia l'entrada de notes
    «molt lenta». */
+/* I els desats que una mestra repeteix moltes vegades seguides: una
+   observació darrere l'altra, les entrevistes, els esmorzars i el registre del
+   claustre. Tots tenen el seu propi avís a la pantalla i, si fallen, ho diuen i
+   tornen a deixar el text on era; el vel només hi afegia una paret de dos
+   segons entre nen i nen (QA del 27/9/2026). */
 const _POST_SENSE_VEL = new Set(['saveGrupGenere', 'saveGrupPersonal', 'savePersonal',
+  'saveGrupObs', 'saveObservacio', 'deleteObservacio', 'saveEntrevista', 'deleteEntrevista',
+  'saveEsmorzars', 'saveRegistreDocents',
+  /* Auditoria del 27/9/2026: aquesta llista s'havia quedat curta. Tot això són
+     desats automàtics o canvis d'estat (un interruptor, una preferència, el
+     plànol de l'aula, un post-it): la mestra no els ha demanat com a acció i
+     no pot ser que li tapin la pantalla. */
+  'saveSeients', 'savePostits', 'saveProfile', 'saveRubrica', 'saveActitudAspectes',
+  'saveComentEstil', 'saveCompartirNotes', 'saveCalendari', 'saveCalendariCats',
+  'saveAjustosPropis', 'saveAssimObjectius', 'saveHorari', 'saveHorariAssigs',
+  'completaGoogleTask',
   'desaCaselles', 'updateNota', 'setNoEntregat', 'updateRegistreCell', 'updateActitudBatch',
   'saveNotaComentari', 'publicaNotesResum', 'syncAssoliments']);
 
@@ -4073,6 +4088,13 @@ async function _casellesEnviaTros(tros) {
 
   if (!r || r._networkError) return 'xarxa';
   if (r._authError) return 'xarxa';          // es reintentarà; l'avís de clau ja surt sol
+  /* El servidor ha vist que algú ha mogut una columna mentre desava i no ha
+     donat les notes per bones. No es perden: es queden apuntades i es tornen a
+     enviar de seguida, quan el mapa de columnes ja serà el bo (27/9/2026). */
+  if (r._columnesMogudes) {
+    if (typeof _loadNotesBackground === 'function') { try { _loadNotesBackground(); } catch (e) {} }
+    return 'xarxa';
+  }
   if (r.ok === false) {
     // El full sencer no hi és: cap d'aquestes caselles es podrà desar mai.
     _casellesTreu(tros);
@@ -8045,7 +8067,7 @@ function _actitudSaveToSheets(materia, trimestre) {
 async function _actitudLoadFromSheets(materia, trimestre) {
   if (!config.scriptUrl) return;
   try {
-    const r = await appsScriptGet({ action: 'loadActitud', materia, trimestre });
+    const r = await appsScriptGet({ action: 'loadActitud', materia, trimestre, _fons: true });
     if (r.ok && r.data) {
       Object.entries(r.data).forEach(([sid, dades]) => {
         localStorage.setItem(`actitud_${materia}_${trimestre}_${sid}`, JSON.stringify(dades));

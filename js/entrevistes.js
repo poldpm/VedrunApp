@@ -31,7 +31,7 @@ async function carregaEntrevistes(forca) {
   if (!grup || !config.scriptUrl) { _entrevistes = {}; return {}; }
   if (!forca && _entrCarregades === grup) return _entrevistes;
   try {
-    const r = await appsScriptGet({ action: 'loadEntrevistes', grup });
+    const r = await appsScriptGet({ action: 'loadEntrevistes', grup, _fons: true });
     if (r && r.ok) { _entrevistes = r.entrevistes || {}; _entrCarregades = grup; }
   } catch (e) { /* silenciós: es queda el que hi hagi */ }
   return _entrevistes;

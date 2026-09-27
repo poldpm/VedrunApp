@@ -1,8 +1,12 @@
 {
-  "versio": "v236",
+  "versio": "v237",
   "data": "2026-09-16",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Crear una activitat de notes encara va una mica més ràpid: el servidor ja no demana dues vegades les mateixes dades del full."
+    "Res de l'app no et fa esperar amb la pantalla tapada: desar una observació, marcar un post-it, moure el plànol de l'aula, canviar el grup de Tallers o obrir la Configuració van en segon pla.",
+    "Els comentaris d'una nota ja no es poden perdre si el servidor no hi és: queden apuntats i s'envien sols.",
+    "Les caselles de nota i les creus del registre són més grosses als aparells tàctils, perquè no s'erri de fila.",
+    "A les notes, Enter baixa a l'alumne següent de la mateixa columna.",
+    "Arranjaments de fons perquè no es puguin barrejar dades: el planning i les llistes ja no es poden esborrar si el full no es pot llegir, i crear una columna de registre ja no mou les creus de lloc."
   ]
 }

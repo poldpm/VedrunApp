@@ -145,7 +145,8 @@ async function _grupviewShowFitxa(idx) {
   // Carrega les observacions compartides del grup (si no estan carregades)
   if (!_grupviewObsLoaded) {
     try {
-      const r = await appsScriptGet({ action:'getGrupObs', grup:_grupviewGrup });
+      // El calaix ja és obert i diu «Carregant…»: sense vel.
+      const r = await appsScriptGet({ action:'getGrupObs', grup:_grupviewGrup, _fons: true });
       if (r.ok) { _grupviewObs = r.obs || {}; _grupviewObsLoaded = true; }
     } catch(e) {}
   }
@@ -172,7 +173,7 @@ async function _grupviewPreloadNotesIAssim() {
     const matKey = baseKey + '__' + grupKey;
     for (const t of [1,2,3]) {
       try {
-        const r = await appsScriptGet({ action:'getNotes', materia: baseKey, grup, trimestre: t });
+        const r = await appsScriptGet({ action:'getNotes', materia: baseKey, grup, trimestre: t, _fons: true });
         if (r.ok) {
           const entry = { items: r.items||[], valors: r.valors||{}, noEntregats: r.noEntregats||{}, rowNoms: r.rowNoms||[], ts: Date.now() };
           try { localStorage.setItem('notescache_' + matKey + '_' + t, JSON.stringify(entry)); } catch(e) {}

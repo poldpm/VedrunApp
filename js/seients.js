@@ -264,7 +264,8 @@ async function _seientsLoadFromSheets(forcat) {
   // El bootstrap ja els ha portat... tret que acabem de canviar de grup.
   if (!forcat && typeof _recentFullLoad === 'function' && _recentFullLoad()) return;
   try {
-    const r = await appsScriptGet({ action: 'loadSeients', grup: _seientsGrup() });
+    // El plànol ja es veu (del navegador): el refresc va al darrere, sense vel.
+    const r = await appsScriptGet({ action: 'loadSeients', grup: _seientsGrup(), _fons: true });
     if (r.ok) _applySeientsData(r);
   } catch(e) { /* silenciós; ja tenim el cache local */ }
 }

@@ -41,7 +41,8 @@ async function regdocCarrega() {
   if (!config.scriptUrl) { _regdocEstat('Encara no estàs connectat: ves a Configuració i enganxa la URL.', 'error'); return; }
   _regdocEstat('Carregant…');
   try {
-    const r = await appsScriptGet({ action: 'loadRegistreDocents' });
+    // La pantalla ja hi diu «Carregant…»: sense vel.
+    const r = await appsScriptGet({ action: 'loadRegistreDocents', _fons: true });
     if (!r || !r.ok) throw new Error((r && r.error) || 'resposta buida');
     _regdocItems = r.items || [];
     _regdocData  = r.data  || {};

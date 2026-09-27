@@ -189,17 +189,23 @@ async function desaComentariNota(text) {
   _cacheDel();   // el cache ja no val: es tornarà a portar del full
 
   if (!config.scriptUrl) return;
-  try {
-    const r = await appsScriptPost({
-      action: 'saveNotaComentari',
-      materia: notesContext.materia, trimestre: notesContext.trimestre,
-      grup: notesContext.grup || '', itemId: item.id,
-      nom: alumne.nom, text: net
-    });
-    if (!r.ok) throw new Error(r.error);
+  /* ⚠ ERA L'ÚNICA CASELLA DE NOTES QUE ES PODIA PERDRE (auditoria del 27/9/2026).
+     Anava a pèl: si el servidor no hi era, sortia un avís i el comentari només
+     quedava a la memòria; el refresc següent el treia de la pantalla i al full
+     no hi havia arribat mai. Ara va per la cua de pendents —la mateixa de la
+     fitxa i el planning—: es reintenta sol i sobreviu a tancar l'app. */
+  const r = await _desaAlFull({
+    action: 'saveNotaComentari',
+    materia: notesContext.materia, trimestre: notesContext.trimestre,
+    grup: notesContext.grup || '', itemId: item.id,
+    nom: alumne.nom, text: net
+  }, { callat: true });
+  if (r && r._pendent) {
+    showToast('El comentari encara no ha arribat al full: ho torno a provar sol.', 'error');
+  } else if (r && r.ok === false) {
+    showToast('No s\'ha pogut desar el comentari: ' + (r.error || ''), 'error');
+  } else {
     showToast(net ? 'Comentari desat ✓' : 'Comentari esborrat', 'success');
-  } catch (e) {
-    showToast('No s\'ha pogut desar el comentari: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
   }
 }
 
@@ -890,6 +896,28 @@ function renderNotesTable() {
         const inp = document.createElement('input');
         inp.type='number'; inp.min='0'; inp.max=String(item.maxPunts); inp.step='0.5';
         inp.className='notes-input-punts';
+        /* Qui fa servir un lector de pantalla sentia «casella de número» i
+           prou: ni de quin nen ni de quina activitat (QA del 27/9/2026). El
+           botó NE i les creus del registre ja ho deien. */
+        inp.setAttribute('aria-label', item.nom + ' — ' + s.nom);
+        /* ENTER BAIXA A L'ALUMNE SEGÜENT (i Shift+Enter puja). Passar les
+           notes amb el teclat demanava tres tabulacions per nen —la casella,
+           el botó NE i el del comentari—; amb Enter es va a la casella de la
+           mateixa columna del nen de sota, que és com es passen les notes de
+           debò. Les fletxes es deixen com estaven (pugen i baixen el número). */
+        inp.addEventListener('keydown', function (ev) {
+          if (ev.key !== 'Enter') return;
+          ev.preventDefault();
+          const totes = Array.prototype.slice.call(
+            document.querySelectorAll('#notesTableWrap input.notes-input-punts'));
+          const jo = totes.indexOf(inp);
+          if (jo === -1) return;
+          const cols = (typeof notesItems !== 'undefined')
+            ? notesItems.filter(function (x) { return !x.readonly; }).length : 1;
+          const seguent = ev.shiftKey ? jo - cols : jo + cols;
+          const on = totes[seguent];
+          if (on && !on.disabled) { on.focus(); if (on.select) on.select(); }
+        });
         inp.value       = (!isNE && val !== undefined && val !== '') ? val : '';
         inp.placeholder = isNE ? 'NE' : '—';
         inp.disabled    = isNE;
