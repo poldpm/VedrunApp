@@ -5686,7 +5686,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v241';
+var BACKEND_VERSIO = 'v242';
 
 var MAX_CELA = 45000;
 
@@ -11035,7 +11035,7 @@ function salutAplica(ss, prova, nomesGrup) {
 
   try {
     var total = { alumnes: 0, iguals: 0, buidats: 0, omplerts: 0, protegits: 0 };
-    var perGrup = [], senseParella = [], saltats = [], canvis = [];
+    var perGrup = [], senseParella = [], saltats = [], canvis = [], repetits = [];
 
     GRUPS_PRIMARIA.forEach(function (g) {
       if (nomesGrup && g !== nomesGrup) return;
@@ -11088,7 +11088,30 @@ function salutAplica(ss, prova, nomesGrup) {
           return;
         }
         var k = toca[0].i;
-        seu[k] = seu[k] ? seu[k] + ' · ' + x.text : x.text;
+        /* ⚠ «Fructosa estricte · Fructosa estricte · Fructosa estricte · …»
+           (en Pol, 27/9/2026, a la primera fitxa que va obrir).
+
+           Aquí s'anaven enganxant TOTES les files del full de direcció que
+           encaixaven amb aquell nen, sense mirar si el text ja hi era. Si al
+           full hi ha la mateixa línia repetida —i n'hi havia una vintena—,
+           el camp mèdic de la fitxa quedava il·legible. I el que fa mal de
+           debò no és que sigui lleig: una mestra que hi busca una al·lèrgia
+           entre vint repeticions acaba no llegint-lo.
+
+           Ara cada text hi entra UN COP. Es compara sense accents ni
+           majúscules, perquè «No carn» i «no carn» són el mateix. */
+        if (!seu[k]) seu[k] = { parts: [], vistos: {}, repetits: 0 };
+        var _clau = _fnorm_(x.text);
+        if (_clau && seu[k].vistos[_clau]) { seu[k].repetits++; }
+        else if (_clau) { seu[k].vistos[_clau] = true; seu[k].parts.push(x.text); }
+      });
+      /* De l'acumulador al text que s'escriurà. */
+      Object.keys(seu).forEach(function (k) {
+        var v = seu[k];
+        if (v && v.parts) {
+          if (v.repetits) repetits.push({ grup: g, fila: Number(k) + 2, quantes: v.repetits + 1, text: v.parts[0] });
+          seu[k] = v.parts.join(' · ');
+        }
       });
 
       /* Tall 3: el full parla d'aquest grup però no n'encaixa cap nom. */
@@ -11155,9 +11178,12 @@ function salutAplica(ss, prova, nomesGrup) {
     });
 
     if (!prova) SpreadsheetApp.flush();
+    /* Els repetits es diuen al resultat perquè `provaSalut` els ensenyi: si
+       al full de direcció hi ha vint files iguals d'un nen, això s'ha
+       d'arreglar allà, no amagar-ho aquí. */
     return { ok: true, prova: !!prova, total: total, perGrup: perGrup, canvis: canvis,
              senseParella: senseParella, senseGrup: doc.senseGrup, saltats: saltats,
-             files: doc.files, pestanyes: doc.pestanyes };
+             repetits: repetits, files: doc.files, pestanyes: doc.pestanyes };
   } finally { if (tinc) { try { lock.releaseLock(); } catch (e) {} } }
 }
 

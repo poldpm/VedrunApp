@@ -1,13 +1,9 @@
 {
-  "versio": "v241",
+  "versio": "v242",
   "data": "2026-09-27",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Si no es poden llegir els registres o les observacions d'un grup, ara t'ho diu. Abans la pantalla es veia buida i semblava que el grup no en tingués cap: es podien crear columnes que ja hi eren.",
-    "Un canvi que el servidor rebutja per sempre ja no encalla tots els altres: t'explica què ha passat i la resta es desa igual.",
-    "Escrivint una observació des de la fitxa del grup, si mentrestant hi escriu una altra mestra, ara s'ajunten les dues en comptes d'esborrar-se la seva.",
-    "Una dada malmesa al full ja no impedeix que l'app arrenqui, i si passa res estrany el missatge ja no et fa tornar a identificar a Google sense motiu.",
-    "Les apps d'especialista i de direcció recuperen coses que feia setmanes que no els arribaven: a les Tasques ja no els diu «Tutoria», que no en tenen.",
-    "Al manual hi ha un apartat nou que explica la clau d'en Vedrunu i del generador de comentaris."
+    "El camp mèdic de la fitxa: si al full de direcció hi ha la mateixa línia repetida, ara hi surt un sol cop. Abans es veia «Fructosa estricte · Fructosa estricte · …» vint vegades i no hi havia manera de llegir-lo.",
+    "Les coses DIFERENTS d'un mateix alumne s'hi segueixen veient totes."
   ]
 }
