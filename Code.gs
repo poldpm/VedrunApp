@@ -4429,6 +4429,8 @@ function _notaColumnaQueJaHiEs_(sh, item) {
 
 function addNotaItem(ss, materia, trimestre, item, alumnes, grup) {
   var nomBase = _materiaNomBase(materia); if (!nomBase) return { ok:false, error:'Materia desconeguda' };
+  // Si la pestanya encara no existia, al final caldrà pintar-la sencera.
+  var pestanyaNova = !ss.getSheetByName(_notesTabName(trimestre, nomBase, grup));
   var sh = getOrCreateMateriaSheet(ss, _notesTabName(trimestre, nomBase, grup));
   initAlumnesRows(sh, alumnes, _notesTabName(trimestre, nomBase, grup));
 
@@ -4447,30 +4449,38 @@ function addNotaItem(ss, materia, trimestre, item, alumnes, grup) {
   if (ins<=lc) sh.insertColumnsBefore(ins,1);
 
   // Escriu capçalera amb el granat de l'app
-  var c1=sh.getRange(1,ins);
-  c1.setValue(item.nom).setFontWeight('bold')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle')
-    .setBackground(GARNET_HEADER).setFontColor(GARNET_TEXT).setFontFamily('Nunito');
-  c1.setNote(item.maxPunts+'|'+item.pes+'|'+item.id);
-  sh.getRange(2,ins).setValue('Pes: '+item.pes).setFontSize(9)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle')
-    .setBackground(GARNET_SUBHEAD).setFontColor(GARNET_TEXT_MID).setFontFamily('Nunito');
-  sh.getRange(3,ins).setValue('/'+item.maxPunts+' pts').setFontSize(9)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle')
-    .setBackground(GARNET_SUBHEAD).setFontColor(GARNET_TEXT_MID).setFontFamily('Nunito');
-  sh.autoResizeColumn(ins); if(sh.getColumnWidth(ins)<80) sh.setColumnWidth(ins,80);
+  /* ⚠ ON SE N'ANAVEN ELS SEGONS (mesurat al full d'en Pol, 27/9/2026, amb
+     `qaTempsNotes`): repintar TOT el full 2,0 s · escriure la capçalera 0,88 s ·
+     ajustar l'amplada 0,74 s · preparar les files d'una en una 0,5 s. Set
+     segons i mig per afegir una columna buida.
 
-  // Inicialitza files de dades (centrades H+V)
-  var numA = alumnes ? alumnes.length : 0;
-  for (var si=0; si<numA; si++) {
-    sh.getRange(si*2+DATA_ROW+1,ins).setFontColor('#CCCCCC')
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+     Ara: la capçalera s'escriu d'un sol cop (tres cel·les en un rang),
+     l'amplada es posa sense demanar-la a Google, les files de la columna es
+     preparen amb UNA crida en lloc d'una per alumne, i el full sencer NOMÉS
+     es repinta si la pestanya s'acaba de crear —si ja existia, ja està
+     pintada i tornar-hi era regalar dos segons. */
+  var c1 = sh.getRange(1, ins);
+  sh.getRange(1, ins, 3, 1)
+    .setValues([[item.nom], ['Pes: ' + item.pes], ['/' + item.maxPunts + ' pts']])
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontFamily('Nunito');
+  c1.setFontWeight('bold').setBackground(GARNET_HEADER).setFontColor(GARNET_TEXT);
+  c1.setNote(item.maxPunts+'|'+item.pes+'|'+item.id);
+  sh.getRange(2, ins, 2, 1).setFontSize(9).setBackground(GARNET_SUBHEAD).setFontColor(GARNET_TEXT_MID);
+  /* Amplada a ull segons el nom: `autoResizeColumn` ha de llegir la columna
+     sencera i, en un full de dues mil files, costava 0,74 s. */
+  sh.setColumnWidth(ins, Math.max(80, Math.min(220, 24 + (item.nom || '').toString().length * 9)));
+
+  // Les files de dades de la columna nova, d'una tirada.
+  var ultimaFila = _ultimaFilaAmbNom_(sh);
+  if (ultimaFila >= DATA_ROW) {
+    sh.getRange(DATA_ROW, ins, ultimaFila - DATA_ROW + 2, 1)
+      .setFontColor('#CCCCCC').setHorizontalAlignment('center').setVerticalAlignment('middle').setFontFamily('Nunito');
   }
 
   if (MATERIES_AMB_CARPETA.indexOf(materia)!==-1) moveCarpetaBeforeMitjana(sh);
   // La columna nova és buida: no canvia cap mitjana, només cal que hi siguin.
   refreshMitjanaColumn(sh, true);
-  applyFormatToNotesSheet(sh);
+  if (pestanyaNova) applyFormatToNotesSheet(sh);
   return { ok:true, itemId: item.id };
 }
 
@@ -5594,7 +5604,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v234';
+var BACKEND_VERSIO = 'v235';
 
 var MAX_CELA = 45000;
 

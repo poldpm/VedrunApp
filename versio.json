@@ -1,8 +1,9 @@
 {
-  "versio": "v234",
+  "versio": "v235",
   "data": "2026-09-16",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Res de nou a la pantalla: aquesta versió només porta una eina interna per mesurar on se'n va el temps quan es crea una activitat."
+    "Crear una activitat de notes és molt més ràpid: el servidor pinta només la columna nova en comptes de repintar tot el full, i li posa l'amplada sense haver-la de calcular.",
+    "Si l'assignatura encara no tenia cap activitat, el full es prepara sencer com sempre."
   ]
 }
