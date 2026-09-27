@@ -67,9 +67,18 @@ l'esborrany sense retocar).
 
 ## El full de plantilla
 
-Tingues UN full net del qual cada mestra en faci una còpia. Perquè quedi
-net, obre-hi l'Apps Script i executa **`buidaLesDades()`**: treu les dades
-de proves i deixa l'estructura a punt.
+És el **«Registres - Plantilla»** de la carpeta VedrunApp del Drive d'en Pol
+(fet el 27/9/2026). Cada mestra en fa una còpia des del SEU compte i la
+còpia s'endú l'Apps Script sencer: el pont, el manifest amb els permisos i
+**la referència a la biblioteca**, que per això no s'ha d'afegir a mà a
+cada instal·lació.
+
+Hi són escrits els tres valors que són de tothom (`GRUPS_ID`, `DESDOB_ID`,
+`APP_TOKEN`); el `GEMINI_KEY` hi és **buit** a posta, perquè és d'ella.
+
+> Si algun dia se'n fa una de nova a partir d'un full que JA té dades,
+> obre-hi l'Apps Script i executa **`buidaLesDades()`**: treu les dades i
+> deixa l'estructura a punt.
 
 Diu al registre exactament què ha buidat, i **no toca**: el full **Grups**
 ni el de **Desdoblaments** (són documents a part), ni les credencials, ni
