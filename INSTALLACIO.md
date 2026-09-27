@@ -13,8 +13,20 @@ APP_TOKEN  = ...
 ```
 
 > Guarda aquest bloc en un lloc teu (no al repositori: és públic).
-> **El token pot ser el mateix per a totes** — així no l'has de canviar mai
-> a `js/config.local.js`.
+> **El token és el mateix per a tothom** — així no l'has de canviar mai a
+> `js/config.local.js`.
+
+⚠ **No te n'inventis un de nou per cada mestre.** L'`APP_TOKEN` ja és escrit
+a `js/config.local.js` de la mare i de totes les apps, i és el que el
+navegador enviarà. Copia'l d'allà al pont:
+
+```bash
+tail -1 js/config.local.js
+```
+
+Si en poses un altre al pont, aquella app dirà **«No autoritzat»** a tot i no
+li sortirà ni un alumne, perquè el que hi ha al navegador i el que hi ha al
+servidor han de ser la mateixa cadena, lletra per lletra.
 
 La quarta credencial, la **`GEMINI_KEY`, NO es comparteix**: n'hi ha una per
 mestre i la fa ella mateixa mentre l'instal·les. Veure l'apartat aquí sota.

@@ -13,4 +13,4 @@
    tots els fitxers MENYS aquest. Així el token es manté.
    ============================================================ */
 
-window.APP_TOKEN = 'PoldelPozoMurgou1899@';
+window.APP_TOKEN = 'vedruna-escorial-vic-35d1e8e1bd7c0faafa4e59b5522084c7';
