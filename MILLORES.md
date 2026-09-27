@@ -78,7 +78,7 @@ no hi ha cap fitxer base tocat i l'app segueix rebent tots els arranjaments.
 - El correu s'obre amb `window.open` cap a
   `https://mail.google.com/mail/?view=cm&fs=1&to=…&su=…&body=…`. No s'envia
   res des de l'app: només es prepara el redactor.
-- Les adreces surten de `personal[id].emailMare` i `.emailPare`, partides per
+- Les adreces surten de `personal[id].correu1` i `.correu2`, partides per
   comes, punts i comes o espais (un camp en pot portar més d'una) i sense
   repetits. El gènere surt de `students[i].genere`.
 - **Es desa dins del perfil**, a `_perfil.incidencies = { plantilla, registre }`,

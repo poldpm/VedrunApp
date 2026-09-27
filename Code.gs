@@ -2116,7 +2116,7 @@ function configuraTot(CONFIG) {
   CONFIG = CONFIG || {
     GRUPS_ID:   '',   // ID del full "Grups" compartit
     DESDOB_ID:  '',   // ID del full "Desdoblaments" compartit
-    GEMINI_KEY: '',   // clau de Gemini (pot ser la mateixa per a totes)
+    GEMINI_KEY: '',   // la SEVA clau de Gemini (una per mestre, no es comparteix)
     APP_TOKEN:  '',   // ha de coincidir amb el de js/config.local.js de la seva app
   };
   // ▲▲▲ OMPLE AIXO ▲▲▲

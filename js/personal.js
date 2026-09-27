@@ -151,7 +151,7 @@
      comes, punts i comes o espais: els partim tots i traiem els repetits. */
   function correusDe(studentId) {
     var pd = (typeof personal !== 'undefined' && personal[studentId]) || {};
-    var brut = [pd.emailMare || '', pd.emailPare || ''].join(' ');
+    var brut = [pd.correu1 || '', pd.correu2 || ''].join(' ');
     var vistos = {}, sortida = [];
     brut.split(/[\s,;]+/).forEach(function (t) {
       var e = t.trim();

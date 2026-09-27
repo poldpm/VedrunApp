@@ -3,18 +3,53 @@
 Guió per fer-ho al seu ordinador amb la mínima feina possible.
 **Temps: uns 10 minuts.** La major part és esperar pantalles de Google.
 
-Abans de començar, tingues a mà (són **els mateixos per a totes**, copia'ls un cop):
+Abans de començar, tingues a mà tres valors que **són els mateixos per a
+tothom** (copia'ls un cop):
 
 ```
 GRUPS_ID   = ...
 DESDOB_ID  = ...
-GEMINI_KEY = ...
 APP_TOKEN  = ...
 ```
 
 > Guarda aquest bloc en un lloc teu (no al repositori: és públic).
 > **El token pot ser el mateix per a totes** — així no l'has de canviar mai
 > a `js/config.local.js`.
+
+La quarta credencial, la **`GEMINI_KEY`, NO es comparteix**: n'hi ha una per
+mestre i la fa ella mateixa mentre l'instal·les. Veure l'apartat aquí sota.
+
+---
+
+## La clau de Gemini: una per mestre
+
+**Per què no una de sola per a tothom:** la quota gratuïta va per clau. Amb
+una de compartida, la mestra que un dia genera trenta comentaris deixa les
+altres sense, i si Google decideix estrènyer-la, s'apaga en Vedrunu i el
+generador de comentaris **de tot el claustre alhora**. Amb una per cap, cada
+una té la seva quota i el que faci l'una no afecta les altres.
+
+**Qui la fa:** ella, amb el seu compte, mentre ets al seu costat. Tu no pots
+fer-l'hi sense la seva contrasenya, i tampoc no cal: és un minut.
+
+1. [aistudio.google.com/apikey](https://aistudio.google.com/apikey), amb el
+   **seu** compte.
+2. **Crea una clau d'API** → copia-la.
+3. Va al `GEMINI_KEY` del seu pont, com les altres tres.
+
+⚠ **Fes-ho ABANS d'executar `configuraTot()`**, no després: la clau entra a
+les Script Properties des del pont, i omplir-la més tard vol dir tornar a
+entrar al seu Apps Script.
+
+> Si el compte de l'escola no la deixa crear (l'administrador pot tenir l'AI
+> Studio tancat), que la faci amb el seu **Gmail personal**. La clau és només
+> una credencial que fa servir el seu script per parlar amb Gemini: no dona
+> accés a res del seu Drive ni del seu correu.
+
+Si el dia de la instal·lació no la té, deixa-la buida: `configuraTot()` fa
+tota la resta igual i diu «FALTA GEMINI_KEY». L'app funciona sencera menys
+dues coses — **en Vedrunu** i el **generador de comentaris** (que ensenya
+l'esborrany sense retocar).
 
 ---
 
@@ -66,12 +101,15 @@ Si el desplegues tu:
    còpia**, al seu Drive. La còpia s'endú l'Apps Script.
    > Les *Script Properties* NO es copien, i és bo: per això l'ha
    > d'executar ella.
-2. **Executar `configuraTot`** i **acceptar l'autorització** (surt amb el
+2. **Fer-se la clau de Gemini** a
+   [aistudio.google.com/apikey](https://aistudio.google.com/apikey) i
+   posar-la al `GEMINI_KEY` del pont (veure «La clau de Gemini» aquí dalt).
+3. **Executar `configuraTot`** i **acceptar l'autorització** (surt amb el
    seu compte: és el que fa que el Calendar i el Tasks siguin els seus).
-3. **Implementa → Nova implementació → Aplicació web** i copiar el `/exec`.
+4. **Implementa → Nova implementació → Aplicació web** i copiar el `/exec`.
 
-A partir d'aquí ja pots continuar tu: enganxar-li el `/exec` a l'app,
-posar-li la clau de Gemini i omplir el perfil i l'horari.
+A partir d'aquí ja pots continuar tu: enganxar-li el `/exec` a l'app i
+omplir el perfil i l'horari.
 
 > Comprova el primer cop que copiar el full s'endú l'Apps Script. Si en
 > alguna còpia no hi fos, és enganxar-hi el `Code.gs` i
