@@ -4410,10 +4410,11 @@ function _resumOneSheet(sh) {
    cap de més: si ja hi ha la columna d'aquest CODI, no es toca; i si n'hi ha
    una del mateix NOM (la que va quedar orfe d'un intent perdut), es reaprofita
    i es torna el seu codi perquè el navegador hi apunti les notes. */
-function _notaColumnaQueJaHiEs_(sh, item) {
-  var lc = sh.getLastColumn(); if (lc < 1) return null;
-  var hdrs  = sh.getRange(1,1,1,lc).getValues()[0];
-  var metas = sh.getRange(1,1,1,lc).getNotes()[0];
+/* `hdrs` i `metas` es passen ja llegits: la fila de capçalera es llegia dues
+   vegades per crear una columna (aquí i a `addNotaItem`), i cada lectura al
+   Google són uns 150 ms (27/9/2026). */
+function _notaColumnaQueJaHiEs_(item, hdrs, metas) {
+  if (!metas || !metas.length) return null;
   var nomNet = (item && item.nom || '').toString().trim().toLowerCase();
   var perNom = null;
   for (var i = 0; i < metas.length; i++) {
@@ -4432,15 +4433,19 @@ function addNotaItem(ss, materia, trimestre, item, alumnes, grup) {
   // Si la pestanya encara no existia, al final caldrà pintar-la sencera.
   var pestanyaNova = !ss.getSheetByName(_notesTabName(trimestre, nomBase, grup));
   var sh = getOrCreateMateriaSheet(ss, _notesTabName(trimestre, nomBase, grup));
-  initAlumnesRows(sh, alumnes, _notesTabName(trimestre, nomBase, grup));
+  /* `initAlumnesRows` ja llegeix la columna de noms: torna fins on arriben els
+     alumnes perquè no s'hagi de tornar a llegir (27/9/2026). */
+  var ultimaFila = initAlumnesRows(sh, alumnes, _notesTabName(trimestre, nomBase, grup));
 
-  var jaHiEs = _notaColumnaQueJaHiEs_(sh, item);
-  if (jaHiEs) return { ok:true, itemId: jaHiEs.itemId, jaHiEra: jaHiEs.motiu };
-
-  // Posició d'inserció: ABANS de Carpeta, Mitjana, Nota, Obs
+  // La capçalera, llegida UN cop i reaprofitada per tot el que ve després.
   var lc = sh.getLastColumn();
   var hdrs  = lc>0 ? sh.getRange(1,1,1,lc).getValues()[0]  : [];
   var metas = lc>0 ? sh.getRange(1,1,1,lc).getNotes()[0]   : [];
+
+  var jaHiEs = _notaColumnaQueJaHiEs_(item, hdrs, metas);
+  if (jaHiEs) return { ok:true, itemId: jaHiEs.itemId, jaHiEra: jaHiEs.motiu };
+
+  // Posició d'inserció: ABANS de Carpeta, Mitjana, Nota, Obs
   var ins = lc+1;
   for (var i=0; i<hdrs.length; i++) {
     var hn=(hdrs[i]||'').toString().trim(), mn=(metas[i]||'').toString();
@@ -4471,15 +4476,19 @@ function addNotaItem(ss, materia, trimestre, item, alumnes, grup) {
   sh.setColumnWidth(ins, Math.max(80, Math.min(220, 24 + (item.nom || '').toString().length * 9)));
 
   // Les files de dades de la columna nova, d'una tirada.
-  var ultimaFila = _ultimaFilaAmbNom_(sh);
+  if (ultimaFila === null || ultimaFila === undefined) ultimaFila = _ultimaFilaAmbNom_(sh);
   if (ultimaFila >= DATA_ROW) {
     sh.getRange(DATA_ROW, ins, ultimaFila - DATA_ROW + 2, 1)
       .setFontColor('#CCCCCC').setHorizontalAlignment('center').setVerticalAlignment('middle').setFontFamily('Nunito');
   }
 
   if (MATERIES_AMB_CARPETA.indexOf(materia)!==-1) moveCarpetaBeforeMitjana(sh);
-  // La columna nova és buida: no canvia cap mitjana, només cal que hi siguin.
-  refreshMitjanaColumn(sh, true);
+  /* La columna nova és buida: no canvia cap mitjana, només cal que hi siguin
+     Mitjana i Nota. I la capçalera ja la sabem: és la que hem llegit amb el
+     nom nou pel mig, o sigui que no cal tornar-la a demanar. */
+  var hdrsDespres = hdrs.slice();
+  hdrsDespres.splice(ins - 1, 0, item.nom);
+  refreshMitjanaColumn(sh, true, hdrsDespres);
   if (pestanyaNova) applyFormatToNotesSheet(sh);
   return { ok:true, itemId: item.id };
 }
@@ -5049,7 +5058,7 @@ function _ultimaFilaAmbNom_(sh) {
   return DATA_ROW - 1;
 }
 
-function refreshMitjanaColumn(sh, nomesAssegura) {
+function refreshMitjanaColumn(sh, nomesAssegura, hdrsJaLlegides) {
   /* `nomesAssegura`: només mira que hi siguin les columnes Mitjana i Nota, sense
      recalcular res. És el que cal en AFEGIR una columna nova: està buida i no
      canvia cap mitjana, i recalcular-les totes era la meitat del temps de
@@ -5070,8 +5079,8 @@ function refreshMitjanaColumn(sh, nomesAssegura) {
     }
   }
   // Assegura que existeixen les columnes Mitjana i Nota
-  var lc=sh.getLastColumn();
-  var hdrs=sh.getRange(1,1,1,lc).getValues()[0];
+  var lc = hdrsJaLlegides ? hdrsJaLlegides.length : sh.getLastColumn();
+  var hdrs = hdrsJaLlegides || sh.getRange(1,1,1,lc).getValues()[0];
   var hasMitj=false,hasNota=false;
   hdrs.forEach(function(h){var hn=(h||'').toString().trim();if(hn==='Mitjana')hasMitj=true;if(hn==='Nota')hasNota=true;});
   if(!hasMitj){
@@ -5122,8 +5131,10 @@ function colorNotaArrod(cell,nota){
 /* ============================================================
    HELPERS
    ============================================================ */
+/* Torna l'última fila amb nom d'alumne (la sap perquè ja ha llegit la columna),
+   o `null` si no ha pogut mirar-ho: així qui la crida no ho ha de rellegir. */
 function initAlumnesRows(sh, alumnes, tabName) {
-  if(!alumnes||!alumnes.length)return;
+  if(!alumnes||!alumnes.length)return null;
   /* La columna A, d'UNA lectura. Abans es preguntava fila per fila: amb 25
      alumnes, 25 viatges a Google cada cop que es creava una columna. */
   var lrAra = sh.getLastRow();
@@ -5148,6 +5159,13 @@ function initAlumnesRows(sh, alumnes, tabName) {
       .setBackground(GARNET_HEADER).setFontColor(GARNET_TEXT).setFontFamily('Nunito');
     sh.autoResizeColumn(1); if(sh.getColumnWidth(1)<140) sh.setColumnWidth(1,140);
   }
+  /* Fins on arriben els alumnes: els que ja hi havia o els que s'acaben
+     d'escriure, el que vagi més avall. */
+  var ultimaExistent = DATA_ROW - 1;
+  for (var f = colA.length; f >= DATA_ROW; f--) {
+    if (teNom(f)) { ultimaExistent = f; break; }
+  }
+  return Math.max(ultimaExistent, DATA_ROW + (alumnes.length - 1) * 2);
 }
 function findObsColumn(sh){
   var lc=sh.getLastColumn();if(lc<1)return -1;
@@ -5604,7 +5622,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v235';
+var BACKEND_VERSIO = 'v236';
 
 var MAX_CELA = 45000;
 
