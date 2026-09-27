@@ -441,10 +441,19 @@ Una **especialista** surt SEMPRE de `VedrunApp-Especialistes`, i una de
 **direcció** de `VedrunApp-Direccio`, no de la mare (veure secció 3bis).
 Mai copiar una carpeta a mà: tindria el rol equivocat.
 
-En resum, la resta:
+> ⚠ **EL QUE VE A CONTINUACIÓ JA NO ÉS EL QUE ES FA** (27/9/2026). És el
+> procediment d'abans de la biblioteca: enganxar el `Code.gs` sencer a cada
+> mestra. Avui es fa una **còpia del full «Registres - Plantilla»**, que ja
+> s'endú el pont, el manifest i la referència a la biblioteca, i només s'hi
+> posa la clau de Gemini. **El guió bo és `INSTALLACIO.md`.** Això es deixa
+> escrit perquè es vegi d'on venim, no per seguir-ho.
+>
+> I `buidaLesDades()` **no buida res** si s'executa des del botó Executar:
+> demana una confirmació que des d'allà no se li pot passar, i sempre diu
+> «ATURAT: no s'ha tocat res».
 
-0. (un cop) Deixar un full de PLANTILLA net amb **`buidaLesDades()`**, per
-   copiar-lo a cada mestra.
+En resum, la resta (**procediment antic**):
+
 1. Full de càlcul nou al seu Drive → **Extensions → Apps Script**.
 2. Enganxar-hi **`Code.gs`** i també **`appsscript.json`**
    (roda dentada → "Mostra el fitxer de manifest"). El manifest ja porta els

@@ -216,9 +216,14 @@ només el que diu el `FILLA.json`.
 `nova-filla.js` ja li ha deixat la carpeta, el `FILLA.json`, el rol i el
 seu `js/personal.js`. Queda:
 
-1. **Posar-hi el seu token** a `js/config.local.js` (ha de coincidir amb
-   l'`APP_TOKEN` de les propietats del SEU Apps Script). Amb apps separades,
-   cada mestra pot tenir el seu token propi: és més segur que compartir-ne un.
+1. **El token, NO el toquis.** El `js/config.local.js` ja ve del base amb el
+   token del claustre, que és **el mateix per a tothom** (decidit el
+   27/9/2026). L'únic que cal és posar aquest mateix valor a l'`APP_TOKEN`
+   del seu pont: `tail -1 js/config.local.js`.
+   > ⚠ Aquí hi deia que cada mestra en podia tenir un de propi «perquè és
+   > més segur». **No ho facis:** l'`INSTALLACIO.md` i el guió imprès diuen
+   > el contrari, i si en poses un de diferent al pont, aquella app dirà «No
+   > autoritzat» a tot i no li sortirà ni un alumne.
 2. **Repositori i GitHub Pages propis** per tenir la seva URL.
 3. Al seu navegador, **Configuració → la URL del seu `/exec`**
    (el guió complet del backend és a `INSTALLACIO.md`).
