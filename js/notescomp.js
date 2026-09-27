@@ -89,10 +89,22 @@ async function toggleCompartirNotes(valor) {
   _compartirEstat[clau] = !!valor;
   _pintaCompartirInfo();
 
-  const r = await appsScriptPost({
-    action: 'saveCompartirNotes', grup: c.grup, matKey: c.matKey,
-    nomAssig: c.nom, nomMestra: _compNomMestra(), compartir: !!valor
-  });
+  /* ⚠ `appsScriptPost` LLANÇA quan el servidor no hi és. Sense aquest
+     try/catch, la casella es quedava marcada dient «el tutor/a hi veurà la
+     nota» sense haver compartit res —i, al revés, dient que ja no es
+     comparteixen amb les notes encara al full. L'`else` de sota, que és qui
+     ho desfà, no s'arribava a executar mai. Trobat a l'auditoria del
+     27/9/2026. */
+  let r;
+  try {
+    r = await appsScriptPost({
+      action: 'saveCompartirNotes', grup: c.grup, matKey: c.matKey,
+      nomAssig: c.nom, nomMestra: _compNomMestra(), compartir: !!valor
+    });
+  } catch (e) {
+    r = { ok: false, error: (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message)) ||
+                            'no s\'ha pogut parlar amb el servidor' };
+  }
   if (r && r.ok) {
     if (!valor) {
       showToast('Ja no es comparteixen: les notes s\'han tret del full compartit', 'success');

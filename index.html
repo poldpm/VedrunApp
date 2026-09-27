@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v239">
+  <link rel="stylesheet" href="css/main.css?v=v241">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -2060,7 +2060,7 @@ Català, Matemàtiques, Anglès, Medi, Català
           <summary>Opcions avançades</summary>
           <div class="modal-field" style="margin-top:10px">
             <div class="modal-label">Clau API de Gemini <span style="font-weight:400;color:var(--text-muted)">(opcional)</span></div>
-            <input class="modal-input" id="cfgGeminiKey" type="password" placeholder="Deixa buit per usar la compartida" aria-label="Clau API de Gemini (opcional)">
+            <input class="modal-input" id="cfgGeminiKey" type="password" placeholder="Deixa-ho buit: la teva clau ja és al servidor" aria-label="Clau API de Gemini (opcional)">
           </div>
           <div class="cfg-actions" style="margin-top:10px">
             <button class="btn btn-ghost btn-sm" onclick="_autoSetupInicial(true).then(()=>showToast('Manteniment fet ✓','success'))">Refer manteniment</button>
@@ -2259,34 +2259,34 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v239"></script>
-  <script defer src="js/pdfhorari.js?v=v239"></script>
-  <script defer src="js/millores.js?v=v239"></script>
-  <script defer src="js/rol.js?v=v239"></script>
-  <script defer src="js/config.local.js?v=v239"></script>
-  <script defer src="js/app.js?v=v239"></script>
-  <script defer src="js/notes.js?v=v239"></script>
-  <script defer src="js/seients.js?v=v239"></script>
-  <script defer src="js/perfil.js?v=v239"></script>
-  <script defer src="js/grupview.js?v=v239"></script>
-  <script defer src="js/postits.js?v=v239"></script>
-  <script defer src="js/horari.js?v=v239"></script>
-  <script defer src="js/vedrunu.js?v=v239"></script>
-  <script defer src="js/gwrite.js?v=v239"></script>
-  <script defer src="js/rubriques.js?v=v239"></script>
-  <script defer src="js/docents.js?v=v239"></script>
-  <script defer src="js/coordinacio.js?v=v239"></script>
-  <script defer src="js/regdocents.js?v=v239"></script>
-  <script defer src="js/segentrevistes.js?v=v239"></script>
-  <script defer src="js/entrevistes.js?v=v239"></script>
-  <script defer src="js/notescomp.js?v=v239"></script>
-  <script defer src="js/reunions.js?v=v239"></script>
-  <script defer src="js/versio.js?v=v239"></script>
+  <script defer src="js/espera.js?v=v241"></script>
+  <script defer src="js/pdfhorari.js?v=v241"></script>
+  <script defer src="js/millores.js?v=v241"></script>
+  <script defer src="js/rol.js?v=v241"></script>
+  <script defer src="js/config.local.js?v=v241"></script>
+  <script defer src="js/app.js?v=v241"></script>
+  <script defer src="js/notes.js?v=v241"></script>
+  <script defer src="js/seients.js?v=v241"></script>
+  <script defer src="js/perfil.js?v=v241"></script>
+  <script defer src="js/grupview.js?v=v241"></script>
+  <script defer src="js/postits.js?v=v241"></script>
+  <script defer src="js/horari.js?v=v241"></script>
+  <script defer src="js/vedrunu.js?v=v241"></script>
+  <script defer src="js/gwrite.js?v=v241"></script>
+  <script defer src="js/rubriques.js?v=v241"></script>
+  <script defer src="js/docents.js?v=v241"></script>
+  <script defer src="js/coordinacio.js?v=v241"></script>
+  <script defer src="js/regdocents.js?v=v241"></script>
+  <script defer src="js/segentrevistes.js?v=v241"></script>
+  <script defer src="js/entrevistes.js?v=v241"></script>
+  <script defer src="js/notescomp.js?v=v241"></script>
+  <script defer src="js/reunions.js?v=v241"></script>
+  <script defer src="js/versio.js?v=v241"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v239"></script>
+  <script defer src="js/personal.js?v=v241"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

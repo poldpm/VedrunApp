@@ -58,3 +58,33 @@ function rolSubtitol() {
   if (esDireccio()) return 'Gestió de curs · Direcció';
   return esEspecialista() ? 'Gestió de curs · Especialistes' : 'Gestió de curs · Tutors';
 }
+
+/* ⚠ TEXTOS DE TUTOR A L'APP DE QUI NO EN TÉ.
+
+   Segona auditoria (8/9/2026): el filtre de Tasques es diu «Tutoria» i el
+   quadre de la tasca nova també, a totes tres apps. Una especialista i la
+   direcció no tenen tutoria: aquella categoria no vol dir res per a elles, i
+   el que hi posin després no el sabran tornar a trobar.
+
+   La categoria per dins es diu igual («tutoria»): el que canvia és NOMÉS el
+   rètol, o sigui que el que ja hi hagi apuntat no es mou de lloc. */
+function rolEtiquetaTutoria() {
+  return senseTutoria() ? 'Els meus grups' : 'Tutoria';
+}
+
+/* Deixa la pantalla amb els rètols que toquen a aquest rol. Es crida un sol
+   cop, en arrencar. Si un dia n'hi ha més d'un, van tots aquí: així es veuen
+   d'una llambregada i no queden escampats per l'HTML. */
+function rolPosaEtiquetes() {
+  const txt = rolEtiquetaTutoria();
+  document.querySelectorAll('[data-rol-tutoria]').forEach(el => {
+    // El botó del filtre és tot text; al quadre de la tasca el text va
+    // darrere d'un <input>, i per això s'hi escriu al node de text i prou.
+    if (el.children.length) {
+      const t = [...el.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+      if (t) t.textContent = ' ' + txt;
+    } else {
+      el.textContent = txt;
+    }
+  });
+}

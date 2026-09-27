@@ -54,14 +54,35 @@ function debounce(key, fn, ms = 1200) {
     /* ⚠ window.APP_TOKEN, no APP_TOKEN: més avall es torna a declarar amb
        const, i el nom queda a la zona morta fins llavors —un typeof aquí hi
        peta i el guard no s executava mai. */
-    const _qui = String((typeof window !== 'undefined' && window.APP_TOKEN) || '') + '|' +
-                 String((typeof window !== 'undefined' && window.APP_ROL) || 'tutor');
+    const _tok = String((typeof window !== 'undefined' && window.APP_TOKEN) || '');
+    const _rol = String((typeof window !== 'undefined' && window.APP_ROL) || 'tutor');
+    /* ⚠ QUÈ DISTINGEIX UNA APP D'UNA ALTRA (arreglat el 27/9/2026).
+
+       Abans l'empremta era només el token i el rol. Com que el token és el
+       MATEIX per a tot el claustre —així no s'ha de tocar el config.local.js
+       de cada app—, dues tutores tenien empremtes idèntiques i aquest guard
+       no separava res: la segona app que s'obrís en aquell navegador llegia
+       la configuració i el cache de la primera. Ara hi entra també la
+       carpeta d'on se serveix l'app, que sí que és única de cadascuna. */
+    const _on = (typeof location !== 'undefined' && location.pathname)
+      ? location.pathname.replace(/[^/]*$/, '') : '';
     // Una empremta curta: no cal desar el token en clar enlloc.
-    let h = 0;
-    for (let i = 0; i < _qui.length; i++) { h = ((h * 31) + _qui.charCodeAt(i)) | 0; }
-    const empremta = String(h);
+    const _empremtaDe = s => {
+      let h = 0;
+      for (let i = 0; i < s.length; i++) { h = ((h * 31) + s.charCodeAt(i)) | 0; }
+      return String(h);
+    };
+    const empremta = _empremtaDe(_on + '|' + _tok + '|' + _rol);
     const abans = localStorage.getItem('vedruna_app');
     if (abans === empremta) return;                 // som a casa
+    /* La mateixa app de sempre, però amb l'empremta calculada d'una altra
+       manera: NO és una altra mestra. Sense això, en actualitzar l'app la
+       mestra hauria perdut fins i tot l'adreça del seu servidor i li hauria
+       tornat a sortir «Pas 1: configura la connexió». */
+    if (abans !== null && abans === _empremtaDe(_tok + '|' + _rol)) {
+      localStorage.setItem('vedruna_app', empremta);
+      return;
+    }
     const PREFIXOS = ['vedruna_cfg', 'vedruna_perfil', 'vedruna_cache_main', 'vedruna_pendents',
       'vedruna_autosetup_fet', 'tasques', 'tasques_malmes', 'postits', 'horari', 'grup_treball',
       'direccio_grup', 'enllacos_propis', 'coment_estil', 'actitud_aspectes', 'notifEnabled',
@@ -3899,7 +3920,30 @@ async function _pendentsProva() {
                     'Digues a en Pol que actualitzi el servidor.', 'error');
           continue;
         }
-        if (r && r.ok === false) break;              // segueix sense anar: ja hi tornarem
+        /* ⚠ I EL MATEIX AMB QUALSEVOL ALTRA NEGATIVA DEL SERVIDOR
+           (auditoria del 27/9/2026).
+
+           L'arranjament de sobre només desencallava «acció desconeguda».
+           Però el servidor en té moltes més de definitives: «Alumne no
+           trobat», «Matèria desconeguda», «Pestanya no trobada»… Aquestes
+           no s'arreglen esperant, i com que la cua va EN ORDRE, aquella
+           entrada tapava totes les de darrere: planning, tasques,
+           calendari, seients, post-its, fitxa… «1 canvi sense desar» per
+           sempre amb la connexió perfecta. I encara pitjor: el refresc de
+           fons no trepitja el que hi ha pendent, o sigui que aquelles
+           pantalles també deixaven de REBRE del full.
+
+           Si el servidor contesta i diu que no —això no és un problema de
+           xarxa—, es treu de la cua, es diu QUÈ ha dit ell (el seu missatge
+           és en català i sol dir què s'ha de fer) i la resta continua. */
+        if (r && r.ok === false) {
+          _pendents = _pendents.filter(x => x.clau !== p.clau);
+          _pendentsGuarda();
+          showToast('Un canvi no s\'ha pogut desar i no s\'arreglarà sol: ' +
+                    (r.error || 'el servidor l\'ha rebutjat') +
+                    ' (la resta de canvis sí que s\'han desat).', 'error');
+          continue;
+        }
         _pendents = _pendents.filter(x => x.clau !== p.clau);
         _pendentsGuarda();
       } catch (e) { break; }
@@ -4352,9 +4396,21 @@ function senseElPuntFinal(t) {
 function errorHuma(e) {
   const t = String((e && e.message) || e || '').trim();
   if (!t) return 'No ha anat bé, i no sé dir per què. Torna-ho a provar.';
-  if (/Unexpected token\s*'?<|SyntaxError.*JSON|is not valid JSON/i.test(t)) {
+  /* Quan Google contesta amb la pàgina d'identificar-se en comptes de les
+     dades, la resposta comença per «<» i el navegador diu «Unexpected
+     token <». AIXÒ sí que vol dir tornar-se a identificar. */
+  if (/Unexpected token\s*'?<|<!DOCTYPE/i.test(t)) {
     return 'Google demana que et tornis a identificar. Obre qualsevol pàgina de Google ' +
            '(el Gmail o el Drive), entra-hi amb el teu compte de l\'escola i torna a provar-ho aquí.';
+  }
+  /* ⚠ I això NO (auditoria del 27/9/2026): un «SyntaxError … JSON» que ve
+     del SERVIDOR vol dir que hi ha una dada desada al full que no es pot
+     llegir, i abans se li deia que es tornés a identificar. Es podia passar
+     el dia identificant-se sense arreglar-ho mai, i el problema de debò no
+     se li anomenava enlloc. */
+  if (/SyntaxError|is not valid JSON/i.test(t)) {
+    return 'Hi ha una dada desada al full que no es pot llegir, i per això això no ha anat bé. ' +
+           'No és cosa teva ni de la teva sessió: digues-ho en Pol i ell ho mirarà al full.';
   }
   if (/Failed to fetch|NetworkError|ERR_INTERNET|ERR_NETWORK|Load failed/i.test(t)) {
     return 'No he pogut arribar al full. Sol ser la connexió: mira que tinguis internet i torna-ho a provar.';
@@ -4585,6 +4641,13 @@ async function _rolCarregaGrupTreball(clau, pagina) {
     if (grupReal && /^(1r|2n|3r|4t|5è|6è) [ABC]$/.test(grupReal)) {
       try {
         const ro = await appsScriptGet({ action: 'getGrupObs', grup: grupReal });
+        /* Mateix parany que als registres: sense aquesta comprovació, una
+           lectura fallada deixava `observacions` buit i la pantalla ensenyava
+           tota la classe «Sense observacions» encara que n'hi hagués un curs
+           sencer escrites per tot el claustre. */
+        if (!ro || ro.ok === false) {
+          throw new Error((ro && ro.error) || 'el servidor no ha contestat');
+        }
         if (ro.ok && ro.obs) {
           const rowIdToId = {};
           students.forEach(st => {
@@ -4596,7 +4659,10 @@ async function _rolCarregaGrupTreball(clau, pagina) {
             if (id !== undefined) observacions[id] = ro.obs[rowId];
           });
         }
-      } catch(err) {}
+      } catch(err) {
+        showToast('No s’han pogut llegir les observacions d’aquest grup. ' +
+                  'El que veus no vol dir que estigui buit: torna-ho a provar.', 'error');
+      }
     }
     if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector();
     // Deixa triada l'assignatura del selector: és de la que acaba de triar
@@ -4606,7 +4672,18 @@ async function _rolCarregaGrupTreball(clau, pagina) {
   } else {
     // Registres d'aula: cada assignatura de cada grup té la seva pestanya
     try {
-      const rr = _registreRemap(await appsScriptGet({ action: 'getRegistre', grup: _clauRegistre }));
+      const _rrBrut = await appsScriptGet({ action: 'getRegistre', grup: _clauRegistre });
+      /* ⚠ `appsScriptGet` NO llança mai: quan el servidor falla torna
+         `{ ok:false }` (js/app.js, «return { ok:false, … _networkError }»).
+         Sense aquesta línia, el catch de sota —que és l'avís que es va
+         escriure el 6/9/2026— no s'executava MAI, i la pantalla deia «Cap
+         ítem de seguiment» amb el full ple de columnes. Reproduït al
+         navegador el 27/9/2026 amb el servidor tornant error 500: la mestra
+         es posaria a crear columnes que ja hi són, al full de tota l'escola. */
+      if (!_rrBrut || _rrBrut.ok === false) {
+        throw new Error((_rrBrut && _rrBrut.error) || 'el servidor no ha contestat');
+      }
+      const rr = _registreRemap(_rrBrut);
       registreItems = (rr.ok && rr.items) ? rr.items : [];
       registreData  = (rr.ok && rr.data)  ? rr.data  : {};
     } catch(err) {
@@ -4836,6 +4913,13 @@ async function _dirCarregaGrup(grup) {
   try {
     const ro = rObs;                       // ja demanada a dalt, alhora
     if (meu !== _dirCarregaId) return;
+    /* Les observacions s'acaben de buidar tres línies més amunt, o sigui que
+       una lectura fallada aquí ensenyaria tot el grup «Sense observacions».
+       A direcció això és pitjor que enlloc: mira grups que no són seus i no
+       té manera de saber si aquell grup no en té o si no s'han pogut llegir. */
+    if (!ro || ro.ok === false) {
+      throw new Error((ro && ro.error) || 'el servidor no ha contestat');
+    }
     if (ro && ro.ok && ro.obs) {
       const rowIdToId = {};
       students.forEach(st => {
@@ -4847,15 +4931,25 @@ async function _dirCarregaGrup(grup) {
         if (id !== undefined) observacions[id] = ro.obs[rowId];
       });
     }
-  } catch(e) { /* silenciós: les fitxes ja hi són */ }
+  } catch(e) {
+    showToast('No s’han pogut llegir les observacions de ' + grup +
+              '. El que veus no vol dir que estigui buit.', 'error');
+  }
 
   // 3) Registre d'aula d'aquest grup (pestanya pròpia, "Registres 4t B")
   try {
+    if (!rReg || rReg.ok === false) {
+      throw new Error((rReg && rReg.error) || 'el servidor no ha contestat');
+    }
     const rr = _registreRemap(rReg);       // ja demanada a dalt, alhora
     if (meu !== _dirCarregaId) return;
     registreItems = (rr && rr.ok && rr.items) ? rr.items : [];
     registreData  = (rr && rr.ok && rr.data)  ? rr.data  : {};
-  } catch(e) { registreItems = []; registreData = {}; }
+  } catch(e) {
+    registreItems = []; registreData = {};
+    showToast('No s’han pogut llegir els registres de ' + grup +
+              '. El que veus no vol dir que estigui buit: no hi creïs columnes.', 'error');
+  }
 
   if (meu !== _dirCarregaId) return;
   _clauRegistre = grup;

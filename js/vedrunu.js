@@ -164,8 +164,15 @@ async function vedrunuSend() {
     const _m = String((e && e.message) || '');
     const _senseClau = /clau|api ?key|gemini_api|no configurad|not configured/i.test(_m);
     _vedrunuAddMsg('bot', _senseClau
+      /* ⚠ Abans deia «si no la tens, demana-la en Pol»: hi havia una clau
+         compartida per a tothom. Des del 27/9/2026 cada mestra té la seva
+         (la quota gratuïta va per clau), o sigui que la demana ella a
+         Google en un minut. Dir-li que la demani a en Pol era enviar-la a
+         buscar una cosa que ja no existeix. */
       ? '<p>Encara no tinc la clau de Gemini i sense ella no puc pensar. ' +
-        'Ves a <strong>Configuració</strong> i enganxa-la; si no la tens, demana-la en Pol.</p>'
+        'Te la pots fer tu mateixa en un minut a <strong>aistudio.google.com/apikey</strong> ' +
+        '(«Crea una clau d\'API») i enganxar-la a <strong>Configuració</strong>. ' +
+        'Si no te\'n surts, digues-ho en Pol.</p>'
       : '<p>Ui, no me n he sortit: ' + escapeHtml(typeof errorHuma === 'function' ? errorHuma(e) : _m) + '</p>');
   }
   _vedrunuTyping(false);

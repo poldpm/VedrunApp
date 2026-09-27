@@ -5686,7 +5686,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v237';
+var BACKEND_VERSIO = 'v241';
 
 var MAX_CELA = 45000;
 
@@ -5709,6 +5709,17 @@ function _jsonDeCela_(ss, nom, clau) {
     if (o === null || typeof o !== 'object') return { hi: true, malament: true, mida: String(v).length };
     return { hi: true, dades: o };
   } catch (e) { return { hi: true, malament: true, mida: String(v).length }; }
+}
+
+/* Llegir un JSON que NO és la font de veritat de res (la llista de tasques,
+   les categories del calendari, els events d'un any). Si està malmès, val
+   més tornar el buit que ensorrar l'arrencada de l'app sencera: el que hi
+   havia no s'esborra, perquè aquí només es llegeix.
+   ⚠ No s'ha de fer servir per a res que després es desi a sobre: per a això
+   hi ha `_jsonDeCela_` + `_capMalament_`, que aturen la desada. */
+function _jsonSegur_(text, siFalla) {
+  if (text === null || text === undefined || String(text).trim() === '') return siFalla;
+  try { return JSON.parse(text); } catch (e) { return siFalla; }
 }
 
 function _capMalament_(r, que) {
@@ -6236,8 +6247,24 @@ function loadAppData(ss, weekIds, appDataPre) {
   // Tasques + calendari (de _AppData). Si ja s'ha llegit abans (bootstrap),
   // el reutilitzem per no tornar a llegir tot el full.
   var appData = appDataPre || sheetGetAll(ss, '_AppData');
-  result.tasques  = appData['tasques'] ? JSON.parse(appData['tasques']) : [];
-  result.calCats  = appData['cal_cats'] ? JSON.parse(appData['cal_cats']) : null;
+  /* ⚠ UNA CEL·LA MALMESA NO POT DEIXAR L'APP MORTA (auditoria 27/9/2026).
+
+     Aquests tres JSON.parse no tenien try. Tots els veïns sí (planning,
+     perfil, seients, post-its, horari, ajustos). Com que `loadAppData` la
+     crida el `bootstrap`, n'hi havia prou que la cel·la «tasques» o un
+     «cal_events_2026» del full _AppData quedés malmesa —i aquelles pestanyes
+     es poden editar: es protegeixen amb avís, no amb pany— perquè l'app no
+     arrenqués: ni alumnes, ni perfil, ni planning, ni notes.
+
+     I el missatge era pitjor que no dir res: l'error cru («SyntaxError:
+     Unexpected token…») el navegador el llegia com un problema de sessió i
+     li deia a la mestra que es tornés a identificar al Gmail. Podia
+     identificar-se tot el dia i no se'n sortiria mai.
+
+     Ara, el que no es pugui llegir es deixa buit i es diu al resultat, en
+     comptes d'ensorrar-ho tot. */
+  result.tasques  = _jsonSegur_(appData['tasques'], []);
+  result.calCats  = _jsonSegur_(appData['cal_cats'], null);
   // Els seus enllaços de la portada i el «per agendar»: abans només vivien al
   // navegador i es perdien en canviar d'ordinador (auditoria 6/9/2026).
   try { result.ajustos = appData['ajustos_propis'] ? JSON.parse(appData['ajustos_propis']) : null; }
@@ -6246,7 +6273,8 @@ function loadAppData(ss, weekIds, appDataPre) {
   Object.keys(appData).forEach(function(k) {
     if (k.indexOf('cal_events_') === 0) {
       var year = k.replace('cal_events_', '');
-      result.calEvents[year] = JSON.parse(appData[k]);
+      var _ev = _jsonSegur_(appData[k], null);
+      if (_ev !== null) result.calEvents[year] = _ev;
     }
   });
 

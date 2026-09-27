@@ -150,6 +150,15 @@ async function desaEntrevista() {
     } else {
       showToast((r && r.error) || 'No s\'ha pogut desar', 'error');
     }
+  } catch (e) {
+    /* ⚠ `appsScriptPost` llança quan no s'arriba al servidor, i aquí només hi
+       havia un `finally`: el botó tornava a dir «Desar», el quadre es quedava
+       obert i NO sortia cap missatge. La mestra el tancava convençuda que
+       l'entrevista hi era. És el mateix que ja es va arreglar a «Convocar
+       reunions» el 8/9/2026. Trobat a l'auditoria del 27/9/2026. */
+    showToast('No s\'ha pogut desar l\'entrevista: ' +
+              (typeof errorHuma === 'function' ? errorHuma(e) : ((e && e.message) || '')) +
+              ' No s\'ha apuntat enlloc.', 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Desar'; }
   }
@@ -163,7 +172,15 @@ async function esborraEntrevista(studentId, id) {
                (e.nota ? ' També se n\'anirà el que hi has apuntat.' : ''))) return;
   const grup = _entrGrup();
   const rid = (personal[studentId] || {}).rowId;
-  const r = await appsScriptPost({ action: 'deleteEntrevista', grup, rowId: rid, id });
+  /* Sense try/catch, confirmar l'esborrat no feia absolutament res quan el
+     servidor no hi era: ni s'esborrava ni ho deia (auditoria 27/9/2026). */
+  let r;
+  try {
+    r = await appsScriptPost({ action: 'deleteEntrevista', grup, rowId: rid, id });
+  } catch (e) {
+    r = { ok: false, error: 'no s\'ha pogut parlar amb el servidor: ' +
+          (typeof errorHuma === 'function' ? errorHuma(e) : ((e && e.message) || '')) };
+  }
   if (r && r.ok) {
     await carregaEntrevistes(true);
     pintaEntrevistes(studentId);

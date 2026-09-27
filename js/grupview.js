@@ -324,12 +324,33 @@ async function _grupviewDesaObs() {
   const nou = previ ? (previ + ' · ' + text) : text;
 
   try {
-    const r = await appsScriptPost({ action: 'saveGrupObs', grup: _grupviewGrup, rowId: rowId, materia: key, text: nou });
+    /* ⚠ AQUÍ ES TREPITJAVA EL QUE HAVIA ESCRIT UNA ALTRA MESTRA
+       (auditoria del 27/9/2026).
+
+       Les observacions del grup són al full compartit de l'escola i les hi
+       escriu tothom. El 8/9/2026 es va arreglar que dues mestres alhora no
+       s'esborressin: el navegador envia el que ell creia que hi havia
+       (`base`) i NOMÉS el tros nou (`afegit`), i el servidor ho fusiona amb
+       el que hi hagi de debò. Es va arreglar a la pàgina d'Observacions i
+       aquest segon camí —la fitxa de dins del grup— es va quedar enrere:
+       enviava el text sencer i el servidor l'escrivia tal qual. El que
+       hagués escrit una altra mestra mentrestant desapareixia, i a la
+       pantalla hi deia «Observació guardada» en verd. */
+    const r = await appsScriptPost({ action: 'saveGrupObs', grup: _grupviewGrup, rowId: rowId,
+                                     materia: key, text: nou, base: previ, afegit: text });
     if (!r.ok) throw new Error(r.error || 'no s\'ha pogut desar');
     if (!_grupviewObs[String(rowId)]) _grupviewObs[String(rowId)] = {};
-    _grupviewObs[String(rowId)][key] = nou;
+    /* Si el servidor ha hagut de fusionar (algú altre hi havia escrit),
+       el bo és el seu text, no el nostre. */
+    if (r.fusionat && typeof r.text === 'string') {
+      _grupviewObs[String(rowId)][key] = r.text;
+      showToast('Mentre escrivies, algú altre també hi ha escrit: ho he ajuntat tot.', 'info');
+    } else {
+      _grupviewObs[String(rowId)][key] = nou;
+    }
     // Que es vegi també a la pàgina d'Observacions si hi tenim el mateix grup
-    if (typeof observacions !== 'undefined' && observacions && observacions[a.id]) observacions[a.id][key] = nou;
+    const _bo = _grupviewObs[String(rowId)][key];
+    if (typeof observacions !== 'undefined' && observacions && observacions[a.id]) observacions[a.id][key] = _bo;
     if (typeof MATERIES !== 'undefined' && !MATERIES[_grupviewObsKey(nomAssig)]) {
       MATERIES[_grupviewObsKey(nomAssig)] = nomAssig + ' · ' + _grupviewGrup;
     }
