@@ -2663,9 +2663,14 @@ function _disparadorSaVeure_() {
 
 /* Escriptures que deixen el mateix resultat encara que arribin dues vegades
    (escriuen un valor a una casella, no afegeixen res): no agafen el pany. */
+/* `addNotaItem` i `addRegistreItem` hi són des del 26/9/2026: ara no poden fer
+   dues columnes encara que arribin dues vegades (miren si ja hi és), i el pany
+   els feia esperar darrere de la sincronització fins que el navegador es
+   cansava —que és el que li feia crear columnes duplicades a en Pol. */
 var _OP_SENSE_PANY_ = {
   desaCaselles: true, updateNota: true, setNoEntregat: true, updateRegistreCell: true,
-  saveNotaComentari: true, updateActitudBatch: true, saveProfile: true
+  saveNotaComentari: true, updateActitudBatch: true, saveProfile: true,
+  addNotaItem: true, addRegistreItem: true, deleteNotaItem: true, deleteRegistreItem: true
 };
 
 function handleRequest(e) {
@@ -3948,15 +3953,31 @@ function getRegistre(ss, grup) {
   var rowNoms = (lr >= 2) ? sh.getRange(2,1,lr-1,1).getValues().map(function(f){ return (f[0]||'').toString(); }) : [];
   return { ok:true, items:items, data:data, rowNoms:rowNoms };
 }
+/* Com a les notes: crear la mateixa columna dues vegades no en fa dues. */
 function addRegistreItem(ss, item, alumnes, grup) {
-  var sh = getOrCreateRegistreSheet(ss, alumnes, grup), nc = sh.getLastColumn()+1;
+  var sh = getOrCreateRegistreSheet(ss, alumnes, grup);
+  var lcAra = sh.getLastColumn();
+  if (lcAra >= 2) {
+    var hdrs  = sh.getRange(1,1,1,lcAra).getValues()[0];
+    var metas = sh.getRange(1,1,1,lcAra).getNotes()[0];
+    var nomNet = (item && item.nom || '').toString().trim().toLowerCase();
+    var perNom = null;
+    for (var i = 1; i < metas.length; i++) {
+      var id = parseInt((metas[i] || '').toString().split('|')[1]);
+      if (isNaN(id)) continue;
+      if (String(id) === String(parseInt(item.id))) return { ok:true, itemId:id, jaHiEra:'codi' };
+      if (perNom === null && nomNet && (hdrs[i] || '').toString().trim().toLowerCase() === nomNet) perNom = id;
+    }
+    if (perNom !== null) return { ok:true, itemId:perNom, jaHiEra:'nom' };
+  }
+  var nc = sh.getLastColumn()+1;
   var cell = sh.getRange(1,nc); cell.setValue(item.nom).setFontWeight('bold'); cell.setNote(item.tipus+'|'+item.id);
   if (alumnes && alumnes.length > 0) {
     var r = sh.getRange(2,nc,alumnes.length,1);
     item.tipus==='checkbox' ? r.insertCheckboxes() : r.setValues(alumnes.map(function(){return [''];}));
   }
   _autoAjustaColumnes(sh);
-  return { ok:true };
+  return { ok:true, itemId:item.id };
 }
 function deleteRegistreItem(ss, itemId, grup) {
   var sh = ss.getSheetByName(_nomFullRegistre(grup)); if (!sh) return { ok:true };
@@ -4366,10 +4387,48 @@ function _resumOneSheet(sh) {
 /* ============================================================
    NOTES — Afegir ítem
    ============================================================ */
+/* ⚠ DUES COLUMNES IGUALS AL FULL (en Pol, 26/9/2026).
+
+   «Generava un ítem nou i tardava molt; quan ho feia, em tornava a sortir
+   l'error, no se'm creava bé, refrescava la pàgina i no em sortia, o em
+   sortia duplicat perquè hi havia clicat masses vegades… al full de càlcul en
+   tenia dues columnes… unes notes les posava en una columna i les altres en
+   una altra.»
+
+   Passava així: la petició SÍ que arribava i creava la columna, però la
+   resposta trigava més que l'espera del navegador. L'app donava la creació
+   per fallada, treia la columna de la pantalla, ell tornava a clicar… i es
+   creava una segona columna amb el mateix nom i un codi diferent. Les notes
+   després es repartien entre les dues.
+
+   Ara crear una columna es pot repetir tantes vegades com calgui sense fer-ne
+   cap de més: si ja hi ha la columna d'aquest CODI, no es toca; i si n'hi ha
+   una del mateix NOM (la que va quedar orfe d'un intent perdut), es reaprofita
+   i es torna el seu codi perquè el navegador hi apunti les notes. */
+function _notaColumnaQueJaHiEs_(sh, item) {
+  var lc = sh.getLastColumn(); if (lc < 1) return null;
+  var hdrs  = sh.getRange(1,1,1,lc).getValues()[0];
+  var metas = sh.getRange(1,1,1,lc).getNotes()[0];
+  var nomNet = (item && item.nom || '').toString().trim().toLowerCase();
+  var perNom = null;
+  for (var i = 0; i < metas.length; i++) {
+    var p = (metas[i] || '').toString().split('|');
+    if (p.length !== 3 || isNaN(parseInt(p[2]))) continue;
+    if (String(parseInt(p[2])) === String(parseInt(item.id))) return { itemId: parseInt(p[2]), motiu: 'codi' };
+    if (!perNom && nomNet && (hdrs[i] || '').toString().trim().toLowerCase() === nomNet) {
+      perNom = { itemId: parseInt(p[2]), motiu: 'nom' };
+    }
+  }
+  return perNom;
+}
+
 function addNotaItem(ss, materia, trimestre, item, alumnes, grup) {
   var nomBase = _materiaNomBase(materia); if (!nomBase) return { ok:false, error:'Materia desconeguda' };
   var sh = getOrCreateMateriaSheet(ss, _notesTabName(trimestre, nomBase, grup));
   initAlumnesRows(sh, alumnes, _notesTabName(trimestre, nomBase, grup));
+
+  var jaHiEs = _notaColumnaQueJaHiEs_(sh, item);
+  if (jaHiEs) return { ok:true, itemId: jaHiEs.itemId, jaHiEra: jaHiEs.motiu };
 
   // Posició d'inserció: ABANS de Carpeta, Mitjana, Nota, Obs
   var lc = sh.getLastColumn();
@@ -4406,7 +4465,7 @@ function addNotaItem(ss, materia, trimestre, item, alumnes, grup) {
   if (MATERIES_AMB_CARPETA.indexOf(materia)!==-1) moveCarpetaBeforeMitjana(sh);
   refreshMitjanaColumn(sh);
   applyFormatToNotesSheet(sh);
-  return { ok:true };
+  return { ok:true, itemId: item.id };
 }
 
 /* ============================================================
@@ -5399,7 +5458,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v230';
+var BACKEND_VERSIO = 'v231';
 
 var MAX_CELA = 45000;
 

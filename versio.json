@@ -1,11 +1,10 @@
 {
-  "versio": "v230",
+  "versio": "v231",
   "data": "2026-09-16",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Entrar notes és molt més ràpid: ja no surt la pantalla de «Desant…» a cada nota. Pots passar la nota de tota la classe seguida i es desen soles, totes juntes.",
-    "El mateix amb els NE i amb les creus del registre d'aula.",
-    "Si la connexió falla mentre entres notes, ja no es perden: queden guardades a l'aparell i s'envien soles quan torna.",
-    "En obrir unes notes que ja havies mirat, la taula surt de seguida i ja no es tapa mentre es posa al dia."
+    "Crear (o esborrar) una activitat de notes o una columna del registre ja no fa esperar: surt a l'instant i l'app l'envia al full en segon pla.",
+    "Si el servidor va lent, ja no es poden crear dues columnes iguals per haver clicat dues vegades: el full només en fa una.",
+    "Si al full hi havia quedat una columna repetida d'un intent anterior, l'app hi apunta les notes en comptes de fer-ne una altra."
   ]
 }

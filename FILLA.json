@@ -1,10 +1,10 @@
 {
   "mestra": "Pol",
-  "mareVersio": "v230",
+  "mareVersio": "v231",
   "propis": [
     "manifest.webmanifest",
     "manifest.json"
   ],
   "rol": "tutor",
-  "sincronitzat": "2026-09-16"
+  "sincronitzat": "2026-09-27"
 }

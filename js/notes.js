@@ -614,40 +614,18 @@ async function addNotaItem() {
   closeNewNotaModal();
   renderNotesTable();
   if (!config.scriptUrl) return;
-  // Una columna nova mou les del costat: les notes apuntades han d'arribar abans.
-  await _casellesBuida();
-  updateSync('syncing', 'Creant ítem…');
-  try {
-    const r = await appsScriptPost({ action:'addNotaItem', materia:notesContext.materia, trimestre:notesContext.trimestre, grup:notesContext.grup, item, alumnes:students });
-    if (!r.ok) throw new Error(r.error);
-    updateSync('ok', 'Sincronitzat');
-    showToast('Ítem «' + nom + '» creat', 'success');
-    /* El cache s'ha esborrat en crear la columna: es torna a portar ara, en
-       segon pla, perquè tornar a obrir l'assignatura sigui a l'instant i no
-       hagi d'esperar el Google amb el vel (QA de rendiment, 16/9/2026). */
-    _loadNotesBackground();
-  } catch (e) {
-    /* ⚠ LA COLUMNA QUE NOMÉS EXISTIA A LA PANTALLA.
+  /* ⚠ ABANS AQUÍ S'ESPERAVA EL SERVIDOR AMB LA PANTALLA ATURADA.
 
-       Trobat a la segona auditoria (8/9/2026). Si el servidor no responia, la
-       columna es quedava pintada, la mestra hi passava les notes de la classe
-       sencera —amb mitjanes i qualificacions— i en refrescar no hi havia res:
-       ni la columna ni cap nota. La cua de canvis pendents es quedava a zero,
-       perquè aquí no hi passa.
-
-       Ara es treu de seguida i es diu per què. NO va a la cua a posta: una
-       columna a mig crear desquadraria les notes que s'hi escriurien a sobre,
-       perquè el full encara no en sap res. És el mateix criteri que ja seguia
-       el registre d'aula. */
-    notesItems = notesItems.filter(i => i.id !== item.id);
-    delete notesValors[item.id];
-    _cacheDel();
-    renderNotesTable();
-    updateSync('error', 'No desat');
-    showToast('No s\'ha pogut crear «' + nom + '»: ' +
-      (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') +
-      ' No l\'he deixada a la taula perquè no hi escrivissis en va.', 'error');
-  }
+     En Pol, 26/9/2026: crear una activitat trigava molt, sortia l'error de
+     temps, la columna es treia de la taula… i quan tornava a clicar se'n
+     creava una SEGONA al full (la primera sí que hi havia arribat). Ara la
+     columna es queda a la taula i la petició va a la cua: es reintenta sola
+     amb el mateix codi i el servidor no en pot fer dues. La mestra pot
+     començar a posar-hi notes de seguida: van darrere de la columna a la
+     mateixa cua, o sigui que arriben al full després d'ella. */
+  _casellesPosa('notesItem', _notesCtxCua(), 'columna|' + item.id,
+                { item, alumnes: students.map(s => ({ id: s.id, nom: s.nom })) });
+  showToast('Ítem «' + nom + '» creat', 'success');
 }
 
 /* Igual que al registre d aula: el codi arriba com a text i es compara amb
@@ -665,13 +643,29 @@ async function deleteNotaItem(itemId) {
   _cacheDel();
   renderNotesTable();
   if (!config.scriptUrl) return;
-  await _casellesBuida();
-  try {
-    await appsScriptPost({ action:'deleteNotaItem', materia:notesContext.materia, trimestre:notesContext.trimestre, grup:notesContext.grup, itemId });
-    showToast('Ítem eliminat', 'success');
-    _loadNotesBackground();   // el cache torna a ser bo, en segon pla
-  } catch (e) { showToast('Error: '+ (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''),'error'); }
+  // Com crear-la: a la cua, i es reintenta sol si el servidor no hi és ara.
+  _casellesPosa('notesItemFora', _notesCtxCua(), 'columnaFora|' + itemId, { itemId });
+  showToast('Ítem eliminat', 'success');
 }
+
+/* El servidor ha confirmat la columna. Si al full ja n'hi havia una amb aquest
+   nom (un intent perdut), ve amb un altre codi: les notes que ja hi ha a la
+   pantalla passen a ser d'aquella columna, i així no se'n fa cap de bessona. */
+window._notesItemConfirmat = function (ctx, idVell, idNou) {
+  const meu = _notesCtxCua();
+  if (!ctx || ctx.materia !== meu.materia || String(ctx.trimestre) !== String(meu.trimestre) ||
+      (ctx.grup || null) !== (meu.grup || null)) return;
+  if (String(idVell) !== String(idNou)) {
+    const it = notesItems.find(i => String(i.id) === String(idVell));
+    if (it) it.id = idNou;
+    [notesValors, noEntregats, notesComentaris].forEach(m => {
+      if (m && m[idVell] !== undefined) { m[idNou] = m[idVell]; delete m[idVell]; }
+    });
+  }
+  _cacheDel();
+  renderNotesTable();
+  _loadNotesBackground();     // el cache torna a ser bo, en segon pla
+};
 
 /* ============================================================
    ACTUALITZAR NOTA — cua serial, sense pèrdues
