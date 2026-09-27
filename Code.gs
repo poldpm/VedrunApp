@@ -4467,7 +4467,8 @@ function addNotaItem(ss, materia, trimestre, item, alumnes, grup) {
   }
 
   if (MATERIES_AMB_CARPETA.indexOf(materia)!==-1) moveCarpetaBeforeMitjana(sh);
-  refreshMitjanaColumn(sh);
+  // La columna nova és buida: no canvia cap mitjana, només cal que hi siguin.
+  refreshMitjanaColumn(sh, true);
   applyFormatToNotesSheet(sh);
   return { ok:true, itemId: item.id };
 }
@@ -4956,18 +4957,24 @@ function _ultimaFilaAmbNom_(sh) {
   return DATA_ROW - 1;
 }
 
-function refreshMitjanaColumn(sh) {
-  /* Les mitjanes, amb UNA lectura de tot el bloc i els càlculs a la memòria:
-     abans eren dues lectures per alumne (i per cada fila buida del full). */
-  var ultima = _ultimaFilaAmbNom_(sh);
-  var lcAra = sh.getLastColumn();
-  if (ultima >= DATA_ROW && lcAra >= 2) {
-    var hdr = sh.getRange(1, 1, 1, lcAra).getValues()[0];
-    var meta = sh.getRange(1, 1, 1, lcAra).getNotes()[0];
-    var dades = sh.getRange(1, 1, ultima + 1, lcAra).getValues();
-    for (var r = DATA_ROW; r <= ultima; r += 2) {
-      if (!(dades[r - 1][0] || '').toString().trim()) continue;
-      _escriuMitjana_(sh, r, _mitjanaFila_(hdr, meta, dades[r - 1], dades[r] || []));
+function refreshMitjanaColumn(sh, nomesAssegura) {
+  /* `nomesAssegura`: només mira que hi siguin les columnes Mitjana i Nota, sense
+     recalcular res. És el que cal en AFEGIR una columna nova: està buida i no
+     canvia cap mitjana, i recalcular-les totes era la meitat del temps de
+     crear-la: 8 s al full d'en Pol, 26/9/2026). */
+  if (!nomesAssegura) {
+    /* Les mitjanes, amb UNA lectura de tot el bloc i els càlculs a la memòria:
+       abans eren dues lectures per alumne (i per cada fila buida del full). */
+    var ultima = _ultimaFilaAmbNom_(sh);
+    var lcAra = sh.getLastColumn();
+    if (ultima >= DATA_ROW && lcAra >= 2) {
+      var hdr = sh.getRange(1, 1, 1, lcAra).getValues()[0];
+      var meta = sh.getRange(1, 1, 1, lcAra).getNotes()[0];
+      var dades = sh.getRange(1, 1, ultima + 1, lcAra).getValues();
+      for (var r = DATA_ROW; r <= ultima; r += 2) {
+        if (!(dades[r - 1][0] || '').toString().trim()) continue;
+        _escriuMitjana_(sh, r, _mitjanaFila_(hdr, meta, dades[r - 1], dades[r] || []));
+      }
     }
   }
   // Assegura que existeixen les columnes Mitjana i Nota
@@ -5505,7 +5512,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v232';
+var BACKEND_VERSIO = 'v233';
 
 var MAX_CELA = 45000;
 

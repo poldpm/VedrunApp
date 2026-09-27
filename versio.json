@@ -1,10 +1,10 @@
 {
-  "versio": "v232",
+  "versio": "v233",
   "data": "2026-09-16",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Crear una activitat de notes ja no triga: als fulls que arrosseguen milers de files buides, el servidor només mira les files amb alumne de debò.",
-    "Obrir unes notes també va més ràpid pel mateix motiu.",
+    "Crear una activitat de notes va molt més ràpid: el servidor ja no recalcula totes les mitjanes per una columna que encara és buida.",
+    "Als fulls amb milers de files buides, crear columnes i llegir notes ja no les arrossega.",
     "Crear i esborrar columnes no fa esperar la pantalla i no pot fer columnes duplicades."
   ]
 }
