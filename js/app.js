@@ -5861,6 +5861,9 @@ function _ajustosPlega() {
   return {
     enllacos: llegeix('enllacos_propis') || {},
     agendar:  llegeix('cal2_agendar') || [],
+    /* Les categories de tasques també són seves: van amb els ajustos i
+       així la segueixen a qualsevol ordinador (28/9/2026). */
+    tasquesCats: llegeix(TQ_CATS_CLAU) || [],
   };
 }
 function _ajustosDesa() {
@@ -5875,6 +5878,10 @@ function _ajustosAplica(a) {
       if (window.rubriques && typeof window.rubriques.pintaEnllacos === 'function') window.rubriques.pintaEnllacos();
     }
     if (a.agendar && a.agendar.length) localStorage.setItem('cal2_agendar', JSON.stringify(a.agendar));
+    if (Array.isArray(a.tasquesCats)) {
+      localStorage.setItem(TQ_CATS_CLAU, JSON.stringify(a.tasquesCats));
+      if (typeof tqRenderFiltres === 'function') tqRenderFiltres();
+    }
   } catch (e) {}
 }
 
@@ -6333,11 +6340,78 @@ function deleteCal2Cat(i) {
    Google Tasks: via Apps Script (getGoogleTasks)
    ============================================================ */
 
-const TQ_CATS = {
-  tutoria:     { nom: 'Tutoria',      color: '#8B5CF6', bg: '#EDE9FE' },
-  comunicacio: { nom: 'Comunicació',  color: '#3B82F6', bg: '#DBEAFE' },
-  altres:      { nom: 'Altres',       color: '#6B7280', bg: '#F3F4F6' },
-};
+/* ⚠ LES CATEGORIES DE TASQUES ERAN LES D'EN POL, PER A TOTHOM.
+
+   En Pol, 28/9/2026, en instal·lar l'app a l'Aida i a la Laura: «a les
+   tasques els hi surten les meves categories (tutor, comunicació…). Això no
+   pot ser». Estaven escrites a mà aquí i a l'index.html, o sigui que cada
+   mestra heretava les seves: una especialista veia «Tutoria», que no en té.
+
+   Ara cada mestra té les SEVES: comença sense cap i se'n fa les que vulgui.
+   Van amb els altres ajustos propis (`saveAjustosPropis`), o sigui que la
+   segueixen de navegador en navegador i NO calia cap acció nova al servidor.
+
+   Les que ja estan en ús a les seves tasques hi surten encara que no les
+   hagi declarat: així a qui ja en tenia (en Pol) no li desapareix res. */
+const TQ_CATS_CLAU = 'tq_cats';
+const TQ_COLORS = [
+  { color: '#8B5CF6', bg: '#EDE9FE' }, { color: '#3B82F6', bg: '#DBEAFE' },
+  { color: '#059669', bg: '#D1FAE5' }, { color: '#D97706', bg: '#FEF3C7' },
+  { color: '#DB2777', bg: '#FCE7F3' }, { color: '#0369A1', bg: '#E0F2FE' },
+  { color: '#B91C1C', bg: '#FEE2E2' }, { color: '#6B7280', bg: '#F3F4F6' },
+];
+/* El color surt del nom: la mateixa categoria té sempre el mateix color,
+   encara que en canviï l'ordre o se n'esborri una del mig. */
+function _tqColor(clau) {
+  let h = 0;
+  for (let i = 0; i < clau.length; i++) h = ((h * 31) + clau.charCodeAt(i)) | 0;
+  return TQ_COLORS[Math.abs(h) % TQ_COLORS.length];
+}
+function _tqClau(nom) {
+  return String(nom || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+function tqCatsLlegeix() {
+  let seves = [];
+  try { seves = JSON.parse(localStorage.getItem(TQ_CATS_CLAU) || '[]'); } catch (e) { seves = []; }
+  if (!Array.isArray(seves)) seves = [];
+  return seves.filter(c => c && c.clau && c.nom);
+}
+function tqCatsDesa(llista) {
+  try { localStorage.setItem(TQ_CATS_CLAU, JSON.stringify(llista)); } catch (e) {}
+  if (typeof _ajustosDesa === 'function') _ajustosDesa();
+}
+/* Les tres d'abans, perquè a qui ja les tenia no se li vegin escrites a
+   mitges («Comunicacio» sense accent). Només són un rètol: si les vol
+   canviar o treure, ho fa com amb qualsevol altra. */
+const TQ_NOMS_VELLS = { tutoria: 'Tutoria', comunicacio: 'Comunicació', altres: 'Altres' };
+
+/* Les seves + les que ja estiguin en ús a alguna tasca. */
+function tqCatsTotes() {
+  const out = tqCatsLlegeix().slice();
+  const teEs = c => out.some(x => x.clau === c);
+  let items = [];
+  try { items = tqLoad(); } catch (e) { items = []; }
+  items.forEach(t => {
+    const c = String(t.cat || '').trim();
+    if (c && !teEs(c)) {
+      out.push({ clau: c, nom: TQ_NOMS_VELLS[c] || (c.charAt(0).toUpperCase() + c.slice(1).replace(/-/g, ' ')),
+                 heretada: true });
+    }
+  });
+  return out;
+}
+/* Compatible amb el codi que feia `TQ_CATS[t.cat]`: ara es calcula. */
+const TQ_CATS = new Proxy({}, {
+  get(_, clau) {
+    if (typeof clau !== 'string') return undefined;
+    const c = tqCatsTotes().find(x => x.clau === clau);
+    if (!c) return undefined;
+    return Object.assign({ nom: c.nom }, _tqColor(c.clau));
+  },
+  has(_, clau) { return tqCatsTotes().some(x => x.clau === clau); },
+});
 
 let _tqFilter     = 'all';
 let _tqEditId     = null;
@@ -6384,6 +6458,7 @@ function tqSave(items) {
 
 /* --- Render --- */
 function renderTasques() {
+  tqRenderFiltres();      // les categories són de cada mestra: es pinten aquí
   _renderTqList();
   loadGoogleTasks();
   updateTasquesBadge();
@@ -6433,7 +6508,7 @@ function _renderTqList() {
   }
 
   list.innerHTML = items.map(t => {
-    const cat     = TQ_CATS[t.cat] || TQ_CATS.altres;
+    const cat     = TQ_CATS[t.cat] || { nom: "", color: "#6B7280", bg: "#F3F4F6" };
     const today   = new Date().toISOString().split('T')[0];
     const vencuda = t.data && t.data < today && !t.feta;
     const avui    = t.data === today && !t.feta;
@@ -6461,7 +6536,7 @@ function _renderTqList() {
         <div class="tq-item-titol">${escapeHtml(t.titol == null || t.titol === '' ? '(sense títol)' : t.titol)}</div>
         ${(t.desc != null && t.desc !== '')?`<div class="tq-item-desc">${escapeHtml(t.desc)}</div>`:''}
         <div class="tq-item-meta">
-          <span class="tq-cat-pill" style="background:${cat.bg};color:${cat.color}">${cat.nom}</span>
+          ${cat.nom?`<span class="tq-cat-pill" style="background:${cat.bg};color:${cat.color}">${escapeHtml(cat.nom)}</span>`:""}
           ${t.data?`<span class="tq-data${vencuda?' tq-data-vencuda':''}${avui?' tq-data-avui':''}">${vencuda?'⚠ ':''}${avui?'⏰ ':''}${dataStr}</span>`:''}
         </div>
       </div>
@@ -6478,8 +6553,131 @@ function netejarTasquesFetes() {
 function filterTasques(cat, btn) {
   _tqFilter = cat;
   document.querySelectorAll('.tq-filter').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   _renderTqList();
+}
+
+/* ─── Les categories de tasques de cada mestra ────────────────────────────
+   Els filtres i les opcions del quadre es pinten des d'aquí: abans eren
+   escrites a mà a l'index.html i totes les mestres heretaven les d'en Pol. */
+function tqRenderFiltres() {
+  const cont = document.getElementById('tasquesFilters');
+  if (!cont) return;
+  const cats = tqCatsTotes();
+  /* Si el filtre que hi havia triat ja no existeix, es torna a «Totes»: si
+     no, la llista es veuria buida sense que se sàpiga per què. */
+  if (_tqFilter !== 'all' && _tqFilter !== 'fetes' && !cats.some(c => c.clau === _tqFilter)) _tqFilter = 'all';
+  const botons = [`<button class="tq-filter${_tqFilter === 'all' ? ' active' : ''}" data-cat="all" onclick="filterTasques('all',this)">Totes</button>`];
+  cats.forEach(c => {
+    botons.push(`<button class="tq-filter${_tqFilter === c.clau ? ' active' : ''}" data-cat="${escapeHtml(c.clau)}" ` +
+                `onclick="filterTasques('${escapeHtml(c.clau).replace(/'/g, "\\'")}',this)">${escapeHtml(c.nom)}</button>`);
+  });
+  botons.push(`<button class="tq-filter tq-filter-fetes${_tqFilter === 'fetes' ? ' active' : ''}" data-cat="fetes" onclick="filterTasques('fetes',this)">✓ Fetes</button>`);
+  botons.push(`<button class="tq-filter" onclick="obreCatsTasques()" title="Les teves categories">⚙</button>`);
+  cont.innerHTML = botons.join('');
+}
+
+function tqRenderRadios(triada) {
+  const cont = document.getElementById('tascaCatBtns');
+  if (!cont) return;
+  const cats = tqCatsTotes();
+  const tria = triada === undefined ? '' : String(triada || '');
+  const opcions = [`<label class="tq-cat-opt"><input type="radio" name="tascaCat" value=""` +
+                   `${(!tria || !cats.some(c => c.clau === tria)) ? ' checked' : ''} aria-label="Categoria"> Sense categoria</label>`];
+  cats.forEach(c => {
+    opcions.push(`<label class="tq-cat-opt"><input type="radio" name="tascaCat" value="${escapeHtml(c.clau)}"` +
+                 `${tria === c.clau ? ' checked' : ''}> ${escapeHtml(c.nom)}</label>`);
+  });
+  cont.innerHTML = opcions.join('');
+}
+
+function obreCatsTasques() {
+  _tqRenderCatList();
+  document.getElementById('tqCatsOverlay').classList.add('open');
+  setTimeout(() => { const n = document.getElementById('tqCatNova'); if (n) n.focus(); }, 100);
+}
+function tancaCatsTasques() {
+  document.getElementById('tqCatsOverlay').classList.remove('open');
+  tqRenderFiltres();
+  tqRenderRadios(document.querySelector('input[name="tascaCat"]:checked')?.value || '');
+  _renderTqList();
+}
+
+function _tqQuantesTasques(clau) {
+  let items = [];
+  try { items = tqLoad(); } catch (e) { items = []; }
+  return items.filter(t => String(t.cat || '') === clau).length;
+}
+
+function _tqRenderCatList() {
+  const cont = document.getElementById('tqCatList');
+  if (!cont) return;
+  const cats = tqCatsTotes();
+  if (!cats.length) {
+    cont.innerHTML = '<p class="modal-nota">Encara no en tens cap. Les tasques es poden fer igualment: ' +
+                     'la categoria és opcional i només serveix per filtrar-les.</p>';
+    return;
+  }
+  cont.innerHTML = cats.map((c, i) => {
+    const n = _tqQuantesTasques(c.clau);
+    const col = _tqColor(c.clau);
+    return `<div class="cal2-cat-fila">
+      <span class="tq-cat-pill" style="background:${col.bg};color:${col.color};min-width:14px">&nbsp;</span>
+      <input type="text" class="modal-input cal2-cat-nom" value="${escapeHtml(c.nom)}" maxlength="24"
+             aria-label="Nom de la categoria" onchange="reanomenaCatTasca(${i}, this.value)">
+      <span class="cal2-cat-us" title="Tasques que la fan servir">${n || ''}</span>
+      <button class="cal2-agendar-del" onclick="esborraCatTasca(${i})" title="Treure-la" aria-label="Treure la categoria ${escapeHtml(c.nom)}">×</button>
+    </div>`;
+  }).join('');
+}
+
+function afegeixCatTasca() {
+  const camp = document.getElementById('tqCatNova');
+  const nom = (camp.value || '').trim();
+  if (!nom) { camp.focus(); return; }
+  const clau = _tqClau(nom);
+  if (!clau) { showToast('Aquest nom no es pot fer servir. Prova amb lletres i números.', 'error'); return; }
+  if (tqCatsTotes().some(c => c.clau === clau)) { showToast('Ja en tens una que es diu així.', 'error'); camp.select(); return; }
+  const seves = tqCatsLlegeix();
+  seves.push({ clau: clau, nom: nom });
+  tqCatsDesa(seves);
+  camp.value = '';
+  _tqRenderCatList(); tqRenderFiltres();
+  camp.focus();
+}
+
+function reanomenaCatTasca(i, nom) {
+  const totes = tqCatsTotes();
+  const c = totes[i];
+  if (!c) return;
+  nom = (nom || '').trim();
+  if (!nom) { _tqRenderCatList(); return; }
+  const seves = tqCatsLlegeix();
+  const j = seves.findIndex(x => x.clau === c.clau);
+  /* Les heretades (les que només són a alguna tasca) es declaren en tocar-les:
+     així deixen de dependre que hi hagi cap tasca que les faci servir. */
+  if (j >= 0) seves[j].nom = nom; else seves.push({ clau: c.clau, nom: nom });
+  tqCatsDesa(seves);
+  _tqRenderCatList(); tqRenderFiltres();
+}
+
+function esborraCatTasca(i) {
+  const totes = tqCatsTotes();
+  const c = totes[i];
+  if (!c) return;
+  const n = _tqQuantesTasques(c.clau);
+  if (n && !confirm('Hi ha ' + n + ' tasca' + (n > 1 ? 'ques' : '') + ' amb la categoria «' + c.nom + '».\n\n' +
+                    'Si la treus, aquesta' + (n > 1 ? 'es tasques es queden' : ' tasca es queda') +
+                    ' sense categoria. No se n\'esborra cap.\n\nVols treure-la?')) return;
+  tqCatsDesa(tqCatsLlegeix().filter(x => x.clau !== c.clau));
+  /* I les tasques que la feien servir es queden sense categoria, si no
+     tornaria a sortir com a «heretada» i no hi hauria manera de treure-la. */
+  if (n) {
+    const items = tqLoad();
+    items.forEach(t => { if (String(t.cat || '') === c.clau) t.cat = ''; });
+    tqSave(items);
+  }
+  _tqRenderCatList(); tqRenderFiltres(); _renderTqList();
 }
 
 function toggleTasca(id) {
@@ -6503,13 +6701,15 @@ function openTasca(id) {
       document.getElementById('tascaTitol').value = t.titol || '';
       document.getElementById('tascaDesc').value  = t.desc  || '';
       document.getElementById('tascaData').value  = t.data  || '';
-      document.querySelectorAll('input[name="tascaCat"]').forEach(r => r.checked = r.value === t.cat);
+      tqRenderRadios(t.cat || '');
     }
   } else {
     document.getElementById('tascaTitol').value = '';
     document.getElementById('tascaDesc').value  = '';
     document.getElementById('tascaData').value  = '';
-    document.querySelector('input[name="tascaCat"][value="tutoria"]').checked = true;
+    /* Sense categoria per defecte: abans hi venia «Tutoria» marcada, que no
+       vol dir res per a una especialista ni per a direcció. */
+    tqRenderRadios('');
   }
   document.getElementById('tascaOverlay').classList.add('open');
   setTimeout(() => document.getElementById('tascaTitol').focus(), 100);
@@ -6520,7 +6720,7 @@ function closeTasca() { document.getElementById('tascaOverlay').classList.remove
 function saveTasca() {
   const titol = document.getElementById('tascaTitol').value.trim();
   if (!titol) { showToast('Posa-li un títol a la tasca', 'error'); document.getElementById('tascaTitol').focus(); return; }
-  const cat   = document.querySelector('input[name="tascaCat"]:checked').value;
+  const cat   = document.querySelector('input[name="tascaCat"]:checked')?.value || '';
   const items = tqLoad();
   if (_tqEditId) {
     const t = items.find(i => i.id === _tqEditId);

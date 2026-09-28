@@ -1,9 +1,10 @@
 {
-  "versio": "v243",
-  "data": "2026-09-27",
+  "versio": "v244",
+  "data": "2026-09-28",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El camp mèdic ja no llegeix les pestanyes «Còpia de…» del full de direcció. Eren 45 còpies velles al costat de les 6 bones: per això cada cosa sortia repetida vint vegades, i una al·lèrgia esborrada podia tornar a aparèixer.",
-    "I si al full hi ha la mateixa línia dues vegades, a la fitxa hi surt un sol cop."
+    "Les categories de les tasques ara són TEVES: comences sense cap i et fas les que et vagin bé (Reunions, Material, Correus…). Abans sortien les d'en Pol a tothom, i a qui no té tutoria li sortia «Tutoria».",
+    "Es gestionen amb el botó ⚙ de Tasques: afegir-ne, canviar-los el nom o treure'n. Si en treus una, les tasques que la feien servir es queden sense categoria i no se n'esborra cap.",
+    "La categoria ha passat a ser opcional: una tasca pot no tenir-ne."
   ]
 }

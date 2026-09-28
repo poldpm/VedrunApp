@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v243">
+  <link rel="stylesheet" href="css/main.css?v=v244">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -474,13 +474,9 @@ Català, Matemàtiques, Anglès, Medi, Català
         <!-- Columna principal -->
         <div class="tasques-main">
           <div class="tasques-topbar">
-            <div class="tasques-filters" id="tasquesFilters">
-              <button class="tq-filter active" data-cat="all" onclick="filterTasques('all',this)">Totes</button>
-              <button class="tq-filter" data-cat="tutoria" data-rol-tutoria onclick="filterTasques('tutoria',this)">Tutoria</button>
-              <button class="tq-filter" data-cat="comunicacio" onclick="filterTasques('comunicacio',this)">Comunicació</button>
-              <button class="tq-filter" data-cat="altres" onclick="filterTasques('altres',this)">Altres</button>
-              <button class="tq-filter tq-filter-fetes" data-cat="fetes" onclick="filterTasques('fetes',this)">✓ Fetes</button>
-            </div>
+            <!-- Els filtres de categoria els pinta tqRenderFiltres(): cada
+                 mestra té les seves i comença sense cap. -->
+            <div class="tasques-filters" id="tasquesFilters"></div>
             <button class="btn btn-ghost btn-sm" id="tqNeteja" onclick="netejarTasquesFetes()" style="display:none;color:#EF4444;border-color:#FECACA">🗑 Netejar fetes</button>
             <button class="btn btn-primary btn-sm" onclick="openTasca(null)">+ Nova tasca</button>
           </div>
@@ -514,17 +510,11 @@ Català, Matemàtiques, Anglès, Medi, Català
           </div>
           <div class="modal-field">
             <div class="modal-label">Categoria</div>
-            <div class="tq-cat-btns">
-              <label class="tq-cat-opt" data-rol-tutoria>
-                <input type="radio" name="tascaCat" value="tutoria" checked aria-label="Categoria"> Tutoria
-              </label>
-              <label class="tq-cat-opt">
-                <input type="radio" name="tascaCat" value="comunicacio"> Comunicació
-              </label>
-              <label class="tq-cat-opt">
-                <input type="radio" name="tascaCat" value="altres"> Altres
-              </label>
-            </div>
+            <!-- Les pinta tqRenderRadios() amb les categories d'aquesta
+                 mestra. Si no en té cap, hi surt només «Sense categoria». -->
+            <div class="tq-cat-btns" id="tascaCatBtns"></div>
+            <button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px"
+                    onclick="obreCatsTasques()">Gestionar les categories…</button>
           </div>
           <div class="modal-field">
             <div class="modal-label">Data límit (opcional)</div>
@@ -535,6 +525,39 @@ Català, Matemàtiques, Anglès, Medi, Català
           <button class="btn btn-ghost" id="tascaDelBtn" onclick="deleteTasca()" style="display:none">Eliminar</button>
           <button class="btn btn-secondary" onclick="closeTasca()">Cancel·lar</button>
           <button class="btn btn-primary" onclick="saveTasca()">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: les categories de tasques d'aquesta mestra -->
+    <div class="modal-overlay" id="tqCatsOverlay" onclick="if(event.target===this)tancaCatsTasques()">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+          <div>
+            <div class="modal-header-title">Les teves categories de tasques</div>
+            <div class="modal-header-sub">Són només teves. Pots afegir-ne, canviar-los el nom o treure-les.</div>
+          </div>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="tancaCatsTasques()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="tqCatList" style="margin-bottom:16px"></div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <div class="modal-field" style="flex:1;margin-bottom:0">
+              <div class="modal-label">Afegir-ne una</div>
+              <input class="modal-input" id="tqCatNova" type="text" maxlength="24"
+                     placeholder="Ex: Reunions" aria-label="Nom de la categoria nova"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();afegeixCatTasca();}">
+            </div>
+            <button class="btn btn-primary" onclick="afegeixCatTasca()">Afegir</button>
+          </div>
+          <p class="modal-nota" style="margin-top:12px">
+            Si treus una categoria, les tasques que la feien servir es queden sense categoria: no se n'esborra cap.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="tancaCatsTasques()">Fet</button>
         </div>
       </div>
     </div>
@@ -2259,34 +2282,34 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v243"></script>
-  <script defer src="js/pdfhorari.js?v=v243"></script>
-  <script defer src="js/millores.js?v=v243"></script>
-  <script defer src="js/rol.js?v=v243"></script>
-  <script defer src="js/config.local.js?v=v243"></script>
-  <script defer src="js/app.js?v=v243"></script>
-  <script defer src="js/notes.js?v=v243"></script>
-  <script defer src="js/seients.js?v=v243"></script>
-  <script defer src="js/perfil.js?v=v243"></script>
-  <script defer src="js/grupview.js?v=v243"></script>
-  <script defer src="js/postits.js?v=v243"></script>
-  <script defer src="js/horari.js?v=v243"></script>
-  <script defer src="js/vedrunu.js?v=v243"></script>
-  <script defer src="js/gwrite.js?v=v243"></script>
-  <script defer src="js/rubriques.js?v=v243"></script>
-  <script defer src="js/docents.js?v=v243"></script>
-  <script defer src="js/coordinacio.js?v=v243"></script>
-  <script defer src="js/regdocents.js?v=v243"></script>
-  <script defer src="js/segentrevistes.js?v=v243"></script>
-  <script defer src="js/entrevistes.js?v=v243"></script>
-  <script defer src="js/notescomp.js?v=v243"></script>
-  <script defer src="js/reunions.js?v=v243"></script>
-  <script defer src="js/versio.js?v=v243"></script>
+  <script defer src="js/espera.js?v=v244"></script>
+  <script defer src="js/pdfhorari.js?v=v244"></script>
+  <script defer src="js/millores.js?v=v244"></script>
+  <script defer src="js/rol.js?v=v244"></script>
+  <script defer src="js/config.local.js?v=v244"></script>
+  <script defer src="js/app.js?v=v244"></script>
+  <script defer src="js/notes.js?v=v244"></script>
+  <script defer src="js/seients.js?v=v244"></script>
+  <script defer src="js/perfil.js?v=v244"></script>
+  <script defer src="js/grupview.js?v=v244"></script>
+  <script defer src="js/postits.js?v=v244"></script>
+  <script defer src="js/horari.js?v=v244"></script>
+  <script defer src="js/vedrunu.js?v=v244"></script>
+  <script defer src="js/gwrite.js?v=v244"></script>
+  <script defer src="js/rubriques.js?v=v244"></script>
+  <script defer src="js/docents.js?v=v244"></script>
+  <script defer src="js/coordinacio.js?v=v244"></script>
+  <script defer src="js/regdocents.js?v=v244"></script>
+  <script defer src="js/segentrevistes.js?v=v244"></script>
+  <script defer src="js/entrevistes.js?v=v244"></script>
+  <script defer src="js/notescomp.js?v=v244"></script>
+  <script defer src="js/reunions.js?v=v244"></script>
+  <script defer src="js/versio.js?v=v244"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v243"></script>
+  <script defer src="js/personal.js?v=v244"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
