@@ -5580,3 +5580,47 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
 }
 .plan-cell-especial .plan-cell-mena { color: #92400E; }
 .plan-cell-sortida  .plan-cell-mena { color: #065F46; }
+
+/* ============================================================
+   L'iPHONE FEIA ZOOM SOL I L'APP ES QUEDAVA GRAN
+   ------------------------------------------------------------
+   EN POL, 28/9/2026, INSTAL·LANT L'APP A L'AIDA (iPhone 16):
+   «no és 100% responsiva, és massa grossa per la pantalla i té
+   un scroll vertical i horitzontal permanent».
+
+   No era el disseny: a 393 px cap pantalla no desborda (provat
+   pantalla per pantalla). El que passa és de l'iOS:
+
+     Quan toques un camp de text amb la lletra per sota de 16 px,
+     el Safari de l'iPhone FA ZOOM SOL per poder-lo llegir. I no
+     el desfà: la pàgina es queda gran, i des d'aquell moment hi
+     ha scroll horitzontal a tot arreu.
+
+   Hi havia 17 regles de camps per sota de 16 px (13 px, 12,5
+   px…). Prou petites per disparar-ho a la primera cerca d'un
+   alumne o a la primera observació.
+
+   LA SORTIDA QUE NO ES POT FER SERVIR: posar `maximum-scale=1`
+   al viewport. Ho arreglaria, però impedeix fer zoom amb els
+   dits a qui el necessita per veure-hi. No es toca.
+
+   Això només val per als aparells de dit: amb ratolí, la lletra
+   dels camps es queda com estava. El `!important` hi és perquè
+   les regles d'origen van per classe i si no no guanyaríem;
+   és a posta i només aquí.
+   ============================================================ */
+@media (hover: none), (pointer: coarse) {
+  input, select, textarea,
+  input[type="text"], input[type="number"], input[type="date"],
+  input[type="time"], input[type="search"], input[type="email"],
+  input[type="tel"], input[type="password"], input[type="url"] {
+    font-size: 16px !important;
+  }
+  /* Els camps de dins d'una taula no poden créixer d'amplada per la
+     lletra: que s'ajustin a la cel·la i no eixamplin la fila. */
+  .reg-text-input, .actitud-input, .notes-input-punt { max-width: 100%; }
+}
+
+/* L'iOS engrandeix la lletra ell sol quan es gira l'aparell, i llavors
+   allò que hi cabia deixa de cabre-hi. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
