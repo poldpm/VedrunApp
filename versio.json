@@ -1,10 +1,11 @@
 {
-  "versio": "v250",
+  "versio": "v251",
   "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
     "Especialistes i direcció: al perfil ara s'afegeix el CURS (1r, 2n… 6è) i no pas el grup. Marques les assignatures que hi fas i, a cada una, dius on la fas: A, B o C, i pots marcar-ne més d'una (Educació física a 3r A i a 3r B, per exemple).",
     "Si aquella assignatura va per desdoblament, al costat de les lletres hi surten també els grups del desdoblament (o el grup rotatori, com el Tallers) per triar el teu. Si no en té, només hi veuràs A, B i C.",
+    "I si no en surt cap enlloc, ara l'app diu per què: que encara no està connectada, que el servidor no sap quin és el full de Desdoblaments, o que no s'hi ha pogut arribar. Abans callava i semblava que cap assignatura no es desdoblés.",
     "Una assignatura marcada que encara no digui on la fas surt en groc, i en desar el perfil l'app t'ho reclama: sense lletra ni grup no se sabria de quins alumnes parles."
   ]
 }

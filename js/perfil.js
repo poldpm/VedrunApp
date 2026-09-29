@@ -291,6 +291,32 @@ function _perfilRenderGrupsEspecialista() {
   const cursos = _perfilCursosEsp();
   let html = '';
 
+  /* Si alguna cosa impedeix saber els desdoblaments, es diu UN cop a dalt
+     de tot: afecta totes les assignatures, no cap en particular. */
+  const problemes = [];
+  /* ⚠ SENSE CONNEXIÓ NO ES POT SABER, I S'HA DE DIR (29/9/2026).
+     En Pol, provant-ho a una app acabada d'instal·lar: «hi ha assignatures
+     que tenen grup de desdoblaments i no surt… no surt ni a tallers». No
+     estava connectada: l'app no pot preguntar res al full de l'escola, i
+     fins ara s'ho callava i ensenyava només A, B i C, com si cap
+     assignatura no es desdoblés. */
+  if (!config.scriptUrl && cursos.length) {
+    problemes.push('Aquesta app encara no està connectada al servidor, o sigui que no pot saber ' +
+                   'quines assignatures van per desdoblament: de moment només et pot oferir A, B i C. ' +
+                   'Connecta-la a Configuració i torna a obrir el perfil.');
+  }
+  cursos.forEach(curs => {
+    _perfilAssigsDelCurs(curs).forEach(a => {
+      if (!_perfilAssigMarcada(curs, a)) return;
+      const p = _desdobProblema(curs, a);
+      if (p && problemes.indexOf(p) === -1) problemes.push(p);
+    });
+  });
+  if (problemes.length) {
+    html += '<div class="grups-avis grups-avis-warn" role="status">' +
+            problemes.map(p => escapeHtml(p)).join('<br>') + '</div>';
+  }
+
   cursos.forEach(curs => {
     const assigs = _perfilAssigsDelCurs(curs);
     const chips = assigs.map(a => {
@@ -1368,15 +1394,68 @@ async function _desdobSetGrup(curs, assig, grup) {
 }
 
 // Carrega (i cacheja) la llista de grups d'un bloc de desdoblament.
+/* ⚠ QUAN NO HI HA GRUPS, EL PERQUÈ IMPORTA (29/9/2026).
+
+   En Pol, provant el perfil nou: «hi ha assignatures que tenen grup de
+   desdoblaments i no surt… no surt ni a tallers». Aquí es veia igual un
+   «aquesta assignatura no va per desdoblament» que un «no he pogut ni
+   mirar-ho»: les dues coses deixaven la llista buida i la pantalla
+   ensenyava només A, B i C, sense dir res.
+
+   El servidor sí que ho diu, al camp `motiu`: si no sap quin és el full
+   de Desdoblaments, si no hi ha pestanya d'aquell curs, o si no hi troba
+   el bloc de l'assignatura. Els dos primers casos i una crida fallada
+   afecten TOTES les assignatures i s'han de dir; el tercer és el cas
+   normal d'una assignatura que no es desdobla i no s'ha de dir res. */
+let _desdobMotius = {};   // "curs|assig" → { motiu, fallat }
+
 async function _desdobCarregaGrups(curs, assig) {
   const k = _desdobMapKey(curs, assig);
   if (_desdobGrupsCache[k]) return _desdobGrupsCache[k];
+  /* Sense connexió no s'hi apunta cap motiu: la pantalla del perfil es
+     pinta abans que la configuració arribi, i deixar-hi un avís aquí el
+     faria sortir a qui només va un pèl lent de connexió. */
   if (!config.scriptUrl) return [];
   try {
     const r = await appsScriptGet({ action: 'getDesdobGrups', curs: curs, assignatura: assig });
-    _desdobGrupsCache[k] = (r && r.ok && Array.isArray(r.grups)) ? r.grups : [];
-  } catch(e) { _desdobGrupsCache[k] = []; }
+    /* ⚠ `appsScriptGet` NO llança mai: quan falla torna `{ok:false}`. Sense
+       mirar-ho, una lectura fallada es guardava com «no en té». */
+    if (!r || r.ok === false) {
+      _desdobMotius[k] = { fallat: true, motiu: (r && r.error) || 'el servidor no ha contestat' };
+      _desdobGrupsCache[k] = [];
+    } else {
+      _desdobGrupsCache[k] = Array.isArray(r.grups) ? r.grups : [];
+      _desdobMotius[k] = { fallat: false, motiu: r.motiu || '' };
+    }
+  } catch(e) {
+    _desdobMotius[k] = { fallat: true, motiu: (e && e.message) || 'error desconegut' };
+    _desdobGrupsCache[k] = [];
+  }
   return _desdobGrupsCache[k];
+}
+
+/* Si no hi ha grups, què ho impedeix? Torna una frase per a la mestra, o
+   null quan simplement aquella assignatura no va per desdoblament. */
+function _desdobProblema(curs, assig) {
+  const k = _desdobMapKey(curs, assig);
+  if ((_desdobGrupsCache[k] || []).length) return null;
+  const m = _desdobMotius[k];
+  if (!m) return null;
+  if (m.fallat) {
+    return 'No s\'ha pogut preguntar al servidor quins grups de desdoblament hi ha (' +
+           m.motiu + '). El que veus no vol dir que no n\'hi hagi.';
+  }
+  const t = (m.motiu || '').toLowerCase();
+  if (t.indexOf('sense full') !== -1) {
+    return 'Aquesta app no sap quin és el full de Desdoblaments de l\'escola, o sigui que no pot ' +
+           'saber quines assignatures es desdoblen. S\'arregla a Configuració → Fulls de l\'escola.';
+  }
+  if (t.indexOf('sense pestanya') !== -1) {
+    return 'Al full de Desdoblaments no hi ha cap pestanya per a ' + curs +
+           ' (hi hauria de dir «Desdoblaments ' + curs + ' (26-27)»), o sigui que d\'aquest curs no ' +
+           'se\'n pot oferir cap grup.';
+  }
+  return null;   // «no trobo el bloc»: aquesta assignatura no es desdobla
 }
 
 // Carrega els alumnes del grup ACTUAL i els aplica (students/personal).
