@@ -7586,14 +7586,20 @@ function _renderHomeAvui() {
     }
     if (data.assig || data.alerta) {
       const col = _assigColor(data.assig);
+      /* ⚠ A la portada el resum del dia ha de ser d'una línia: si el subtext
+         en té més d'una (des del 29/9/2026 s'hi pot fer Enter), `_planSubUnaLinia`
+         les ajunta amb un punt volat en comptes d'estirar la fila.
+
+         ⚠⚠ I AQUEST COMENTARI VA AQUÍ, NO A DINS DE L'HTML DE SOTA. El
+         29/9/2026 es va escriure dins de la cadena `...` i, com que allà
+         dins un comentari no és un comentari sinó text, el comentari sencer
+         sortia imprès a CADA franja de la portada d'en Pol. Ho va veure ell
+         a la pantalla d'inici. Ara ho busca `eines/comprova-controls.js`. */
       html += `<div class="home-franja">
         <span class="home-franja-hora">${f.hora}</span>
         <div class="home-franja-body">
           ${data.alerta?`<span class="home-franja-alerta">⚠ ${escapeHtml(data.alerta)}</span>`:''}
           <span class="home-franja-pill" style="background:${col.bg};color:${col.color}">${escapeHtml(data.assig||'')}</span>
-          /* A la portada el resum del dia ha de ser d'una línia: si el subtext en
-             té més d'una (des del 29/9/2026 s'hi pot fer Enter), s'ajunten amb un
-             punt volat en comptes d'estirar la fila. */
           ${data.sub?`<span class="home-franja-sub">${escapeHtml(_planSubUnaLinia(data.sub))}</span>`:''}
         </div>
         ${data.link?`<a class="home-franja-link" href="${_enllacSegur(data.link)}" target="_blank">📄</a>`:''}

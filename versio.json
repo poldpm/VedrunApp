@@ -1,8 +1,8 @@
 {
-  "versio": "v255",
+  "versio": "v256",
   "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Rúbriques d'avaluació (per a qui tingui l'eina): al registre de notes, la columna que ve d'una rúbrica porta un botó «rúbrica» a la capçalera que t'obre la graella d'aquella activitat. Abans hi havies de tornar per Eines."
+    "Arreglat: a la pantalla d'inici, sota cada franja del dia hi sortia imprès un text intern de l'app («A la portada el resum del dia ha de ser d'una línia…»). Era un error nostre de la v249 i no tocava res del que tinguis escrit: la descripció breu de cada franja torna a sortir com ha de ser."
   ]
 }
