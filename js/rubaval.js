@@ -436,6 +436,7 @@
     copia: copia,
     clau: clau,
     llegeix: llegeix,
+    desaLocal: desaLocal,
     desa: desa,
     carrega: carrega,
   };

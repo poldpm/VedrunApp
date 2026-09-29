@@ -77,6 +77,15 @@
 
   ui.obrePagina = function () {
     if (!_hiEs()) return;
+    /* Si en surt i hi torna, es comença per la llista (i el que estigués
+       avaluant es desa abans de marxar, no quan l'app tanqui). */
+    if (_avaluant) { desaAra(); _avaluant = null; _avAlumnes = []; }
+    var av = byId('rubavalAvalua');
+    if (av) { av.innerHTML = ''; av.style.display = 'none'; }
+    if (byId('rubavalLlista')) byId('rubavalLlista').style.display = '';
+    if (byId('rubavalPicker')) byId('rubavalPicker').style.display = '';
+    var _nova = document.querySelector('#page-rubaval .postits-header .btn-primary');
+    if (_nova) _nova.style.display = '';
     _trim = _trimestreInicial();
     var entr = _entrades();
     if (entr.length) {
@@ -180,11 +189,13 @@
           '</div>' +
         '</div>' +
         '<div class="rubaval-fila-botons">' +
+          '<button class="btn btn-secondary" data-fes="avaluar">Avaluar</button>' +
           '<button class="btn btn-ghost" data-fes="editar">Editar</button>' +
           '<button class="btn btn-ghost" data-fes="copiar" title="Fer-ne una còpia per a un altre grup">Copiar</button>' +
           '<button class="btn btn-ghost rubaval-esborrar" data-fes="esborrar" aria-label="Esborrar la rúbrica ' +
             esc(r.nom) + '">Esborrar</button>' +
         '</div>';
+      fila.querySelector('[data-fes="avaluar"]').addEventListener('click', function () { obreAvaluacio(r.id); });
       fila.querySelector('[data-fes="editar"]').addEventListener('click', function () { obreEditor(r.id); });
       fila.querySelector('[data-fes="copiar"]').addEventListener('click', function () { copiaRubrica(r.id); });
       fila.querySelector('[data-fes="esborrar"]').addEventListener('click', function () { esborraRubrica(r.id); });
@@ -610,6 +621,327 @@
 
   /* ================= EL QUE VEU LA RESTA DE L'APP ================= */
 
+  /* ============================================================
+     AVALUAR
+     ------------------------------------------------------------
+     La part que es fa servir de debò: una rúbrica s'escriu un cop
+     i s'avalua vint-i-cinc vegades. Per això aquí tot va cap a
+     estalviar clics:
+
+       · els nivells són números (1 és el de dalt) i hi ha la
+         llegenda a sobre: un clic, sense desplegables;
+       · amb el teclat, les fletxes es mouen i els números avaluen;
+       · «tots» posa el mateix nivell a tota una columna, que és
+         com s'avalua de debò: el nivell de la majoria i després
+         les excepcions;
+       · la nota de cada alumne es veu mentre es clica.
+
+     I no toca el servidor a cada clic: es desa al navegador de
+     seguida i al full un segon i mig després de l'últim canvi.
+     Amb una crida per casella, avaluar seria una espera contínua
+     (és el que ja va passar amb les notes, el 16/9/2026).
+     ============================================================ */
+
+  var _avaluant = null;     // la rúbrica que s'està avaluant
+  var _avAlumnes = [];        // els alumnes del grup d'aquesta rúbrica
+  var _desaTimer = null;
+
+  function _nomDeMostra(a) { return a.nom || ''; }
+
+  /* Desa de seguida al navegador i, al cap d'un moment, al full.
+     Si es tanca l'avaluació o l'app abans, es força (veure `tancaAvaluacio`). */
+  function desaAviat() {
+    if (!_entrada) return;
+    RubAval.desaLocal(_entrada.key, _trim, _llista);
+    if (_desaTimer) clearTimeout(_desaTimer);
+    _desaTimer = setTimeout(function () {
+      _desaTimer = null;
+      RubAval.desa(_entrada.key, _trim, _llista);
+    }, 1500);
+  }
+  function desaAra() {
+    if (_desaTimer) { clearTimeout(_desaTimer); _desaTimer = null; }
+    if (_entrada) RubAval.desa(_entrada.key, _trim, _llista);
+  }
+
+  /* Els alumnes que toquen: els d'aquell grup, i mig grup si l'assignatura
+     va per desdoblament. És el mateix camí que fan els registres i les
+     observacions; si es fes d'una altra manera, una especialista acabaria
+     avaluant nens que no té. */
+  async function carregaAlumnes(e) {
+    if (typeof students === 'undefined') return [];
+    var curs = e.curs || String(e.grup || '').split(' ')[0];
+    try {
+      if (!e.altres && typeof _desdobCarregaGrups === 'function') {
+        try { await _desdobCarregaGrups(curs, e.nom); } catch (err) {}
+      }
+      var teDesdob = !e.altres && typeof _desdobOpcions === 'function' &&
+                     _desdobOpcions(curs, e.nom).desdob;
+      if (e.altres || teDesdob) {
+        if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(curs, e.nom);
+      } else {
+        var tutor = (typeof _grupDeTreball === 'function') ? _grupDeTreball() : null;
+        if (tutor && e.grup === tutor && typeof _restoreTutoriaStudents === 'function') {
+          _restoreTutoriaStudents();
+        } else if (typeof _ensureGrupStudents === 'function') {
+          await _ensureGrupStudents(e.grup, e.key);
+        }
+      }
+    } catch (err) {}
+    return students.slice();
+  }
+
+  async function obreAvaluacio(id) {
+    var r = _llista.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    _avaluant = r;
+    _avAlumnes = [];
+    pintaAvaluacio(true);             // de seguida, dient que busca els alumnes
+    _avAlumnes = await carregaAlumnes(_entrada);
+    if (_avaluant !== r) return;      // ha canviat de pantalla mentrestant
+    pintaAvaluacio(false);
+  }
+
+  function tancaAvaluacio() {
+    desaAra();
+    _avaluant = null;
+    _avAlumnes = [];
+    byId('rubavalAvalua').innerHTML = '';
+    byId('rubavalAvalua').style.display = 'none';
+    byId('rubavalLlista').style.display = '';
+    byId('rubavalPicker').style.display = '';
+    var nova = document.querySelector('#page-rubaval .postits-header .btn-primary');
+    if (nova) nova.style.display = '';
+    pintaLlista();
+  }
+
+  function _esMobil() {
+    try { return window.matchMedia('(max-width: 760px)').matches; } catch (e) { return false; }
+  }
+
+  function pintaAvaluacio(carregant) {
+    var cont = byId('rubavalAvalua');
+    if (!cont || !_avaluant) return;
+    byId('rubavalLlista').style.display = 'none';
+    byId('rubavalPicker').style.display = 'none';
+    var nova = document.querySelector('#page-rubaval .postits-header .btn-primary');
+    if (nova) nova.style.display = 'none';
+    cont.style.display = '';
+
+    var r = _avaluant;
+    var notes = RubAval.notesDe(r, _avAlumnes);
+    var ambNota = Object.keys(notes).filter(function (k) { return notes[k].nota !== null; });
+    var mitjana = ambNota.length
+      ? Math.round(ambNota.reduce(function (s, k) { return s + notes[k].nota; }, 0) / ambNota.length * 10) / 10
+      : null;
+
+    cont.innerHTML =
+      '<div class="rav-av-cap">' +
+        '<button class="btn btn-ghost" id="ravAvTorna">← Rúbriques</button>' +
+        '<div class="rav-av-titol"><strong>' + esc(r.nom) + '</strong>' +
+          '<span>' + esc(_entrada.label) + ' · ' + esc(_trimLabel()) + '</span></div>' +
+        '<div class="rav-av-compte">' +
+          (carregant ? 'Buscant els alumnes…'
+                     : ambNota.length + ' de ' + _avAlumnes.length + ' avaluats' +
+                       (mitjana !== null ? ' · mitjana ' + String(mitjana).replace('.', ',') : '')) +
+        '</div>' +
+      '</div>' +
+      '<div class="rav-av-llegenda">' +
+        r.nivells.map(function (n, i) {
+          return '<span><b>' + (i + 1) + '</b> ' + esc(n.nom || ('Nivell ' + (i + 1))) +
+                 ' <i>' + esc(n.punts) + ' p.</i></span>';
+        }).join('') +
+      '</div>' +
+      '<div id="ravAvGraella"></div>';
+
+    byId('ravAvTorna').addEventListener('click', tancaAvaluacio);
+
+    var g = byId('ravAvGraella');
+    if (carregant) { g.innerHTML = '<p class="modal-hint">Un moment…</p>'; return; }
+    if (!_avAlumnes.length) {
+      g.innerHTML = '<div class="rubaval-buit"><p><strong>No he pogut carregar els alumnes d\'aquest grup.</strong></p>' +
+        '<p>Comprova que el grup tingui la llista al full de l\'escola. Si no hi és, la rúbrica es queda desada igual: ' +
+        'quan hi siguin, la podràs avaluar.</p></div>';
+      return;
+    }
+    if (_esMobil()) pintaTargetes(g, notes);
+    else pintaTaula(g, notes);
+  }
+
+  /* ── Ordinador: una taula, amb l'alumne sempre a la vista ── */
+  function pintaTaula(cont, notes) {
+    var r = _avaluant;
+    var html = '<div class="rav-av-taula-caixa"><table class="rav-av-taula"><thead><tr>' +
+      '<th class="rav-av-th-alumne">Alumne</th>' +
+      r.criteris.map(function (c) {
+        return '<th><div class="rav-av-th-nom">' + esc(c.nom) + '</div>' +
+               '<div class="rav-av-th-pes">pes ' + esc(c.pes) + '</div>' +
+               '<div class="rav-av-tots">tots: ' +
+                 r.nivells.map(function (n, i) {
+                   return '<button type="button" class="rav-av-tot" data-c="' + esc(c.id) + '" data-i="' + i + '" ' +
+                          'title="Posar «' + esc(n.nom) + '» a tots els alumnes">' + (i + 1) + '</button>';
+                 }).join('') +
+               '</div></th>';
+      }).join('') +
+      '<th class="rav-av-th-nota">Nota</th></tr></thead><tbody>';
+
+    _avAlumnes.forEach(function (a) {
+      html += '<tr data-alumne="' + esc(a.id) + '">' +
+        '<td class="rav-av-alumne">' + esc(_nomDeMostra(a)) + '</td>' +
+        r.criteris.map(function (c) { return '<td>' + cellaHtml(a, c) + '</td>'; }).join('') +
+        '<td class="rav-av-nota">' + notaHtml(notes[String(a.id)]) + '</td></tr>';
+    });
+    cont.innerHTML = html + '</tbody></table></div>';
+    lligaGraella(cont);
+  }
+
+  /* ── Mòbil: una targeta per alumne, amb els botons grossos ── */
+  function pintaTargetes(cont, notes) {
+    var r = _avaluant;
+    cont.innerHTML = _avAlumnes.map(function (a) {
+      return '<div class="rav-av-targeta" data-alumne="' + esc(a.id) + '">' +
+        '<div class="rav-av-targeta-cap"><span>' + esc(_nomDeMostra(a)) + '</span>' +
+          '<span class="rav-av-nota">' + notaHtml(notes[String(a.id)]) + '</span></div>' +
+        r.criteris.map(function (c) {
+          return '<div class="rav-av-targeta-fila"><span class="rav-av-targeta-crit">' + esc(c.nom) + '</span>' +
+                 cellaHtml(a, c, true) + '</div>';
+        }).join('') +
+      '</div>';
+    }).join('');
+    lligaGraella(cont);
+  }
+
+  /* Una casella: un botó per nivell. El número és la posició (1 és el de
+     dalt) i el rètol de veu diu el nom sencer, que és el que ha de sentir
+     qui fa servir un lector de pantalla. */
+  function cellaHtml(a, c, ambNom) {
+    var r = _avaluant;
+    var tria = ((r.valors || {})[String(a.id)] || {})[c.id];
+    return '<div class="rav-av-cella" data-c="' + esc(c.id) + '">' +
+      r.nivells.map(function (n, i) {
+        var hi = tria === i;
+        return '<button type="button" class="rav-av-niv' + (hi ? ' active' : '') + '" ' +
+               'data-a="' + esc(a.id) + '" data-c="' + esc(c.id) + '" data-i="' + i + '" ' +
+               'aria-pressed="' + hi + '" ' +
+               'aria-label="' + esc(_nomDeMostra(a)) + ', ' + esc(c.nom) + ': ' + esc(n.nom || ('nivell ' + (i + 1))) + '" ' +
+               'title="' + esc(n.nom) + '">' + (ambNom ? esc(n.nom || (i + 1)) : (i + 1)) + '</button>';
+      }).join('') + '</div>';
+  }
+
+  function notaHtml(n) {
+    if (!n || n.nota === null) return '<span class="rav-av-sense">—</span>';
+    return '<span class="rav-av-num' + (n.complet ? '' : ' mitges') + '"' +
+           (n.complet ? '' : ' title="Li falten ' + (n.total - n.fets) + ' criteris"') + '>' +
+           String(n.nota).replace('.', ',') + '</span>' +
+           (n.complet ? '' : '<span class="rav-av-mitges-marca" aria-label="a mitges">·</span>');
+  }
+
+  function lligaGraella(cont) {
+    cont.querySelectorAll('.rav-av-niv').forEach(function (b) {
+      b.addEventListener('click', function () {
+        posaNivell(b.getAttribute('data-a'), b.getAttribute('data-c'), parseInt(b.getAttribute('data-i'), 10));
+      });
+    });
+    cont.querySelectorAll('.rav-av-tot').forEach(function (b) {
+      b.addEventListener('click', function () {
+        posaColumna(b.getAttribute('data-c'), parseInt(b.getAttribute('data-i'), 10));
+      });
+    });
+    cont.addEventListener('keydown', teclat);
+  }
+
+  /* Amb el teclat: els números avaluen i les fletxes es mouen. Qui avalua
+     vint-i-cinc alumnes amb cinc criteris fa cent vint-i-cinc gestos: si
+     els ha de fer tots amb el ratolí, no fa servir l'eina dues vegades. */
+  function teclat(ev) {
+    var b = ev.target;
+    if (!b || !b.classList || !b.classList.contains('rav-av-niv')) return;
+    var r = _avaluant;
+    if (ev.key >= '1' && ev.key <= '9') {
+      var i = parseInt(ev.key, 10) - 1;
+      if (i < r.nivells.length) {
+        ev.preventDefault();
+        posaNivell(b.getAttribute('data-a'), b.getAttribute('data-c'), i, true);
+      }
+      return;
+    }
+    var mou = { ArrowRight: 1, ArrowLeft: -1 };
+    if (mou[ev.key] !== undefined) {
+      ev.preventDefault();
+      var tots = [].slice.call(document.querySelectorAll('#ravAvGraella .rav-av-niv'));
+      var p = tots.indexOf(b) + mou[ev.key];
+      if (tots[p]) tots[p].focus();
+      return;
+    }
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      var fila = b.closest('tr, .rav-av-targeta');
+      var files = [].slice.call(document.querySelectorAll('#ravAvGraella tr[data-alumne], #ravAvGraella .rav-av-targeta'));
+      var seg = files[files.indexOf(fila) + (ev.key === 'ArrowDown' ? 1 : -1)];
+      if (!seg) return;
+      var c = b.getAttribute('data-c'), i = b.getAttribute('data-i');
+      var dest = seg.querySelector('.rav-av-niv[data-c="' + c + '"][data-i="' + i + '"]');
+      if (dest) dest.focus();
+    }
+  }
+
+  /* Un clic pinta NOMÉS la seva fila i la seva nota. Repintar la graella
+     sencera a cada clic amb 25 alumnes i 5 criteris és mig segon de res
+     que es nota a la tercera casella. */
+  function posaNivell(alumneId, criteriId, idx, mouDesprés) {
+    var r = _avaluant;
+    if (!r) return;
+    var actual = ((r.valors || {})[String(alumneId)] || {})[criteriId];
+    RubAval.posaNivell(r, alumneId, criteriId, actual === idx ? null : idx);
+    desaAviat();
+    refrescaFila(alumneId);
+    refrescaCompte();
+    if (mouDesprés) {
+      var seg = document.querySelector('#ravAvGraella .rav-av-niv[data-a="' + alumneId + '"][data-c="' + criteriId + '"][data-i="' + idx + '"]');
+      if (seg) seg.focus();
+    }
+  }
+
+  function posaColumna(criteriId, idx) {
+    var r = _avaluant;
+    var fets = _avAlumnes.filter(function (a) {
+      var v = (r.valors || {})[String(a.id)];
+      return v && v[criteriId] !== undefined && v[criteriId] !== idx;
+    }).length;
+    if (fets && !confirm('Hi ha ' + fets + ' alumne' + (fets === 1 ? '' : 's') +
+        ' amb un altre nivell en aquest criteri. Els canviaràs tots. Continuo?')) return;
+    RubAval.posaColumna(r, _avAlumnes, criteriId, idx);
+    desaAviat();
+    _avAlumnes.forEach(function (a) { refrescaFila(a.id); });
+    refrescaCompte();
+  }
+
+  function refrescaFila(alumneId) {
+    var r = _avaluant;
+    var fila = document.querySelector('#ravAvGraella [data-alumne="' + alumneId + '"]');
+    if (!fila) return;
+    var vals = (r.valors || {})[String(alumneId)] || {};
+    fila.querySelectorAll('.rav-av-niv').forEach(function (b) {
+      var hi = vals[b.getAttribute('data-c')] === parseInt(b.getAttribute('data-i'), 10);
+      b.classList.toggle('active', hi);
+      b.setAttribute('aria-pressed', hi ? 'true' : 'false');
+    });
+    var cel = fila.querySelector('.rav-av-nota');
+    if (cel) cel.innerHTML = notaHtml(RubAval.nota(r, alumneId));
+  }
+
+  function refrescaCompte() {
+    var cap = document.querySelector('.rav-av-compte');
+    if (!cap) return;
+    var notes = RubAval.notesDe(_avaluant, _avAlumnes);
+    var amb = Object.keys(notes).filter(function (k) { return notes[k].nota !== null; });
+    var mitjana = amb.length
+      ? Math.round(amb.reduce(function (s, k) { return s + notes[k].nota; }, 0) / amb.length * 10) / 10
+      : null;
+    cap.textContent = amb.length + ' de ' + _avAlumnes.length + ' avaluats' +
+                      (mitjana !== null ? ' · mitjana ' + String(mitjana).replace('.', ',') : '');
+  }
+
   ui.nova = function () { if (_entrada) obreEditor(null); };
   ui.hiEs = _hiEs;
 
@@ -620,6 +952,33 @@
     var b = byId('navRubaval');
     if (b) b.style.display = _hiEs() ? '' : 'none';
   };
+
+  /* Girar el telèfon canvia la graella per targetes i al revés. Sense
+     això, qui gira la tauleta a mitja avaluació es queda amb la taula
+     d'ordinador feta un embolic fins que surt i torna a entrar. */
+  /* ⚠ Amb la comprovació al davant, com ja fa `js/app.js`: als bancs de
+     proves la finestra és de mentida i no sempre en té, i sense això
+     l'app no es podia ni carregar (29/9/2026). */
+  var _potEscoltar = (typeof window !== 'undefined' && typeof window.addEventListener === 'function');
+
+  var _resizeTimer = null;
+  if (_potEscoltar) window.addEventListener('resize', function () {
+    if (!_avaluant) return;
+    var eraMobil = !!document.querySelector('#ravAvGraella .rav-av-targeta');
+    if (eraMobil === _esMobil()) return;
+    if (_resizeTimer) clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(function () { if (_avaluant) pintaAvaluacio(false); }, 250);
+  });
+
+  /* Si tanca l'app (o la pestanya) amb una avaluació acabada de fer, el
+     que encara no ha viatjat al full no es pot quedar pel camí. Al
+     navegador ja hi és des del primer clic; això força l'enviament. */
+  if (_potEscoltar) window.addEventListener('beforeunload', function () { if (_avaluant) desaAra(); });
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden' && _avaluant) desaAra();
+    });
+  }
 
   window.RubAvalUI = ui;
   window.rubavalObrePagina = ui.obrePagina;

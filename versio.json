@@ -1,9 +1,9 @@
 {
-  "versio": "v252",
+  "versio": "v253",
   "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
     "Arranjaments per dins: a la pantalla no hi canvia res.",
-    "Si has demanat l'eina de rúbriques d'avaluació, la trobaràs al menú Eines. Encara s'hi està treballant: de moment s'hi poden escriure les rúbriques, i aviat s'hi podrà avaluar i passar la nota al registre."
+    "Si tens l'eina de rúbriques d'avaluació (menú Eines), ja s'hi pot avaluar: una graella amb els teus criteris, un clic per posar el nivell —o els números del teclat—, i un botó per posar el mateix nivell a tota una columna. Al mòbil, un alumne per pantalla. La nota de cada alumne es va veient mentre avalues. Passar-la al registre de notes encara s'està fent."
   ]
 }
