@@ -1,9 +1,10 @@
 {
-  "versio": "v245",
-  "data": "2026-09-28",
+  "versio": "v246",
+  "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al mòbil, l'app ja no es fa gran ni surt scroll de costat. L'iPhone feia zoom sol quan tocaves un camp d'escriure (perquè la lletra era petita) i la pàgina es quedava així: ara tots els camps es veuen a mida de dit.",
-    "Si has de fer zoom amb els dits, el segueixes podent fer: no s'ha bloquejat."
+    "Al perfil, si una assignatura va per desdoblament ara t'ho diu l'app i et deixa triar el teu grup allà mateix. Ja no has de saber tu quines assignatures són desdoblades: ha desaparegut la targeta d'«assignatures amb grup rotatori».",
+    "Direcció: a Registres d'aula i a Observacions ja pots triar entre TOTS els grups que has posat al perfil, no només el que tinguis obert a Alumnes. Així pots portar el registre de Matemàtiques de 6è i el de Medi de 4t per separat.",
+    "Els aniversaris del planning surten dels grups que tens al teu perfil. Si no tens tutoria, abans hi sortien els de l'última classe que haguessis obert, que podia no ser teva."
   ]
 }

@@ -191,12 +191,12 @@ function _perfilAplicaRol() {
   mostra('perfilCardGrups', esp);
   mostra('perfilCardTutoria', !esp);
   mostra('perfilCardTutoriaAssigs', !esp);
-  if (esp) {
-    const t = document.getElementById('perfilCardAltresTitol');
-    const h = document.getElementById('perfilCardAltresHint');
-    if (t) t.textContent = 'Assignatures amb grup rotatori';
-    if (h) h.textContent = 'Només per a les assignatures on els grups roten i no són una classe sencera (com el Tallers). Afegeix-hi el curs, marca l\'assignatura i tria el grup que tens ara. La resta de classes van a dalt, a «A quins grups fas classe?».';
-  }
+  /* ⚠ La targeta «Assignatures amb grup rotatori» s'amaga a qui no té
+     tutoria (28/9/2026). Demanava a la mestra que sabés ella quines
+     assignatures van per desdoblament; ara ho mira l'app tota sola, a la
+     targeta de dalt, en marcar l'assignatura. El que ja hi hagués desat
+     segueix funcionant: no s'esborra res, només deixa de demanar-se. */
+  if (esp) mostra('perfilCardAltres', false);
 }
 
 /* ============================================================
@@ -223,14 +223,41 @@ function _perfilRenderGrupsEspecialista() {
     const chips = _assigsDeCurs(curs).map(a =>
       `<button type="button" class="perfil-assig-chip ${sel.includes(a)?'active':''}" onclick="_perfilToggleAssigGrup('${_idJs(grup)}','${a.replace(/'/g,"\\'")}')">${escapeHtml(a)}</button>`
     ).join('');
+    /* ⚠ EL DESDOBLAMENT EL BUSCA L'APP, NO LA MESTRA (28/9/2026).
+
+       Abans hi havia dues targetes al perfil: els grups on fa classe i, a
+       part, «Assignatures amb grup rotatori», on havia de saber ella quines
+       assignatures van per desdoblament i afegir-les-hi a mà. En Pol, en
+       instal·lar-la a la directora: «no ha de ser el mestre que ha de mirar
+       si és amb desdoblament o no... ha de ser tot molt més automàtic».
+
+       Ara marca l'assignatura i prou: l'app mira al full de Desdoblaments si
+       aquell curs i aquella assignatura en tenen. Si en tenen, li surt el
+       selector amb els grups de debò; si no, no li surt res —el grup ja és
+       la classe que ha triat. */
+    const desdobs = sel.map(a => {
+      const o = _desdobOpcions(curs, a);
+      const carregat = _desdobGrupsCache[_desdobMapKey(curs, a)] !== undefined;
+      if (!carregat || !o.desdob) return '';
+      const ara = _desdobGrupActual(curs, a);
+      return `<div class="perfil-desdob-fila">
+        <span class="perfil-desdob-assig">${escapeHtml(a)} va per desdoblament:</span>
+        <select class="modal-input perfil-desdob-sel" aria-label="Grup de desdoblament de ${escapeHtml(a)} a ${escapeHtml(curs)}"
+                onchange="_perfilTriaDesdob('${_idJs(curs)}','${a.replace(/'/g,"\\'")}', this.value)">
+          ${o.grups.map(g => `<option value="${escapeHtml(g)}"${g === ara ? ' selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+        </select>
+      </div>`;
+    }).filter(Boolean).join('');
     html += `<div class="perfil-grup-block">
       <div class="perfil-grup-block-head">
         <span class="perfil-grup-block-title">${escapeHtml(grup)}</span>
         <button class="perfil-grup-remove" onclick="_perfilTreuGrupEsp('${_idJs(grup)}')" title="Treure aquest grup">×</button>
       </div>
       <div class="perfil-assig-chips">${chips}</div>
+      ${desdobs}
     </div>`;
   });
+  _perfilMiraDesdoblaments(afegits);   // en segon pla; quan sap, repinta
   if (!afegits.length) {
     html += '<p class="modal-hint">Encara no hi ha cap grup. Afegeix-ne un aquí sota.</p>';
   }
@@ -258,6 +285,36 @@ function _perfilTreuGrupEsp(grup) {
     : '';
   if (!confirm('Vols treure ' + grup + ' del teu perfil?' + detall)) return;
   delete _perfil.classes[grup];
+  _perfilRenderGrupsEspecialista();
+  if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
+}
+
+/* Mira, sense fer esperar ningú, quines de les assignatures marcades van per
+   desdoblament. Quan ho sap, repinta. Cada curs+assignatura es demana un sol
+   cop per sessió (queda al cache). */
+let _perfilMirantDesdob = false;
+async function _perfilMiraDesdoblaments(grups) {
+  if (_perfilMirantDesdob || !config.scriptUrl) return;
+  const pendents = [];
+  (grups || []).forEach(grup => {
+    const curs = grup.split(' ')[0];
+    (_perfil.classes[grup] || []).forEach(a => {
+      if (_desdobGrupsCache[_desdobMapKey(curs, a)] === undefined) pendents.push([curs, a]);
+    });
+  });
+  if (!pendents.length) return;
+  _perfilMirantDesdob = true;
+  try {
+    for (const [curs, a] of pendents) { await _desdobCarregaGrups(curs, a); }
+  } finally { _perfilMirantDesdob = false; }
+  _perfilRenderGrupsEspecialista();
+}
+
+/* La mestra tria quin grup de desdoblament té. Es desa al perfil i tot el
+   que penja de l'assignatura (alumnes, notes, registres) hi va darrere. */
+function _perfilTriaDesdob(curs, assig, grup) {
+  if (!grup) return;
+  _desdobSetGrup(curs, assig, grup);
   _perfilRenderGrupsEspecialista();
   if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
 }
@@ -598,9 +655,69 @@ function _aplicaTutoriaAlumnes(alumnes, buitDeDebo) {
    posa una nota automàtica el dia del seu aniversari.
    ============================================================ */
 
+/* ⚠ A LA DIRECTORA LI SORTIEN ELS ANIVERSARIS D'UNA CLASSE QUE NO ÉS SEVA.
+
+   En Pol, 28/9/2026, instal·lant-la-hi: al planning li sortien els
+   aniversaris de 2n C —el SEU grup—, perquè això mirava `_tutoriaAlumnes`,
+   que a qui no té tutoria val «el grup amb què s'ha treballat l'últim cop».
+   Amb un tutor no falla mai (només en té un); a direcció i a les
+   especialistes, ensenyava el primer grup que haguessin obert.
+
+   Ara, qui no té tutoria veu els aniversaris dels alumnes de TOTS els grups
+   que ha dit al seu perfil, i de cap més. */
+let _anivPerGrup = {};      // grup → [{nom, dataNaix}]
+let _anivCarregant = false;
+
+function _anivGrupsDelPerfil() {
+  const out = [];
+  if (_perfil && _perfil.classes) Object.keys(_perfil.classes).forEach(g => {
+    if (/^(1r|2n|3r|4t|5è|6è) [ABC]$/.test(g) && out.indexOf(g) === -1) out.push(g);
+  });
+  return out;
+}
+
+/* Els va a buscar en segon pla, d'un en un, i repinta quan en té. No fa
+   esperar ningú: el planning es pinta igual i els pastissos hi apareixen
+   quan arriben. */
+async function _anivCarrega() {
+  if (_anivCarregant || !config.scriptUrl) return;
+  const falten = _anivGrupsDelPerfil().filter(g => _anivPerGrup[g] === undefined);
+  if (!falten.length) return;
+  _anivCarregant = true;
+  try {
+    for (const g of falten) {
+      try {
+        const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: g, _fons: true });
+        _anivPerGrup[g] = (r && r.ok && Array.isArray(r.alumnes))
+          ? r.alumnes.filter(a => a && a.dataNaix).map(a => ({ nom: a.nom, dataNaix: a.dataNaix }))
+          : [];
+      } catch (e) { _anivPerGrup[g] = []; }
+    }
+  } finally { _anivCarregant = false; }
+  if (typeof _refreshAniversaris === 'function') _refreshAniversaris();
+}
+
 // Retorna els noms dels alumnes que fan anys en una data (Date o 'YYYY-MM-DD')
 function aniversarisDelDia(data) {
+  /* Qui no té tutoria: els dels seus grups del perfil. */
+  if (_perfilSenseTutoria()) {
+    const grups = _anivGrupsDelPerfil();
+    if (!grups.length) return [];
+    let llista = [];
+    let faltaAlgun = false;
+    grups.forEach(g => {
+      if (_anivPerGrup[g] === undefined) { faltaAlgun = true; return; }
+      llista = llista.concat(_anivPerGrup[g]);
+    });
+    if (faltaAlgun) _anivCarrega();
+    return _anivDelDia(llista, data);
+  }
   if (!_tutoriaAlumnes || !_tutoriaAlumnes.length) return [];
+  return _anivDelDia(_tutoriaAlumnes, data);
+}
+
+/* Qui fa anys, d'una llista, en una data. */
+function _anivDelDia(llista, data) {
   let mes, dia;
   if (data instanceof Date) {
     mes = data.getMonth() + 1; dia = data.getDate();
@@ -610,12 +727,12 @@ function aniversarisDelDia(data) {
     mes = parseInt(p[1]); dia = parseInt(p[2]);
   }
   const noms = [];
-  _tutoriaAlumnes.forEach(a => {
-    if (!a.dataNaix) return;
+  (llista || []).forEach(a => {
+    if (!a || !a.dataNaix) return;
     const pn = a.dataNaix.toString().split('-'); // YYYY-MM-DD
     if (pn.length < 3) return;
     const m = parseInt(pn[1]), d = parseInt(pn[2]);
-    if (m === mes && d === dia) noms.push(a.nom);
+    if (m === mes && d === dia && noms.indexOf(a.nom) === -1) noms.push(a.nom);
   });
   return noms;
 }
@@ -1290,6 +1407,18 @@ function perfilRenderAllSelectors() {
   if (typeof perfilRenderNavAssigs === 'function') perfilRenderNavAssigs();
   _perfilRenderObsSelector();
   _perfilRenderAssimSelector();
+  /* ⚠ I el selector de grup d'Observacions i de Registres (28/9/2026).
+
+     Es pintava un sol cop, en entrar a la pàgina. Si el perfil encara no
+     havia arribat del full —que és el cas normal en obrir l'app—, la mestra
+     es quedava sense selector i sense manera de fer-lo sortir si no canviava
+     de pàgina i tornava. Ara, quan arriba el perfil, es repinta. */
+  if (typeof _rolRenderGrupPicker === 'function') {
+    ['registres', 'observacions'].forEach(p => {
+      const pag = document.getElementById('page-' + p);
+      if (pag && !pag.classList.contains('page-hidden')) _rolRenderGrupPicker(p);
+    });
+  }
 }
 
 /* ============================================================

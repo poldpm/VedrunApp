@@ -4561,7 +4561,33 @@ function _rolAplicaInterficie() {
 
 // Pinta el selector de grup d'Observacions o de Registres d'aula.
 function _rolRenderGrupPicker(pagina) {
-  if (!(typeof esEspecialista === 'function' && esEspecialista())) return;
+  /* ⚠ A DIRECCIÓ NO LI SORTIA EL SELECTOR (28/9/2026).
+
+     Això només s'obria a les especialistes, i la direcció es quedava amb el
+     grup que hagués triat a Alumnes: no podia fer un registre de Medi de 4t
+     i un altre de Matemàtiques de 6è, que és exactament el que fa. En Pol,
+     instal·lant-la a la directora: «a registres d'aula has de poder triar
+     entre tots els teus grups».
+
+     Qui no té tutoria treballa amb VARIS grups: el selector és per a tots
+     dos rols. Si encara no ha dit a quins grups fa classe, es continua
+     comportant com abans (el grup d'Alumnes, a direcció). */
+  const _sense = (typeof senseTutoria === 'function') ? senseTutoria()
+               : ((typeof esEspecialista === 'function' && esEspecialista()) ||
+                  (typeof esDireccio === 'function' && esDireccio()));
+  if (!_sense) return;
+  /* A direcció, mentre no hagi dit a quins grups fa classe, el selector no
+     s'ensenya: ja té el grup que tria a Alumnes i dos selectors alhora
+     despistarien. En tenir-ne, mana el seu perfil.
+     ⚠ Es mira a CADA pintada, no un sol cop: el perfil arriba del full una
+     mica més tard que la pantalla (per això `perfilRenderAllSelectors` torna
+     a cridar aquesta funció quan arriba). */
+  const _entradesAra = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
+  if (!_entradesAra.length && typeof esDireccio === 'function' && esDireccio()) {
+    const _p = document.getElementById(pagina === 'observacions' ? 'obsGrupPicker' : 'regGrupPicker');
+    if (_p) _p.style.display = 'none';
+    return;
+  }
   const esObs  = pagina === 'observacions';
   const picker = document.getElementById(esObs ? 'obsGrupPicker' : 'regGrupPicker');
   const sel    = document.getElementById(esObs ? 'obsGrupSel'    : 'regGrupSel');
@@ -4611,9 +4637,24 @@ async function _rolCarregaGrupTreball(clau, pagina) {
   if (hint) hint.textContent = 'Carregant alumnes…';
 
   try {
-    if (e.altres) {
-      // Assignatura d'un altre curs (o de grup rotatori, com el Tallers)
-      if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(e.curs, e.nom);
+    /* Si aquella assignatura va per desdoblament, els alumnes NO són la
+       classe sencera sinó els del seu grup de desdoblament. Des que el
+       desdoblament es tria a la mateixa targeta dels grups (28/9/2026),
+       això també pot passar amb una entrada de `classes`, no només amb les
+       d'un altre curs: sense aquesta comprovació li sortiria tota la classe
+       i hi passaria llista a nens que no té. */
+    const _curs = e.curs || String(e.grup || '').split(' ')[0];
+    /* ⚠ Primer s'ha de SABER si en té. En arrencar l'app el cache de
+       desdoblaments és buit, i preguntar-li sense haver-lo carregat contesta
+       sempre que no: li sortia la classe sencera a una assignatura
+       desdoblada (vist provant-ho, 28/9/2026). */
+    if (!e.altres && typeof _desdobCarregaGrups === 'function') {
+      try { await _desdobCarregaGrups(_curs, e.nom); } catch (err) {}
+    }
+    const _teDesdob = !e.altres && typeof _desdobOpcions === 'function' &&
+                      _desdobOpcions(_curs, e.nom).desdob;
+    if (e.altres || _teDesdob) {
+      if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(_curs, e.nom);
     } else if (typeof _ensureGrupStudents === 'function') {
       await _ensureGrupStudents(e.grup, e.key);
     }

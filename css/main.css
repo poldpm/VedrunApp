@@ -5624,3 +5624,12 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
 /* L'iOS engrandeix la lletra ell sol quan es gira l'aparell, i llavors
    allò que hi cabia deixa de cabre-hi. */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* El selector de desdoblament, dins del bloc de cada grup del perfil
+   (28/9/2026: abans era una targeta a part que la mestra havia d'omplir). */
+.perfil-desdob-fila {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
+}
+.perfil-desdob-assig { font-size: 12.5px; color: var(--text-muted); }
+.perfil-desdob-sel   { max-width: 200px; }
