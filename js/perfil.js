@@ -30,6 +30,7 @@ let _perfil = {
   classes: {},      // NOMÉS la tutoria: { "4t B": [assignatures] }
   altres: {},       // altres cursos on fa classe: { "3r": [assignatures] }
   desdobGrup: {},   // grup triat per assignatura d'altre curs: { "curs|assig": "3r A" }
+  cursos: [],       // qui no té tutoria: els cursos que ha afegit al perfil
 };
 
 // És una assignatura de grup rotatori? (de moment, només Tallers)
@@ -53,6 +54,11 @@ function _perfilMigrar(p) {
   if (!p.classes || typeof p.classes !== 'object') p.classes = {};
   if (!p.altres || typeof p.altres !== 'object' || Array.isArray(p.altres)) p.altres = {};
   if (!p.desdobGrup || typeof p.desdobGrup !== 'object') p.desdobGrup = {};
+  /* Els cursos on fa classe qui no té tutoria (29/9/2026). Als perfils
+     d'abans no hi és: es dedueixen dels grups i de les assignatures que
+     ja hi tingués, i per això no cal migrar-hi res (veure
+     `_perfilCursosEsp`). */
+  if (!Array.isArray(p.cursos)) p.cursos = [];
   const tutorKey = (p.tutorCurs && p.tutorLinia) ? (p.tutorCurs + ' ' + p.tutorLinia) : null;
   // Mou els grups de classe que NO són la tutoria cap a "altres" (per curs).
   // NOMÉS quan hi ha tutoria: sense tutoria (especialista) "classes" és la
@@ -137,7 +143,7 @@ async function _perfilLoadFromSheets() {
     // El perfil ja es veu (del navegador): el refresc no el tapa amb el vel.
     const r = await appsScriptGet({ action: 'loadProfile', _fons: true });
     if (r.ok && r.profile) {
-      _perfil = _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{}, altres:{}, desdobGrup:{} }, r.profile));
+      _perfil = _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{}, altres:{}, desdobGrup:{}, cursos:[] }, r.profile));
       localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil));
       _perfilRender();
       _perfilUpdateNav();
@@ -200,105 +206,277 @@ function _perfilAplicaRol() {
 }
 
 /* ============================================================
-   PERFIL DE L'ESPECIALISTA — grups on fa classe
-   Sense tutoria, "classes" és { "3r A": [assignatures], "3r B": [...] }.
-   Cada grup és una classe sencera de l'escola, i per cada un s'hi
-   marquen les assignatures que hi fa.
+   PERFIL DE QUI NO TÉ TUTORIA — els cursos on fa classe
+   (especialistes i direcció)
+   ------------------------------------------------------------
+   ⚠ REFET EL 29/9/2026. En Pol: «ha de poder triar entre 1r o 6è.
+   Quan selecciona una assignatura d'aquell grup és quan ha de poder
+   triar: A, B, C, Desdoblament o rotatiu. Si aquella assignatura no
+   té desdoblament, només mostra A, B o C». I, de seguida: «ha de
+   poder marcar-ne més d'un, potser fa educació física a 3r A i 3r B».
+
+   Abans s'afegia el GRUP sencer («3r A») i s'hi marcaven les
+   assignatures a dins. Qui fa Educació Física a les tres línies de 3r
+   havia d'afegir tres grups i repetir-hi tres cops la mateixa
+   assignatura, i el desdoblament li sortia en un desplegable a part,
+   al capdavall del bloc.
+
+   Ara s'afegeix el CURS i, per cada assignatura que marca, diu ON la
+   fa: les línies A, B i C —totes les que calgui— i, si aquella
+   assignatura va per desdoblament, també els grups del desdoblament
+   (o del grup rotatori, com el Tallers).
+
+   ON ES DESA CADA COSA (això no canvia: són els dos camins que l'app
+   ja sabia fer servir, i els alumnes, les observacions i els
+   registres hi van al darrere sols):
+     · una línia     → `classes["3r A"] = [assignatures]`
+     · desdoblament  → `altres["3r"] = [assignatures]`, amb el grup
+                       triat a `desdobGrup["3r|assignatura"]`
    ============================================================ */
-function _perfilTotsElsGrups() {
+
+/* Els cursos que surten al perfil: els que ha afegit i els que se
+   saben de les dades. `_perfil.cursos` és el que fa que un curs
+   acabat d'afegir no desaparegui abans de marcar-hi res. */
+function _perfilCursosEsp() {
   const out = [];
-  PERFIL_CURSOS.forEach(c => PERFIL_LINIES.forEach(l => out.push(c + ' ' + l)));
+  const posa = c => { if (PERFIL_CURSOS.indexOf(c) !== -1 && out.indexOf(c) === -1) out.push(c); };
+  if (Array.isArray(_perfil.cursos)) _perfil.cursos.forEach(posa);
+  Object.keys(_perfil.classes || {}).forEach(g => posa(String(g).split(' ')[0]));
+  Object.keys(_perfil.altres  || {}).forEach(posa);
+  return out.sort((a, b) => PERFIL_CURSOS.indexOf(a) - PERFIL_CURSOS.indexOf(b));
+}
+
+/* Les assignatures que es poden marcar d'un curs: les del pla
+   d'estudis i, al darrere, les que ella ja tingués marcades encara
+   que no hi siguin (noms escrits a mà en perfils vells). Si no es
+   fes, una assignatura seva es quedaria activa sense sortir enlloc:
+   no la podria ni veure ni treure. */
+function _perfilAssigsDelCurs(curs) {
+  const out = _assigsDeCurs(curs).slice();
+  const mes = a => { if (a && out.indexOf(a) === -1) out.push(a); };
+  PERFIL_LINIES.forEach(l => ((_perfil.classes || {})[curs + ' ' + l] || []).forEach(mes));
+  ((_perfil.altres || {})[curs] || []).forEach(mes);
   return out;
+}
+
+// Les línies (A, B, C) on fa una assignatura d'aquest curs.
+function _perfilLiniesDe(curs, assig) {
+  return PERFIL_LINIES.filter(l => ((_perfil.classes || {})[curs + ' ' + l] || []).indexOf(assig) !== -1);
+}
+
+// El grup de desdoblament triat, si n'hi ha cap.
+function _perfilDesdobDe(curs, assig) {
+  if (((_perfil.altres || {})[curs] || []).indexOf(assig) === -1) return null;
+  return (_perfil.desdobGrup || {})[_desdobMapKey(curs, assig)] || null;
+}
+
+/* Assignatures marcades que encara no diuen ON es fan. Viuen només
+   mentre la pàgina és oberta: sense línia ni grup no hi ha res a
+   desar, i en desar el perfil es reclamen (veure `perfilSave`). */
+let _perfilSensePosar = {};
+
+function _perfilMarcaClau(curs, assig) { return curs + '|' + assig; }
+
+function _perfilAssigMarcada(curs, assig) {
+  return _perfilLiniesDe(curs, assig).length > 0 ||
+         _perfilDesdobDe(curs, assig) !== null ||
+         !!_perfilSensePosar[_perfilMarcaClau(curs, assig)];
 }
 
 function _perfilRenderGrupsEspecialista() {
   const cont = document.getElementById('perfilGrupsEspecialista');
   if (!cont) return;
   if (!_perfil.classes || typeof _perfil.classes !== 'object') _perfil.classes = {};
-  const afegits = Object.keys(_perfil.classes).sort();
+  if (!_perfil.altres  || typeof _perfil.altres  !== 'object') _perfil.altres  = {};
+  const cursos = _perfilCursosEsp();
   let html = '';
-  afegits.forEach(grup => {
-    const curs = grup.split(' ')[0];
-    const sel = _perfil.classes[grup] || [];
-    const chips = _assigsDeCurs(curs).map(a =>
-      `<button type="button" class="perfil-assig-chip ${sel.includes(a)?'active':''}" onclick="_perfilToggleAssigGrup('${_idJs(grup)}','${a.replace(/'/g,"\\'")}')">${escapeHtml(a)}</button>`
-    ).join('');
-    /* ⚠ EL DESDOBLAMENT EL BUSCA L'APP, NO LA MESTRA (28/9/2026).
 
-       Abans hi havia dues targetes al perfil: els grups on fa classe i, a
-       part, «Assignatures amb grup rotatori», on havia de saber ella quines
-       assignatures van per desdoblament i afegir-les-hi a mà. En Pol, en
-       instal·lar-la a la directora: «no ha de ser el mestre que ha de mirar
-       si és amb desdoblament o no... ha de ser tot molt més automàtic».
-
-       Ara marca l'assignatura i prou: l'app mira al full de Desdoblaments si
-       aquell curs i aquella assignatura en tenen. Si en tenen, li surt el
-       selector amb els grups de debò; si no, no li surt res —el grup ja és
-       la classe que ha triat. */
-    const desdobs = sel.map(a => {
-      const o = _desdobOpcions(curs, a);
-      const carregat = _desdobGrupsCache[_desdobMapKey(curs, a)] !== undefined;
-      if (!carregat || !o.desdob) return '';
-      const ara = _desdobGrupActual(curs, a);
-      return `<div class="perfil-desdob-fila">
-        <span class="perfil-desdob-assig">${escapeHtml(a)} va per desdoblament:</span>
-        <select class="modal-input perfil-desdob-sel" aria-label="Grup de desdoblament de ${escapeHtml(a)} a ${escapeHtml(curs)}"
-                onchange="_perfilTriaDesdob('${_idJs(curs)}','${a.replace(/'/g,"\\'")}', this.value)">
-          ${o.grups.map(g => `<option value="${escapeHtml(g)}"${g === ara ? ' selected' : ''}>${escapeHtml(g)}</option>`).join('')}
-        </select>
-      </div>`;
-    }).filter(Boolean).join('');
+  cursos.forEach(curs => {
+    const assigs = _perfilAssigsDelCurs(curs);
+    const chips = assigs.map(a => {
+      const hi = _perfilAssigMarcada(curs, a);
+      return `<button type="button" class="perfil-assig-chip ${hi ? 'active' : ''}" aria-pressed="${hi}"
+               onclick="_perfilToggleAssigCurs('${_idJs(curs)}','${_idJs(a)}')">${escapeHtml(a)}</button>`;
+    }).join('');
+    const files = assigs.filter(a => _perfilAssigMarcada(curs, a))
+                        .map(a => _perfilFilaOn(curs, a)).join('');
     html += `<div class="perfil-grup-block">
       <div class="perfil-grup-block-head">
-        <span class="perfil-grup-block-title">${escapeHtml(grup)}</span>
-        <button class="perfil-grup-remove" onclick="_perfilTreuGrupEsp('${_idJs(grup)}')" title="Treure aquest grup">×</button>
+        <span class="perfil-grup-block-title">${escapeHtml(curs)}</span>
+        <button class="perfil-grup-remove" onclick="_perfilTreuCursEsp('${_idJs(curs)}')"
+                title="Treure ${escapeHtml(curs)}" aria-label="Treure ${escapeHtml(curs)} del perfil">×</button>
       </div>
       <div class="perfil-assig-chips">${chips}</div>
-      ${desdobs}
+      ${files ? `<div class="perfil-on-llista">${files}</div>` : ''}
     </div>`;
   });
-  _perfilMiraDesdoblaments(afegits);   // en segon pla; quan sap, repinta
-  if (!afegits.length) {
-    html += '<p class="modal-hint">Encara no hi ha cap grup. Afegeix-ne un aquí sota.</p>';
+
+  if (!cursos.length) {
+    html += '<p class="modal-hint">Encara no hi ha cap curs. Afegeix-ne un aquí sota.</p>';
   }
-  const disponibles = _perfilTotsElsGrups().filter(g => afegits.indexOf(g) === -1);
+  const disponibles = PERFIL_CURSOS.filter(c => cursos.indexOf(c) === -1);
   html += `<div class="perfil-desdob-add" style="margin-top:10px;display:flex;gap:8px;align-items:center">
-    <select class="modal-input" id="perfilGrupAdd" style="max-width:150px" onchange="_perfilAfegeixGrupEsp(this.value)">
-      <option value="">+ Afegir grup…</option>
-      ${disponibles.map(g=>`<option value="${g}">${g}</option>`).join('')}
+    <select class="modal-input" id="perfilCursAdd" style="max-width:170px" aria-label="Afegir un curs on fas classe"
+            onchange="_perfilAfegeixCursEsp(this.value)">
+      <option value="">+ Afegir curs…</option>
+      ${disponibles.map(c => `<option value="${c}">${c}</option>`).join('')}
     </select>
   </div>`;
   cont.innerHTML = html;
+  _perfilMiraDesdoblaments(cursos);   // en segon pla; quan ho sap, repinta
 }
 
-function _perfilAfegeixGrupEsp(grup) {
-  if (!grup) return;
-  if (!_perfil.classes[grup]) _perfil.classes[grup] = [];
+/* La fila d'una assignatura marcada: on la fa.
+   Les línies hi són sempre; el desdoblament, només si aquella
+   assignatura d'aquell curs en té al full de Desdoblaments. Mentre no
+   se sap, s'hi diu: si no, podria triar la línia i marxar sense
+   arribar a veure mai que hi havia grups. */
+function _perfilFilaOn(curs, assig) {
+  const linies = _perfilLiniesDe(curs, assig);
+  const triat  = _perfilDesdobDe(curs, assig);
+  const sapDesdob = _desdobGrupsCache[_desdobMapKey(curs, assig)] !== undefined;
+  const o = _desdobOpcions(curs, assig);
+
+  const chipsLinia = PERFIL_LINIES.map(l => {
+    const hi = linies.indexOf(l) !== -1;
+    return `<button type="button" class="perfil-on-chip ${hi ? 'active' : ''}" aria-pressed="${hi}"
+      aria-label="${escapeHtml(assig)} a ${escapeHtml(curs + ' ' + l)}"
+      onclick="_perfilToggleLinia('${_idJs(curs)}','${_idJs(assig)}','${l}')">${l}</button>`;
+  }).join('');
+
+  let desdob = '';
+  if (!sapDesdob && config.scriptUrl) {
+    desdob = '<span class="perfil-on-espera">mirant si té desdoblament…</span>';
+  } else if (sapDesdob && o.desdob) {
+    const etiq = (typeof _esRotatori === 'function' && _esRotatori(assig)) ? 'Grup rotatiu:' : 'Desdoblament:';
+    desdob = `<span class="perfil-on-etiq">${etiq}</span>` + o.grups.map(g =>
+      `<button type="button" class="perfil-on-chip desdob ${triat === g ? 'active' : ''}" aria-pressed="${triat === g}"
+        aria-label="${escapeHtml(assig)} amb el grup ${escapeHtml(g)}"
+        onclick="_perfilToggleDesdob('${_idJs(curs)}','${_idJs(assig)}','${_idJs(g)}')">${escapeHtml(g)}</button>`
+    ).join('');
+  }
+
+  const falta = !linies.length && !triat;
+  return `<div class="perfil-on-fila${falta ? ' falta' : ''}">
+    <span class="perfil-on-assig">${escapeHtml(assig)}</span>
+    <div class="perfil-on-opcions">${chipsLinia}${desdob}</div>
+    ${falta ? '<span class="perfil-on-avis">digues on la fas</span>' : ''}
+  </div>`;
+}
+
+function _perfilAfegeixCursEsp(curs) {
+  if (!curs || PERFIL_CURSOS.indexOf(curs) === -1) return;
+  if (!Array.isArray(_perfil.cursos)) _perfil.cursos = [];
+  if (_perfil.cursos.indexOf(curs) === -1) _perfil.cursos.push(curs);
   _perfilRenderGrupsEspecialista();
   if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
 }
 
-function _perfilTreuGrupEsp(grup) {
-  const assigs = (_perfil.classes && _perfil.classes[grup]) || [];
-  const detall = assigs.length
-    ? ' Perdràs les ' + assigs.length + ' assignatures que hi tens marcades (' + assigs.join(', ') + ').'
+function _perfilTreuCursEsp(curs) {
+  const marcades = _perfilAssigsDelCurs(curs).filter(a => _perfilAssigMarcada(curs, a));
+  const detall = marcades.length
+    ? ' Perdràs les ' + marcades.length + ' assignatures que hi tens marcades (' + marcades.join(', ') + ').'
     : '';
-  if (!confirm('Vols treure ' + grup + ' del teu perfil?' + detall)) return;
-  delete _perfil.classes[grup];
+  if (!confirm('Vols treure ' + curs + ' del teu perfil?' + detall)) return;
+  PERFIL_LINIES.forEach(l => { delete _perfil.classes[curs + ' ' + l]; });
+  if (_perfil.altres) delete _perfil.altres[curs];
+  if (_perfil.desdobGrup) {
+    Object.keys(_perfil.desdobGrup).forEach(k => {
+      if (k.indexOf(curs + '|') === 0) delete _perfil.desdobGrup[k];
+    });
+  }
+  Object.keys(_perfilSensePosar).forEach(k => {
+    if (k.indexOf(curs + '|') === 0) delete _perfilSensePosar[k];
+  });
+  if (Array.isArray(_perfil.cursos)) _perfil.cursos = _perfil.cursos.filter(c => c !== curs);
   _perfilRenderGrupsEspecialista();
   if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
 }
 
-/* Mira, sense fer esperar ningú, quines de les assignatures marcades van per
-   desdoblament. Quan ho sap, repinta. Cada curs+assignatura es demana un sol
-   cop per sessió (queda al cache). */
+/* Marcar o desmarcar una assignatura del curs. En marcar-la NO se li
+   posa cap línia: la tria ella. Posar-n'hi una per defecte seria
+   pitjor que no posar-n'hi cap —acabaria passant llista als alumnes
+   d'una altra classe sense que res ho digués. */
+function _perfilToggleAssigCurs(curs, assig) {
+  if (_perfilAssigMarcada(curs, assig)) {
+    PERFIL_LINIES.forEach(l => _perfilTreuDeLinia(curs, assig, l));
+    _perfilTreuDesdob(curs, assig);
+    delete _perfilSensePosar[_perfilMarcaClau(curs, assig)];
+  } else {
+    _perfilSensePosar[_perfilMarcaClau(curs, assig)] = true;
+  }
+  _perfilRenderGrupsEspecialista();
+  if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
+}
+
+function _perfilTreuDeLinia(curs, assig, linia) {
+  const k = curs + ' ' + linia;
+  const arr = (_perfil.classes || {})[k];
+  if (!arr) return;
+  const i = arr.indexOf(assig);
+  if (i !== -1) arr.splice(i, 1);
+  if (!arr.length) delete _perfil.classes[k];
+}
+
+function _perfilToggleLinia(curs, assig, linia) {
+  const k = curs + ' ' + linia;
+  if (_perfilLiniesDe(curs, assig).indexOf(linia) !== -1) {
+    _perfilTreuDeLinia(curs, assig, linia);
+    /* Es queda marcada encara que es quedi sense on: si no, li
+       desapareixeria de sota els dits mentre canvia de línia. */
+    if (!_perfilLiniesDe(curs, assig).length && !_perfilDesdobDe(curs, assig)) {
+      _perfilSensePosar[_perfilMarcaClau(curs, assig)] = true;
+    }
+  } else {
+    if (!_perfil.classes[k]) _perfil.classes[k] = [];
+    _perfil.classes[k].push(assig);
+    delete _perfilSensePosar[_perfilMarcaClau(curs, assig)];
+  }
+  _perfilRenderGrupsEspecialista();
+  if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
+}
+
+function _perfilTreuDesdob(curs, assig) {
+  const arr = (_perfil.altres || {})[curs];
+  if (arr) {
+    const i = arr.indexOf(assig);
+    if (i !== -1) arr.splice(i, 1);
+    if (!arr.length) delete _perfil.altres[curs];
+  }
+  if (_perfil.desdobGrup) delete _perfil.desdobGrup[_desdobMapKey(curs, assig)];
+}
+
+/* El grup de desdoblament és UN: triar-ne un altre canvia el d'abans.
+   Tornar a clicar el que ja hi és el treu, i llavors l'assignatura es
+   queda marcada esperant que digui on la fa. */
+function _perfilToggleDesdob(curs, assig, grup) {
+  if (!grup) return;
+  if (_perfilDesdobDe(curs, assig) === grup) {
+    _perfilTreuDesdob(curs, assig);
+    if (!_perfilLiniesDe(curs, assig).length) {
+      _perfilSensePosar[_perfilMarcaClau(curs, assig)] = true;
+    }
+  } else {
+    if (!_perfil.altres[curs]) _perfil.altres[curs] = [];
+    if (_perfil.altres[curs].indexOf(assig) === -1) _perfil.altres[curs].push(assig);
+    if (!_perfil.desdobGrup || typeof _perfil.desdobGrup !== 'object') _perfil.desdobGrup = {};
+    _perfil.desdobGrup[_desdobMapKey(curs, assig)] = grup;
+    delete _perfilSensePosar[_perfilMarcaClau(curs, assig)];
+  }
+  _perfilRenderGrupsEspecialista();
+  if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
+}
+
+/* Mira, sense fer esperar ningú, quines de les assignatures marcades
+   van per desdoblament. Quan ho sap, repinta. Cada curs+assignatura
+   es demana un sol cop per sessió (queda al cache). */
 let _perfilMirantDesdob = false;
-async function _perfilMiraDesdoblaments(grups) {
+async function _perfilMiraDesdoblaments(cursos) {
   if (_perfilMirantDesdob || !config.scriptUrl) return;
   const pendents = [];
-  (grups || []).forEach(grup => {
-    const curs = grup.split(' ')[0];
-    (_perfil.classes[grup] || []).forEach(a => {
+  (cursos || []).forEach(curs => {
+    _perfilAssigsDelCurs(curs).forEach(a => {
+      if (!_perfilAssigMarcada(curs, a)) return;
       if (_desdobGrupsCache[_desdobMapKey(curs, a)] === undefined) pendents.push([curs, a]);
     });
   });
@@ -310,22 +488,17 @@ async function _perfilMiraDesdoblaments(grups) {
   _perfilRenderGrupsEspecialista();
 }
 
-/* La mestra tria quin grup de desdoblament té. Es desa al perfil i tot el
-   que penja de l'assignatura (alumnes, notes, registres) hi va darrere. */
-function _perfilTriaDesdob(curs, assig, grup) {
-  if (!grup) return;
-  _desdobSetGrup(curs, assig, grup);
-  _perfilRenderGrupsEspecialista();
-  if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
-}
-
-function _perfilToggleAssigGrup(grup, assig) {
-  if (!_perfil.classes[grup]) _perfil.classes[grup] = [];
-  const arr = _perfil.classes[grup];
-  const i = arr.indexOf(assig);
-  if (i === -1) arr.push(assig); else arr.splice(i, 1);
-  _perfilRenderGrupsEspecialista();
-  if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
+/* Les assignatures marcades que encara no diuen on es fan, per
+   reclamar-les en desar. Torna [] quan està tot posat. */
+function _perfilFaltaDirOn() {
+  const falten = [];
+  _perfilCursosEsp().forEach(curs => {
+    _perfilAssigsDelCurs(curs).forEach(a => {
+      if (!_perfilAssigMarcada(curs, a)) return;
+      if (!_perfilLiniesDe(curs, a).length && !_perfilDesdobDe(curs, a)) falten.push({ curs: curs, assig: a });
+    });
+  });
+  return falten;
 }
 
 
@@ -456,7 +629,21 @@ async function perfilSave() {
     const ambAssig = Object.keys(_perfil.classes || {}).filter(g => (_perfil.classes[g] || []).length);
     const ambAltres = Object.keys(_perfil.altres || {}).filter(c => (_perfil.altres[c] || []).length);
     if (!ambAssig.length && !ambAltres.length) {
-      showToast('Afegeix almenys un grup i marca-hi una assignatura', 'error'); return;
+      showToast('Afegeix almenys un curs i marca-hi una assignatura', 'error'); return;
+    }
+    /* ⚠ Una assignatura marcada que no diu a quina línia es fa no es
+       desa enlloc: desapareixeria en tancar l'app i ella no en sabria
+       res. Val més reclamar-ho ara que no pas que ho descobreixi el dia
+       que no trobi el grup. */
+    const falten = (typeof _perfilFaltaDirOn === 'function') ? _perfilFaltaDirOn() : [];
+    if (falten.length) {
+      const f = falten[0];
+      showToast('Digues on fas ' + f.assig + ' de ' + f.curs + ': A, B, C o el grup de desdoblament' +
+                (falten.length > 1 ? ' (i ' + (falten.length - 1) + ' més)' : ''), 'error');
+      const cont = document.getElementById('perfilGrupsEspecialista');
+      const prim = cont && cont.querySelector('.perfil-on-fila.falta');
+      if (prim && prim.scrollIntoView) prim.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
     }
   } else if (!_perfil.tutorCurs || !_perfil.tutorLinia) {
     showToast('Tria de quin curs i línia ets tutor/a', 'error'); return;
@@ -671,6 +858,13 @@ let _anivCarregant = false;
 function _anivGrupsDelPerfil() {
   const out = [];
   if (_perfil && _perfil.classes) Object.keys(_perfil.classes).forEach(g => {
+    if (/^(1r|2n|3r|4t|5è|6è) [ABC]$/.test(g) && out.indexOf(g) === -1) out.push(g);
+  });
+  /* I les classes que fa per una assignatura d'un altre curs, quan el
+     grup triat és una classe sencera (29/9/2026). Els grups de
+     desdoblament de debò no hi entren: són mitges classes barrejades i
+     el seu aniversari ja el veurà el tutor. */
+  if (_perfil && _perfil.desdobGrup) Object.values(_perfil.desdobGrup).forEach(g => {
     if (/^(1r|2n|3r|4t|5è|6è) [ABC]$/.test(g) && out.indexOf(g) === -1) out.push(g);
   });
   return out;

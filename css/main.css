@@ -3259,8 +3259,13 @@ body {
   border: 1.5px solid var(--border); background: var(--bg-card, #fff);
   color: var(--text-muted); cursor: pointer; font-family: inherit; transition: all 0.12s;
 }
+/* ⚠ `--garnet-soft` i `--garnet-text` no existeixen a :root (29/9/2026):
+   sense el color de recanvi, el navegador llençava tota la línia i una
+   assignatura marcada es quedava blanca, igual que una de no marcada.
+   Els valors són els mateixos que fa servir la resta de l'app. */
 .perfil-assig-chip.active {
-  background: var(--garnet-soft); border-color: var(--crimson); color: var(--garnet-text); font-weight: 600;
+  background: var(--garnet-soft, #FBEAED); border-color: var(--crimson);
+  color: var(--garnet-text, #7A1E2E); font-weight: 600;
 }
 
 /* Perfil — selector de curs i línia (tota la primària) */
@@ -5567,6 +5572,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
 @media (hover: none) {
   .trim-sel-btn        { padding: 11px 16px; font-size: 13px; min-height: 44px; }
   .perfil-assig-chip   { padding: 11px 15px; font-size: 13px; min-height: 44px; }
+  .perfil-on-chip      { padding: 11px 14px; font-size: 13px; min-height: 44px; min-width: 44px; }
   .perfil-grup-remove  { width: 40px; height: 40px; font-size: 18px; }
 }
 
@@ -5625,14 +5631,50 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
    allò que hi cabia deixa de cabre-hi. */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
-/* El selector de desdoblament, dins del bloc de cada grup del perfil
-   (28/9/2026: abans era una targeta a part que la mestra havia d'omplir). */
-.perfil-desdob-fila {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
+/* ============================================================
+   PERFIL · ON ES FA CADA ASSIGNATURA (29/9/2026)
+   Dins del bloc de cada curs, una fila per assignatura marcada: el
+   nom a l'esquerra i, a la dreta, on la fa (A, B, C i —si en té— els
+   grups del desdoblament). Les línies són de marcar-ne més d'una;
+   el grup de desdoblament, un.
+   ============================================================ */
+.perfil-on-llista {
+  margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--border);
+  display: flex; flex-direction: column; gap: 7px;
 }
-.perfil-desdob-assig { font-size: 12.5px; color: var(--text-muted); }
-.perfil-desdob-sel   { max-width: 200px; }
+.perfil-on-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.perfil-on-assig {
+  font-size: 12.5px; font-weight: 600; color: var(--text-main);
+  min-width: 118px; flex-shrink: 0;
+}
+.perfil-on-opcions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.perfil-on-chip {
+  min-width: 34px; font-size: 12.5px; font-weight: 600; line-height: 1;
+  padding: 7px 10px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--text-muted); cursor: pointer; font-family: inherit;
+  transition: background var(--ease), border-color var(--ease), color var(--ease);
+}
+.perfil-on-chip:hover { border-color: var(--crimson); color: var(--garnet-deep); }
+.perfil-on-chip.active {
+  background: var(--crimson); border-color: var(--crimson); color: #fff;
+}
+/* Els del desdoblament porten el nom del grup, no una lletra: rodons i
+   amb el granat suau, perquè no semblin una línia més. */
+.perfil-on-chip.desdob { border-radius: 16px; min-width: 0; }
+.perfil-on-chip.desdob.active {
+  background: #FBEAED; border-color: var(--crimson); color: #7A1E2E;
+}
+.perfil-on-etiq, .perfil-on-espera {
+  font-size: 11.5px; color: var(--text-muted); margin-left: 4px;
+}
+.perfil-on-espera { font-style: italic; }
+/* Marcada però encara sense dir on: no es desarà, i val més que es vegi. */
+.perfil-on-avis {
+  font-size: 11.5px; font-weight: 600; color: var(--warn, #B45309);
+  background: var(--warn-bg, #FFF6E5); border-radius: 6px; padding: 3px 8px;
+}
+.perfil-on-fila.falta .perfil-on-assig { color: var(--warn, #B45309); }
 
 /* El subtext del planning pot tenir més d'una línia (29/9/2026): abans era
    un camp d'una sola línia i no s'hi podia fer Enter. */

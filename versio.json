@@ -1,8 +1,10 @@
 {
-  "versio": "v249",
+  "versio": "v250",
   "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al planning, la descripció breu de la franja ja admet més d'una línia: fes Enter i escriu-hi el que calgui. A la graella es veuen totes les línies; a la pàgina d'inici, on el dia va resumit, te les ajunta amb un punt volat."
+    "Especialistes i direcció: al perfil ara s'afegeix el CURS (1r, 2n… 6è) i no pas el grup. Marques les assignatures que hi fas i, a cada una, dius on la fas: A, B o C, i pots marcar-ne més d'una (Educació física a 3r A i a 3r B, per exemple).",
+    "Si aquella assignatura va per desdoblament, al costat de les lletres hi surten també els grups del desdoblament (o el grup rotatori, com el Tallers) per triar el teu. Si no en té, només hi veuràs A, B i C.",
+    "Una assignatura marcada que encara no digui on la fas surt en groc, i en desar el perfil l'app t'ho reclama: sense lletra ni grup no se sabria de quins alumnes parles."
   ]
 }

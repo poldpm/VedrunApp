@@ -106,6 +106,12 @@ function _horariAssigsDisponibles() {
   if (typeof _perfil !== 'undefined' && _perfil && _perfil.classes) {
     Object.values(_perfil.classes).forEach(arr => (arr||[]).forEach(nom => set.add(nom)));
   }
+  /* I les que fa per desdoblament (29/9/2026). Van a `altres`, no a
+     `classes`: sense aquesta línia, una especialista que només fa una
+     assignatura per desdoblament no la trobava per posar-la a l'horari. */
+  if (typeof _perfil !== 'undefined' && _perfil && _perfil.altres) {
+    Object.values(_perfil.altres).forEach(arr => (arr||[]).forEach(nom => set.add(nom)));
+  }
   // De les que ja hi ha a l'horari (només franges normals, no el pati)
   Object.keys(_horari).forEach(k => {
     if (k.split('_')[1] === HORARI_FRANJA_PATI) return;
