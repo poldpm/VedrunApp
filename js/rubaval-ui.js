@@ -506,6 +506,7 @@
     if (_esNova) _llista.push(r);
     else _llista = _llista.map(function (x) { return x.id === r.id ? r : x; });
     RubAval.desa(_entrada.key, _trim, _llista);
+    _oblidaMapa();
     tancaEditor();
     pintaLlista();
     if (typeof showToast === 'function') {
@@ -603,6 +604,7 @@
     }
     destins.push(copia);
     RubAval.desa(e.key, _trim, destins);
+    _oblidaMapa();
   }
 
   function esborraRubrica(id) {
@@ -615,6 +617,7 @@
     if (!confirm(avis)) return;
     _llista = _llista.filter(function (x) { return x.id !== id; });
     RubAval.desa(_entrada.key, _trim, _llista);
+    _oblidaMapa();
     pintaLlista();
     if (typeof showToast === 'function') showToast('Rúbrica esborrada', 'success');
   }
@@ -653,15 +656,18 @@
   function desaAviat() {
     if (!_entrada) return;
     RubAval.desaLocal(_entrada.key, _trim, _llista);
+    _oblidaMapa();
     if (_desaTimer) clearTimeout(_desaTimer);
     _desaTimer = setTimeout(function () {
       _desaTimer = null;
       RubAval.desa(_entrada.key, _trim, _llista);
+      _oblidaMapa();
     }, 1500);
   }
   function desaAra() {
     if (_desaTimer) { clearTimeout(_desaTimer); _desaTimer = null; }
     if (_entrada) RubAval.desa(_entrada.key, _trim, _llista);
+    _oblidaMapa();
   }
 
   /* Els alumnes que toquen: els d'aquell grup, i mig grup si l'assignatura
@@ -1124,6 +1130,7 @@
       return m;
     })());
     RubAval.desa(_entrada.key, _trim, _llista);
+    _oblidaMapa();
 
     if (typeof showToast === 'function') {
       showToast(escrites + ' not' + (escrites === 1 ? 'a' : 'es') + ' a «' + r.nom + '»' +
@@ -1135,6 +1142,51 @@
                 (sensePlaca.length > 3 ? '…' : '') + '). La seva nota no hi ha anat.', 'error');
     }
   }
+
+  /* ============================================================
+     DES DEL REGISTRE DE NOTES
+     ------------------------------------------------------------
+     La columna que ve d'una rúbrica porta un botó «rúbrica» a la
+     capçalera (js/notes.js). D'aquí surten les dues coses que
+     necessita: saber si aquella columna en té, i obrir-la.
+     ============================================================ */
+
+  /* Es crida a cada repintada de la taula de notes, o sigui que la
+     resposta es guarda: llegir el calaix del navegador per cada columna
+     i cada repintada seria pagar-ho a cada tecla que s'escriu al
+     registre. El calaix es torna a llegir quan es desa una rúbrica. */
+  var _cacheItems = { clau: null, mapa: null };
+
+  function _mapaItems(materia, trim) {
+    var clau = materia + '|' + trim;
+    if (_cacheItems.clau === clau && _cacheItems.mapa) return _cacheItems.mapa;
+    var mapa = {};
+    (RubAval.llegeix(materia, trim) || []).forEach(function (r) {
+      if (r.itemId !== null && r.itemId !== undefined) mapa[String(r.itemId)] = r;
+    });
+    _cacheItems = { clau: clau, mapa: mapa };
+    return mapa;
+  }
+  function _oblidaMapa() { _cacheItems = { clau: null, mapa: null }; }
+
+  ui.rubricaDeItem = function (materia, trim, itemId) {
+    if (!materia || itemId === undefined || itemId === null) return null;
+    try { return _mapaItems(materia, String(trim))[String(itemId)] || null; }
+    catch (e) { return null; }
+  };
+
+  ui.obreDesDelRegistre = function (materia, trim, itemId) {
+    var e = _entrades().filter(function (x) { return x.key === materia; })[0];
+    if (!e) { avisa('Aquesta assignatura ja no és al teu perfil.'); return; }
+    _entrada = e;
+    _trim = parseInt(trim, 10) || 1;
+    _llista = RubAval.llegeix(_entrada.key, _trim);
+    var r = _llista.filter(function (x) { return String(x.itemId) === String(itemId); })[0];
+    if (!r) { avisa('No trobo la rúbrica d\'aquesta columna.'); return; }
+    showPage('rubaval');
+    pintaCapcalera();
+    obreAvaluacio(r.id);
+  };
 
   ui.nova = function () { if (_entrada) obreEditor(null); };
   ui.hiEs = _hiEs;

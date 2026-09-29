@@ -5893,3 +5893,14 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
    què NO (els que no tenen res avaluat no reben cap zero). */
 .rav-passa-llista { margin: 0 0 6px; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: var(--text-main); }
 .rav-passa-canvi { color: var(--warn, #B45309); font-weight: 600; }
+/* La columna del registre que ve d'una rúbrica: un botó petit a la
+   capçalera per tornar-hi. Només el veu qui té l'eina encesa. */
+.notes-th-rubrica {
+  display: block; margin: 3px auto 0; padding: 2px 8px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.03em;
+  border-radius: 999px; cursor: pointer; font-family: inherit;
+  border: 1px solid var(--crimson); background: var(--surface);
+  color: var(--crimson);
+}
+.notes-th-rubrica:hover { background: var(--crimson); color: #fff; }
+@media (hover: none) { .notes-th-rubrica { padding: 6px 10px; font-size: 11px; } }

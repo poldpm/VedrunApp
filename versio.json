@@ -1,9 +1,8 @@
 {
-  "versio": "v254",
+  "versio": "v255",
   "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Nova a «Possibles actualitzacions»: rúbriques d'avaluació d'activitats. Escrius els teus criteris amb el pes que vulguis, avalues la classe en una graella (un clic per nivell, o els números del teclat) i la nota va sola al registre de notes. Si la vols, demana-la des de l'Inici i te l'encendran.",
-    "El manual ja l'explica, a l'apartat «Rúbriques d'avaluació»."
+    "Rúbriques d'avaluació (per a qui tingui l'eina): al registre de notes, la columna que ve d'una rúbrica porta un botó «rúbrica» a la capçalera que t'obre la graella d'aquella activitat. Abans hi havies de tornar per Eines."
   ]
 }

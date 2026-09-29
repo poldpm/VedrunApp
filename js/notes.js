@@ -848,7 +848,19 @@ function renderNotesTable() {
         <div class="notes-th-item-meta">Pes ${item.pes} · automàtic</div>`;
     } else {
       th.className = 'notes-th-item';
-      th.innerHTML = `<button class="notes-del-btn" aria-label="Eliminar ${escapeHtml(item.nom)}" onclick="deleteNotaItem('${_idJs(item.id)}')" title="Eliminar ${escapeHtml(item.nom)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="notes-th-item-nom" title="${escapeHtml(item.nom)}">${escapeHtml(item.nom)}</div><div class="notes-th-item-meta">Pes ${item.pes} · sobre ${item.maxPunts}</div>`;
+      /* ⚠ SI LA COLUMNA VE D'UNA RÚBRICA, QUE S'HI PUGUI TORNAR.
+
+         Sense això, canviar el nivell d'un alumne volia dir recordar de
+         quina assignatura i quin trimestre era i tornar-hi per Eines →
+         Rúbriques → Avaluar. Amb la columna al davant, el camí curt és
+         clicar-la. Només surt a qui tingui l'eina encesa i a les columnes
+         que en vénen: per a la resta, aquí no hi canvia res. */
+      const _rub = (typeof RubAvalUI !== 'undefined' && RubAvalUI.hiEs && RubAvalUI.hiEs())
+        ? RubAvalUI.rubricaDeItem(notesContext.materia, notesContext.trimestre, item.id) : null;
+      th.innerHTML = `<button class="notes-del-btn" aria-label="Eliminar ${escapeHtml(item.nom)}" onclick="deleteNotaItem('${_idJs(item.id)}')" title="Eliminar ${escapeHtml(item.nom)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="notes-th-item-nom" title="${escapeHtml(item.nom)}">${escapeHtml(item.nom)}</div><div class="notes-th-item-meta">Pes ${item.pes} · sobre ${item.maxPunts}</div>` +
+        (_rub ? `<button class="notes-th-rubrica" title="Obrir la rúbrica de «${escapeHtml(item.nom)}»"
+                   aria-label="Obrir la rúbrica de ${escapeHtml(item.nom)}"
+                   onclick="RubAvalUI.obreDesDelRegistre('${_idJs(notesContext.materia)}','${_idJs(notesContext.trimestre)}','${_idJs(item.id)}')">rúbrica</button>` : '');
     }
     trH.appendChild(th);
   });

@@ -143,7 +143,8 @@ assignatura i trimestre.
 - `css/main.css` — blocs `.rubaval-*`, `.rav-*`.
 - `js/app.js` — dues línies: el ganxo de `showPage('rubaval')` (que torna a
   l'Inici si l'eina no hi és) i `RubAvalUI.aplicaInterficie()` a l'arrencada.
-- `js/notes.js` — `notesCreaItem(nom, max, pes)`, separat d'`addNotaItem()`.
+- `js/notes.js` — `notesCreaItem(nom, max, pes)`, separat d'`addNotaItem()`, i el botó
+  «rúbrica» a la capçalera de la columna que en ve (només si l'eina està encesa).
 - `js/personal.js` de la mestra — l'interruptor.
 
 **Com s'encén:** a `js/personal.js` de la seva app,
