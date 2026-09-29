@@ -5188,6 +5188,13 @@ function _planDiaCal(diaId) {
   return { festa, tarda };
 }
 
+/* El subtext del planning pot tenir més d'una línia (29/9/2026). A la
+   portada, però, el resum del dia ha de ser d'una sola: s'ajunten amb un
+   punt volat en comptes d'estirar la fila. */
+function _planSubUnaLinia(txt) {
+  return String(txt || '').split(/\n+/).map(x => x.trim()).filter(Boolean).join(' · ');
+}
+
 function renderPlanning() {
   const titleEl = document.getElementById('planWeekTitle');
   if (!titleEl) return; // element no present (pàgina no carregada)
@@ -7574,7 +7581,10 @@ function _renderHomeAvui() {
         <div class="home-franja-body">
           ${data.alerta?`<span class="home-franja-alerta">⚠ ${escapeHtml(data.alerta)}</span>`:''}
           <span class="home-franja-pill" style="background:${col.bg};color:${col.color}">${escapeHtml(data.assig||'')}</span>
-          ${data.sub?`<span class="home-franja-sub">${escapeHtml(data.sub)}</span>`:''}
+          /* A la portada el resum del dia ha de ser d'una línia: si el subtext en
+             té més d'una (des del 29/9/2026 s'hi pot fer Enter), s'ajunten amb un
+             punt volat en comptes d'estirar la fila. */
+          ${data.sub?`<span class="home-franja-sub">${escapeHtml(_planSubUnaLinia(data.sub))}</span>`:''}
         </div>
         ${data.link?`<a class="home-franja-link" href="${_enllacSegur(data.link)}" target="_blank">📄</a>`:''}
       </div>`;

@@ -1,10 +1,8 @@
 {
-  "versio": "v248",
+  "versio": "v249",
   "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Si canvies l'horari quan ja l'havies aplicat, ara els canvis SÍ que arriben al planning: l'app et diu quantes caselles diuen una altra cosa i et pregunta si hi vol posar la de l'horari.",
-    "Quan ho fa, només canvia l'assignatura: els comentaris, les alertes i els colors que hi hagis posat es queden, i les sortides i festes no es toquen.",
-    "I quan no canvia res, ara t'ho diu bé: abans ho carregava sempre a la franja del pati, fos el motiu que fos."
+    "Al planning, la descripció breu de la franja ja admet més d'una línia: fes Enter i escriu-hi el que calgui. A la graella es veuen totes les línies; a la pàgina d'inici, on el dia va resumit, te les ajunta amb un punt volat."
   ]
 }
