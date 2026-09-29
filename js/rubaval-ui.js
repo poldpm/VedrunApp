@@ -142,10 +142,30 @@
     if (!_entrada) { _llista = []; pintaLlista(); return; }
     _llista = RubAval.llegeix(_entrada.key, _trim);
     pintaLlista();
-    // I, en segon pla, el que en digui el full (per si ve d'un altre aparell)
-    RubAval.carrega(_entrada.key, _trim).then(function (l) {
-      if (!_entrada) return;
-      _llista = l || [];
+    /* ⚠ LA LECTURA DEL FULL ARRIBA TARD I NO POT TREPITJAR EL QUE S'ESTÀ FENT.
+
+       Dos problemes, tots dos trobats a l'auditoria del 29/9/2026:
+
+       1) Si mentrestant s'ha canviat d'assignatura o de trimestre, aquella
+          resposta ja no és d'aquesta pantalla. Pitjor: el proper desat
+          hauria escrit les rúbriques d'una assignatura sota la clau de
+          l'altra. Per això es recorda a QUINA petició corresponia.
+
+       2) Si mentrestant s'ha començat a AVALUAR, `_avaluant` apunta a un
+          objecte de la llista d'abans. Reemplaçar-la el deixava fora, i
+          llavors cada clic es desava en una llista que ja no el contenia:
+          la mestra marcava nivells, els veia a la pantalla, i no se'n
+          desava cap. Per això la que s'està avaluant es manté tal com és. */
+    var _key = _entrada.key, _t = _trim;
+    RubAval.carrega(_key, _t).then(function (l) {
+      if (!_entrada || _entrada.key !== _key || _trim !== _t) return;
+      var nova = l || [];
+      if (_avaluant) {
+        var i = nova.findIndex(function (x) { return x.id === _avaluant.id; });
+        if (i !== -1) nova[i] = _avaluant;      // la que té els clics d'ara
+        else nova.push(_avaluant);
+      }
+      _llista = nova;
       pintaLlista();
     }).catch(function () {});
   }
@@ -558,16 +578,22 @@
         c.checked = !c.checked;
       });
     });
-    byId('ravCopiaFes').onclick = function () {
+    byId('ravCopiaFes').onclick = async function () {
       var quins = [...body.querySelectorAll('input:checked')].map(function (c) {
         return entr[parseInt(c.getAttribute('data-i'), 10)];
       });
       if (!quins.length) { avisa('Marca on la vols copiar.'); return; }
-      quins.forEach(function (e) { copiaA(r, e); });
+      var boto = byId('ravCopiaFes');
+      boto.disabled = true; boto.textContent = 'Copiant…';
+      var fetes = [];
+      for (var i = 0; i < quins.length; i++) {
+        if (await copiaA(r, quins[i])) fetes.push(quins[i].label);
+      }
+      boto.disabled = false; boto.textContent = 'Copiar-la';
       byId('ravCopiaOverlay').classList.remove('open');
-      if (typeof showToast === 'function') {
-        showToast(quins.length === 1 ? ('Copiada a ' + quins[0].label + ' ✓')
-                                     : ('Copiada a ' + quins.length + ' grups ✓'), 'success');
+      if (fetes.length && typeof showToast === 'function') {
+        showToast(fetes.length === 1 ? ('Copiada a ' + fetes[0] + ' ✓')
+                                     : ('Copiada a ' + fetes.length + ' grups ✓'), 'success');
       }
     };
     byId('ravCopiaOverlay').classList.add('open');
@@ -596,15 +622,35 @@
     byId('ravCopiaTanca').addEventListener('click', function () { ov.classList.remove('open'); });
   }
 
-  function copiaA(r, e) {
+  /* ⚠ COPIAR-LA A UN ALTRE GRUP LI ESBORRAVA LES QUE JA TENIA.
+
+     Aquí es llegia la llista del grup de destí NOMÉS del navegador i tot
+     seguit es desava sencera al full. En un ordinador on aquell grup no
+     s'hagués obert mai en aquella sessió, la llista era buida: s'hi desava
+     la còpia i les rúbriques que aquell grup tenia al full —amb totes les
+     avaluacions dels seus alumnes— desapareixien.
+
+     Trobat a l'auditoria del 29/9/2026. Ara es demana primer al full què hi
+     ha, i si no s'hi pot arribar NO es copia res: val més no fer-ho que
+     fer-ho a sobre del que no hem pogut llegir. */
+  async function copiaA(r, e) {
+    var destins;
+    try {
+      destins = await RubAval.carregaDelFull(e.key, _trim);
+    } catch (err) { destins = null; }
+    if (!Array.isArray(destins)) {
+      avisa('No s\'ha pogut llegir què té ' + e.label + ' al full, i per no trepitjar-li res no ' +
+            'hi he copiat la rúbrica. Torna-ho a provar quan tinguis connexió.');
+      return false;
+    }
     var copia = RubAval.copia(r, r.nom, e.grup || null);
-    var destins = RubAval.llegeix(e.key, _trim);
     if (destins.some(function (x) { return (x.nom || '').toLowerCase() === (copia.nom || '').toLowerCase(); })) {
       copia.nom = copia.nom + ' (còpia)';
     }
     destins.push(copia);
     RubAval.desa(e.key, _trim, destins);
     _oblidaMapa();
+    return true;
   }
 
   function esborraRubrica(id) {
@@ -705,6 +751,10 @@
     pintaAvaluacio(true);             // de seguida, dient que busca els alumnes
     _avAlumnes = await carregaAlumnes(_entrada);
     if (_avaluant !== r) return;      // ha canviat de pantalla mentrestant
+    /* Les rúbriques fetes abans del 29/9/2026 tenen les avaluacions lligades
+       a la posició de l'alumne. Ara que ja sabem qui és cadascú, es passen a
+       la seva clau de debò i es desa. Només passa un cop per rúbrica. */
+    if (RubAval.migraClaus(r, _avAlumnes)) { desaAviat(); }
     pintaAvaluacio(false);
   }
 
@@ -789,17 +839,18 @@
                '<div class="rav-av-tots">tots: ' +
                  r.nivells.map(function (n, i) {
                    return '<button type="button" class="rav-av-tot" data-c="' + esc(c.id) + '" data-i="' + i + '" ' +
-                          'title="Posar «' + esc(n.nom) + '» a tots els alumnes">' + (i + 1) + '</button>';
+                          'title="Posar «' + esc(n.nom) + '» a tots els alumnes" ' +
+                          'aria-label="Posar ' + esc(n.nom || ('nivell ' + (i + 1))) + ' a tots els alumnes, a ' + esc(c.nom) + '">' + (i + 1) + '</button>';
                  }).join('') +
                '</div></th>';
       }).join('') +
       '<th class="rav-av-th-nota">Nota</th></tr></thead><tbody>';
 
     _avAlumnes.forEach(function (a) {
-      html += '<tr data-alumne="' + esc(a.id) + '">' +
+      html += '<tr data-alumne="' + esc(RubAval.clauAlumne(a)) + '">' +
         '<td class="rav-av-alumne">' + esc(_nomDeMostra(a)) + '</td>' +
         r.criteris.map(function (c) { return '<td>' + cellaHtml(a, c) + '</td>'; }).join('') +
-        '<td class="rav-av-nota">' + notaHtml(notes[String(a.id)]) + '</td></tr>';
+        '<td class="rav-av-nota">' + notaHtml(notes[RubAval.clauAlumne(a)]) + '</td></tr>';
     });
     cont.innerHTML = html + '</tbody></table></div>';
     lligaGraella(cont);
@@ -809,9 +860,9 @@
   function pintaTargetes(cont, notes) {
     var r = _avaluant;
     cont.innerHTML = _avAlumnes.map(function (a) {
-      return '<div class="rav-av-targeta" data-alumne="' + esc(a.id) + '">' +
+      return '<div class="rav-av-targeta" data-alumne="' + esc(RubAval.clauAlumne(a)) + '">' +
         '<div class="rav-av-targeta-cap"><span>' + esc(_nomDeMostra(a)) + '</span>' +
-          '<span class="rav-av-nota">' + notaHtml(notes[String(a.id)]) + '</span></div>' +
+          '<span class="rav-av-nota">' + notaHtml(notes[RubAval.clauAlumne(a)]) + '</span></div>' +
         r.criteris.map(function (c) {
           return '<div class="rav-av-targeta-fila"><span class="rav-av-targeta-crit">' + esc(c.nom) + '</span>' +
                  cellaHtml(a, c, true) + '</div>';
@@ -826,12 +877,12 @@
      qui fa servir un lector de pantalla. */
   function cellaHtml(a, c, ambNom) {
     var r = _avaluant;
-    var tria = ((r.valors || {})[String(a.id)] || {})[c.id];
+    var tria = ((r.valors || {})[RubAval.clauAlumne(a)] || {})[c.id];
     return '<div class="rav-av-cella" data-c="' + esc(c.id) + '">' +
       r.nivells.map(function (n, i) {
         var hi = tria === i;
         return '<button type="button" class="rav-av-niv' + (hi ? ' active' : '') + '" ' +
-               'data-a="' + esc(a.id) + '" data-c="' + esc(c.id) + '" data-i="' + i + '" ' +
+               'data-a="' + esc(RubAval.clauAlumne(a)) + '" data-c="' + esc(c.id) + '" data-i="' + i + '" ' +
                'aria-pressed="' + hi + '" ' +
                'aria-label="' + esc(_nomDeMostra(a)) + ', ' + esc(c.nom) + ': ' + esc(n.nom || ('nivell ' + (i + 1))) + '" ' +
                'title="' + esc(n.nom) + '">' + (ambNom ? esc(n.nom || (i + 1)) : (i + 1)) + '</button>';
@@ -915,14 +966,14 @@
   function posaColumna(criteriId, idx) {
     var r = _avaluant;
     var fets = _avAlumnes.filter(function (a) {
-      var v = (r.valors || {})[String(a.id)];
+      var v = (r.valors || {})[RubAval.clauAlumne(a)];
       return v && v[criteriId] !== undefined && v[criteriId] !== idx;
     }).length;
     if (fets && !confirm('Hi ha ' + fets + ' alumne' + (fets === 1 ? '' : 's') +
         ' amb un altre nivell en aquest criteri. Els canviaràs tots. Continuo?')) return;
     RubAval.posaColumna(r, _avAlumnes, criteriId, idx);
     desaAviat();
-    _avAlumnes.forEach(function (a) { refrescaFila(a.id); });
+    _avAlumnes.forEach(function (a) { refrescaFila(RubAval.clauAlumne(a)); });
     refrescaCompte();
   }
 
@@ -1006,7 +1057,7 @@
     if (problemes.length) { avisa(problemes[0]); return; }
     var c = RubAval.canvis(r, _avAlumnes);
     var ambNota = _avAlumnes.filter(function (a) {
-      var n = c.notes[String(a.id)];
+      var n = c.notes[RubAval.clauAlumne(a)];
       return n && n.nota !== null;
     }).length;
 
@@ -1043,6 +1094,14 @@
           ? '<li><strong>' + c.incomplets.length + '</strong> amb la rúbrica a mitges: se\'ls posa la nota del que has avaluat.</li>'
           : '') +
       '</ul>' +
+      /* ⚠ Es tornen a escriure TOTES les notes, no només les que canvien.
+         Dir-ho importa: si no, veient «cap canvi» podria pensar que prémer
+         el botó no serveix de res, i justament és el que ha de fer si una
+         nota s'hagués quedat pel camí (auditoria del 29/9/2026). */
+      (jaHiEra && !c.canviats.length
+        ? '<p class="modal-hint" style="margin:0 0 10px">Cap nota no canvia. Es tornaran a escriure ' +
+          'totes igualment, o sigui que si alguna no hagués arribat al registre, hi arribarà ara.</p>'
+        : '') +
       (jaHiEra && c.canviats.length
         ? '<div class="grups-avis grups-avis-warn" style="margin-top:4px">' +
             c.canviats.slice(0, 6).map(function (x) {
@@ -1081,10 +1140,18 @@
     return n(a) === n(b);
   }
 
+  /* Mentre les notes van cap al registre, el botó no pot tornar a fer-ho: són
+     uns quants segons (obrir el registre, esperar-lo, crear la columna) i dos
+     clics seguits podrien arribar tots dos abans que la columna existís, i
+     fer-ne dues. */
+  var _passant = false;
+
   async function passaAlRegistre(r, pes) {
+    if (_passant) return;
+    _passant = true;
     desaAra();
     var notes = RubAval.notesDe(r, _avAlumnes);
-    var quins = _avAlumnes.filter(function (a) { return notes[String(a.id)].nota !== null; });
+    var quins = _avAlumnes.filter(function (a) { return notes[RubAval.clauAlumne(a)].nota !== null; });
 
     // Al registre d'aquella assignatura i aquell trimestre (hi navega sol)
     try {
@@ -1120,13 +1187,13 @@
       var st = students.filter(function (s) { return _mateixNom(s.nom, a.nom); })[0] ||
                students.filter(function (s) { return String(s.id) === String(a.id); })[0];
       if (!st) { sensePlaca.push(a.nom); continue; }
-      await updateNota(item.id, st.id, notes[String(a.id)].nota);
+      await updateNota(item.id, st.id, notes[RubAval.clauAlumne(a)].nota);
       escrites++;
     }
 
     RubAval.marcaEnviades(r, (function () {
       var m = {};
-      quins.forEach(function (a) { m[String(a.id)] = notes[String(a.id)].nota; });
+      quins.forEach(function (a) { m[RubAval.clauAlumne(a)] = notes[RubAval.clauAlumne(a)].nota; });
       return m;
     })());
     RubAval.desa(_entrada.key, _trim, _llista);
@@ -1141,6 +1208,7 @@
                 ' a la llista del registre (' + sensePlaca.slice(0, 3).join(', ') +
                 (sensePlaca.length > 3 ? '…' : '') + '). La seva nota no hi ha anat.', 'error');
     }
+    _passant = false;
   }
 
   /* ============================================================
@@ -1169,6 +1237,24 @@
   }
   function _oblidaMapa() { _cacheItems = { clau: null, mapa: null }; }
 
+  /* El servidor pot tornar un codi de columna diferent del que li havíem
+     posat (quan la columna ja existia al full d'un intent perdut). El
+     registre ho remapa; la rúbrica també ha de seguir-la, o el botó
+     «rúbrica» de la capçalera desapareix. Ho crida `js/notes.js`. */
+  ui.remapaItem = function (ctx, idVell, idNou) {
+    if (!ctx || !ctx.materia || String(idVell) === String(idNou)) return;
+    var trim = String(ctx.trimestre);
+    var llista = RubAval.llegeix(ctx.materia, trim);
+    var tocada = false;
+    llista.forEach(function (r) {
+      if (String(r.itemId) === String(idVell)) { r.itemId = idNou; tocada = true; }
+    });
+    if (!tocada) return;
+    RubAval.desa(ctx.materia, trim, llista);
+    if (_entrada && _entrada.key === ctx.materia && String(_trim) === trim) _llista = llista;
+    _oblidaMapa();
+  };
+
   ui.rubricaDeItem = function (materia, trim, itemId) {
     if (!materia || itemId === undefined || itemId === null) return null;
     try { return _mapaItems(materia, String(trim))[String(itemId)] || null; }
@@ -1188,7 +1274,14 @@
     obreAvaluacio(r.id);
   };
 
-  ui.nova = function () { if (_entrada) obreEditor(null); };
+  /* ⚠ Un botó que no fa res és pitjor que no tenir-lo: si encara no ha dit
+     quines assignatures fa, la rúbrica no sabria de qui és. Abans aquest
+     botó sortia de la funció en silenci (auditoria del 29/9/2026). */
+  ui.nova = function () {
+    if (_entrada) { obreEditor(null); return; }
+    avisa('Primer digues quines assignatures fas: ves a «El meu perfil» i marca-les. ' +
+          'Les rúbriques van per assignatura i grup.');
+  };
   ui.hiEs = _hiEs;
 
   /* El botó del menú neix amagat a l'index.html i només l'ensenya això,

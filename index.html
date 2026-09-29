@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v257">
+  <link rel="stylesheet" href="css/main.css?v=v258">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -187,7 +187,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <div class="setup-banner-text">
           <strong>Pas 1:</strong> Configura la connexió amb Google Sheets via Apps Script.
-          <a onclick="openConfig()">Obrir configuració →</a>
+          <button type="button" class="setup-banner-link" onclick="openConfig()">Obrir configuració →</button>
         </div>
       </div>
       <div id="statsRow" style="display:none"></div>
@@ -508,7 +508,7 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="modal-body">
           <div class="modal-field">
             <div class="modal-label">Títol *</div>
-            <input class="modal-input" id="tascaTitol" type="text" placeholder="Ex: Enviar circular als pares" aria-label="Títol" maxlength="120">
+            <input class="modal-input" required aria-required="true" id="tascaTitol" type="text" placeholder="Ex: Enviar circular als pares" aria-label="Títol" maxlength="120">
           </div>
           <div class="modal-field">
             <div class="modal-label">Descripció (opcional)</div>
@@ -666,8 +666,8 @@ Català, Matemàtiques, Anglès, Medi, Català
         <!-- Nom -->
         <div class="perfil-card">
           <div class="perfil-card-title">Nom del mestre</div>
-          <input class="modal-input" id="perfilNom" placeholder="El teu nom" oninput="_perfilUpdateAvatar()" style="margin-bottom:8px" required aria-required="true" aria-label="Nom del mestre" maxlength="40">
-          <input class="modal-input" id="perfilCognom" placeholder="El teu cognom" oninput="_perfilUpdateAvatar()" required aria-required="true" aria-label="Nom del mestre" maxlength="60">
+          <input class="modal-input" id="perfilNom" placeholder="El teu nom" oninput="_perfilUpdateAvatar()" style="margin-bottom:8px" required aria-required="true" aria-label="El teu nom" maxlength="40">
+          <input class="modal-input" id="perfilCognom" placeholder="El teu cognom" oninput="_perfilUpdateAvatar()" required aria-required="true" aria-label="El teu cognom" maxlength="60">
           <div class="modal-hint" style="margin-top:6px">Tots dos, si us plau: hi ha mestres que es diuen igual de nom.</div>
         </div>
 
@@ -841,9 +841,9 @@ Català, Matemàtiques, Anglès, Medi, Català
             <div class="modal-field">
               <div class="modal-label">Alumnes per grup</div>
               <div class="grups-num-row">
-                <button class="grups-num-btn" onclick="grupsChangeNum(-1)">−</button>
+                <button class="grups-num-btn" aria-label="Un alumne menys per grup" onclick="grupsChangeNum(-1)">−</button>
                 <span class="grups-num-val" id="grupsNumVal">3</span>
-                <button class="grups-num-btn" onclick="grupsChangeNum(1)">+</button>
+                <button class="grups-num-btn" aria-label="Un alumne més per grup" onclick="grupsChangeNum(1)">+</button>
               </div>
               <div class="modal-hint" id="grupsHint"></div>
             </div>
@@ -1056,9 +1056,9 @@ Català, Matemàtiques, Anglès, Medi, Català
       <!-- Capçalera setmana -->
       <div class="plan-topbar">
         <div class="plan-topbar-left">
-          <button class="btn btn-ghost btn-sm" onclick="planningPrevWeek()">←</button>
+          <button class="btn btn-ghost btn-sm" aria-label="Setmana anterior" onclick="planningPrevWeek()">←</button>
           <button class="btn btn-ghost btn-sm" onclick="planningThisWeek()">Avui</button>
-          <button class="btn btn-ghost btn-sm" onclick="planningNextWeek()">→</button>
+          <button class="btn btn-ghost btn-sm" aria-label="Setmana següent" onclick="planningNextWeek()">→</button>
           <span class="plan-week-title" id="planWeekTitle"></span>
         </div>
         <div class="plan-topbar-right">
@@ -1165,9 +1165,9 @@ Català, Matemàtiques, Anglès, Medi, Català
               <div id="planDuradaCustom" style="display:none;margin-top:8px;display:none">
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                   <span style="font-size:13px;color:var(--text-muted)">Ocupa</span>
-                  <button type="button" class="plan-durada-num-btn" onclick="changePlanDuradaN(-1)">−</button>
+                  <button type="button" class="plan-durada-num-btn" aria-label="Una franja menys" onclick="changePlanDuradaN(-1)">−</button>
                   <span id="planDuradaN" style="font-size:15px;font-weight:700;min-width:20px;text-align:center">2</span>
-                  <button type="button" class="plan-durada-num-btn" onclick="changePlanDuradaN(1)">+</button>
+                  <button type="button" class="plan-durada-num-btn" aria-label="Una franja més" onclick="changePlanDuradaN(1)">+</button>
                   <span style="font-size:13px;color:var(--text-muted)">franges (aquesta inclosa)</span>
                 </div>
               </div>
@@ -1220,9 +1220,9 @@ Català, Matemàtiques, Anglès, Medi, Català
         <!-- Esquerra: calendari + agendar -->
         <div class="cal2-left">
           <div class="cal2-header">
-            <button class="btn btn-ghost btn-sm" onclick="cal2PrevMonth()">←</button>
+            <button class="btn btn-ghost btn-sm" aria-label="Mes anterior" onclick="cal2PrevMonth()">←</button>
             <h1 class="cal2-month-title" id="cal2MonthTitle"></h1>
-            <button class="btn btn-ghost btn-sm" onclick="cal2NextMonth()">→</button>
+            <button class="btn btn-ghost btn-sm" aria-label="Mes següent" onclick="cal2NextMonth()">→</button>
             <button class="btn btn-ghost btn-sm" onclick="cal2Today()">Avui</button>
           </div>
 
@@ -2313,36 +2313,36 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v257"></script>
-  <script defer src="js/pdfhorari.js?v=v257"></script>
-  <script defer src="js/millores.js?v=v257"></script>
-  <script defer src="js/rol.js?v=v257"></script>
-  <script defer src="js/config.local.js?v=v257"></script>
-  <script defer src="js/app.js?v=v257"></script>
-  <script defer src="js/notes.js?v=v257"></script>
-  <script defer src="js/seients.js?v=v257"></script>
-  <script defer src="js/perfil.js?v=v257"></script>
-  <script defer src="js/grupview.js?v=v257"></script>
-  <script defer src="js/postits.js?v=v257"></script>
-  <script defer src="js/horari.js?v=v257"></script>
-  <script defer src="js/vedrunu.js?v=v257"></script>
-  <script defer src="js/gwrite.js?v=v257"></script>
-  <script defer src="js/rubriques.js?v=v257"></script>
-  <script defer src="js/rubaval.js?v=v257"></script>
-  <script defer src="js/rubaval-ui.js?v=v257"></script>
-  <script defer src="js/docents.js?v=v257"></script>
-  <script defer src="js/coordinacio.js?v=v257"></script>
-  <script defer src="js/regdocents.js?v=v257"></script>
-  <script defer src="js/segentrevistes.js?v=v257"></script>
-  <script defer src="js/entrevistes.js?v=v257"></script>
-  <script defer src="js/notescomp.js?v=v257"></script>
-  <script defer src="js/reunions.js?v=v257"></script>
-  <script defer src="js/versio.js?v=v257"></script>
+  <script defer src="js/espera.js?v=v258"></script>
+  <script defer src="js/pdfhorari.js?v=v258"></script>
+  <script defer src="js/millores.js?v=v258"></script>
+  <script defer src="js/rol.js?v=v258"></script>
+  <script defer src="js/config.local.js?v=v258"></script>
+  <script defer src="js/app.js?v=v258"></script>
+  <script defer src="js/notes.js?v=v258"></script>
+  <script defer src="js/seients.js?v=v258"></script>
+  <script defer src="js/perfil.js?v=v258"></script>
+  <script defer src="js/grupview.js?v=v258"></script>
+  <script defer src="js/postits.js?v=v258"></script>
+  <script defer src="js/horari.js?v=v258"></script>
+  <script defer src="js/vedrunu.js?v=v258"></script>
+  <script defer src="js/gwrite.js?v=v258"></script>
+  <script defer src="js/rubriques.js?v=v258"></script>
+  <script defer src="js/rubaval.js?v=v258"></script>
+  <script defer src="js/rubaval-ui.js?v=v258"></script>
+  <script defer src="js/docents.js?v=v258"></script>
+  <script defer src="js/coordinacio.js?v=v258"></script>
+  <script defer src="js/regdocents.js?v=v258"></script>
+  <script defer src="js/segentrevistes.js?v=v258"></script>
+  <script defer src="js/entrevistes.js?v=v258"></script>
+  <script defer src="js/notescomp.js?v=v258"></script>
+  <script defer src="js/reunions.js?v=v258"></script>
+  <script defer src="js/versio.js?v=v258"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v257"></script>
+  <script defer src="js/personal.js?v=v258"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

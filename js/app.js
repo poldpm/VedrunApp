@@ -177,6 +177,14 @@ function showPage(pageId, _fromPop) {
   if (!_rolDireccio() && PAGINES_NOMES_DIRECCIO.indexOf(pageId) !== -1) {
     pageId = 'home';
   }
+  /* Les eines que només té qui les ha demanades, aquí dalt amb les altres:
+     redirigint més avall es deixava una entrada d'historial de més i el
+     primer «enrere» semblava que no fes res (és el bug d'#docents del
+     8/9/2026, trobat de nou a l'auditoria del 29/9/2026). */
+  if (pageId === 'rubaval' &&
+      !(typeof RubAvalUI !== 'undefined' && RubAvalUI.hiEs && RubAvalUI.hiEs())) {
+    pageId = 'home';
+  }
   if (_fromPop && pageId !== _demanat) {
     try { history.replaceState({ page: pageId }, '', '#' + pageId); } catch (e) {}
   }
@@ -220,10 +228,7 @@ function showPage(pageId, _fromPop) {
   /* Rúbriques d'avaluació: és una eina que només té qui l'ha demanada
      (window.EINES_RUBAVAL al seu js/personal.js). Si no la té, l'adreça
      #rubaval no l'ha de portar a una pàgina buida. */
-  if (pageId === 'rubaval') {
-    if (typeof RubAvalUI === 'undefined' || !RubAvalUI.hiEs()) { showPage('home'); return; }
-    RubAvalUI.obrePagina();
-  }
+  if (pageId === 'rubaval') RubAvalUI.obrePagina();
   if (pageId === 'grups')        initGrups();
   if (pageId === 'seients')      initSeients();
   if (pageId === 'postits')      initPostits();
@@ -1445,7 +1450,11 @@ async function _geminiGenerate(prompt) {
    ============================================================ */
 const _GET_ES_LECTURA = new Set([
   'getGrupAlumnes', 'getDesdobGrup', 'getGrupObs', 'getRegistre',
-  'getDesdoblament', 'getDesdoblaments', 'getGrupsCurs'
+  /* ⚠ `getDesdobGrups` (amb essa) hi faltava, i és de les que més es
+     demanen: una per assignatura marcada cada cop que s'obre el perfil.
+     En canvi hi havia `getDesdoblaments` i `getGrupsCurs`, que no existeixen
+     al servidor. Trobat a l'auditoria del 29/9/2026. */
+  'getDesdobGrups', 'getDesdoblament'
 ]);
 const _GET_DURA = 60000;            // 1 minut
 const _getGuardat = new Map();      // clau → { ts, dades }
@@ -3695,9 +3704,30 @@ function _finestraVigila() {
       }
     });
   });
-  document.querySelectorAll(_SEL_FINESTRES).forEach(el => {
-    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+  const _vigila = el => obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+  document.querySelectorAll(_SEL_FINESTRES).forEach(_vigila);
+
+  /* ⚠ LES FINESTRES QUE ES FAN DES DEL CODI NO ES VIGILAVEN.
+
+     Aquí només s'hi apuntaven les que ja són a l'index.html. Les que es
+     creen després —l'editor d'objectius, les tres de les rúbriques
+     d'avaluació, les de Convocar reunions, el comentari d'una nota…— no
+     rebien mai `role="dialog"`, ni el rètol, ni el focus en obrir-se, ni el
+     retorn del focus en tancar-se. Són catorze. L'Escape i la trampa del
+     tabulador sí que hi funcionaven (aquells miren el DOM cada vegada).
+
+     Ara es vigila també el que s'afegeix al body, i s'hi apunten soles.
+     Trobat a l'auditoria d'accessibilitat del 29/9/2026. */
+  const obsNoves = new MutationObserver(muts => {
+    muts.forEach(m => {
+      (m.addedNodes || []).forEach(n => {
+        if (!n || n.nodeType !== 1) return;
+        if (n.matches && n.matches(_SEL_FINESTRES)) _vigila(n);
+        if (n.querySelectorAll) n.querySelectorAll(_SEL_FINESTRES).forEach(_vigila);
+      });
+    });
   });
+  obsNoves.observe(document.body, { childList: true, subtree: true });
 }
 
 /* ============================================================
@@ -3833,8 +3863,17 @@ function _pendentClau(body) {
      es trepitgi a la cua: sense això, desar la fitxa d'un alumne sense
      connexió i tot seguit la d'un altre deixava només l'última, i el primer
      es perdia sense dir res (auditoria 6/9/2026). */
+  /* ⚠ Els seients tenen TRES desats diferents amb la mateixa acció i el
+     mateix grup: els marcadors, el plànol amb l'historial, i el plànol amb
+     els marcadors. Amb la clau només per acció+grup, sense connexió l'un
+     esborrava l'altre de la cua i aquell canvi no arribava mai al full
+     (auditoria del 29/9/2026). El que els distingeix és què porten. */
+  const _mena = (body && body.action === 'saveSeients')
+    ? (body.layout !== undefined ? 'L' : '') + (body.markers !== undefined ? 'M' : '') +
+      (body.history !== undefined ? 'H' : '')
+    : null;
   const extra = [body && body.weekId, body && body.year, body && body.materia,
-                 body && body.trimestre, body && body.grup,
+                 body && body.trimestre, body && body.grup, _mena,
                  body && body.rowId, body && body.studentId]
                  .filter(x => x !== undefined && x !== null).join('|');
   return extra ? a + '·' + extra : a;

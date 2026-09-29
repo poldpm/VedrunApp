@@ -65,11 +65,26 @@ function _cacheDel() {
 // Es desen al cache persistent perquè obrir qualsevol assignatura sigui instantani.
 async function prefetchAllNotes() {
   if (!config.scriptUrl) return;
-  const MATS  = ['matematiques','catala','medi','musica','angles'];
+  /* ⚠ AIXÒ DEMANAVA CINC ASSIGNATURES QUE NO EREN LES SEVES.
+
+     La llista era fixa («matematiques, catala, medi, musica, angles») i sense
+     grup, de quan les notes anaven per assignatura i prou. Des que van per
+     assignatura I grup (`matematiques__3ra`, amb el grup a part), aquestes
+     cinc peticions no corresponien a cap registre de ningú: cinc crides a
+     l'Apps Script a cada arrencada, i un cache que no servia mai perquè la
+     clau no era la que després busca `openNotes`. Trobat a l'auditoria del
+     29/9/2026; és el mateix cas que es va arreglar als Assoliments el 6/9.
+
+     Ara es precarreguen les assignatures que la mestra té de debò al perfil
+     (com a molt sis, per no fer-ne una tirallonga). */
+  const entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
+  if (!entrades.length) return;
   const trim  = (typeof getTrimestreProposat === 'function') ? getTrimestreProposat() : 1;
   // Carrega en sèrie suau (una rere l'altra) per no saturar Apps Script
-  for (const mat of MATS) {
-    const persistKey = 'notescache_' + mat + '_' + trim;
+  for (const e of entrades.slice(0, 6)) {
+    const mat = e.key;
+    const grup = e.altres ? null : (e.grup || null);
+    const persistKey = 'notescache_' + mat + '_' + trim + (grup ? '_' + grup : '');
     try {
       // Si ja hi ha cache fresc, salta
       const raw = localStorage.getItem(persistKey);
@@ -77,10 +92,12 @@ async function prefetchAllNotes() {
         const c = JSON.parse(raw);
         if (c && Date.now() - c.ts < CACHE_MS) continue;
       }
-      const r = await appsScriptGet({ action: 'getNotes', materia: mat, trimestre: trim });
+      const r = await appsScriptGet({ action: 'getNotes', materia: mat, trimestre: trim, grup: grup, _fons: true });
       if (r.ok) {
         const entry = { items: r.items || [], valors: r.valors || {}, noEntregats: r.noEntregats || {}, comentaris: r.comentaris || {}, rowNoms: r.rowNoms || [], ts: Date.now() };
-        _cache[mat + '_' + trim] = entry;
+        // La MATEIXA clau que fa servir `_cacheKey()` en obrir l assignatura,
+        // o el cache es quedaria en un calaix que ningu no obre mai.
+        _cache[mat + '_' + trim + (grup ? '_' + grup : '')] = entry;
         localStorage.setItem(persistKey, JSON.stringify(entry));
       }
     } catch(e) { /* silent, es carregarà quan s'obri */ }
@@ -488,6 +505,8 @@ function _notesEsVeuen() {
 async function _loadNotesBackground() {
   if (!config.scriptUrl) return;
   const ctx = notesContext;
+  // Quan hem demanat aquesta resposta: el que es creï després no hi serà.
+  const _t0 = Date.now();
   try {
     const r = await appsScriptGet({
       action: 'getNotes',
@@ -505,12 +524,56 @@ async function _loadNotesBackground() {
     if (ctx.alumnes) { try { await ctx.alumnes; } catch (e) {} }
     // Mentre s'esperava, la mestra ha obert una altra cosa: això ja no toca.
     if (notesContext !== ctx) return;
-    const newItems  = sortCarpetaLast(r.items || []);
+    let newItems  = sortCarpetaLast(r.items || []);
+
+    /* ⚠ UNA COLUMNA ACABADA DE CREAR NO POT DESAPARÈIXER DE LA TAULA.
+
+       El servidor contesta el que hi ha AL FULL. Una columna creada fa un
+       moment encara és a la cua, o sigui que no hi surt; i aquí es
+       reemplaçava la llista sencera, o sigui que se n'anava de la pantalla
+       —i del cache— amb les notes ja escrites a dins.
+
+       Trobat a l'auditoria del 29/9/2026 passant una rúbrica al registre
+       amb el servidor lent: sortia «3 notes a «Prova» ✓ (columna nova)» i
+       sis segons després la columna ja no hi era. Les dades arribaven al
+       full igualment, però la mestra donava la feina per perduda i la
+       tornava a fer.
+
+       Ara, el que encara és a la cua es torna a posar a la llista amb les
+       seves notes. Al cache hi va el que diu el servidor, tal qual: quan la
+       columna hi arribi, ja vindrà d'ell, i `_notesItemConfirmat` s'encarrega
+       del codi si el full n'hi havia posat un altre. */
+    const _colsPendents = [];
+    const _afegeix = it => {
+      if (!it || newItems.some(x => String(x.id) === String(it.id))) return;
+      if (_colsPendents.some(x => String(x.id) === String(it.id))) return;
+      _colsPendents.push(it);
+      newItems.push(it);
+    };
+    // Les que encara esperen torn a la cua…
+    ((typeof _casellesDe === 'function') ? _casellesDe('notesItem', ctx) : [])
+      .forEach(p => _afegeix(p.canvi && p.canvi.item));
+    /* …i les que s'han creat DESPRÉS de demanar aquesta resposta. Sense això
+       quedava una finestra: la cua ja les havia entregades (i per tant ja no
+       hi eren), però la resposta que arribava s'havia demanat abans i encara
+       no les portava. A la pantalla, la columna marxava uns segons i tornava.
+       Vist mostrejant cada dos segons a l'auditoria del 29/9/2026. */
+    (_colsRecents[_colsRecentsClau(ctx)] || [])
+      .filter(x => x.ts >= _t0)
+      .forEach(x => _afegeix(x.item));
+    if (_colsPendents.length) newItems = sortCarpetaLast(newItems);
     // Guarda al cache els valors ORIGINALS (per posició) + rowNoms.
     // El remapatge per nom es fa en aplicar (aquí sota i en obrir des de cache).
     _cacheSet({ items: r.items || [], valors: r.valors || {}, noEntregats: r.noEntregats || {}, comentaris: r.comentaris || {}, rowNoms: r.rowNoms || [] });
     // Per a l'ús immediat, remapa pel nom
     const newValors = _remapValorsPerNom(r.valors || {}, r.rowNoms);
+    /* I les notes d'aquelles columnes que encara són a la cua: al full no hi
+       són, però a la pantalla sí, i ja van de camí. ⚠ Van DESPRÉS del
+       remapatge: les del servidor venen per posició de fila i aquestes ja
+       van per alumne. */
+    _colsPendents.forEach(it => {
+      if (notesValors[it.id]) newValors[it.id] = notesValors[it.id];
+    });
     const newNE     = _remapValorsPerNom(r.noEntregats || {}, r.rowNoms);
     const newComs   = _remapValorsPerNom(r.comentaris || {}, r.rowNoms);
 
@@ -595,9 +658,25 @@ function selectPesByVal(val) {
    a la CUA, que es reintenta sola i que el servidor no pot fer dues
    vegades (mateix codi d'operació). Les notes que s'hi posin tot seguit
    van darrere seu a la mateixa cua, o sigui que arriben al full després. */
+/* Les columnes creades fa poc en aquest navegador, per context. Serveixen
+   per no deixar-les caure quan arriba una resposta del servidor que es va
+   demanar ABANS de crear-les (veure `_loadNotesBackground`). */
+let _colsRecents = {};
+function _colsRecentsClau(ctx) {
+  return (ctx.materia || '') + '|' + ctx.trimestre + '|' + (ctx.grup || '');
+}
+function _colsRecentsPosa(ctx, item) {
+  const k = _colsRecentsClau(ctx);
+  if (!_colsRecents[k]) _colsRecents[k] = [];
+  _colsRecents[k].push({ item: item, ts: Date.now() });
+  // Les de fa més de cinc minuts ja són al full o s'han perdut pel camí.
+  _colsRecents[k] = _colsRecents[k].filter(x => Date.now() - x.ts < 300000);
+}
+
 function notesCreaItem(nom, maxPunts, pes) {
   const item = { id: Date.now(), nom: nom, maxPunts: maxPunts, pes: pes };
   notesItems.push(item);
+  _colsRecentsPosa(_notesCtxCua(), item);
   notesValors[item.id] = {};
   notesItems = sortCarpetaLast(notesItems);
   _cacheDel();
@@ -675,6 +754,12 @@ window._notesItemConfirmat = function (ctx, idVell, idNou) {
     [notesValors, noEntregats, notesComentaris].forEach(m => {
       if (m && m[idVell] !== undefined) { m[idNou] = m[idVell]; delete m[idVell]; }
     });
+  }
+  /* I la rubrica que hagi creat aquella columna: si no, el boto «rubrica»
+     de la capcalera desapareix sense explicacio fins al proper pas de notes
+     (auditoria del 29/9/2026). */
+  if (typeof RubAvalUI !== 'undefined' && RubAvalUI.remapaItem) {
+    try { RubAvalUI.remapaItem(ctx, idVell, idNou); } catch (e) {}
   }
   _cacheDel();
   renderNotesTable();

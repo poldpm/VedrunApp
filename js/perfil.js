@@ -132,9 +132,26 @@ function _grupKey(curs, linia) { return curs + ' ' + linia; }
 function initPerfil() {
   const cached = localStorage.getItem('vedruna_perfil');
   if (cached) { try { _perfil = _perfilMigrar(JSON.parse(cached)); } catch(e) {} }
+  /* Les assignatures marcades i encara sense lloc són d'aquesta estada a la
+     pàgina: si es quedessin d'una visita per l'altra, un dia qualsevol el
+     Desar li quedaria blocat per una marca que ni recorda. */
+  _perfilSensePosar = {};
+  _perfilTocat = false;
   _perfilRender();
   _perfilLoadFromSheets();
 }
+
+/* ⚠ EL REFRESC DEL FULL NO POT REPINTAR EL PERFIL MENTRE ELLA HI CLICA.
+
+   `_perfilLoadFromSheets` torna al cap d'un parell de segons i reemplaça
+   `_perfil` sencer. Amb el perfil nou per cursos (v250), aquells dos segons
+   són just quan s'estan clicant els xips: el que hagués marcat desapareixia
+   sense dir res. Trobat a l'auditoria del 29/9/2026.
+
+   Ara, si ja hi ha tocat res, el que ve del full es deixa per a la propera
+   vegada: el que mana és el que té a les mans. */
+let _perfilTocat = false;
+function _perfilMarcaTocat() { _perfilTocat = true; }
 
 async function _perfilLoadFromSheets() {
   if (!config.scriptUrl) return;
@@ -142,6 +159,8 @@ async function _perfilLoadFromSheets() {
   try {
     // El perfil ja es veu (del navegador): el refresc no el tapa amb el vel.
     const r = await appsScriptGet({ action: 'loadProfile', _fons: true });
+    // Mentre esperàvem, ha començat a marcar coses: no li repintem a sobre.
+    if (_perfilTocat) return;
     if (r.ok && r.profile) {
       _perfil = _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{}, altres:{}, desdobGrup:{}, cursos:[] }, r.profile));
       localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil));
@@ -278,8 +297,17 @@ let _perfilSensePosar = {};
 function _perfilMarcaClau(curs, assig) { return curs + '|' + assig; }
 
 function _perfilAssigMarcada(curs, assig) {
+  /* ⚠ També compta ser a `altres[curs]` encara que no s'hagi triat cap grup.
+
+     Els perfils fets abans del 29/9/2026 (la targeta vella «Assignatures amb
+     grup rotatori») hi tenen assignatures sense cap entrada a `desdobGrup`.
+     Sense aquesta línia sortien AQUÍ com si no les fes —el xip apagat— però
+     seguien al menú, a Observacions i a les notes. Trobat a l'auditoria del
+     29/9/2026. Ara surten marcades i l'app li demana a quin grup les fa, que
+     és la informació que hi falta. */
   return _perfilLiniesDe(curs, assig).length > 0 ||
          _perfilDesdobDe(curs, assig) !== null ||
+         (((_perfil.altres || {})[curs] || []).indexOf(assig) !== -1) ||
          !!_perfilSensePosar[_perfilMarcaClau(curs, assig)];
 }
 
@@ -391,6 +419,7 @@ function _perfilFilaOn(curs, assig) {
 }
 
 function _perfilAfegeixCursEsp(curs) {
+  _perfilMarcaTocat();
   if (!curs || PERFIL_CURSOS.indexOf(curs) === -1) return;
   if (!Array.isArray(_perfil.cursos)) _perfil.cursos = [];
   if (_perfil.cursos.indexOf(curs) === -1) _perfil.cursos.push(curs);
@@ -399,6 +428,7 @@ function _perfilAfegeixCursEsp(curs) {
 }
 
 function _perfilTreuCursEsp(curs) {
+  _perfilMarcaTocat();
   const marcades = _perfilAssigsDelCurs(curs).filter(a => _perfilAssigMarcada(curs, a));
   const detall = marcades.length
     ? ' Perdràs les ' + marcades.length + ' assignatures que hi tens marcades (' + marcades.join(', ') + ').'
@@ -424,6 +454,7 @@ function _perfilTreuCursEsp(curs) {
    pitjor que no posar-n'hi cap —acabaria passant llista als alumnes
    d'una altra classe sense que res ho digués. */
 function _perfilToggleAssigCurs(curs, assig) {
+  _perfilMarcaTocat();
   if (_perfilAssigMarcada(curs, assig)) {
     PERFIL_LINIES.forEach(l => _perfilTreuDeLinia(curs, assig, l));
     _perfilTreuDesdob(curs, assig);
@@ -445,6 +476,7 @@ function _perfilTreuDeLinia(curs, assig, linia) {
 }
 
 function _perfilToggleLinia(curs, assig, linia) {
+  _perfilMarcaTocat();
   const k = curs + ' ' + linia;
   if (_perfilLiniesDe(curs, assig).indexOf(linia) !== -1) {
     _perfilTreuDeLinia(curs, assig, linia);
@@ -456,6 +488,15 @@ function _perfilToggleLinia(curs, assig, linia) {
   } else {
     if (!_perfil.classes[k]) _perfil.classes[k] = [];
     _perfil.classes[k].push(assig);
+    /* ⚠ O LÍNIES O DESDOBLAMENT, MAI TOTS DOS.
+
+       Són dos camins diferents de desar (`classes["3r A"]` i `altres["3r"]`),
+       i tenir-los tots dos alhora feia sortir l'assignatura DUES vegades a
+       tot arreu —al menú, a Observacions, a les notes— amb dos registres
+       diferents i sense manera de saber quina era quina. Trobat a
+       l'auditoria del 29/9/2026. En Pol ho va dir com una tria: «A, B, C,
+       Desdoblament o rotatiu». */
+    _perfilTreuDesdob(curs, assig);
     delete _perfilSensePosar[_perfilMarcaClau(curs, assig)];
   }
   _perfilRenderGrupsEspecialista();
@@ -476,6 +517,7 @@ function _perfilTreuDesdob(curs, assig) {
    Tornar a clicar el que ja hi és el treu, i llavors l'assignatura es
    queda marcada esperant que digui on la fa. */
 function _perfilToggleDesdob(curs, assig, grup) {
+  _perfilMarcaTocat();
   if (!grup) return;
   if (_perfilDesdobDe(curs, assig) === grup) {
     _perfilTreuDesdob(curs, assig);
@@ -487,6 +529,9 @@ function _perfilToggleDesdob(curs, assig, grup) {
     if (_perfil.altres[curs].indexOf(assig) === -1) _perfil.altres[curs].push(assig);
     if (!_perfil.desdobGrup || typeof _perfil.desdobGrup !== 'object') _perfil.desdobGrup = {};
     _perfil.desdobGrup[_desdobMapKey(curs, assig)] = grup;
+    // O línies o desdoblament (veure `_perfilToggleLinia`): triar un grup
+    // treu les línies que hi hagués marcades d'aquella assignatura.
+    PERFIL_LINIES.forEach(function (l) { _perfilTreuDeLinia(curs, assig, l); });
     delete _perfilSensePosar[_perfilMarcaClau(curs, assig)];
   }
   _perfilRenderGrupsEspecialista();
@@ -668,13 +713,20 @@ async function perfilSave() {
                 (falten.length > 1 ? ' (i ' + (falten.length - 1) + ' més)' : ''), 'error');
       const cont = document.getElementById('perfilGrupsEspecialista');
       const prim = cont && cont.querySelector('.perfil-on-fila.falta');
-      if (prim && prim.scrollIntoView) prim.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (prim && prim.scrollIntoView) {
+        /* Amb «reduir el moviment» posat, res de desplaçament suau: el CSS no
+           pot aturar un  demanat des del codi. */
+        var _suau = true;
+        try { _suau = !window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+        prim.scrollIntoView({ block: 'center', behavior: _suau ? 'smooth' : 'auto' });
+      }
       return;
     }
   } else if (!_perfil.tutorCurs || !_perfil.tutorLinia) {
     showToast('Tria de quin curs i línia ets tutor/a', 'error'); return;
   }
   localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil));
+  _perfilTocat = false;   // desat: el refresc del full ja hi pot tornar
   _perfilUpdateNav();
   perfilRenderAllSelectors();
   if (config.scriptUrl) {
@@ -1631,7 +1683,8 @@ function _perfilRenderAltres() {
     html += `<div class="perfil-grup-block">
       <div class="perfil-grup-block-head">
         <span class="perfil-grup-block-title">${escapeHtml(curs)}</span>
-        <button class="perfil-grup-remove" onclick="_perfilTreuCursAltre('${_idJs(curs)}')" title="Treure curs">×</button>
+        <button class="perfil-grup-remove" onclick="_perfilTreuCursAltre('${_idJs(curs)}')"
+                title="Treure curs" aria-label="Treure ${escapeHtml(curs)} del perfil">×</button>
       </div>
       <div class="perfil-assig-chips">${chips}</div>
       ${grupsHtml}
@@ -1639,7 +1692,7 @@ function _perfilRenderAltres() {
   });
   const disponibles = cursos.filter(c => afegits.indexOf(c) === -1);
   html += `<div class="perfil-desdob-add" style="margin-top:10px;display:flex;gap:8px;align-items:center">
-    <select class="modal-input" id="perfilAltreCursAdd" style="max-width:130px" onchange="_perfilAfegeixCursAltre(this.value)">
+    <select class="modal-input" id="perfilAltreCursAdd" aria-label="Afegir un curs on faig classe" style="max-width:130px" onchange="_perfilAfegeixCursAltre(this.value)">
       <option value="">+ Afegir curs…</option>
       ${disponibles.map(c=>`<option value="${c}">${c}</option>`).join('')}
     </select>

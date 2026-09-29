@@ -63,11 +63,29 @@
     var dades = { objectius: llista || [] };
     desaLocal(mat, dades);
     aplica(mat, dades);
-    if (typeof config !== 'undefined' && config.scriptUrl && typeof appsScriptPost === 'function') {
-      appsScriptPost({ action: 'saveRubrica', materia: mat, data: dades })
-        .catch(function () {
+    /* ⚠ AIXÒ PROMETIA UNA CUA QUE NO EXISTIA.
+
+       El `catch` deia «es desaran quan tornis a tenir connexió», però
+       `appsScriptPost` només rebutja per un problema de xarxa: un
+       `{ok:false}` del servidor (per exemple, quan ja no hi cap més
+       informació a la cel·la) arribava com si tot hagués anat bé, i els
+       objectius es quedaven només al navegador. El primer refresc des d'un
+       altre aparell se'ls enduia.
+
+       Ara van per la cua de debò (`_desaAlFull`), que reintenta sola i que
+       avisa si el servidor els rebutja. Trobat a l'auditoria del 29/9/2026. */
+    if (typeof config !== 'undefined' && config.scriptUrl) {
+      var cos = { action: 'saveRubrica', materia: mat, data: dades };
+      if (typeof _desaAlFull === 'function') _desaAlFull(cos, { callat: true });
+      else if (typeof appsScriptPost === 'function') {
+        appsScriptPost(cos).then(function (r) {
+          if (r && r.ok === false && typeof showToast === 'function') {
+            showToast('Els objectius no s\'han pogut desar al full: ' + (r.error || ''), 'error');
+          }
+        }).catch(function () {
           if (typeof showToast === 'function') showToast('Els objectius es desaran quan tornis a tenir connexió', 'info');
         });
+      }
     }
   }
 

@@ -9,6 +9,25 @@
   --crimson:      #C01E4B;
   --crimson-soft: #e8c4cf;
   --garnet-deep:  #4A1520;
+  /* ⚠ AQUESTES SET NO EXISTIEN, I SE'N FEIEN SERVIR 79 VEGADES.
+
+     Una `var(--x)` que no està definida i que no porta color de recanvi
+     invalida la declaració SENCERA. Per això hi havia estats «actiu» que no
+     es veien: la pestanya triada de la fitxa de grup quedava igual que la de
+     sobre-el-ratolí, el dia actiu de Convocar reunions no es distingia, i
+     l'assignatura marcada del perfil es quedava blanca (això últim ja es va
+     tapar amb un fallback el 29/9/2026, però la causa era aquesta).
+
+     Els valors són els que ja feien servir com a recanvi les regles que sí
+     que en portaven, i els mateixos que hi ha escrits al manual. Trobat a
+     l'auditoria d'accessibilitat del 29/9/2026. */
+  --garnet-text:  #7A1E2E;
+  --garnet-mid:   #9B2C42;
+  --garnet-soft:  #FBEAED;
+  --garnet-soft2: #F5D0D6;
+  --bg-alt:       #F7F4F5;
+  --bg-card:      #FFFFFF;
+  --card:         #FFFFFF;
   --surface:      #FFFFFF;
   --surface-alt:  #F7F4F5;
   --surface-tint: #FBF8F9;
@@ -4621,7 +4640,7 @@ body {
 }
 .entr-item:last-child { border-bottom: none; }
 .entr-item-cap { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
-.entr-data { font-weight: 600; font-size: 13.5px; color: var(--text); }
+.entr-data { font-weight: 600; font-size: 13.5px; color: var(--text-main); }
 .entr-accions { display: flex; gap: 4px; flex-shrink: 0; }
 .entr-mini {
   border: 1px solid var(--border); background: transparent; cursor: pointer;
@@ -4853,7 +4872,7 @@ button.reucal-cel:focus-visible {
    escriure: si semblen editables, la mestra hi escriu i després veu com se
    li desfà quan arriba el document de l'escola. */
 .form-input-nomes-mirar {
-  background: var(--bg); border-color: transparent;
+  background: var(--surface-alt); border-color: transparent;
   color: var(--text-main); cursor: default; resize: none;
 }
 .form-input-nomes-mirar:focus { outline: none; box-shadow: none; border-color: transparent; }
@@ -5904,3 +5923,48 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 }
 .notes-th-rubrica:hover { background: var(--crimson); color: #fff; }
 @media (hover: none) { .notes-th-rubrica { padding: 6px 10px; font-size: 11px; } }
+
+/* ============================================================
+   ACCESSIBILITAT — arranjaments de l'auditoria del 29/9/2026
+   ============================================================ */
+
+/* ⚠ L'anell de focus no es veia sobre el granat del menú: el crimson sobre
+   #4A1520 dona 2,49:1 i la norma en demana 3:1. Són els 24 primers punts de
+   tabulació de cada pantalla, i també les creus de tancar de les finestres.
+   Sobre granat, l'anell va blanc (el patró ja existia a `.esm-penyora-btn`). */
+.sidebar :focus-visible,
+.modal-header :focus-visible,
+.panel-header :focus-visible,
+.salta-al-contingut:focus {
+  outline: 3px solid #FFFFFF;
+  outline-offset: 2px;
+}
+
+/* ⚠ Els camps de només-mirar de la fitxa es menjaven l'anell de focus amb
+   `:focus` (i amb més especificitat que la regla global). Continuen essent
+   punts de tabulació —n'hi ha vuit seguits a la fitxa—, o sigui que amb el
+   teclat el cursor hi desapareixia. Amb el ratolí segueixen sense marc. */
+.form-input-nomes-mirar:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+.form-input-nomes-mirar:focus-visible { outline: 3px solid var(--crimson); outline-offset: 1px; }
+
+/* Objectius de dit que s'havien quedat per sota dels 44 px (els altres ja hi
+   són des de la v237). El de «posar aquest nivell a TOTS els alumnes» és el
+   que més mal faria si es prem sense voler. */
+@media (hover: none), (pointer: coarse) {
+  .postit-act-btn { width: 44px; height: 44px; }
+  .rav-av-tot     { width: 44px; height: 44px; font-size: 13px; }
+  .seients-step   { min-width: 44px; min-height: 44px; }
+  .grups-num-btn  { min-width: 44px; min-height: 44px; }
+  .tq-check       { width: 26px; height: 26px; }
+  .btn            { height: auto; min-height: 44px; }
+}
+
+/* ⚠ Colors d'estat per sota del 4,5:1 sobre els fons de l'app. Són justament
+   els senyals d'urgència: la data d'una tasca que venç avui, una de vençuda,
+   els avisos del plànol d'aula i de la fitxa de grup. El text secundari ja
+   es va arreglar el 8/9/2026; aquests es van quedar fora. */
+.tq-data-avui     { color: #C2410C; }   /* 2,56:1 → 4,8:1 */
+.tq-data-vencuda  { color: #B91C1C; }   /* 3,44:1 → 5,9:1 */
+.seient-warn      { color: #B45309; }   /* 2,91:1 → 4,6:1 */
+.grupview-alert   { color: #B45309; }
+.grups-cond-sep   { color: #B91C1C; }

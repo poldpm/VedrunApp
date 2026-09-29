@@ -187,8 +187,8 @@
   function notesDe(rubrica, alumnes) {
     var out = {};
     (alumnes || []).forEach(function (a) {
-      var id = (a && a.id !== undefined) ? a.id : a;
-      out[String(id)] = nota(rubrica, id);
+      var k = clauAlumne(a);
+      out[k] = nota(rubrica, k);
     });
     return out;
   }
@@ -210,7 +210,7 @@
   // es posa el nivell de la majoria i es corregeixen les excepcions.
   function posaColumna(rubrica, alumnes, criteriId, idx) {
     (alumnes || []).forEach(function (a) {
-      posaNivell(rubrica, (a && a.id !== undefined) ? a.id : a, criteriId, idx);
+      posaNivell(rubrica, clauAlumne(a), criteriId, idx);
     });
     return rubrica;
   }
@@ -273,7 +273,7 @@
     var abans = rubrica.enviades || {};
     var nous = [], canviats = [], buits = [], incomplets = [];
     (alumnes || []).forEach(function (a) {
-      var id = String((a && a.id !== undefined) ? a.id : a);
+      var id = clauAlumne(a);
       var n = ara[id];
       var fila = { id: id, nom: (a && a.nom) || '', abans: (abans[id] === undefined ? null : abans[id]), ara: n.nota };
       if (n.nota === null) { buits.push(fila); return; }
@@ -362,9 +362,27 @@
   /* Desa al navegador i al full. Al full hi va per la cua de `_desaAlFull`:
      si el servidor no hi és, es reintenta sol i no es perd (que és el que
      ha de passar amb una avaluació feta i no desada). */
+  /* Tot el que hi ha d'una assignatura i un trimestre va a UNA cel·la del
+     full, i una cel·la de Google no passa de 50.000 lletres (el servidor
+     s'atura a 45.000). Una rúbrica de sis criteris amb 25 alumnes n'ocupa
+     unes 4.200: a la desena, el full deixaria d'acceptar-les i, a partir
+     d'aquell moment, no se'n desaria cap més. Val més dir-ho abans que
+     arribi (auditoria del 29/9/2026). */
+  var MIDA_AVIS = 38000;
+
+  function midaDe(llista) {
+    try { return JSON.stringify({ v: 1, rubriques: llista || [] }).length; }
+    catch (e) { return 0; }
+  }
+
   function desa(materia, trimestre, llista) {
     desaLocal(materia, trimestre, llista);
     if (typeof config === 'undefined' || !config.scriptUrl) return;
+    if (midaDe(llista) > MIDA_AVIS && typeof showToast === 'function') {
+      showToast('Aquesta assignatura ja té moltes rúbriques desades en aquest trimestre i el full ' +
+                'està a punt de quedar-se sense lloc. Esborra les activitats que ja no facis servir ' +
+                '(la columna de notes no es perd) o digues-ho en Pol.', 'error');
+    }
     var cos = { action: 'saveRubrica', materia: clau(materia, trimestre),
                 data: { v: 1, rubriques: llista || [] } };
     if (typeof _desaAlFull === 'function') _desaAlFull(cos, { callat: true });
@@ -392,6 +410,84 @@
       }
     } catch (e) { /* silenciós: ja tenim el que hi ha al navegador */ }
     return llegeix(materia, trimestre);
+  }
+
+  /* ⚠ DE QUIN NEN ÉS CADA AVALUACIÓ.
+
+     Al principi s'hi desava `alumne.id`, que NO és seu: és la posició que
+     ocupa a la llista d'aquell moment. N'hi ha prou que la secretaria
+     afegeixi un nen al mig del full perquè totes les avaluacions baixin una
+     fila i acabin al nen del costat. I amb els grups rotatoris passava
+     sense que ningú toqués res: les tres rotacions comparteixen la llista
+     de rúbriques, i la posició 3 és un nen diferent a cada una.
+
+     Per això la clau és el `rowId` (la seva fila al full, que no es mou) i,
+     si no en té, el nom normalitzat. Amb prefix, perquè es pugui saber si
+     una rúbrica antiga encara va per posicions.
+
+     Trobat a l'auditoria del 29/9/2026, abans que cap mestra hi tingués res
+     avaluat de debò. Al projecte ja hi havia el mateix criteri als
+     Assoliments (`_assimSid`). */
+  function clauAlumne(a) {
+    if (a === null || a === undefined) return '';
+    if (typeof a !== 'object') return String(a);
+    if (a.rowId !== undefined && a.rowId !== null && a.rowId !== '') return 'r' + a.rowId;
+    var nom = String(a.nom || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .toLowerCase().replace(/\s+/g, ' ').trim();
+    if (nom) return 'n' + nom;
+    return String(a.id);
+  }
+
+  // Una rúbrica que encara va per posicions (claus que són només números).
+  function vaPerPosicions(rubrica) {
+    return Object.keys((rubrica && rubrica.valors) || {}).some(function (k) { return /^\d+$/.test(k); });
+  }
+
+  /* Passa les avaluacions d'una rúbrica antiga (per posició) a la clau bona,
+     amb la llista d'alumnes d'ara. El que no es pugui casar es queda com
+     estava: val més una avaluació orfe que una de posada al nen que no és. */
+  function migraClaus(rubrica, alumnes) {
+    if (!rubrica || !rubrica.valors || !vaPerPosicions(rubrica)) return false;
+    var mapa = {};
+    (alumnes || []).forEach(function (a) { if (a && a.id !== undefined) mapa[String(a.id)] = clauAlumne(a); });
+    var nous = {}, tocat = false;
+    Object.keys(rubrica.valors).forEach(function (k) {
+      var nova = (/^\d+$/.test(k) && mapa[k]) ? mapa[k] : k;
+      if (nova !== k) tocat = true;
+      nous[nova] = rubrica.valors[k];
+    });
+    if (tocat) rubrica.valors = nous;
+    var env = rubrica.enviades || {};
+    var nousEnv = {}, tocatEnv = false;
+    Object.keys(env).forEach(function (k) {
+      var nova = (/^\d+$/.test(k) && mapa[k]) ? mapa[k] : k;
+      if (nova !== k) tocatEnv = true;
+      nousEnv[nova] = env[k];
+    });
+    if (tocatEnv) rubrica.enviades = nousEnv;
+    return tocat || tocatEnv;
+  }
+
+  /* El que hi ha AL FULL ara mateix, o `null` si no s'hi ha pogut arribar.
+
+     ⚠ `carrega()` no serveix per a això: quan falla torna el que hi ha al
+     navegador, que per a llegir és el que toca —però per a ESCRIURE a sobre
+     és perillós. Copiar una rúbrica a un altre grup llegia la seva llista i
+     la tornava a desar sencera: si el navegador no en tenia cap (perquè
+     aquell grup no s'havia obert mai en aquell ordinador), li esborrava del
+     full totes les que tenia. Amb això, qui escriu pot distingir «no en té
+     cap» de «no ho sé». */
+  async function carregaDelFull(materia, trimestre) {
+    if (!materia) return null;
+    if (typeof config === 'undefined' || !config.scriptUrl) return null;
+    try {
+      var r = await appsScriptGet({ action: 'loadRubrica', materia: clau(materia, trimestre), _fons: true });
+      if (!r || r.ok === false) return null;
+      var llista = (r.data && Array.isArray(r.data.rubriques)) ? r.data.rubriques : [];
+      desaLocal(materia, trimestre, llista);
+      carregades[clau(materia, trimestre)] = true;
+      return llista;
+    } catch (e) { return null; }
   }
 
   /* ================= COPIAR-NE UNA ================= */
@@ -437,7 +533,12 @@
     clau: clau,
     llegeix: llegeix,
     desaLocal: desaLocal,
+    midaDe: midaDe,
     desa: desa,
     carrega: carrega,
+    carregaDelFull: carregaDelFull,
+    clauAlumne: clauAlumne,
+    vaPerPosicions: vaPerPosicions,
+    migraClaus: migraClaus,
   };
 })();

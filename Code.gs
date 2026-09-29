@@ -4961,6 +4961,14 @@ function setNoEntregat(ss, materia, trimestre, itemId, studentId, valor, grup, n
   metas.forEach(function(m,i){ var p=(m||'').split('|'); if(p.length===3&&parseInt(p[2])===itemId) col=i+1; });
   if(col===-1)return{ok:false,error:'Columna no trobada'};
   var rowP = _trobaFilaAlumne(sh, nom);
+  /* ⚠ Sense trobar el nom, NO s'escriu per posició si el full té la llista
+     feta: la posició d'ara i la del full poden no ser la mateixa, i un «no
+     entregat» aniria a l'expedient d'un altre nen. És el mateix guard que
+     ja tenen `updateNotesLot` i `updateActitudBatch`; aquest camí se'l va
+     deixar (auditoria del 29/9/2026). */
+  if (rowP === -1 && _teLlistaDeNoms_(sh)) {
+    return { ok:false, error:'No trobo ' + (nom || 'l\'alumne') + ' a la llista d\'aquest full' };
+  }
   if (rowP === -1) { var si=parseInt(studentId); rowP = si*2+DATA_ROW; }
   var rowN = rowP+1;
   if(valor){
@@ -5844,7 +5852,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v247';
+var BACKEND_VERSIO = 'v258';
 
 var MAX_CELA = 45000;
 
@@ -6261,6 +6269,23 @@ function aplicarHorariPlanning(ss, horari, weekIds, fora, mode) {
       }
     }
     if (canvis) {
+      /* ⚠ LES CASELLES QUE POSA L'HORARI HAN DE PORTAR MARCA DE TEMPS.
+
+         `savePlanning` decideix què conserva comparant la marca de temps de
+         cada casella amb la que porta el navegador que desa. Una casella
+         escrita aquí sense marca valia zero, o sigui «l'altre aparell ja la
+         coneixia i l'ha tret»: el primer desat d'un altre ordinador
+         s'enduia totes les assignatures que l'horari acabava de posar,
+         d'un curs sencer, en silenci.
+
+         Trobat a l'auditoria del 29/9/2026. Ara es marquen com el que són:
+         escrites ara mateix. */
+      var _ara = Date.now();
+      setmana.__ts = setmana.__ts || {};
+      for (var t = 0; t < claus.length; t++) {
+        var _k = claus[t];
+        if (setmana[_k] !== undefined && _k !== '__ts') setmana.__ts[_k] = _ara;
+      }
       sheetSetJSON(ss, '_AppData_Planning', weekId, JSON.stringify(setmana));
     }
   }
