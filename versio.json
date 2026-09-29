@@ -1,10 +1,10 @@
 {
-  "versio": "v246",
+  "versio": "v247",
   "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al perfil, si una assignatura va per desdoblament ara t'ho diu l'app i et deixa triar el teu grup allà mateix. Ja no has de saber tu quines assignatures són desdoblades: ha desaparegut la targeta d'«assignatures amb grup rotatori».",
-    "Direcció: a Registres d'aula i a Observacions ja pots triar entre TOTS els grups que has posat al perfil, no només el que tinguis obert a Alumnes. Així pots portar el registre de Matemàtiques de 6è i el de Medi de 4t per separat.",
-    "Els aniversaris del planning surten dels grups que tens al teu perfil. Si no tens tutoria, abans hi sortien els de l'última classe que haguessis obert, que podia no ser teva."
+    "Si canvies l'horari quan ja l'havies aplicat, ara els canvis SÍ que arriben al planning: l'app et diu quantes caselles diuen una altra cosa i et pregunta si hi vol posar la de l'horari.",
+    "Quan ho fa, només canvia l'assignatura: els comentaris, les alertes i els colors que hi hagis posat es queden, i les sortides i festes no es toquen.",
+    "I quan no canvia res, ara t'ho diu bé. Abans deia que era per la franja del pati encara que el motiu fos un altre."
   ]
 }

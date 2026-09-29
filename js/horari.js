@@ -366,7 +366,28 @@ async function aplicarHorariAlPlanning() {
 
   try {
     // Una sola crida: el backend ho aplica a totes les setmanes de cop
-    const r = await appsScriptPost({ action: 'aplicarHorariPlanning', horari: _horari, weekIds: setmanes, fora: fora });
+    let r = await appsScriptPost({ action: 'aplicarHorariPlanning', horari: _horari, weekIds: setmanes, fora: fora });
+
+    /* ⚠ I SI EL PLANNING DIU UNA ALTRA COSA? (28/9/2026)
+
+       L'Aida: «a l'horari puc fer canvis però no se m'apliquen al planning».
+       Això només omplia les caselles buides, o sigui que corregir una
+       assignatura a l'horari no arribava mai enlloc. Ara, si n'hi ha que
+       diuen una altra cosa, se li pregunta —i si diu que sí, s'hi posa la de
+       l'horari sense tocar-li res més de la casella. */
+    if (r && r.ok && r.diferents) {
+      const _q = r.diferents === 1
+        ? 'Hi ha 1 casella del planning que diu una altra assignatura que l\'horari.'
+        : 'Hi ha ' + r.diferents + ' caselles del planning que diuen una altra assignatura que l\'horari.';
+      if (confirm(_q + '\n\nVols que hi posi la de l\'horari?\n\n' +
+                  'Només es canvia l\'assignatura: els comentaris, les alertes i tot el que hi ' +
+                  'hagis escrit es queden com estan.')) {
+        showToast('Actualitzant el planning…', 'success');
+        const r2 = await appsScriptPost({ action: 'aplicarHorariPlanning', horari: _horari,
+                                          weekIds: setmanes, fora: fora, mode: 'actualitza' });
+        if (r2 && r2.ok) { r2.tocades = (r.tocades || 0) + (r2.tocades || 0); r = r2; }
+      }
+    }
     // Crea/registra les matèries de l'horari
     await _horariCreaAssignatures();
     if (r && r.ok) {
@@ -382,16 +403,35 @@ async function aplicarHorariAlPlanning() {
          del pati a posta —al planning no hi va—, però aquí no es distingia 0
          de N. La mestra creia que ja tenia l'horari aplicat i el planning
          seguia buit. */
-      if (!r.tocades) {
-        showToast('No he omplert cap casella. Al planning només hi van les matèries: ' +
-                  'la franja del pati no s\'hi posa. Escriu les assignatures a l\'horari ' +
-                  'i torna-ho a provar.', 'error');
+      if (!r.tocades && !r.actualitzades) {
+        /* ⚠ Abans, un 0 sempre es culpava a la franja del pati. Però hi ha
+           dos zeros molt diferents, i dir-li el que no és la va fer buscar
+           el problema on no era (l'Aida, 28/9/2026). */
+        if (r.diferents) {
+          showToast('No he canviat res: el planning ja estava escrit i has dit que no el toqui. ' +
+                    'Si el vols posar igual que l\'horari, torna a clicar «Aplicar al planning» ' +
+                    'i respon que sí.', 'info');
+        } else if (r.saltades) {
+          showToast('El planning ja diu exactament el mateix que l\'horari: no hi havia res per canviar.', 'success');
+        } else {
+          showToast('No he omplert cap casella. Al planning només hi van les matèries: ' +
+                    'la franja del pati no s\'hi posa. Escriu les assignatures a l\'horari ' +
+                    'i torna-ho a provar.', 'error');
+        }
         return;
       }
-      showToast('Horari aplicat al curs ' + _curs + ': ' + r.tocades + ' caselles omplertes ✓' +
-        (r.saltades ? ' (' + r.saltades + ' saltades: festius i vacances)'
-                    : (_sap ? '' : ' — compte: encara no tinc el calendari de festes d\'aquest curs, ' +
-                                   'o sigui que també he omplert Nadal i Setmana Santa')), 'success');
+      /* ⚠ Res de sortir per aquí: a sota s'esborra la còpia local de les
+         setmanes tocades. Sense això, la mestra torna al planning i el veu
+         igual que abans encara que al full ja estigui bé. */
+      const _cap = r.tocades
+        ? ('Horari aplicat al curs ' + _curs + ': ' + r.tocades + ' caselles omplertes ✓' +
+           (r.actualitzades ? ' i ' + r.actualitzades + ' actualitzades' : ''))
+        : ('Planning actualitzat: ' + r.actualitzades + ' caselles ara diuen el mateix que l\'horari ✓');
+      const _cua = r.saltades
+        ? ' (' + r.saltades + ' saltades: festius i vacances)'
+        : (_sap ? '' : ' — compte: encara no tinc el calendari de festes d\'aquest curs, ' +
+                       'o sigui que també he omplert Nadal i Setmana Santa');
+      showToast(_cap + _cua, 'success');
 
       /* ⚠ LES SETMANES QUE JA S'HAVIEN OBERT ES VEIEN BUIDES.
 

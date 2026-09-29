@@ -2882,7 +2882,7 @@ function handleRequest(e) {
       case 'loadHorari':             result = loadHorari(ss); break;
       case 'saveHorariAssigs':       result = saveHorariAssigs(ss, body.assigs); break;
       case 'loadHorariAssigs':       result = loadHorariAssigs(ss); break;
-      case 'aplicarHorariPlanning':  result = aplicarHorariPlanning(ss, body.horari, body.weekIds, body.fora); break;
+      case 'aplicarHorariPlanning':  result = aplicarHorariPlanning(ss, body.horari, body.weekIds, body.fora, body.mode); break;
       case 'gemini':                 result = geminiGenerate(body && body.prompt, body && body.contents); break;
       case 'saveProfile':            result = saveProfile(ss, body.profile); break;
       case 'loadProfile':            result = loadProfile(ss); break;
@@ -5686,7 +5686,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v243';
+var BACKEND_VERSIO = 'v247';
 
 var MAX_CELA = 45000;
 
@@ -6041,10 +6041,27 @@ function loadHorariAssigs(ss) {
 // Rep l'horari {dia_franja: assig} i la llista de weekIds; per a cada setmana
 // carrega el planning existent, hi posa l'assignatura NOMÉS on la cel·la sigui
 // normal i no en tingui ja cap, i torna a desar. No trepitja res escrit.
-function aplicarHorariPlanning(ss, horari, weekIds, fora) {
+/* ⚠ ELS CANVIS DE L'HORARI NO ARRIBAVEN MAI AL PLANNING (28/9/2026).
+
+   L'Aida, el primer dia: «a l'horari puc fer canvis però no se m'apliquen al
+   planning». I tenia raó: això només omplia les caselles BUIDES. Un cop
+   aplicat l'horari, canviar-hi una assignatura i tornar-lo a aplicar no
+   tocava res —i el missatge que sortia encara despistava més, perquè parlava
+   de la franja del pati.
+
+   Es va fer així a posta, per no esborrar-li el que hagués escrit. Però una
+   cosa és no esborrar-li els comentaris i les alertes, i una altra deixar el
+   planning amb una assignatura que ella ja ha corregit.
+
+   Ara es compten a part les caselles que DIUEN UNA ALTRA COSA, i el
+   navegador li pregunta si les vol actualitzar. Amb `mode = 'actualitza'`
+   s'hi posa la de l'horari i NOMÉS es toca l'assignatura: el que hi hagi
+   escrit a la casella (comentari, alerta, tipus) es queda. */
+function aplicarHorariPlanning(ss, horari, weekIds, fora, mode) {
   if (!horari || !weekIds || !weekIds.length) return { ok:false, error:'Falten dades' };
+  var actualitza = (mode === 'actualitza');
   var claus = Object.keys(horari);
-  var tocades = 0;
+  var tocades = 0, actualitzades = 0, diferents = 0;
   /* Els dies de vacances i festius, que el navegador ja sap del calendari de
      l'escola. Sense això s'omplia també Nadal i Setmana Santa (auditoria
      6/9/2026). Clau: «2026_S52|dl». */
@@ -6067,18 +6084,30 @@ function aplicarHorariPlanning(ss, horari, weekIds, fora) {
       if (!assig) continue;
       var cell = setmana[cellKey];
       if (!cell) cell = { tipus: 'normal' };
-      if (cell.tipus === 'normal' && !cell.assig) {
+      if (cell.tipus !== 'normal') continue;
+      if (!cell.assig) {
         cell.assig = assig;
         setmana[cellKey] = cell;
         canvis = true;
         tocades++;
+      } else if (String(cell.assig).trim() !== String(assig).trim()) {
+        /* Diu una altra cosa que l'horari. Es compta sempre; només es canvia
+           si la mestra ho ha demanat. */
+        diferents++;
+        if (actualitza) {
+          cell.assig = assig;          // NOMÉS l'assignatura
+          setmana[cellKey] = cell;
+          canvis = true;
+          actualitzades++;
+        }
       }
     }
     if (canvis) {
       sheetSetJSON(ss, '_AppData_Planning', weekId, JSON.stringify(setmana));
     }
   }
-  return { ok:true, tocades: tocades, saltades: saltades };
+  return { ok:true, tocades: tocades, actualitzades: actualitzades,
+           diferents: diferents, saltades: saltades };
 }
 
 /* ============================================================
