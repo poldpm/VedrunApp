@@ -2862,6 +2862,7 @@ function handleRequest(e) {
       case 'publicaNotesResum':    result = publicaNotesResum(ss, body.grup, body.matKey, body.nomAssig, body.nomMestra); break;
       case 'getNotesResum':        result = getNotesResum(ss, (body&&body.grup)||p.grup); break;
       case 'addNotaItem':          result = addNotaItem(ss, body.materia, body.trimestre, body.item, body.alumnes, body.grup); break;
+      case 'saveNotaCats':         result = saveNotaCats(ss, body.materia, body.trimestre, body.cats, body.assign, body.grup); break;
       case 'deleteNotaItem':       result = deleteNotaItem(ss, body.materia, body.trimestre, body.itemId, body.grup); break;
       case 'desaCaselles':         result = desaCaselles(ss, body); break;
       case 'qaTempsNotes':         result = qaTempsNotes(ss, (body&&body.materia)||p.materia, (body&&body.trimestre)||p.trimestre, (body&&body.grup)||p.grup); break;
@@ -4244,11 +4245,12 @@ function getNotes(ss, materia, trimestre, grup) {
         if (v===''||v===null) v = allData[rowP+1] ? allData[rowP+1][col] : '';
         valors['carpeta_ref'][si] = (v!==''&&v!==null) ? v : '';
       }
-    } else if (parts.length===3 && !isNaN(parseFloat(parts[0])) && !isNaN(parseInt(parts[2]))) {
+    } else if ((parts.length===3||parts.length===4) && !isNaN(parseFloat(parts[0])) && !isNaN(parseInt(parts[2]))) {
       var id = parseInt(parts[2]);
       var nom = (h||'').toString().trim();
       if (!nom) return;
-      items.push({ id:id, nom:nom, maxPunts:parseFloat(parts[0]), pes:parseFloat(parts[1]) });
+      items.push({ id:id, nom:nom, maxPunts:parseFloat(parts[0]), pes:parseFloat(parts[1]),
+                   cat: parts.length===4 ? String(parts[3]) : '' });
       valors[id] = {};
       for (var si2=0; si2<numAlumnes; si2++) {
         var rowP2 = DATA_ROW-1 + si2*2; // índex 0-based (fila de punts)
@@ -4297,7 +4299,64 @@ function getNotes(ss, materia, trimestre, grup) {
     });
   } catch (e) { /* si falla, simplement no n hi ha */ }
 
-  return { ok:true, items:items, valors:valors, noEntregats:neMap, rowNoms:rowNoms, comentaris:comentaris };
+  /* De quina categoria és l'actitud. La seva columna no és un ítem com els
+     altres (la puntuació viu al navegador), però al quadern de l'escola
+     l'actitud és una categoria més amb el seu %: si no es tornés, en tornar a
+     obrir l'app hauria perdut on era. */
+  var actitudCat = '';
+  for (var ac = 0; ac < allNotes.length; ac++) {
+    if (!_esColActitud_(allNotes[ac])) continue;
+    var pa = allNotes[ac].toString().split('|');
+    actitudCat = pa.length === 4 ? String(pa[3]) : '';
+    break;
+  }
+
+  return { ok:true, items:items, valors:valors, noEntregats:neMap, rowNoms:rowNoms,
+           comentaris:comentaris, cats:_notesCatsDe_(allNotes[0]), actitudCat:actitudCat };
+}
+
+/* ============================================================
+   NOTES — Desar les categories d'una pestanya
+   ------------------------------------------------------------
+   Arriba la llista sencera de categories i, si cal, de quina categoria és
+   cada activitat. S'escriu tot d'una tirada: la llista a la nota de A1 i
+   la categoria de cada columna al quart tros de la seva nota. Després es
+   recalculen les mitjanes, perquè canviar un % canvia totes les notes.
+   ============================================================ */
+function saveNotaCats(ss, materia, trimestre, cats, assign, grup) {
+  var nomBase = _materiaNomBase(materia); if (!nomBase) return { ok:false, error:'Materia desconeguda' };
+  var sh = ss.getSheetByName(_notesTabName(trimestre, nomBase, grup));
+  if (!sh) return { ok:true, senseFull:true };
+
+  var neta = (cats || []).filter(function (c) { return c && c.id; }).map(function (c) {
+    return { id:String(c.id), nom:(c.nom||'').toString().slice(0,60), pes:parseFloat(c.pes)||0 };
+  });
+  sh.getRange(1,1).setNote(neta.length ? CATS_NOTE_PREFIX + JSON.stringify(neta) : '');
+
+  var nomDe = {}; neta.forEach(function (c) { nomDe[c.id] = c.nom + ' · ' + c.pes + '%'; });
+
+  var lc = sh.getLastColumn();
+  if (lc >= 1 && assign) {
+    var metas = sh.getRange(1,1,1,lc).getNotes()[0];
+    for (var i = 0; i < lc; i++) {
+      var m = (metas[i]||'').toString();
+      if (m === CARPETA_NOTE) continue;
+      var p = m.split('|');
+      if (!((p.length===3||p.length===4) && !isNaN(parseFloat(p[0])) && p[2])) continue;
+      /* El codi es compara TAL QUAL i no amb `parseInt`: la columna d'actitud
+         es diu `actitud_ref`, i si es passés per un `parseInt` quedaria fora i
+         l'actitud no podria ser una categoria —que és justament el que és al
+         quadern de l'escola (un 10% com els altres). */
+      var id = String(p[2]);
+      if (!Object.prototype.hasOwnProperty.call(assign, id)) continue;
+      var cat = String(assign[id] || '');
+      sh.getRange(1,i+1).setNote(p[0]+'|'+p[1]+'|'+p[2]+(cat?'|'+cat:''));
+      // La fila 2 és el que llegeix qui obre el full: que hi digui la categoria.
+      sh.getRange(2,i+1).setValue(cat && nomDe[cat] ? nomDe[cat] : 'Pes: ' + p[1]);
+    }
+  }
+  refreshMitjanaColumn(sh);
+  return { ok:true, cats:neta };
 }
 
 /* Retorna la nota final arrodonida i el comptador de NE de CADA alumne
@@ -4360,16 +4419,18 @@ function _resumOneSheet(sh) {
 
   // Localitza columnes d'ítems (amb pes) i la columna Nota
   var itemCols = [], notaCol = -1;
+  var catsResum = _notesCatsDe_(allNotes[0]);
   headers.forEach(function(h, col) {
     var meta = allNotes[col] || '';
+    var parts = meta.split('|');
+    var cat = parts.length === 4 ? String(parts[3]) : '';
     if (meta === CARPETA_NOTE) {
-      itemCols.push({ col: col, max: 10, pes: 2, readonly: true });
-    } else if (meta === '10|2|actitud_ref') {
-      itemCols.push({ col: col, max: 10, pes: 2, readonly: true });
+      itemCols.push({ col: col, max: 10, pes: 2, readonly: true, cat: '' });
+    } else if (_esColActitud_(meta)) {
+      itemCols.push({ col: col, max: 10, pes: 2, readonly: true, cat: cat });
     } else {
-      var parts = meta.split('|');
-      if (parts.length === 3 && !isNaN(parseFloat(parts[0]))) {
-        itemCols.push({ col: col, max: parseFloat(parts[0]), pes: parseFloat(parts[1]), readonly: false });
+      if ((parts.length === 3 || parts.length === 4) && !isNaN(parseFloat(parts[0]))) {
+        itemCols.push({ col: col, max: parseFloat(parts[0]), pes: parseFloat(parts[1]), readonly: false, cat: cat });
       }
     }
     if ((h||'').toString().trim() === 'Nota') notaCol = col;
@@ -4380,19 +4441,24 @@ function _resumOneSheet(sh) {
     var rowP = DATA_ROW - 1 + si*2;
     rowNoms[si] = (allData[rowP] && allData[rowP][0]) ? allData[rowP][0].toString().trim() : '';
     if (!allData[rowP]) continue;
-    var sumV = 0, sumP = 0, ne = 0;
+    /* Es fa servir EL MATEIX càlcul que la pantalla de notes i que la columna
+       Mitjana del full: si la pestanya va per categories, per categories; si
+       no, la ponderada de sempre. Si això anés per lliure, la fitxa de
+       l'alumne diria una nota i la pantalla una altra. */
+    var itemsResum = [], ne = 0;
     itemCols.forEach(function(ic) {
       var v = allData[rowP][ic.col];
-      if (v === 'NE') { ne++; sumP += ic.pes; return; } // compta com a 0
+      if (v === 'NE') { ne++; itemsResum.push({ nota: 0, pes: ic.pes, cat: ic.cat }); return; }
       if (v === '' || v === null) {
         // readonly pot tenir el valor a la fila següent (fusionada)
         if (ic.readonly && allData[rowP+1]) v = allData[rowP+1][ic.col];
         if (v === '' || v === null) return;
       }
       var n = ic.readonly ? parseFloat(v) : Math.round(parseFloat(v)/ic.max*10*100)/100;
-      if (!isNaN(n)) { sumV += n * ic.pes; sumP += ic.pes; }
+      if (!isNaN(n)) itemsResum.push({ nota: n, pes: ic.pes, cat: ic.cat });
     });
-    var mitj = sumP > 0 ? sumV/sumP : null;
+    var m = catsResum.length ? _mitjanaPerCats_(itemsResum, catsResum) : _mitjanaPlana_(itemsResum);
+    var mitj = m === '' ? null : m;
     notes[si]   = mitj !== null ? Math.floor(mitj + 0.5) : null;
     neCount[si] = ne;
   }
@@ -4474,12 +4540,21 @@ function addNotaItem(ss, materia, trimestre, item, alumnes, grup) {
      preparen amb UNA crida en lloc d'una per alumne, i el full sencer NOMÉS
      es repinta si la pestanya s'acaba de crear —si ja existia, ja està
      pintada i tornar-hi era regalar dos segons. */
+  /* Si la pestanya va per categories, la fila 2 diu de quina és l'activitat
+     («C. Lectora · 40%») en comptes del pes, i la categoria queda apuntada al
+     quart tros de la nota de la capçalera. Sense categories, tot igual. */
+  var _cats = _notesCatsDe_(metas[0]);
+  var _cat  = (item.cat || '').toString();
+  var _catO = null;
+  for (var _k = 0; _k < _cats.length; _k++) if (_cats[_k].id === _cat) _catO = _cats[_k];
+  var _sub  = _catO ? (_catO.nom + ' · ' + _catO.pes + '%') : ('Pes: ' + item.pes);
+
   var c1 = sh.getRange(1, ins);
   sh.getRange(1, ins, 3, 1)
-    .setValues([[item.nom], ['Pes: ' + item.pes], ['/' + item.maxPunts + ' pts']])
+    .setValues([[item.nom], [_sub], ['/' + item.maxPunts + ' pts']])
     .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontFamily('Nunito');
   c1.setFontWeight('bold').setBackground(GARNET_HEADER).setFontColor(GARNET_TEXT);
-  c1.setNote(item.maxPunts+'|'+item.pes+'|'+item.id);
+  c1.setNote(item.maxPunts+'|'+item.pes+'|'+item.id+(_catO?'|'+_catO.id:''));
   sh.getRange(2, ins, 2, 1).setFontSize(9).setBackground(GARNET_SUBHEAD).setFontColor(GARNET_TEXT_MID);
   /* Amplada a ull segons el nom: `autoResizeColumn` ha de llegir la columna
      sencera i, en un full de dues mil files, costava 0,74 s. */
@@ -5020,19 +5095,68 @@ function recalcMitjana(sh, rowP, cap) {
   _escriuMitjana_(sh, rowP, _mitjanaFila_(hdrData, metaData, rowPData, rowNData));
 }
 
+/* ============================================================
+   NOTES PER CATEGORIES
+   ------------------------------------------------------------
+   Hi ha mestres que no puntuen amb una llista d'activitats soltes, sinó
+   com el quadern de l'escola: unes CATEGORIES amb un % que suma 100
+   («C. Lectora 40%», «E. Escrita 30%»…) i, dins de cada una, les
+   activitats que calguin.
+
+   On viu: la llista de categories és la NOTA de la cel·la A1 de la
+   pestanya, amb el prefix `CATS:` i un JSON [{id,nom,pes}]. Cada columna
+   d'activitat diu de quina categoria és amb un quart tros a la seva nota
+   (`10|1|172…|c2`). Les pestanyes que no tenen res d'això es calculen
+   exactament com sempre: aquí no hi ha cap canvi per a qui no ho fa
+   servir.
+
+   Com es calcula: dins d'una categoria, les activitats fan mitjana entre
+   elles (amb el seu pes, que normalment és 1). Després la nota és la
+   mitjana d'aquestes, ponderada pel % de cada categoria. Les categories
+   que encara no tenen cap nota NO compten ni resten: el % es reparteix
+   entre les que sí que en tenen, com ja passava amb les activitats. Si no
+   fos així, un trimestre a mig fer sortiria sempre suspès.
+   ============================================================ */
+const CATS_NOTE_PREFIX = 'CATS:';
+const ACTITUD_NOTE_BASE = '10|2|actitud_ref';
+
+/* La columna d'actitud es reconeixia comparant la seva nota LLETRA PER LLETRA.
+   Des que una columna pot dir també de quina categoria és («10|2|actitud_ref|c5»),
+   aquella comparació ja no la trobava i l'app n'hauria creat una de segona al
+   costat. Es mira el començament i prou. */
+function _esColActitud_(meta) {
+  var m = (meta || '').toString();
+  return m === ACTITUD_NOTE_BASE || m.indexOf(ACTITUD_NOTE_BASE + '|') === 0;
+}
+
+// Les categories d'una pestanya, a partir de la nota de la cel·la A1.
+function _notesCatsDe_(notaA1) {
+  var m = (notaA1 || '').toString();
+  var i = m.indexOf(CATS_NOTE_PREFIX);
+  if (i === -1) return [];
+  try {
+    var arr = JSON.parse(m.slice(i + CATS_NOTE_PREFIX.length));
+    if (!arr || !arr.length) return [];
+    return arr.filter(function (c) { return c && c.id; }).map(function (c) {
+      return { id: String(c.id), nom: (c.nom || '').toString(), pes: parseFloat(c.pes) || 0 };
+    });
+  } catch (e) { return []; }
+}
+
 /* La mitjana d'un alumne a partir de les seves dues files, SENSE llegir el
    full: així el desat d'un lot de notes la pot calcular amb el que ja té a la
    memòria, en lloc de tornar a llegir cada fila (cada lectura obliga el Google
    a escriure tot el que hi havia pendent, i és el que ho feia lent). */
 function _mitjanaFila_(hdrData, metaData, rowPData, rowNData) {
   var items=[],mCol=-1,notaCol=-1;
+  var cats = _notesCatsDe_(metaData[0]);
   hdrData.forEach(function(h,i){
     var m=(metaData[i]||'').toString(), hn=(h||'').toString().trim();
     var p=m.split('|');
     if(m===CARPETA_NOTE){
       var v=rowPData[i]; if(v===''||v===null)v=rowNData[i];
-      items.push({nota:(v!==''&&v!==null&&!isNaN(parseFloat(v)))?parseFloat(v):null,pes:2});
-    } else if(p.length===3&&!isNaN(parseFloat(p[0]))){
+      items.push({nota:(v!==''&&v!==null&&!isNaN(parseFloat(v)))?parseFloat(v):null,pes:2,cat:''});
+    } else if((p.length===3||p.length===4)&&!isNaN(parseFloat(p[0]))){
       /* ⚠ L'ACTITUD QUEDAVA FORA DE LA MITJANA DEL FULL.
 
          Trobat a la segona auditoria (8/9/2026): la pantalla deia 2,67 (NA)
@@ -5051,16 +5175,50 @@ function _mitjanaFila_(hdrData, metaData, rowPData, rowNData) {
       var np;
       if(vp==='NE') np=0;
       else np=(vp!==''&&vp!==null&&!isNaN(parseFloat(vp)))?Math.round(parseFloat(vp)/parseFloat(p[0])*10*100)/100:null;
-      items.push({nota:np,pes:parseFloat(p[1])});
+      items.push({nota:np,pes:parseFloat(p[1]),cat:p.length===4?String(p[3]):''});
     }
     if(hn==='Mitjana')mCol=i+1;
     if(hn==='Nota')notaCol=i+1;
   });
 
+  var mitj = cats.length ? _mitjanaPerCats_(items, cats) : _mitjanaPlana_(items);
+  return { mitj: mitj, mCol: mCol, notaCol: notaCol };
+}
+
+// La de tota la vida: mitjana ponderada pel pes de cada activitat.
+function _mitjanaPlana_(items) {
   var sumV=0,sumP=0;
   items.forEach(function(it){if(it.nota!==null){sumV+=it.nota*it.pes;sumP+=it.pes;}});
-  var mitj=sumP>0?Math.round(sumV/sumP*100)/100:'';
-  return { mitj: mitj, mCol: mCol, notaCol: notaCol };
+  return sumP>0?Math.round(sumV/sumP*100)/100:'';
+}
+
+/* La de les categories. Les activitats sense categoria (n'hi pot haver de
+   velles, o una columna afegida a mà des del full) no es perden: van totes
+   juntes a un calaix que s'emporta el % que quedava lliure. Si no en queda
+   gens, la pantalla ja avisa la mestra que aquella activitat no compta. */
+function _mitjanaPerCats_(items, cats) {
+  var pesDe = {}, sumaCats = 0;
+  cats.forEach(function (c) { pesDe[c.id] = c.pes; sumaCats += c.pes; });
+  pesDe[''] = Math.max(0, 100 - sumaCats);
+
+  var acum = {};   // catId → { v, p }
+  items.forEach(function (it) {
+    if (it.nota === null) return;
+    var k = pesDe[it.cat] === undefined ? '' : it.cat;
+    if (!acum[k]) acum[k] = { v: 0, p: 0 };
+    var pes = it.pes > 0 ? it.pes : 1;
+    acum[k].v += it.nota * pes; acum[k].p += pes;
+  });
+
+  var sumV = 0, sumP = 0;
+  Object.keys(acum).forEach(function (k) {
+    if (acum[k].p <= 0) return;
+    var pesCat = pesDe[k] || 0;
+    if (pesCat <= 0) return;
+    sumV += (acum[k].v / acum[k].p) * pesCat;
+    sumP += pesCat;
+  });
+  return sumP > 0 ? Math.round(sumV / sumP * 100) / 100 : '';
 }
 
 function _escriuMitjana_(sh, rowP, calc) {
@@ -5398,9 +5556,9 @@ function updateActitud(ss, materia, trimestre, studentId, mitja, nomAlumne) {
   var metas = sh.getRange(1,1,1,lc).getNotes()[0];
 
   // Busca o crea la columna Actitud (nota meta: '10|2|actitud_ref')
-  var ACTITUD_NOTE = '10|2|actitud_ref';
+  var ACTITUD_NOTE = ACTITUD_NOTE_BASE;
   var col = -1;
-  metas.forEach(function(m,i){ if((m||'').toString()===ACTITUD_NOTE) col=i+1; });
+  metas.forEach(function(m,i){ if(_esColActitud_(m)) col=i+1; });
 
   if (col===-1) {
     // Crea la columna just abans de Mitjana
@@ -5473,9 +5631,9 @@ function updateActitudBatch(ss, materia, trimestre, mitjanes, grup, noms) {
   var hdrs  = sh.getRange(1,1,1,lc).getValues()[0];
   var metas = sh.getRange(1,1,1,lc).getNotes()[0];
 
-  var ACTITUD_NOTE = '10|2|actitud_ref';
+  var ACTITUD_NOTE = ACTITUD_NOTE_BASE;
   var col = -1;
-  metas.forEach(function(m,i){ if((m||'').toString()===ACTITUD_NOTE) col=i+1; });
+  metas.forEach(function(m,i){ if(_esColActitud_(m)) col=i+1; });
 
   if (col===-1) {
     var mCol = -1;

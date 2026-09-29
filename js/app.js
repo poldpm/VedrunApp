@@ -217,6 +217,13 @@ function showPage(pageId, _fromPop) {
   if (pageId === 'planning')     renderPlanning();
   if (pageId === 'assoliments')  { _initAssolimentsPage(); }
   if (pageId === 'comentaris')   { initComentaris(); renderComentRubrica(); }
+  /* Rúbriques d'avaluació: és una eina que només té qui l'ha demanada
+     (window.EINES_RUBAVAL al seu js/personal.js). Si no la té, l'adreça
+     #rubaval no l'ha de portar a una pàgina buida. */
+  if (pageId === 'rubaval') {
+    if (typeof RubAvalUI === 'undefined' || !RubAvalUI.hiEs()) { showPage('home'); return; }
+    RubAvalUI.obrePagina();
+  }
   if (pageId === 'grups')        initGrups();
   if (pageId === 'seients')      initSeients();
   if (pageId === 'postits')      initPostits();
@@ -4484,6 +4491,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', _finestraTeclat, true);
   document.addEventListener('keydown', _teclatPrem);
   _rolAplicaInterficie(); // subtítol del logo i apartats segons el rol de l'app
+  // Les eines que només té qui les ha demanades (js/personal.js, que es
+  // carrega l'últim de tots i per tant ja hi és quan s'arriba aquí).
+  try { if (typeof RubAvalUI !== 'undefined') RubAvalUI.aplicaInterficie(); } catch (e) {}
   updateHomeCounters(); // inicialitza data sidebar
   // Mostra el nom del perfil al menú des del cache local (immediat)
   try {

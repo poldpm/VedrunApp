@@ -653,3 +653,16 @@
     }
   }
 })();
+
+/* ============================================================
+   EINES QUE TÉ EN POL I QUE NO TÉ TOTHOM
+   ------------------------------------------------------------
+   Les «possibles actualitzacions» viuen a la mare i neixen
+   apagades: el codi hi és a totes les apps, però el menú i la
+   pàgina només surten a qui l'ha demanada. S'encén aquí, que és
+   el fitxer que la sincronització no trepitja mai.
+   ============================================================ */
+
+/* Rúbriques d'avaluació d'activitats (Eines → Rúbriques d'avaluació).
+   Encès el 29/9/2026 per anar-la provant mentre es fa. */
+window.EINES_RUBAVAL = true;
