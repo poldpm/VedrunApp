@@ -124,3 +124,65 @@ no hi ha cap fitxer base tocat i l'app segueix rebent tots els arranjaments.
 **Depèn de:** només pantalla. La mestra no ha de fer res —li arriba i ja està.
 No cal tocar el `Code.gs` ni redesplegar res, perquè `saveProfile` ja hi és.
 
+
+---
+
+## `rubriques-avaluacio` — Rúbriques d'avaluació d'activitats
+
+**Què fa:** avaluar una activitat amb una rúbrica pròpia (criteris amb pes i
+nivells) i passar la nota resultant al registre de notes d'aquella
+assignatura i trimestre.
+
+**Fitxers:**
+- `js/rubaval.js` — el model i els càlculs. No toca cap pantalla: es prova
+  amb `node eines/comprova-rubaval.js` (21 proves).
+- `js/rubaval-ui.js` — la llista, l'editor, la graella d'avaluació i el pas
+  al registre.
+- `index.html` — el botó del menú (`navRubaval`, neix amagat), la pàgina
+  `page-rubaval` i els dos `<script>`.
+- `css/main.css` — blocs `.rubaval-*`, `.rav-*`.
+- `js/app.js` — dues línies: el ganxo de `showPage('rubaval')` (que torna a
+  l'Inici si l'eina no hi és) i `RubAvalUI.aplicaInterficie()` a l'arrencada.
+- `js/notes.js` — `notesCreaItem(nom, max, pes)`, separat d'`addNotaItem()`.
+- `js/personal.js` de la mestra — l'interruptor.
+
+**Com s'encén:** a `js/personal.js` de la seva app,
+
+```js
+window.EINES_RUBAVAL = true;
+```
+
+Sense això no hi ha ni botó al menú ni pàgina (ni entrant-hi per `#rubaval`).
+El codi arriba a totes les apps amb el `sync-totes.js`; només s'encén a qui la
+demani. ⚠ Al `personal.js` **no s'hi puja la versió**: el proper sync la
+revertiria.
+
+**Com funciona:**
+- Una rúbrica és `{ nom, sobre:10, pes, nivells:[{nom,punts}], criteris:[{id,nom,pes,textos}],
+  valors:{alumneId:{criteriId: índexDelNivell}}, enviades:{alumneId:nota}, itemId, grup }`.
+- Es desa per assignatura+grup+trimestre amb el calaix genèric del full
+  (`saveRubrica`/`loadRubrica`, clau `aval_<materia>_<trim>`). **No cal tocar
+  el `Code.gs`.**
+- La nota: suma de `punts(nivell) × pes(criteri)` dividida pel màxim dels
+  criteris **avaluats**, portada a 10.
+- Passar-ho al registre fa el que faria la mestra a mà: `notesCreaItem` +
+  `updateNota` per alumne, o sigui la cua de caselles de sempre.
+
+**Paranys:**
+- **De cada alumne s'hi desa l'ÍNDEX del nivell, no els punts.** És el que fa
+  que canviar un pes o els punts d'un nivell refaci les notes en comptes de
+  deixar mig grup calculat amb les regles velles. Per això treure un nivell
+  ha de desplaçar els índexs de tothom (`RubAval.treuNivell`, amb proves).
+- **Un alumne sense cap criteri avaluat no té nota (`null`), i no se li passa
+  res al registre.** Un zero és una nota que algú decideix.
+- El refresc de fons del registre **reemplaça** `notesItems`: abans de crear
+  la columna s'espera que hagi carregat (`esperaRegistre`).
+- Les notes es casen amb l'alumne **pel nom**; el codi, només com a última
+  opció.
+- Avaluar no pot fer una crida per casella: local a cada clic i al full un
+  segon i mig després de l'últim canvi (i de cop en sortir o tancar).
+- Els oients de `window` van amb `typeof window.addEventListener === 'function'`
+  al davant, o els bancs de proves no poden ni carregar l'app.
+
+**Depèn de:** només pantalla. La mestra no ha de fer res: li arriba amb l'avís
+de versió nova. No cal tocar el `Code.gs` ni redesplegar res.

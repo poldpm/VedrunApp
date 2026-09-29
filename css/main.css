@@ -5889,3 +5889,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .rav-av-niv { min-width: 44px; height: 44px; }
   .rav-av-tot { width: 32px; height: 32px; font-size: 12px; }
 }
+/* El resum d'abans de passar les notes al registre: què s'hi escriurà i
+   què NO (els que no tenen res avaluat no reben cap zero). */
+.rav-passa-llista { margin: 0 0 6px; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: var(--text-main); }
+.rav-passa-canvi { color: var(--warn, #B45309); font-weight: 600; }

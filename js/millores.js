@@ -67,6 +67,18 @@ const MILLORES = [
     data: '2026-09-05',
     rols: ['tutor', 'direccio'],
   },
+  {
+    id: 'rubriques-avaluacio',
+    titol: 'Rúbriques d\'avaluació d\'activitats',
+    ras: 'Avalues una activitat amb els teus criteris i la nota va sola al registre de notes.',
+    mes: [
+      'Tu escrius els criteris que vulguis, amb el pes que vulguis, i els nivells (en venen quatre posats: Excel·lent, Notable, Suficient, Insuficient; pots canviar-los o tenir-ne més o menys).',
+      'Avalues en una graella: un clic per posar el nivell (o els números del teclat), i un botó per posar el mateix nivell a tota una columna i corregir només les excepcions. La nota de cada alumne es va veient mentre cliques. Al mòbil, un alumne per pantalla.',
+      'Quan acabes, l\'app crea la columna d\'aquella activitat al registre de notes i hi escriu la nota de cada alumne. Els que no has avaluat no reben cap zero.',
+      'La mateixa rúbrica es pot copiar a altres grups d\'un sol cop, i si després canvies un nivell o un pes et diu a quants alumnes els canviarà la nota abans de tocar res.',
+    ],
+    data: '2026-09-29',
+  },
 ];
 
 /* A qui s'ofereix cada millora. Sense `rols`, a tothom.

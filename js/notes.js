@@ -584,6 +584,31 @@ function selectPesByVal(val) {
   document.getElementById('notaItemPes').value = val;
 }
 
+/* ⚠ CREAR LA COLUMNA, SENSE LA FINESTRA.
+
+   Això era a dins d'`addNotaItem()`, barrejat amb llegir el formulari. Es
+   va separar el 29/9/2026 perquè les rúbriques d'avaluació hi han de
+   poder crear la seva columna sense obrir cap finestra —i sobretot sense
+   repetir la cua, el cache i el remapatge, que és on hi ha els paranys.
+
+   El de sempre: la columna es queda a la taula de seguida i la petició va
+   a la CUA, que es reintenta sola i que el servidor no pot fer dues
+   vegades (mateix codi d'operació). Les notes que s'hi posin tot seguit
+   van darrere seu a la mateixa cua, o sigui que arriben al full després. */
+function notesCreaItem(nom, maxPunts, pes) {
+  const item = { id: Date.now(), nom: nom, maxPunts: maxPunts, pes: pes };
+  notesItems.push(item);
+  notesValors[item.id] = {};
+  notesItems = sortCarpetaLast(notesItems);
+  _cacheDel();
+  renderNotesTable();
+  if (config.scriptUrl) {
+    _casellesPosa('notesItem', _notesCtxCua(), 'columna|' + item.id,
+                  { item, alumnes: students.map(s => ({ id: s.id, nom: s.nom })) });
+  }
+  return item;
+}
+
 async function addNotaItem() {
   const nom      = document.getElementById('notaItemNom').value.trim();
   /* ⚠ Abans, un 0 o un negatiu es convertien en 10 sense dir res (el
@@ -612,25 +637,8 @@ async function addNotaItem() {
     showToast('El pes ha de ser un número més gran que zero', 'error');
     document.getElementById('notaItemPes').focus(); return;
   }
-  const item = { id: Date.now(), nom, maxPunts, pes };
-  notesItems.push(item);
-  notesValors[item.id] = {};
-  notesItems = sortCarpetaLast(notesItems);
-  _cacheDel();
+  notesCreaItem(nom, maxPunts, pes);
   closeNewNotaModal();
-  renderNotesTable();
-  if (!config.scriptUrl) return;
-  /* ⚠ ABANS AQUÍ S'ESPERAVA EL SERVIDOR AMB LA PANTALLA ATURADA.
-
-     En Pol, 26/9/2026: crear una activitat trigava molt, sortia l'error de
-     temps, la columna es treia de la taula… i quan tornava a clicar se'n
-     creava una SEGONA al full (la primera sí que hi havia arribat). Ara la
-     columna es queda a la taula i la petició va a la cua: es reintenta sola
-     amb el mateix codi i el servidor no en pot fer dues. La mestra pot
-     començar a posar-hi notes de seguida: van darrere de la columna a la
-     mateixa cua, o sigui que arriben al full després d'ella. */
-  _casellesPosa('notesItem', _notesCtxCua(), 'columna|' + item.id,
-                { item, alumnes: students.map(s => ({ id: s.id, nom: s.nom })) });
   showToast('Ítem «' + nom + '» creat', 'success');
 }
 

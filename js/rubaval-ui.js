@@ -745,6 +745,9 @@
                      : ambNota.length + ' de ' + _avAlumnes.length + ' avaluats' +
                        (mitjana !== null ? ' · mitjana ' + String(mitjana).replace('.', ',') : '')) +
         '</div>' +
+        (carregant ? '' :
+          '<button class="btn btn-primary" id="ravAvPassa">' +
+            (r.itemId ? 'Actualitzar el registre' : 'Passar al registre') + '</button>') +
       '</div>' +
       '<div class="rav-av-llegenda">' +
         r.nivells.map(function (n, i) {
@@ -755,6 +758,7 @@
       '<div id="ravAvGraella"></div>';
 
     byId('ravAvTorna').addEventListener('click', tancaAvaluacio);
+    if (byId('ravAvPassa')) byId('ravAvPassa').addEventListener('click', obrePassar);
 
     var g = byId('ravAvGraella');
     if (carregant) { g.innerHTML = '<p class="modal-hint">Un moment…</p>'; return; }
@@ -940,6 +944,196 @@
       : null;
     cap.textContent = amb.length + ' de ' + _avAlumnes.length + ' avaluats' +
                       (mitjana !== null ? ' · mitjana ' + String(mitjana).replace('.', ',') : '');
+  }
+
+  /* ============================================================
+     PASSAR LES NOTES AL REGISTRE
+     ------------------------------------------------------------
+     En Pol, 29/9/2026: «tot ha d'anar guardat en el registre de
+     notes corresponent». Aquí és on això passa.
+
+     NO s'inventa cap camí nou: fa exactament el que faria la
+     mestra a mà —crear la columna al registre d'aquella
+     assignatura i aquell trimestre, i escriure-hi la nota de cada
+     alumne— amb les MATEIXES funcions (`notesCreaItem` i
+     `updateNota`). Per tant hereta la cua que es reintenta sola,
+     el codi d'operació que evita columnes bessones i el casament
+     de notes per nom.
+
+     Tres coses que s'han de respectar, i que es diuen abans:
+       · qui no té CAP criteri avaluat no rep res. Un buit no és
+         un zero, i un zero que ningú no ha decidit és una nota
+         inventada;
+       · qui la té a mitges rep la nota del que s'ha avaluat, i
+         es diu quants són;
+       · si ja s'havien passat, es diu a QUANTS els canvia la
+         nota abans de tocar res.
+     ============================================================ */
+
+  function construeixPassar() {
+    if (byId('ravPassaOverlay')) return;
+    var ov = el('div', 'modal-overlay');
+    ov.id = 'ravPassaOverlay';
+    ov.addEventListener('mousedown', function (e) { if (e.target === ov) ov.classList.remove('open'); });
+    var modal = el('div', 'modal');
+    modal.innerHTML =
+      '<div class="modal-header">' +
+        '<div class="modal-header-title">Passar les notes al registre</div>' +
+        '<button class="modal-close" id="ravPassaX" aria-label="Tancar">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
+      '</div>' +
+      '<div class="modal-body" id="ravPassaBody"></div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-ghost" id="ravPassaTanca">Cancel·lar</button>' +
+        '<button class="btn btn-primary" id="ravPassaFes">Passar-hi les notes</button>' +
+      '</div>';
+    ov.appendChild(modal);
+    document.body.appendChild(ov);
+    byId('ravPassaX').addEventListener('click', function () { ov.classList.remove('open'); });
+    byId('ravPassaTanca').addEventListener('click', function () { ov.classList.remove('open'); });
+  }
+
+  function obrePassar() {
+    var r = _avaluant;
+    if (!r) return;
+    var problemes = RubAval.problemes(r);
+    if (problemes.length) { avisa(problemes[0]); return; }
+    var c = RubAval.canvis(r, _avAlumnes);
+    var ambNota = _avAlumnes.filter(function (a) {
+      var n = c.notes[String(a.id)];
+      return n && n.nota !== null;
+    }).length;
+
+    if (!ambNota) { avisa('Encara no has avaluat cap alumne.'); return; }
+
+    construeixPassar();
+    var jaHiEra = !!r.itemId;
+    var body = byId('ravPassaBody');
+    body.innerHTML =
+      '<p style="margin:0 0 12px">' +
+        (jaHiEra
+          ? 'Les notes tornaran a la columna <strong>«' + esc(r.nom) + '»</strong> del registre '
+          : 'Es crearà la columna <strong>«' + esc(r.nom) + '»</strong> al registre de notes ') +
+        _de(_entrada.label) + '<strong>' + esc(_entrada.label) + '</strong>, ' +
+        esc(_trimLabel().toLowerCase()) + ', sobre 10.' +
+      '</p>' +
+      '<label class="rav-camp" style="margin-bottom:12px">' +
+        '<span class="rav-camp-nom">Quant compta dins del trimestre</span>' +
+        '<input class="modal-input" id="ravPassaPes" type="number" inputmode="decimal" min="0.5" step="0.5" ' +
+               'style="max-width:110px" value="' + esc(r.pes || 1) + '"' + (jaHiEra ? ' disabled' : '') + '>' +
+      '</label>' +
+      (jaHiEra ? '<p class="modal-hint" style="margin:-8px 0 12px">El pes es canvia des del mateix registre de notes.</p>' : '') +
+      '<ul class="rav-passa-llista">' +
+        '<li><strong>' + ambNota + '</strong> alumne' + (ambNota === 1 ? '' : 's') + ' amb nota' +
+          (jaHiEra && c.canviats.length
+            ? ' · <span class="rav-passa-canvi">' + c.canviats.length +
+              (c.canviats.length === 1 ? ' canvia' : ' canvien') + ' de nota</span>'
+            : '') + '</li>' +
+        (c.buits.length
+          ? '<li><strong>' + c.buits.length + '</strong> sense cap criteri avaluat: <strong>no se\'ls posarà res</strong>. ' +
+            'Un buit no és un zero.</li>'
+          : '') +
+        (c.incomplets.length
+          ? '<li><strong>' + c.incomplets.length + '</strong> amb la rúbrica a mitges: se\'ls posa la nota del que has avaluat.</li>'
+          : '') +
+      '</ul>' +
+      (jaHiEra && c.canviats.length
+        ? '<div class="grups-avis grups-avis-warn" style="margin-top:4px">' +
+            c.canviats.slice(0, 6).map(function (x) {
+              return esc(x.nom) + ': ' + String(x.abans).replace('.', ',') + ' → ' + String(x.ara).replace('.', ',');
+            }).join('<br>') +
+            (c.canviats.length > 6 ? '<br>… i ' + (c.canviats.length - 6) + ' més' : '') +
+          '</div>'
+        : '');
+
+    byId('ravPassaFes').onclick = function () {
+      var pesCamp = byId('ravPassaPes');
+      var pes = pesCamp && !pesCamp.disabled ? Number(pesCamp.value) : (r.pes || 1);
+      if (!pes || pes <= 0) { avisa('El pes ha de ser més gran que zero.'); return; }
+      byId('ravPassaOverlay').classList.remove('open');
+      passaAlRegistre(r, pes);
+    };
+    byId('ravPassaOverlay').classList.add('open');
+  }
+
+  /* Espera que el registre acabi de carregar-se abans de tocar-hi res.
+     `openNotes` pinta amb el que té al navegador i després refresca del
+     full, i aquell refresc REEMPLAÇA la llista de columnes: crear-la
+     just al mig voldria dir veure-la desaparèixer. */
+  async function esperaRegistre() {
+    try { if (notesContext && notesContext.alumnes) await notesContext.alumnes; } catch (e) {}
+    for (var i = 0; i < 20; i++) {
+      await new Promise(function (r) { setTimeout(r, 150); });
+      if (typeof students !== 'undefined' && students.length) break;
+    }
+  }
+
+  function _mateixNom(a, b) {
+    var n = (typeof _normNomSimple === 'function') ? _normNomSimple : function (x) {
+      return String(x || '').toLowerCase().trim();
+    };
+    return n(a) === n(b);
+  }
+
+  async function passaAlRegistre(r, pes) {
+    desaAra();
+    var notes = RubAval.notesDe(r, _avAlumnes);
+    var quins = _avAlumnes.filter(function (a) { return notes[String(a.id)].nota !== null; });
+
+    // Al registre d'aquella assignatura i aquell trimestre (hi navega sol)
+    try {
+      await openNotes(_entrada.key, _trim, _entrada.grup || null);
+    } catch (e) {
+      avisa('No s\'ha pogut obrir el registre de notes: ' + ((e && e.message) || ''));
+      return;
+    }
+    await esperaRegistre();
+
+    /* La columna: la que ja tenia, la que es digui igual (si la rúbrica ve
+       d'un altre aparell o s'ha recarregat l'app), o una de nova. */
+    var item = notesItems.filter(function (i) { return String(i.id) === String(r.itemId); })[0];
+    if (!item) {
+      item = notesItems.filter(function (i) {
+        return (i.nom || '').trim().toLowerCase() === (r.nom || '').trim().toLowerCase();
+      })[0];
+    }
+    var creada = false;
+    if (!item) {
+      item = notesCreaItem(r.nom, 10, pes);
+      creada = true;
+    }
+    r.itemId = item.id;
+    r.pes = pes;
+
+    /* Les notes es casen amb l'alumne pel NOM, i l'identificador només com
+       a última opció: al full les notes van per nom, i els codis d'una
+       llista carregada per un altre camí poden no ser els mateixos. */
+    var escrites = 0, sensePlaca = [];
+    for (var i = 0; i < quins.length; i++) {
+      var a = quins[i];
+      var st = students.filter(function (s) { return _mateixNom(s.nom, a.nom); })[0] ||
+               students.filter(function (s) { return String(s.id) === String(a.id); })[0];
+      if (!st) { sensePlaca.push(a.nom); continue; }
+      await updateNota(item.id, st.id, notes[String(a.id)].nota);
+      escrites++;
+    }
+
+    RubAval.marcaEnviades(r, (function () {
+      var m = {};
+      quins.forEach(function (a) { m[String(a.id)] = notes[String(a.id)].nota; });
+      return m;
+    })());
+    RubAval.desa(_entrada.key, _trim, _llista);
+
+    if (typeof showToast === 'function') {
+      showToast(escrites + ' not' + (escrites === 1 ? 'a' : 'es') + ' a «' + r.nom + '»' +
+                (creada ? ' (columna nova)' : '') + ' ✓', 'success');
+    }
+    if (sensePlaca.length) {
+      showToast('No he trobat ' + sensePlaca.length + ' alumne' + (sensePlaca.length === 1 ? '' : 's') +
+                ' a la llista del registre (' + sensePlaca.slice(0, 3).join(', ') +
+                (sensePlaca.length > 3 ? '…' : '') + '). La seva nota no hi ha anat.', 'error');
+    }
   }
 
   ui.nova = function () { if (_entrada) obreEditor(null); };

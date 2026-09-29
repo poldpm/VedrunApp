@@ -1,9 +1,9 @@
 {
-  "versio": "v253",
+  "versio": "v254",
   "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arranjaments per dins: a la pantalla no hi canvia res.",
-    "Si tens l'eina de rúbriques d'avaluació (menú Eines), ja s'hi pot avaluar: una graella amb els teus criteris, un clic per posar el nivell —o els números del teclat—, i un botó per posar el mateix nivell a tota una columna. Al mòbil, un alumne per pantalla. La nota de cada alumne es va veient mentre avalues. Passar-la al registre de notes encara s'està fent."
+    "Nova a «Possibles actualitzacions»: rúbriques d'avaluació d'activitats. Escrius els teus criteris amb el pes que vulguis, avalues la classe en una graella (un clic per nivell, o els números del teclat) i la nota va sola al registre de notes. Si la vols, demana-la des de l'Inici i te l'encendran.",
+    "El manual ja l'explica, a l'apartat «Rúbriques d'avaluació»."
   ]
 }
