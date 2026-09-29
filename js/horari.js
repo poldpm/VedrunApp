@@ -403,6 +403,15 @@ async function aplicarHorariAlPlanning() {
          del pati a posta —al planning no hi va—, però aquí no es distingia 0
          de N. La mestra creia que ja tenia l'horari aplicat i el planning
          seguia buit. */
+      /* ⚠ El servidor vell no sap comptar les caselles diferents: no torna
+         `diferents`. Si es callés, la mestra tornaria a veure el missatge
+         d'abans i pensaria que l'arranjament no serveix de res. */
+      if (r.diferents === undefined && !r.tocades) {
+        showToast('El servidor encara no s\'ha actualitzat i per això no puc canviar les ' +
+                  'caselles que ja tenen una altra assignatura. No ho has d\'arreglar tu: ' +
+                  'digues-ho en Pol.', 'error');
+        return;
+      }
       if (!r.tocades && !r.actualitzades) {
         /* ⚠ Abans, un 0 sempre es culpava a la franja del pati. Però hi ha
            dos zeros molt diferents, i dir-li el que no és la va fer buscar
