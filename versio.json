@@ -1,8 +1,10 @@
 {
-  "versio": "v256",
+  "versio": "v257",
   "data": "2026-09-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: a la pantalla d'inici, sota cada franja del dia hi sortia imprès un text intern de l'app («A la portada el resum del dia ha de ser d'una línia…»). Era un error nostre de la v249 i no tocava res del que tinguis escrit: la descripció breu de cada franja torna a sortir com ha de ser."
+    "Possibles actualitzacions ja no t ofereix una eina que JA tens encesa: hi surt igual, per si la vols llegir, pero amb un «Ja la tens» en lloc del boto de demanar-la. Abans la podies demanar tenint-la al menu.",
+    "Les rubriques d avaluacio ja funcionen sense connexio: els seus dos fitxers faltaven a la copia que l app es guarda per quan no hi ha xarxa.",
+    "I les coses que es fan per a una mestra en concret ara li arriben de seguida, sense haver d esperar una versio nova de l app."
   ]
 }

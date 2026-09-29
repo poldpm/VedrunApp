@@ -1,5 +1,5 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v256';
+const CACHE = 'vedruna-v257';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
   './js/espera.js', './js/pdfhorari.js', './js/millores.js', './js/rol.js', './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/vedrunu.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js', './img/vedrunu-icon.png',
@@ -11,6 +11,11 @@ const ASSETS = [
      mestra. Sense connexió, l'app s'obria a mitges i just aquella part no
      hi era. Les sis imatges són els enllaços de la portada. */
   './js/personal.js',
+  /* ⚠ Els dos de les rúbriques d'avaluació hi faltaven (v256): connectada
+     funcionava, perquè el navegador se'ls acabava guardant sols, però sense
+     connexió l'eina no hi era. És el mateix forat del 6/9/2026 amb el
+     `personal.js`. */
+  './js/rubaval.js', './js/rubaval-ui.js',
   './img/logo-horitzontal.png', './img/link_gmail.png', './img/link_drive.png',
   './img/link_clickedu.png', './img/link_coordinacio.png', './img/link_classdojo.png',
 ];
@@ -47,6 +52,32 @@ self.addEventListener('fetch', e => {
   // versio.json ha de venir SEMPRE del servidor: es el que detecta si el
   // navegador serveix codi antic. Si es guardes, no ho detectaria mai.
   if (url.includes('versio.json')) return;
+
+  /* ⚠ EL QUE ES FA NOMÉS PER A UNA MESTRA NO LI ARRIBAVA MAI.
+
+     `js/personal.js` és on va tot el que es fa per a UNA sola mestra, i
+     aquells canvis NO pugen la versió a posta (són fitxers base i el
+     següent sync ho revertiria). La norma escrita deia que per veure'ls n'hi
+     havia prou amb Ctrl+Shift+R. No n'hi ha prou: des del 6/9/2026 aquest
+     fitxer és a la llista de dalt, i d'aquí se serveix la còpia guardada
+     fins que canvia la versió. O sigui que un arranjament seu es quedava
+     esperant setmanes sense que ningú ho sabés. Comprovat el 29/9/2026.
+
+     Ara, per a aquest fitxer, primer la xarxa i el cache com a reserva: li
+     arriba de seguida i sense connexió segueix funcionant igual. */
+  if (url.includes('/js/personal.js')) {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(e.request, { ignoreSearch: true }))
+    );
+    return;
+  }
+
   e.respondWith(
     // ⚠ ignoreSearch: des de la v174 els fitxers es demanen amb la versió a
     // l adreça (js/app.js?v=v174) perquè el navegador no en pugui servir una

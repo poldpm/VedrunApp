@@ -78,6 +78,10 @@ const MILLORES = [
       'La mateixa rúbrica es pot copiar a altres grups d\'un sol cop, i si després canvies un nivell o un pes et diu a quants alumnes els canviarà la nota abans de tocar res.',
     ],
     data: '2026-09-29',
+    /* Com se sap si ja la té: l'interruptor del seu `js/personal.js`. Sense
+       això, «Possibles actualitzacions» l'hi oferiria amb l'app ja oberta
+       al menú. */
+    interruptor: 'EINES_RUBAVAL',
   },
 ];
 
@@ -92,6 +96,24 @@ function _milloraEsMeva(m) {
   return m.rols.indexOf(meu) !== -1;
 }
 function _milloresMeves() { return MILLORES.filter(_milloraEsMeva); }
+
+/* ⚠ LI OFERIA UNA COSA QUE JA TENIA.
+
+   Trobat el 29/9/2026, just després d'encendre les rúbriques a una mestra:
+   la seva app ja les tenia al menú i «Possibles actualitzacions» les hi
+   seguia oferint amb el botó «Jo la vull!». O sigui que demanava una cosa
+   que ja feia servir, i en Pol rebia el correu. A ell li passava igual, que
+   és qui les té totes enceses.
+
+   Les millores que s'encenen amb un interruptor (`window.EINES_…` al seu
+   `js/personal.js`) el diuen aquí. Si està encès, la millora se segueix
+   veient —perquè es pugui llegir què fa— però amb un «Ja la tens» en lloc
+   del botó, i no compta com a novetat. Les que no en tenen es comporten
+   exactament com abans. */
+function _milloraJaLaTe(m) {
+  if (!m.interruptor) return false;
+  try { return window[m.interruptor] === true; } catch (e) { return false; }
+}
 
 /* ON ES GUARDA EL QUE JA HA DEMANAT O JA HA VIST.
 
@@ -162,10 +184,10 @@ function _milloresMarcaVistes() {
   _milloresDesa(MILLORES_VISTES, v);
 }
 
-/* Quantes són NOVES per a ella: ni vistes ni demanades. */
+/* Quantes són NOVES per a ella: ni vistes, ni demanades, ni ja enceses. */
 function milloresNoves() {
   const d = _milloresDemanades(), v = _milloresVistes();
-  return _milloresMeves().filter(m => !d[m.id] && !v[m.id]).length;
+  return _milloresMeves().filter(m => !d[m.id] && !v[m.id] && !_milloraJaLaTe(m)).length;
 }
 
 /* Al botó de l'inici, l'estrella es converteix en el número quan n'hi ha de
@@ -217,10 +239,11 @@ function _milloresRender() {
   const demanades = _milloresDemanades();
   const vistes = _milloresVistes();
   cont.innerHTML = meves.map(m => {
-    const ja = demanades[m.id];
-    const nova = !ja && !vistes[m.id];
+    const teLa = _milloraJaLaTe(m);
+    const ja = !teLa && demanades[m.id];
+    const nova = !teLa && !ja && !vistes[m.id];
     return '' +
-      '<article class="millora' + (ja ? ' demanada' : '') + (nova ? ' nova' : '') + '">' +
+      '<article class="millora' + (teLa ? ' demanada' : '') + (ja ? ' demanada' : '') + (nova ? ' nova' : '') + '">' +
         '<h3 class="millora-titol">' + escapeHtml(m.titol) +
           (nova ? '<span class="millora-nova">Nova</span>' : '') + '</h3>' +
         '<p class="millora-ras">' + escapeHtml(m.ras) + '</p>' +
@@ -233,10 +256,12 @@ function _milloresRender() {
               'id="milloraMesBtn_' + m.id + '" aria-expanded="false" ' +
               'aria-controls="milloraMes_' + m.id + '" ' +
               'onclick="milloraMes(\'' + m.id + '\')">Vull saber-ne més</button>' : '') +
-          (ja
-            ? '<span class="millora-feta">Demanada el ' + escapeHtml(_milloresData(ja)) + ' ✓</span>'
-            : '<button type="button" class="btn btn-primary btn-sm" ' +
-              'onclick="milloraVull(\'' + m.id + '\')">Jo la vull!</button>') +
+          (teLa
+            ? '<span class="millora-feta">Ja la tens ✓</span>'
+            : ja
+              ? '<span class="millora-feta">Demanada el ' + escapeHtml(_milloresData(ja)) + ' ✓</span>'
+              : '<button type="button" class="btn btn-primary btn-sm" ' +
+                'onclick="milloraVull(\'' + m.id + '\')">Jo la vull!</button>') +
         '</div>' +
       '</article>';
   }).join('');

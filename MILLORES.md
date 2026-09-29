@@ -119,7 +119,11 @@ no hi ha cap fitxer base tocat i l'app segueix rebent tots els arranjaments.
   d'una d'aquestes funcions, es perd el botó però no l'app.
 - Si es fa a `js/personal.js`, **NO pugis la versió** (`sw.js`, `js/versio.js`,
   `versio.json`): són fitxers base i el pròxim `sync-totes.js` ho revertiria.
-  Per veure-ho, `Ctrl+Shift+R`.
+  Des de la **v257** aquell fitxer se serveix sempre de la xarxa (amb el
+  cache com a reserva), o sigui que el canvi li arriba **a la recàrrega
+  següent**. ⚠ Abans no: era al cache del `sw.js` i s hi quedava fins a la
+  versió següent, encara que fes `Ctrl+Shift+R`. Si la seva app encara
+  serveix una versió anterior a la v257, el primer cop caldrà pujar-la.
 
 **Depèn de:** només pantalla. La mestra no ha de fer res —li arriba i ja està.
 No cal tocar el `Code.gs` ni redesplegar res, perquè `saveProfile` ja hi és.
@@ -154,6 +158,10 @@ window.EINES_RUBAVAL = true;
 ```
 
 Sense això no hi ha ni botó al menú ni pàgina (ni entrant-hi per `#rubaval`).
+L entrada del catàleg (`js/millores.js`) porta `interruptor: 'EINES_RUBAVAL'`:
+és el que fa que, a qui ja la tingui encesa, «Possibles actualitzacions» li
+digui **«Ja la tens ✓»** en lloc d oferir-li-la. Tota millora que s encengui
+amb un interruptor l ha de declarar allà.
 El codi arriba a totes les apps amb el `sync-totes.js`; només s'encén a qui la
 demani. ⚠ Al `personal.js` **no s'hi puja la versió**: el proper sync la
 revertiria.
