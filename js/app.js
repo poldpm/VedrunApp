@@ -1075,16 +1075,27 @@ let _backendVersio = (function () {
   try { return localStorage.getItem('vedruna_backend_versio') || ''; } catch (e) { return ''; }
 })();
 
+/* ⚠ EL NÚMERO DEL SERVIDOR NO S'HA DE COMPARAR AMB EL DE L'APP.
+
+   La primera versió d'això deia «l'app és la v259» quan el servidor anava
+   per la v258, i semblava que hi faltés alguna cosa. No: el servidor NOMÉS
+   puja de número quan canvia el `Code.gs`, i la majoria de versions són de
+   pantalla. Anar-hi darrere és el normal, no un problema.
+
+   El que importa de debò és una altra cosa: si el servidor és més vell que
+   el mínim que l'app necessita (`BACKEND_MINIM`). Això ja ho vigila la
+   franja groga; aquí només es diu que està bé, o que no ho està.
+   En Pol, 30/9/2026, just després d'enganxar la biblioteca. */
 function _cfgPintaBackend() {
   const el = document.getElementById('cfgBackendVersio');
   if (!el) return;
   if (!config.scriptUrl) { el.textContent = ''; return; }
   if (!_backendVersio) { el.textContent = 'Servidor: encara no ho sé (obre l\'app amb connexió).'; return; }
-  const meva = (typeof window.versioApp === 'object' && window.versioApp && window.versioApp.actual) || '';
-  const igual = meva && _backendVersio === meva;
+  const minim = (typeof window.versioApp === 'object' && window.versioApp && window.versioApp.minimServidor) || '';
+  const prouNou = !minim || _numVersio(_backendVersio) >= _numVersio(minim);
   el.innerHTML = 'Servidor: <strong>' + escapeHtml(_backendVersio) + '</strong>' +
-    (igual ? ' · al dia amb l\'app ✓'
-           : (meva ? ' · l\'app és la ' + escapeHtml(meva) : ''));
+    (prouNou ? ' · correcte ✓'
+             : ' · massa antic (li cal la ' + escapeHtml(minim) + ' o més nova)');
 }
 
 /* L'avís del token d'exemple, dins de Configuració. Es pinta un sol cop i es

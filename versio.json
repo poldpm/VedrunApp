@@ -1,8 +1,8 @@
 {
-  "versio": "v259",
+  "versio": "v260",
   "data": "2026-09-30",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A Configuració, just sota la URL, ara hi diu quina versió porta el servidor: «Servidor: v258 · al dia amb l'app ✓». Serveix per veure d'un cop d'ull si l'última actualització hi ha arribat. Si el número és més baix que el de l'app, no has de fer res: mentrestant tot funciona igual."
+    "A Configuració, el rètol del servidor deia «l'app és la v259» quan el servidor anava per la v258, i semblava que hi faltés alguna cosa. No hi faltava: el servidor només canvia de número quan cal, i anar per darrere de l'app és el normal. Ara diu «correcte ✓», i només avisa si de debò és massa antic."
   ]
 }
