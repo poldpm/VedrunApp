@@ -4925,7 +4925,7 @@ function updateRegistreLot(ss, grup, canvis) {
       if (k && !(k in filaDe)) filaDe[k] = i + 2;
     });
   }
-  var resultats = [];
+  var resultats = [], escrites = 0;
   canvis.forEach(function (c, i) {
     var col = colDe[String(parseInt(c.itemId))];
     if (!col) { resultats.push({ i: i, ok: false, _foraDeLloc: true, error: foraDeLloc }); return; }
@@ -4944,8 +4944,31 @@ function updateRegistreLot(ss, grup, canvis) {
     var cel = sh.getRange(fila, col);
     if (typeof c.value === 'string' && c.value !== '') { try { cel.setNumberFormat('@'); } catch (e) {} }
     cel.setValue(c.value);
+    escrites++;
     resultats.push({ i: i, ok: true, fila: fila });
   });
+  /* ⚠ I ARA, QUE LES COLUMNES SIGUIN LES MATEIXES QUE EREN (30/9/2026).
+     El mateix que es va fer a les notes el 27/9: aquest desat no agafa el
+     pany (ha de ser ràpid), o sigui que si mentre marcava les creus algú ha
+     afegit o esborrat una columna des d'un altre aparell, les creus haurien
+     anat a la columna del costat sense que ningú se n'assabentés. Es torna a
+     llegir la fila de capçaleres —una sola lectura— i, si ha canviat, es diu
+     que no s'han desat: el navegador les té apuntades i les torna a enviar. */
+  if (escrites) {
+    var lcAra = sh.getLastColumn();
+    var metaAra = lcAra >= 2 ? sh.getRange(1, 2, 1, lcAra - 1).getNotes()[0] : [];
+    var haCanviat = false;
+    Object.keys(colDe).forEach(function (id) {
+      var c2 = colDe[id];
+      var idAra = parseInt((metaAra[c2 - 2] || '').toString().split('|')[1]);
+      if (isNaN(idAra) || String(idAra) !== String(id)) haCanviat = true;
+    });
+    if (haCanviat) {
+      return { ok: false, _columnesMogudes: true,
+        error: 'Mentre desava, algú ha afegit o esborrat una columna del registre ' +
+               '(potser tu, en un altre aparell). No dono les creus per desades: es tornaran a enviar.' };
+    }
+  }
   return { ok: true, resultats: resultats };
 }
 
@@ -5852,7 +5875,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v258';
+var BACKEND_VERSIO = 'v261';
 
 var MAX_CELA = 45000;
 

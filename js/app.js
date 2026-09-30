@@ -3470,6 +3470,33 @@ function _registreAmbPendents() {
     registreData[c.itemId][id] = c.value;
   });
 }
+/* El full diu que les columnes del registre s'han mogut mentre desava (algú
+   n'ha afegida o esborrada una des d'un altre aparell). Es torna a llegir el
+   registre en segon pla —sense vel ni pany— perquè la taula ensenyi les
+   columnes tal com són ara. Les creus que encara no han arribat al full no es
+   perden: `renderRegistre` les torna a pintar a sobre. */
+let _registreRefrescant = false;
+async function _registreRefrescaFons(grup) {
+  if (_registreRefrescant) return;
+  const meu = String(grup || '');
+  if (typeof _registreGrup === 'function' && String(_registreGrup() || '') !== meu) return;
+  _registreRefrescant = true;
+  try {
+    const brut = await appsScriptGet({ action: 'getRegistre', grup: meu });
+    if (!brut || brut.ok === false) return;                 // ja es tornarà a provar
+    if (typeof _registreGrup === 'function' && String(_registreGrup() || '') !== meu) return;
+    const rr = _registreRemap(brut);
+    if (rr && rr.items) registreItems = rr.items;
+    if (rr && rr.data)  registreData  = rr.data;
+    if (typeof renderRegistre === 'function') renderRegistre();
+  } catch (e) {
+    /* Si no s'ha pogut rellegir no es toca res: val més la taula d'abans que
+       una de buida. Les creus segueixen a la cua i es tornaran a enviar. */
+  } finally {
+    _registreRefrescant = false;
+  }
+}
+
 async function syncRegistre(){
   // A l'app dels especialistes el registre és el del grup triat, no el del
   // full personal: recarregar-ho tot el trepitjaria.
@@ -4211,7 +4238,11 @@ async function _casellesEnviaTros(tros) {
      donat les notes per bones. No es perden: es queden apuntades i es tornen a
      enviar de seguida, quan el mapa de columnes ja serà el bo (27/9/2026). */
   if (r._columnesMogudes) {
-    if (typeof _loadNotesBackground === 'function') { try { _loadNotesBackground(); } catch (e) {} }
+    if (primer.tipus === 'registre') {
+      try { _registreRefrescaFons(primer.ctx && primer.ctx.grup); } catch (e) {}
+    } else if (typeof _loadNotesBackground === 'function') {
+      try { _loadNotesBackground(); } catch (e) {}
+    }
     return 'xarxa';
   }
   if (r.ok === false) {
