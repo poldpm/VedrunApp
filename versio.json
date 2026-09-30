@@ -1,12 +1,8 @@
 {
-  "versio": "v258",
+  "versio": "v259",
   "data": "2026-09-30",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Auditoria completa de l'app. Per a qui tingui l'eina de rúbriques, tres coses importants: copiar una rúbrica a un altre grup li podia esborrar les que aquell grup ja tenia, la columna nova del registre desapareixia uns segons, i avaluar just en obrir l'app podia no desar res. Totes tres, arreglades.",
-    "Les avaluacions d'una rúbrica ara van lligades a l'alumne i no a la seva posició a la llista: si la secretaria afegeix un alumne al grup, ja no es desplacen al nen del costat.",
-    "Al perfil d'especialista i de direcció, una assignatura ja no pot quedar marcada alhora a una línia i a un desdoblament (sortia dues vegades a tot arreu). I el que marques mentre s'acaba d'obrir la pàgina ja no se't perd.",
-    "Coses que es veuen millor: l'anell del teclat sobre el menú granat, els botons de fletxa amb nom per als lectors de pantalla, els colors d'avís més llegibles, botons més grossos al mòbil i uns quants estats «triat» que no es distingien.",
-    "I per dins: l'app ja no demana al servidor cinc assignatures que no són de ningú cada cop que s'obre."
+    "A Configuració, just sota la URL, ara hi diu quina versió porta el servidor: «Servidor: v258 · al dia amb l'app ✓». Serveix per veure d'un cop d'ull si l'última actualització hi ha arribat. Si el número és més baix que el de l'app, no has de fer res: mentrestant tot funciona igual."
   ]
 }

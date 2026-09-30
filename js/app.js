@@ -1067,7 +1067,25 @@ function closeAddObsModal(forcat) {
 /* ============================================================
    CONFIG / REGISTRE MODALS
    ============================================================ */
-function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); _avisaTokenDExemple(); }
+function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); _avisaTokenDExemple(); _cfgPintaBackend(); }
+
+/* Quina versió porta el servidor, a Configuració. Dues línies i s'acaba la
+   pregunta de sempre després d'enganxar la biblioteca: «hi ha arribat?». */
+let _backendVersio = (function () {
+  try { return localStorage.getItem('vedruna_backend_versio') || ''; } catch (e) { return ''; }
+})();
+
+function _cfgPintaBackend() {
+  const el = document.getElementById('cfgBackendVersio');
+  if (!el) return;
+  if (!config.scriptUrl) { el.textContent = ''; return; }
+  if (!_backendVersio) { el.textContent = 'Servidor: encara no ho sé (obre l\'app amb connexió).'; return; }
+  const meva = (typeof window.versioApp === 'object' && window.versioApp && window.versioApp.actual) || '';
+  const igual = meva && _backendVersio === meva;
+  el.innerHTML = 'Servidor: <strong>' + escapeHtml(_backendVersio) + '</strong>' +
+    (igual ? ' · al dia amb l\'app ✓'
+           : (meva ? ' · l\'app és la ' + escapeHtml(meva) : ''));
+}
 
 /* L'avís del token d'exemple, dins de Configuració. Es pinta un sol cop i es
    queda: no és una cosa que es pugui «tancar» i oblidar. */
@@ -8580,6 +8598,18 @@ function _applyBootstrap(boot) {
   //    2026: la pàgina de les famílies ensenyava "UNDEFINED, NAN DE
   //    UNDEFINED" i dates de 1899 perquè servia codi vell.
   _avisaBackendVell(boot && boot.backendVersio);
+  /* ⚠ I es recorda, per poder-la ENSENYAR a Configuració.
+
+     Cada cop que s'enganxa la biblioteca al Apps Script no hi havia manera
+     de saber si havia arribat: l'única pista era l'avís de «servidor
+     endarrerit», que només surt quan l'app ja no hi pot funcionar. Ara hi
+     ha el número a la vista. Demanat implícitament el 30/9/2026, després de
+     la quarta enganxada del dia. */
+  if (boot && boot.backendVersio) {
+    _backendVersio = boot.backendVersio;
+    try { localStorage.setItem('vedruna_backend_versio', _backendVersio); } catch (e) {}
+    if (typeof _cfgPintaBackend === 'function') _cfgPintaBackend();
+  }
 
   /* Quins documents llegeix aquest servidor. Es el servidor qui ho sap, i
      fins ara el navegador s ho inventava: el boto «Aspectes generals grup»
