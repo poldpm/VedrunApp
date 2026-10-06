@@ -359,6 +359,21 @@ async function openNotes(materia, trimestre, grup) {
   const _trimSel = document.getElementById('notesTrimSelector');
   if (_trimSel) _trimSel.style.display = 'flex';
 
+  /* ⚠ PRIMER DE TOT: QUE NO ES VEGI LA CLASSE D'UNA ALTRA ASSIGNATURA.
+
+     La Mireia, 6/10/2026: tutora de 2n B, obria les notes d'«Ambients de
+     1r» i li sortien els nens de 2n B. La llista bona arriba del servidor
+     (dues crides en sèrie), i mentrestant es pintava la que hi havia.
+
+     Si el que hi ha carregat és d'un altre grup, es treu ABANS de pintar
+     res. Val més una taula que diu «carregant els alumnes» que una taula
+     plena de nens que no són els d'aquesta assignatura: amb aquells a la
+     pantalla, una nota escrita de pressa va a parar al full d'una altra
+     classe i ningú no se n'assabenta. Veure `_alumnesSonDUnAltreGrup`. */
+  if (typeof _netejaAlumnesSiSonDUnAltre === 'function') {
+    _netejaAlumnesSiSonDUnAltre(notesContext.grup, dd);
+  }
+
   if (dd && typeof _loadDesdobStudents === 'function') {
     if (typeof _renderDesdobControl === 'function') {
       _renderDesdobControl('notesDesdobBar', dd, () => {
@@ -959,6 +974,25 @@ function renderNotesTable() {
 
   // Files d'alumnes (DocumentFragment per evitar reflows múltiples)
   const fragBody = document.createDocumentFragment();
+
+  /* Columnes sí, alumnes no. Abans es pintava la capçalera i cap fila, sense
+     dir res: la mestra veia una taula escapçada i no sabia si s'havia
+     espatllat alguna cosa. Des del 6/10/2026 la llista es buida a posta quan
+     és d'un altre grup (veure `openNotes`), o sigui que aquest cas passa i
+     s'ha d'explicar. */
+  if (!students.length) {
+    const trBuit = document.createElement('tr');
+    const tdBuit = document.createElement('td');
+    tdBuit.colSpan = notesItems.length + 3;      // nom + ítems + mitjana + nota
+    tdBuit.className = 'notes-td-cap-alumne';
+    tdBuit.textContent = notesContext.alumnesPendents
+      ? 'Carregant els alumnes d’aquesta assignatura…'
+      : 'Aquí encara no hi ha cap alumne. Si n’hi hauria d’haver, comprova a dalt ' +
+        'que el grup sigui el que toca, o revisa l’assignatura al teu Perfil.';
+    trBuit.appendChild(tdBuit);
+    fragBody.appendChild(trBuit);
+  }
+
   students.forEach(s => {
     const tr = document.createElement('tr');
     // Nom

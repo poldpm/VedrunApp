@@ -723,6 +723,12 @@
   async function carregaAlumnes(e) {
     if (typeof students === 'undefined') return [];
     var curs = e.curs || String(e.grup || '').split(' ')[0];
+    /* ⚠ Igual que a les notes: la llista d'un altre grup fora abans de
+       res, que aquí es posen nivells alumne per alumne (6/10/2026). */
+    if (typeof _netejaAlumnesSiSonDUnAltre === 'function') {
+      _netejaAlumnesSiSonDUnAltre(e.altres ? null : e.grup,
+                                  e.altres ? { curs: curs, assig: e.nom } : null);
+    }
     try {
       if (!e.altres && typeof _desdobCarregaGrups === 'function') {
         try { await _desdobCarregaGrups(curs, e.nom); } catch (err) {}

@@ -104,17 +104,49 @@ versió vella, i se'n va adonar ell.
 ## ⚠ AQUESTA CARPETA NO ES PUBLICA MAI
 
 Aquesta carpeta és **només la plantilla mare**: la base per crear i mantenir
-les apps de les mestres. **No té remote de git i no n'ha de tenir.**
+les apps de les mestres. **No es publica mai a GitHub Pages.**
 
-- **No facis `git push`**, ni afegeixis cap `origin`, ni la publiquis a
-  GitHub Pages. El repositori `github.com/poldpm/VedrunApp` es fa servir per
-  a **l'app d'en Pol**, que es gestiona en una conversa a part: si des d'aquí
-  s'hi pujava res, li trepitjaríem l'app publicada.
-- Els commits **locals** sí: són l'historial de la plantilla. Només no surten
-  d'aquí.
+- Des del 6/10/2026 té **un sol remot**: `origin` → el repositori **privat**
+  `poldpm/VedrunApp-mare`. Serveix perquè en Pol hi pugui treballar des de
+  qualsevol ordinador. És l'únic `push` permès des d'aquí.
+- **Mai** afegeixis cap altre remot ni facis push de la mare a
+  `github.com/poldpm/VedrunApp`: aquell és **l'app d'en Pol**, publicada, i
+  li trepitjaríem. **Mai** posis la mare en públic ni li activis Pages.
 - Els arranjaments arriben a les apps de les mestres amb
-  `node eines/sync-totes.js` (des del disc, no per GitHub). Cada filla ja té
-  el seu repositori i el seu Pages.
+  `node eines/sync-totes.js` (de carpeta a carpeta, no per GitHub). Cada filla
+  té el seu repositori i el seu Pages.
+
+## Sincronització amb GitHub: automàtica, sempre
+
+En Pol treballa des de diversos ordinadors (la torre, portàtils, el mòbil).
+GitHub és l'única còpia que veuen tots. Per tant, **sense que ho demani**:
+
+- **En començar** qualsevol conversa: `git pull` abans de tocar res. Si hi ha
+  canvis locals sense desar o un conflicte, atura't i explica-li-ho.
+- **En acabar cada canvi** (fet i comprovat): commit amb un missatge clar en
+  català i `git push`. No cal preguntar-ho.
+- ⚠ Si el repositori publica una web (GitHub Pages), **el push la publica**:
+  famílies i mestres la veuen al moment. Push només quan el canvi està acabat
+  i verificat, mai a mig fer.
+- Si el pull o el push fallen, digues-ho clarament: si no, el canvi es queda
+  en un sol ordinador i en Pol no ho sabrà.
+
+## Treballar des de qualsevol lloc (sessió remota)
+
+En una sessió remota les carpetes `C:/Escorial/...` no existeixen:
+
+- **Sincronitzar:** clona cada filla al costat de la mare (amb el nom del seu
+  repo, que és a `filles.json` → `repo`) i corre `node eines/sync-totes.js`.
+  Troba les filles soles; si són en una altra carpeta, `FILLES_DIR=<carpeta>`.
+  Després, commit i push **a cada filla** (és el que la publica).
+- **Plantilles de Direcció i Especialistes:** no tenen repo. Les seves peces
+  pròpies (`js/rol.js`, manifests, `FILLA.json`) són a `plantilles/` de la
+  mare, que no viatja mai a les filles. Una plantilla sencera = la mare +
+  aquestes peces. Si en canvies una a la torre, copia-la també aquí.
+- **Pujar el `Code.gs` amb `eines/puja-codi.js` NO funciona en remot**: depèn
+  del `clasp` i de la sessió de Google de la torre. Fora de casa, el `Code.gs`
+  s'enganxa a mà a l'Apps Script.
+- `js/config.local.js` no és al repo (porta el token): no cal per sincronitzar.
 
 ## Workflow tècnic
 - Frontend HTML/CSS/JS pur, sense frameworks. Backend: Google Apps Script (`Code.gs`).

@@ -1139,6 +1139,76 @@ function _navMateriaKey(e) {
    ============================================================ */
 let _grupStudentsCarregat = null; // "4t B|Matemàtiques"
 
+/* ============================================================
+   DE QUI ÉS LA LLISTA QUE HI HA A LA PANTALLA
+   ------------------------------------------------------------
+   ⚠ ELS NENS D'UNA ALTRA CLASSE SOTA EL TÍTOL D'AQUESTA ASSIGNATURA.
+
+   La Mireia, 6/10/2026: és tutora de 2n B, obre les notes d'«Ambients de
+   1r» i li surt la llista de nens de 2n B. Qualsevol nota que hi escrivís
+   aniria al full d'Ambients, a la fila d'un nen de 1r que ella no veu.
+
+   Per què passava: `students` és UNA SOLA llista per a tota l'app, i les
+   assignatures d'un altre curs o d'un altre grup la demanen al servidor
+   —dues crides en sèrie— mentre la pantalla ja s'ha pintat. Fins que no
+   arribava, es pintava la llista que hi havia: la de la tutoria. I si
+   alguna de les dues crides fallava, s'hi quedava per sempre.
+
+   `_grupStudentsCarregat` ja diu de qui és la llista carregada. El que
+   faltava era MIRAR-HO abans de pintar. Aquestes dues funcions ho fan:
+   diuen quina etiqueta hauria de tenir la llista d'una assignatura, i si
+   la que hi ha hi correspon.
+
+   ⚠ «No ho sé» (etiqueta buida, tot just arrencant) NO és «no correspon»:
+   a l'arrencada els alumnes vénen del cache del bootstrap i encara no
+   estan etiquetats. Buidar-los allà deixaria la mestra sense classe per
+   no res. Només es buida quan la llista és d'un grup que SABEM que no és
+   el d'aquesta assignatura.
+   ============================================================ */
+
+/* De quin GRUP són els alumnes que hi ha ara a la pantalla. Es compara el
+   grup i no l'etiqueta sencera: «4t B|» (la classe sencera) i «4t B|Anglès»
+   (la meitat, per desdoblament) són nens del MATEIX grup, i barrejar-los no
+   és el problema d'aquí —d'això ja se'n cuida `_ensureGrupStudents`. El que
+   no pot passar mai és veure nens d'una ALTRA classe. */
+function _grupDeLaLlistaCarregada() {
+  if (!_grupStudentsCarregat) return null;          // no en sabem res
+  if (_grupStudentsCarregat.indexOf('altres|') === 0) {
+    const p = _grupStudentsCarregat.split('|');     // altres | curs | assig | grup
+    return 'altres|' + p[1] + '|' + p[2];
+  }
+  return _grupStudentsCarregat.split('|')[0];
+}
+
+/* I de quin grup haurien de ser per a l'assignatura que s'està obrint. Les
+   d'un altre curs no es poden dir pel grup: la rotació els barreja de dues
+   classes, o sigui que el que les identifica és curs + assignatura. */
+function _grupQueTocaA(grup, desdob) {
+  if (desdob && desdob.curs) return 'altres|' + _desdobMapKey(desdob.curs, desdob.assig);
+  if (grup) return grup;
+  return (typeof _grupDeTreball === 'function' ? _grupDeTreball() : '') || '';
+}
+
+function _alumnesSonDUnAltreGrup(grup, desdob) {
+  const ara = _grupDeLaLlistaCarregada();
+  if (ara === null) return false;                   // encara no està etiquetada
+  return ara !== _grupQueTocaA(grup, desdob);
+}
+
+/* Treu de la pantalla una llista que és d'un altre grup, ABANS que s'hi pinti
+   res. Torna true si l'ha treta (qui la crida ho pot dir a la mestra).
+
+   Es crida a cada pantalla que ensenya els alumnes d'UNA assignatura: notes,
+   assoliments, el generador de comentaris i l'avaluació de rúbriques. Les
+   quatre carregaven la llista bona del servidor i, mentrestant —o per sempre,
+   si la crida fallava— pintaven la que hi havia. */
+function _netejaAlumnesSiSonDUnAltre(grup, desdob) {
+  if (!_alumnesSonDUnAltreGrup(grup, desdob)) return false;
+  students = []; personal = {};
+  _grupStudentsCarregat = null;      // que la càrrega que ve no se l'estalviï
+  return true;
+}
+
 async function _ensureGrupStudents(grup, materia) {
   if (!grup || !config.scriptUrl) return;
   const clau = grup + '|' + (materia||'');
@@ -1518,7 +1588,31 @@ async function _loadDesdobStudents(curs, assig) {
   await _desdobCarregaGrups(curs, assig);
   const o = _desdobOpcions(curs, assig);
   const grup = _desdobGrupActual(curs, assig);
-  if (!grup) return;
+  if (!grup) {
+    /* ⚠ AQUEST «return» MUT ERA EL QUE DEIXAVA LA CLASSE D'ABANS (6/10/2026).
+
+       Sense saber de quin grup és l'assignatura no es pot carregar ningú, i
+       aquí es marxava sense tocar res: a la pantalla es quedava la llista
+       anterior —la tutoria— amb el títol d'aquesta assignatura a sobre. És
+       el mateix forat que es va tapar el 8/9 per al grup buit i a
+       `_ensureGrupStudents` per als grups normals; aquesta sortida se'n va
+       escapar perquè passa abans.
+
+       Ara es deixa buit i es diu per què. Millor cap nen que el nen d'una
+       altra classe: el que s'hi escrivís aniria a un full que no és el seu. */
+    if (_alumnesSonDUnAltreGrup(null, { curs: curs, assig: assig })) {
+      _aplicaGrupStudents([]);
+      _grupStudentsCarregat = null;
+      const perque = (typeof _desdobProblema === 'function') ? _desdobProblema(curs, assig) : null;
+      if (typeof showToast === 'function') {
+        showToast('Encara no sé de quins alumnes és «' + assig + ' · ' + curs + '». ' +
+                  (perque || 'Tria el grup a dalt, o mira-ho al teu Perfil.') +
+                  ' Mentre no ho sàpiga no hi pots escriure notes.', 'error');
+      }
+      if (typeof renderNotesTable === 'function') { try { renderNotesTable(); } catch (e) {} }
+    }
+    return;
+  }
   const clau = 'altres|' + _desdobMapKey(curs, assig) + '|' + grup;
   if (_grupStudentsCarregat === clau) return;
   const cacheKey = 'altrescache_' + clau;

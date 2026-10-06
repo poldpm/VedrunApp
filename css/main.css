@@ -1492,6 +1492,12 @@ body {
   width: 44px; height: 44px;
   margin: 0 auto 14px; display: block; opacity: 0.25;
 }
+/* Hi ha columnes però cap alumne: la capçalera es queda i aquí es diu per què
+   la taula és buida (abans no s'hi deia res i semblava espatllada). */
+.notes-td-cap-alumne {
+  text-align: center; padding: 28px 20px;
+  color: var(--text-muted); font-size: 13px; line-height: 1.5;
+}
 
 /* Modal row */
 .modal-row { display: flex; gap: 12px; }

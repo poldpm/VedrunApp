@@ -7992,18 +7992,18 @@ async function selectAssimMateria(mat, btn) {
   document.querySelectorAll('#assimMateriaSelector .trim-sel-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   // Carrega els alumnes del grup d'aquesta assignatura ABANS de renderitzar
-  await _assimLoadGrupStudents(mat);
+  await _assimLoadGrupStudents(mat, true);
 }
 
 // Inicialitza la pàgina d'Assoliments: genera el selector i carrega els
 // alumnes del grup de l'assignatura seleccionada (crític: han de ser els correctes)
 async function _initAssolimentsPage() {
   if (typeof _perfilRenderAssimSelector === 'function') _perfilRenderAssimSelector();
-  await _assimLoadGrupStudents(_assimMateria);
+  await _assimLoadGrupStudents(_assimMateria, true);
 }
 
 // Carrega els alumnes del grup associat a l'assignatura d'assoliments seleccionada
-async function _assimLoadGrupStudents(matKey) {
+async function _assimLoadGrupStudents(matKey, laTriaLaMestra) {
   // Assegura't que els mapes estan poblats (selector generat)
   if ((typeof _assigGrupMap === 'undefined' || Object.keys(_assigGrupMap).length === 0)
       && typeof _perfilRenderAssimSelector === 'function') {
@@ -8012,6 +8012,12 @@ async function _assimLoadGrupStudents(matKey) {
   // Assignatura de desdoblament rotatori (p. ex. Tallers 3r): mostra el
   // selector de grup i carrega el grup actual (barrejant classes).
   const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[matKey] : null;
+  /* ⚠ Que no s'avaluïn els nens d'una altra classe mentre arriba la llista
+     bona (el cas de la Mireia, 6/10/2026: veure `_netejaAlumnesSiSonDUnAltre`). */
+  if (laTriaLaMestra && typeof _netejaAlumnesSiSonDUnAltre === 'function') {
+    const _g = (typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null;
+    _netejaAlumnesSiSonDUnAltre(dd ? null : _g, dd);
+  }
   if (dd) {
     if (typeof _renderDesdobControl === 'function') _renderDesdobControl('assimDesdobBar', dd, () => _assimLoadGrupStudents(matKey));
     if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(dd.curs, dd.assig);
@@ -9017,7 +9023,7 @@ async function selectComentAssig(assig, btn) {
   renderComentRubrica();
   try { _comentPintaApunts(); } catch (e) {}
   // Cada assignatura pot ser d'un grup diferent: canvia també els alumnes.
-  await _comentCarregaAlumnesDelGrup(assig);
+  await _comentCarregaAlumnesDelGrup(assig, true);
   renderComentRubrica();
 }
 
@@ -9594,9 +9600,15 @@ function _comentOmpleAlumnes() {
 }
 
 /* Els alumnes que toquen per a l'assignatura triada, igual que fa Assoliments. */
-async function _comentCarregaAlumnesDelGrup(matKey) {
+async function _comentCarregaAlumnesDelGrup(matKey, laTriaLaMestra) {
   if (!matKey) return;
   const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[matKey] : null;
+  /* ⚠ El comentari d'informe el llegirà una família: que no es generi amb la
+     llista d'una altra classe mentre arriba la bona (6/10/2026). */
+  if (laTriaLaMestra && typeof _netejaAlumnesSiSonDUnAltre === 'function') {
+    const _g = (typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null;
+    _netejaAlumnesSiSonDUnAltre(dd ? null : _g, dd);
+  }
   if (dd) {
     if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(dd.curs, dd.assig);
     _comentOmpleAlumnes();

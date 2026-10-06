@@ -1,8 +1,9 @@
 {
-  "versio": "v261",
-  "data": "2026-09-30",
+  "versio": "v262",
+  "data": "2026-10-06",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al registre d’aula, si mentre marques creus algú afegeix o esborra una columna des d’un altre aparell (o tu mateixa des del mòbil), el full ja no les dona per desades a la columna del costat: les creus es queden apuntades i hi tornen soles quan les columnes ja són al seu lloc. A les notes això ja es feia; ara el registre va igual."
+    "Obrint les notes d’una assignatura d’un grup que no és el teu (o d’un altre curs, o de grup rotatori), la taula ja no pot ensenyar-te els alumnes de l’última que havies obert mentre va a buscar els bons. Ara hi diu «Carregant els alumnes d’aquesta assignatura…» i, si no pot saber de quin grup és, es queda buida i t’ho explica. Abans hi sortien els de la teva classe amb el títol de l’altra assignatura a sobre, i una nota escrita en aquell moment anava a la fila d’un altre nen.",
+    "El mateix als Assoliments, al generador de comentaris i a l’avaluació de rúbriques: en triar una assignatura d’un altre grup, no es pot avaluar la llista d’abans."
   ]
 }
