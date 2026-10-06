@@ -770,7 +770,17 @@ function renderSeients() {
         onclick="_seientsToca(event,'pool','${_idJs(s.id)}',null)">
         <span class="seients-pool-avatar">${_initials(s.id)}</span>${escapeHtml(typeof nomAlumne==='function'?nomAlumne(s):s.nom)}
       </div>`
-    ).join('') : '<div class="seients-pool-empty">Tots asseguts 🎉</div>';
+    /* ⚠ «TOTS ASSEGUTS 🎉» AMB LA CLASSE BUIDA (6/10/2026).
+       Sense cap alumne carregat —app acabada de donar, encara sense
+       connectar, o un grup que no s'ha pogut llegir— aquí hi sortia la
+       felicitació igualment. Celebrar que no hi ha ningú fa pensar que
+       l'app està espatllada; val més dir què passa. */
+    ).join('') : (students.length
+        ? '<div class="seients-pool-empty">Tots asseguts 🎉</div>'
+        : '<div class="seients-pool-empty">' +
+          (typeof _motiuSenseAlumnes === 'function'
+            ? '<strong>' + _motiuSenseAlumnes().titol + '.</strong><br>' + _motiuSenseAlumnes().text
+            : 'Encara no hi ha cap alumne per asseure.') + '</div>');
   }
   const pc = document.getElementById('seientsPoolCount');
   if (pc) pc.textContent = pool.length ? '(' + pool.length + ')' : '';

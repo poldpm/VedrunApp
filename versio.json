@@ -1,9 +1,10 @@
 {
-  "versio": "v262",
+  "versio": "v263",
   "data": "2026-10-06",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Obrint les notes d’una assignatura d’un grup que no és el teu (o d’un altre curs, o de grup rotatori), la taula ja no pot ensenyar-te els alumnes de l’última que havies obert mentre va a buscar els bons. Ara hi diu «Carregant els alumnes d’aquesta assignatura…» i, si no pot saber de quin grup és, es queda buida i t’ho explica. Abans hi sortien els de la teva classe amb el títol de l’altra assignatura a sobre, i una nota escrita en aquell moment anava a la fila d’un altre nen.",
-    "El mateix als Assoliments, al generador de comentaris i a l’avaluació de rúbriques: en triar una assignatura d’un altre grup, no es pot avaluar la llista d’abans."
+    "Quan una app encara no està connectada, totes les pantalles ho diuen igual i bé. Abans, Assoliments i el generador de comentaris et deien que anessis al Perfil a dir quines assignatures fas —encara que el perfil estigués perfecte i el que faltés fos la connexió—, i tu hi anaves i no hi trobaves res per arreglar.",
+    "Els Registres d’aula ja no et conviden a crear columnes abans d’estar connectada: el que hi escrivissis no s’hauria desat enlloc.",
+    "La Distribució de l’aula ja no diu «Tots asseguts 🎉» quan encara no hi ha cap alumne carregat."
   ]
 }

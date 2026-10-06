@@ -3526,6 +3526,17 @@ function renderRegistre() {
       'Cada grup té el seu registre.</p>';
     empty.style.display='block'; table.style.display='none'; return;
   }
+  /* ⚠ SENSE CONNEXIÓ LA CONVIDAVA A CREAR COLUMNES QUE NO ANIRIEN ENLLOC.
+     Deia «Cap ítem de seguiment, clica Nou ítem per començar» igual que si el
+     registre fos buit de debò. La mestra en creava, i no es desaven al full
+     perquè no hi ha cap full on desar-los (6/10/2026). */
+  if (!config.scriptUrl) {
+    const _m = (typeof _motiuSenseAlumnes === 'function') ? _motiuSenseAlumnes() : null;
+    empty.innerHTML = '<p><strong>' + ((_m && _m.titol) || 'Encara no estàs connectada') + '.</strong><br>' +
+      ((_m && _m.text) || 'Ves a <strong>Configuració</strong> i enganxa la URL que et van donar.') +
+      '<br>Fins llavors, el que escriguis aquí no es desaria enlloc.</p>';
+    empty.style.display='block'; table.style.display='none'; return;
+  }
   if (!registreItems.length){ empty.style.display='block'; table.style.display='none'; return; }
   empty.style.display='none'; table.style.display='block';
   registreItems.forEach(item=>{
@@ -8046,7 +8057,15 @@ function _renderAssimTable() {
      dir-ho que no pas ensenyar la taula d'una assignatura inventada. */
   if (!_assimMateria || typeof ASSIM_MATERIES === 'undefined' || !ASSIM_MATERIES[_assimMateria]) {
     const w0 = document.getElementById('assimTableWrap');
-    if (w0) w0.innerHTML = '<div class="tasques-empty"><p>Primer digues quines assignatures fas a <strong>El meu perfil</strong>.</p></div>';
+    /* ⚠ ABANS CULPAVA SEMPRE EL PERFIL (6/10/2026).
+       A una app acabada de donar, aquí hi deia «digues quines assignatures
+       fas» encara que el perfil estigués bé i el que faltés fos la connexió.
+       La mestra anava al perfil, no hi trobava res per arreglar i trucava.
+       `_motiuSenseAlumnes()` ja mira la connexió primer: es fa servir. */
+    const _m = (typeof _motiuSenseAlumnes === 'function') ? _motiuSenseAlumnes() : null;
+    if (w0) w0.innerHTML = (!config.scriptUrl && _m)
+      ? '<div class="tasques-empty"><p><strong>' + _m.titol + '.</strong><br>' + _m.text + '</p></div>'
+      : '<div class="tasques-empty"><p>Primer digues quines assignatures fas a <strong>El meu perfil</strong>.</p></div>';
     const c0 = document.getElementById('assimObjCount'); if (c0) c0.textContent = '';
     return;
   }
@@ -9042,8 +9061,12 @@ function renderComentRubrica() {
 
   // Sense perfil no hi ha assignatura: es diu on s'arregla i no s'ensenya res més.
   if (!_comentAssig) {
-    container.innerHTML =
-      `<div class="tasques-empty" style="margin-top:12px">
+    /* El mateix que als Assoliments: si el que falta és la connexió, no se li
+       pot dir que vagi al perfil (6/10/2026). */
+    const _m = (typeof _motiuSenseAlumnes === 'function') ? _motiuSenseAlumnes() : null;
+    container.innerHTML = (!config.scriptUrl && _m)
+      ? `<div class="tasques-empty" style="margin-top:12px"><p><strong>${_m.titol}.</strong><br>${_m.text}</p></div>`
+      : `<div class="tasques-empty" style="margin-top:12px">
         <p>Encara no has dit quines assignatures fas.<br>
         Ves a <strong>El meu perfil</strong> i digues-hi què fas i a quins grups: llavors aquí
         podràs triar l'assignatura i escriure'n els objectius.</p>
