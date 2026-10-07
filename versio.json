@@ -1,9 +1,8 @@
 {
-  "versio": "v271",
+  "versio": "v272",
   "data": "2026-10-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "En Vedrunu, l'assistent, ja no hi és. Per poder complir amb el reglament sobre l'ús de la IA s'ha tret del tot: el botó de baix a la dreta, el panell i l'apartat del manual.",
-    "El generador de comentaris segueix igual: la clau de Gemini que tens posada serveix per a ell i no s'ha de tocar res."
+    "Tres icones es pintaven a mitges i ara es veuen senceres: al triangle de l'avís vermell li faltava el punt de l'exclamació, a la del «Pas 1» de la connexió també, i a la del «Llistat d'alumnes per grup» li faltaven els punts de la llista."
   ]
 }
