@@ -221,7 +221,9 @@ function showPage(pageId, _fromPop) {
   if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); if (typeof _dirRenderGrupPicker === 'function') _dirRenderGrupPicker(); renderAlumnesList(); if (typeof dubtesMira === 'function') dubtesMira(); }
   if (pageId === 'registres')    { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('registres'); _dirAvisRegistres(); renderRegistre(); }
   if (pageId === 'observacions') { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('observacions'); _dirAvisObservacions(); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
-  if (pageId === 'home')         renderHome();
+  /* L'inici també és de la classe sencera: si no, en tornar de les notes
+     d'una assignatura, els comptadors i el panell d'alumnes eren d'aquella. */
+  if (pageId === 'home')         { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); renderHome(); }
   if (pageId === 'planning')     renderPlanning();
   if (pageId === 'assoliments')  { _initAssolimentsPage(); }
   if (pageId === 'comentaris')   { initComentaris(); renderComentRubrica(); }
@@ -1765,10 +1767,24 @@ function _loadMainFromCache() {
   } catch(e) { return false; }
 }
 
+/* ⚠ La còpia d'arrencada ha de ser SEMPRE la classe sencera de la tutoria.
+   Si es desava amb la pantalla en una assignatura (mitja classe, o un altre
+   grup), la propera vegada l'app arrencava amb aquells nens com si fossin
+   la tutoria, i fins que no arribava el servidor en faltaven (7/10/2026). */
 function _saveMainToCache() {
   try {
+    let st = students, pe = personal;
+    if (typeof _llistaDAssignatura !== 'undefined' && _llistaDAssignatura &&
+        typeof _tutoriaAlumnes !== 'undefined' && _tutoriaAlumnes && _tutoriaAlumnes.length) {
+      st = _tutoriaAlumnes.map(a => ({ id: a.id, nom: a.nom, genere: a.genere, rowId: a.rowId }));
+      pe = {};
+      _tutoriaAlumnes.forEach(a => {
+        pe[a.id] = { tutor1:a.tutor1, correu1:a.correu1, tutor2:a.tutor2, correu2:a.correu2, telefons:a.telefons,
+          obs:a.obs, pi:a.pi, am:a.am, especific:a.especific, eap:a.eap, seient:a.seient, dataNaix:a.dataNaix, rowId:a.rowId };
+      });
+    }
     localStorage.setItem('vedruna_cache_main', JSON.stringify({
-      students, registreItems, registreData, observacions, personal,
+      students: st, registreItems, registreData, observacions, personal: pe,
     }));
   } catch(e) {}
 }
@@ -5064,10 +5080,11 @@ async function _dirCarregaGrup(grup) {
   _dirRenderGrupPicker();
 
   if (alumnes.length) {
-    if (typeof _aplicaTutoriaAlumnes === 'function') _aplicaTutoriaAlumnes(alumnes, true);
+    if (typeof _aplicaTutoriaAlumnes === 'function') _aplicaTutoriaAlumnes(alumnes, true, true);
     try { localStorage.setItem('tutoriacache_' + grup, JSON.stringify({ alumnes: alumnes, ts: Date.now(), v: (window.versioApp && window.versioApp.actual) || '' })); } catch(e) {}
   } else {
     _grupStudentsCarregat = grup + '|';
+    if (typeof _llistaDAssignatura !== 'undefined') _llistaDAssignatura = null;
   }
 
   // 2) Observacions compartides del grup (les que hi va escrivint tothom)
@@ -10028,7 +10045,7 @@ async function dubteEsAquest(i) {
     try {
       const a = await appsScriptGet({ action: 'getGrupAlumnes', grup: d.grup });
       if (a && a.ok && a.alumnes && typeof _aplicaTutoriaAlumnes === 'function') {
-        _aplicaTutoriaAlumnes(a.alumnes);
+        _aplicaTutoriaAlumnes(a.alumnes, false, true);
         if (typeof renderAlumnesList === 'function') renderAlumnesList();
       }
     } catch (e) {}

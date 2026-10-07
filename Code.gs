@@ -3329,6 +3329,65 @@ function _matchAlumne(nomDesdob, alumnesTokens) {
   return best;
 }
 
+/* ⚠ DOS NOMS DEL DESDOBLAMENT NO PODEN SER EL MATEIX NEN (7/10/2026).
+
+   «Em falten nens que haurien d'estar al grup.» `_matchAlumne` casa cada
+   nom del full de desdoblaments pel seu compte, i quan dos noms s'assemblen
+   al mateix alumne (dues «Júlia», «Pol» i «Pol M.») tots dos el triaven a
+   ell: el nen sortia un cop i l'altre no sortia enlloc.
+
+   Aquí es puntuen TOTES les parelles nom ↔ alumne amb la mateixa regla, i
+   es reparteixen de la més segura a la menys: cada alumne només es pot
+   donar un cop i cada nom només un alumne. El que no troba parella va a
+   `noTrobats`, i el navegador ho diu a la mestra en lloc de callar-ho. */
+function _puntsMatch(td, at) {
+  var score = 0, comuns = 0, totsHi = true;
+  for (var j = 0; j < td.length; j++) {
+    var t = td[j];
+    if (at.indexOf(t) !== -1) { comuns++; score += 5; }
+    else if (t.length === 1) {
+      var trob = false;
+      for (var m = 0; m < at.length; m++) { if (at[m].charAt(0) === t) { score += 3; trob = true; break; } }
+      if (!trob) totsHi = false;
+    } else { totsHi = false; }
+  }
+  if (comuns === 0) return { score: 0, comuns: 0, totsHi: false };
+  if (totsHi) score += 10;
+  // Desempat: com més s'assembla la llargada del nom, més segur
+  return { score: score - Math.abs(at.length - td.length) * 0.1, comuns: comuns, totsHi: totsHi };
+}
+function _puntuaMatch(td, at) { return _puntsMatch(td, at).score; }
+
+function _tokensSensePunts(s) {
+  // «Pol M.» → ['pol','m']: amb el punt, la inicial no es reconeixia com a inicial
+  return _tokens(s).map(function (t) { return t.replace(/\./g, ''); }).filter(function (t) { return t; });
+}
+
+function _casaNomsUnics(noms, alumnesTokens) {
+  var parelles = [];
+  for (var n = 0; n < noms.length; n++) {
+    var td = _tokensSensePunts(noms[n]);
+    if (!td.length) continue;
+    for (var i = 0; i < alumnesTokens.length; i++) {
+      var sc = _puntuaMatch(td, alumnesTokens[i].tokens);
+      if (sc > 0) parelles.push({ n: n, i: i, sc: sc });
+    }
+  }
+  parelles.sort(function (a, b) { return (b.sc - a.sc) || (a.n - b.n) || (a.i - b.i); });
+  var nomFet = {}, alumneFet = {}, perNom = {};
+  parelles.forEach(function (p) {
+    if (nomFet[p.n] || alumneFet[p.i]) return;
+    nomFet[p.n] = true; alumneFet[p.i] = true;
+    perNom[p.n] = alumnesTokens[p.i].ref;
+  });
+  var alumnes = [], noTrobats = [];
+  for (var k = 0; k < noms.length; k++) {
+    if (perNom[k]) alumnes.push(perNom[k]);
+    else if (_tokensSensePunts(noms[k]).length) noTrobats.push(noms[k]);
+  }
+  return { alumnes: alumnes, noTrobats: noTrobats };
+}
+
 // Mapa curs → pestanya de desdoblaments
 function _desdobTabName(curs) {
   // curs: '2n' → 'Desdoblaments 2n (26-27)'
@@ -3340,14 +3399,21 @@ function _desdobTabName(curs) {
 // Retorna { ok, alumnes:[...], bloc, trobat }.
 function getDesdoblament(ss, curs, linia, assignatura) {
   // Cache de 6h (el desdoblament no canvia sovint). Clau per curs+linia+assignatura.
-  var cacheKey = 'desdob_' + curs + '_' + linia + '_' + assignatura;
+  /* «desdob2_»: la clau canvia perquè les respostes guardades d'abans
+     (amb nens repetits i nens que faltaven) no se serveixin més.
+     Una hora i no sis: si secretaria mou un nen de grup, que arribi avui.
+     I NO es guarda una resposta de «no trobo el full»: si era un mal moment
+     de Google, durant hores la mestra hauria vist la classe sencera. */
+  var cacheKey = 'desdob2_' + curs + '_' + linia + '_' + assignatura;
   try {
     var cached = CacheService.getScriptCache().get(cacheKey);
     if (cached) return JSON.parse(cached);
   } catch(e) {}
 
   var res = _getDesdoblamentRaw(ss, curs, linia, assignatura);
-  try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(res), 21600); } catch(e) {}
+  if (res && res.existeix !== false) {
+    try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(res), 3600); } catch(e) {}
+  }
   return res;
 }
 
@@ -3417,12 +3483,8 @@ function _getDesdoblamentRaw(ss, curs, linia, assignatura) {
     return { ref:a, tokens:_tokens(a.nom) };
   });
 
-  var resultat = [], noTrobats = [];
-  nomsQueden.forEach(function(nom){
-    var m = _matchAlumne(nom, alumnesTokens);
-    if (m) resultat.push(m);
-    else noTrobats.push(nom);
-  });
+  var casats = _casaNomsUnics(nomsQueden, alumnesTokens);
+  var resultat = casats.alumnes, noTrobats = casats.noTrobats;
 
   return {
     ok:true, existeix:true, bloc:blocTitol,
@@ -3512,10 +3574,13 @@ function getDesdobGrups(ss, curs, assig) {
 function getDesdobGrup(ss, curs, assig, grup) {
   // Cache de 6 h (el desdoblament gairebé no canvia); estalvia openById + lectura
   // del full + 3 lectures de rosters a cada càrrega d'un grup rotatori.
-  var cacheKey = 'desdobgrup_' + curs + '_' + assig + '_' + grup;
+  // «desdobgrup2_»: que no se serveixin les respostes d'abans de casar el bloc sencer.
+  var cacheKey = 'desdobgrup2_' + curs + '_' + assig + '_' + grup;
   try { var c = CacheService.getScriptCache().get(cacheKey); if (c) return JSON.parse(c); } catch(e) {}
   var res = _getDesdobGrupRaw(ss, curs, assig, grup);
-  try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(res), 21600); } catch(e) {}
+  if (res && res.existeix !== false) {
+    try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(res), 3600); } catch(e) {}
+  }
   return res;
 }
 function _getDesdobGrupRaw(ss, curs, assig, grup) {
@@ -3563,13 +3628,23 @@ function _getDesdobGrupRaw(ss, curs, assig, grup) {
   // Per cada nom del desdoblament: match FORT al full "Grups" (fitxa completa).
   // Si no es troba (o la classe encara no està plena), es crea un registre mínim
   // amb el nom, així la llista surt sencera igualment i s'hi poden posar notes.
-  var usats = {};
+  /* ⚠ L'ORIOL DE 2n A A LA LLISTA DE 2n C (en Pol, 7/10/2026).
+
+     A «Català i Anglès» de 2n, la columna «2n C» diu només «Oriol». Aquí
+     cada nom es casava pel seu compte, amb tots els alumnes del curs, i el
+     primer Oriol que sortia era el de 2n A: a la llista hi havia un nen que
+     no hi és, i el seu Oriol no hi sortia enlloc.
+
+     Ara es casa TOT EL BLOC alhora (`_casaBlocDesdob`): la columna del costat
+     ja diu «Oriol S», que és el de 2n A, o sigui que el «Oriol» que queda és
+     el de 2n C. I, a igualtat, guanya l'alumne de la classe que dona nom a
+     la columna. */
+  var casat = _casaBlocDesdob(rng, loc, alumnesTokens, colGrup);
   var resultat = [], sensePerfil = 0;
   for (var n = 0; n < noms.length; n++) {
     var nom = noms[n];
-    var m = _matchAlumneFort(nom, alumnesTokens);
-    if (m && !usats[m.id]) {
-      usats[m.id] = true;
+    var m = casat[n];
+    if (m) {
       resultat.push(m);
     } else {
       resultat.push({
@@ -3584,6 +3659,48 @@ function _getDesdobGrupRaw(ss, curs, assig, grup) {
     }
   }
   return { ok:true, existeix:true, grup:grup, alumnes:resultat, total:noms.length, trobats: resultat.length - sensePerfil, sensePerfil: sensePerfil };
+}
+
+/* Casa tots els noms d'un bloc del full de desdoblaments amb els alumnes del
+   curs, alhora i sense repetir ningú. Només val una coincidència FORTA (tots
+   els mots hi són, o dos en comú), com `_matchAlumneFort`. Si la columna es
+   diu com una classe («2n C»), els alumnes d'aquella classe hi tenen un
+   petit avantatge. Torna, per a la columna `colGrup`, un alumne (o null) per
+   a cada nom no buit, en el mateix ordre que surten al full. */
+function _casaBlocDesdob(rng, loc, alumnesTokens, colGrup) {
+  var headers = rng[loc.headerRow];
+  var entrades = [];   // { col, nom, td }
+  for (var c = loc.blocStartCol; c < loc.nextBloc; c++) {
+    for (var r = loc.headerRow + 1; r < rng.length; r++) {
+      var v = (rng[r][c] || '').toString().trim();
+      if (v) entrades.push({ col: c, nom: v, td: _tokensSensePunts(v) });
+    }
+  }
+  var parelles = [];
+  for (var e = 0; e < entrades.length; e++) {
+    var td = entrades[e].td;
+    if (!td.length) continue;
+    var classeCol = _normNom(_netejaGrupNom(headers[entrades[e].col]));
+    for (var i = 0; i < alumnesTokens.length; i++) {
+      var p = _puntsMatch(td, alumnesTokens[i].tokens);
+      if (!p.score || !(p.totsHi || p.comuns >= 2)) continue;
+      var sc = p.score;
+      if (_normNom(alumnesTokens[i].ref.grupOrigen || '') === classeCol) sc += 2;
+      parelles.push({ e: e, i: i, sc: sc });
+    }
+  }
+  parelles.sort(function (a, b) { return (b.sc - a.sc) || (a.e - b.e) || (a.i - b.i); });
+  var entradaFeta = {}, alumneFet = {}, perEntrada = {};
+  parelles.forEach(function (p) {
+    if (entradaFeta[p.e] || alumneFet[p.i]) return;
+    entradaFeta[p.e] = true; alumneFet[p.i] = true;
+    perEntrada[p.e] = alumnesTokens[p.i].ref;
+  });
+  var out = [];
+  for (var k = 0; k < entrades.length; k++) {
+    if (entrades[k].col === colGrup) out.push(perEntrada[k] || null);
+  }
+  return out;
 }
 
 // Com _matchAlumne però NOMÉS accepta coincidències FORTES (tots els mots hi són,
@@ -5875,7 +5992,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v261';
+var BACKEND_VERSIO = 'v265';
 
 var MAX_CELA = 45000;
 

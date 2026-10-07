@@ -1,10 +1,13 @@
 {
-  "versio": "v263",
-  "data": "2026-10-06",
+  "versio": "v265",
+  "data": "2026-10-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Quan una app encara no està connectada, totes les pantalles ho diuen igual i bé. Abans, Assoliments i el generador de comentaris et deien que anessis al Perfil a dir quines assignatures fas —encara que el perfil estigués perfecte i el que faltés fos la connexió—, i tu hi anaves i no hi trobaves res per arreglar.",
-    "Els Registres d’aula ja no et conviden a crear columnes abans d’estar connectada: el que hi escrivissis no s’hauria desat enlloc.",
-    "La Distribució de l’aula ja no diu «Tots asseguts 🎉» quan encara no hi ha cap alumne carregat."
+    "A les assignatures desdoblades (Català, Anglès, Mates…) ja no hi surt un nen d’una altra classe amb el mateix nom que un dels teus. Si al full de desdoblaments només hi diu «Oriol», ara agafa el de la teva classe, i no el primer Oriol del curs.",
+    "Cap nen surt a dos grups del mateix desdoblament, i cap no desapareix perquè el seu nom s’assembli al d’un altre.",
+    "Les notes d’una assignatura ja no es tornen de cop la classe sencera. Si tenies obertes les notes de Mates (mitja classe) o d’un altre grup, de tant en tant l’app es posava al dia sola i hi tornava a posar tota la tutoria. Ara la llista de l’assignatura es queda la que toca.",
+    "Ja no falten nens a les assignatures desdoblades quan dos alumnes es diuen igual o s’hi assemblen (dues Júlia, «Pol» i «Pol M.»): abans tots dos noms anaven a parar al mateix nen i l’altre no sortia enlloc.",
+    "Si al full de desdoblaments hi ha un nom que no es troba a la llista del grup, ara t’ho diu i et diu quin. Abans aquell nen simplement no sortia.",
+    "Si no es pot saber si una assignatura va per desdoblament (un mal moment del servidor), t’avisa que et surt la classe sencera i ho torna a provar la propera vegada, en lloc de quedar-s’hi."
   ]
 }

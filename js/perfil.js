@@ -749,7 +749,7 @@ async function perfilSave() {
          Ara, tot just desat el perfil, es demanen els alumnes del grup i es
          repinta el que hi hagi obert. */
       try {
-        if (typeof _loadTutoriaGrup === 'function') await _loadTutoriaGrup();
+        if (typeof _loadTutoriaGrup === 'function') await _loadTutoriaGrup(true);
         if (typeof renderAlumnesList === 'function') renderAlumnesList();
         if (typeof updateHomeCounters === 'function') updateHomeCounters();
         if (typeof renderObsGrid === 'function') renderObsGrid();
@@ -789,7 +789,7 @@ function _grupDeTreball() {
   return _perfilTutorGrupKey();
 }
 
-async function _loadTutoriaGrup() {
+async function _loadTutoriaGrup(forca) {
   const grup = _grupDeTreball();
   if (!grup || !config.scriptUrl) return;
   _tutoriaGrup = grup;
@@ -808,7 +808,7 @@ async function _loadTutoriaGrup() {
          què és cert: si l'app ha canviat, es llença i es torna a demanar. */
       const mateixaVersio = !versioAra || c.v === versioAra;
       if (c && c.alumnes && c.alumnes.length && mateixaVersio) {
-        _aplicaTutoriaAlumnes(c.alumnes);
+        _aplicaTutoriaAlumnes(c.alumnes, false, forca);
         // Si és recent (<10 min), no refresquis
         if (Date.now() - (c.ts||0) < 600000) return;
       }
@@ -819,13 +819,13 @@ async function _loadTutoriaGrup() {
     const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
     if (r.ok && r.alumnes && r.alumnes.length) {
       if (typeof _ultimaFallidaAlumnes !== 'undefined') _ultimaFallidaAlumnes = null;
-      _aplicaTutoriaAlumnes(r.alumnes);
+      _aplicaTutoriaAlumnes(r.alumnes, false, forca);
       try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes: r.alumnes, ts: Date.now(), v: versioAra })); } catch(e) {}
     } else if (r && r.ok && r.existeix !== false) {
       /* El grup hi es i no te ningu: aixo tambe es una resposta, i s ha de
          fer cas. Si no, hi queden els alumnes del grup anterior. */
       if (typeof _ultimaFallidaAlumnes !== 'undefined') _ultimaFallidaAlumnes = null;
-      _aplicaTutoriaAlumnes([], true);
+      _aplicaTutoriaAlumnes([], true, forca);
       try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes: [], ts: Date.now(), v: versioAra })); } catch(e) {}
     } else if (r && r.ok === false) {
       if (typeof _ultimaFallidaAlumnes !== 'undefined') _ultimaFallidaAlumnes = (r.error || 'el servidor no ha pogut donar la llista');
@@ -866,7 +866,7 @@ async function refrescaAlumnes() {
   const av = document.getElementById('avisAlumnesVells');
   if (av) av.remove();
   if (typeof showToast === 'function') showToast('Demanant els alumnes al full…', 'info');
-  await _loadTutoriaGrup();
+  await _loadTutoriaGrup(true);
   if (typeof showToast === 'function') showToast('Alumnes al dia ✓', 'success');
 }
 
@@ -880,9 +880,37 @@ async function refrescaAlumnes() {
    anava a parar on no tocava (auditoria 6/9/2026). */
 let _grupCarregaId = 0;
 
-function _aplicaTutoriaAlumnes(alumnes, buitDeDebo) {
+/* ⚠ LA LLISTA DE L'ASSIGNATURA QUE ES TORNAVA LA CLASSE SENCERA (7/10/2026).
+
+   En Pol: «estic posant notes i algunes vegades em carrega tota la llista
+   sencera; si torno a refrescar em mostra el grup que toca».
+
+   Per què: cada pocs minuts l'app es posa al dia sola (el bootstrap), i
+   això tornava a posar els alumnes de la TUTORIA a la pantalla, fos la que
+   fos. Si estaves a les notes de Mates (mitja classe, per desdoblament) o
+   d'una assignatura d'un altre grup, de cop tenies la classe sencera de la
+   tutoria. Pitjor: invalidava la càrrega de l'assignatura que encara venia
+   (`_grupCarregaId`), o sigui que la bona ja no arribava mai.
+
+   Ara se sap quan la pantalla treballa amb els alumnes d'UNA assignatura
+   (`_llistaDAssignatura`). Mentre és així, la posada al dia de la tutoria
+   només actualitza la còpia de la tutoria (`_tutoriaAlumnes`), que és la
+   que es tornarà a posar en anar a Alumnes, Registres o Observacions
+   (`_restoreTutoriaStudents`). La llista de la pantalla no es toca.
+
+   `forca` = ho ha demanat la mestra ara (canviar de grup a direcció,
+   «Refresca els alumnes», desar el perfil): llavors sí que mana. */
+let _llistaDAssignatura = null;   // "4t B|Mates", "altres|…", o null = la tutoria
+
+function _aplicaTutoriaAlumnes(alumnes, buitDeDebo, forca) {
   if ((!alumnes || !alumnes.length) && !buitDeDebo) return;
   alumnes = alumnes || [];
+  if (_llistaDAssignatura && !forca) {
+    _tutoriaAlumnes = alumnes;   // la tutoria, al dia per quan s'hi torni
+    if (typeof _refreshAniversaris === 'function') _refreshAniversaris();
+    return;
+  }
+  _llistaDAssignatura = null;
   /* Aquesta llista passa a ser la bona: qualsevol càrrega de grup que encara
      estigui en marxa queda invalidada. Sense això, una petició d'un grup que
      s'ha deixat enrere podia arribar tard i buidar la pantalla del grup que
@@ -1212,6 +1240,7 @@ function _netejaAlumnesSiSonDUnAltre(grup, desdob) {
 async function _ensureGrupStudents(grup, materia) {
   if (!grup || !config.scriptUrl) return;
   const clau = grup + '|' + (materia||'');
+  _llistaDAssignatura = clau;   // la tutoria que s'actualitzi sola no la trepitgi
   if (_grupStudentsCarregat === clau) return; // ja carregat en memòria
 
   // 1) CACHE: si tenim els alumnes d'aquest grup+assignatura en cache, usa'ls ja
@@ -1260,6 +1289,24 @@ function _aplicaGrupStudents(alumnes) {
    toca), això voldria dir quedar-se amb la pantalla en blanc. */
 
 
+/* Noms del full de desdoblaments que no casen amb cap alumne del grup. Són
+   nens que no sortiran a la llista d'aquesta assignatura (normalment perquè
+   el nom hi està escrit diferent que al full «Grups»). Es diu un cop per
+   sessió: si no, la mestra només veu que en falta un i no sap per què. */
+const _noTrobatsAvisats = {};
+function _avisaNoTrobatsDesdob(grup, assig, noTrobats) {
+  if (!noTrobats || !noTrobats.length) return;
+  const k = grup + '|' + assig;
+  if (_noTrobatsAvisats[k]) return;
+  _noTrobatsAvisats[k] = true;
+  if (typeof showToast === 'function') {
+    showToast('Al full de desdoblaments de «' + assig + ' · ' + grup + '» hi ha ' +
+              (noTrobats.length === 1 ? 'un nom que no trobo' : noTrobats.length + ' noms que no trobo') +
+              ' a la llista del grup: ' + noTrobats.join(', ') +
+              '. No surten aquí fins que el nom no hi estigui escrit igual que al full «Grups».', 'error');
+  }
+}
+
 async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
   const meu = ++_grupCarregaId;
   try {
@@ -1267,17 +1314,41 @@ async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
     if (meu !== _grupCarregaId) return;      // ja n'hi ha una de més nova
     let alumnes = (r.ok && r.alumnes) ? r.alumnes : [];
 
+    /* ⚠ SI NO SE SAP SI ÉS MITJA CLASSE, NO ES DONA PER BONA LA SENCERA.
+
+       Abans, si la pregunta del desdoblament fallava (un mal moment del
+       servidor), es queia en silenci a la classe sencera, es desava a la
+       còpia del navegador i es donava per carregada: durant deu minuts, i
+       fins que no es recarregués l'app, la mestra veia tota la classe a una
+       assignatura de mitja. Ara es torna a provar un cop i, si torna a
+       fallar, es diu i no es guarda res: la propera vegada es tornarà a
+       demanar. */
+    let desdobDubtos = false;
     if (materia && alumnes.length) {
       const parts = grup.split(' ');
       const matNom = _assigNomNet(materia);
-      try {
-        const d = await appsScriptGet({ action:'getDesdoblament', curs:parts[0], linia:parts[1], assignatura:matNom });
-        if (d.ok && d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
-          const queden = new Set(d.alumnes.map(a => a.nom));
-          const filtrats = alumnes.filter(a => queden.has(a.nom));
-          if (filtrats.length) alumnes = filtrats;
-        }
-      } catch(e) {}
+      let d = null;
+      for (let intent = 0; intent < 2 && !(d && d.ok); intent++) {
+        try { d = await appsScriptGet({ action:'getDesdoblament', curs:parts[0], linia:parts[1], assignatura:matNom }); }
+        catch (e) { d = null; }
+        if (meu !== _grupCarregaId) return;
+      }
+      if (!d || !d.ok) {
+        desdobDubtos = true;
+      } else if (d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
+        /* Es casen pel CODI de l'alumne (no canvia mai) i, si no en té, pel
+           nom normalitzat. Abans era el nom exacte: un espai de més o un
+           accent diferent i el nen desapareixia de la llista. */
+        const nn = x => _normNomSimple(x).replace(/\s+/g, ' ');
+        const codis = new Set(), noms = new Set();
+        d.alumnes.forEach(a => {
+          if (a.uid) codis.add(String(a.uid));
+          else noms.add(nn(a.nom));            // sense codi: només pel nom
+        });
+        const filtrats = alumnes.filter(a => a.uid && codis.has(String(a.uid)) ? true : noms.has(nn(a.nom)));
+        if (filtrats.length) alumnes = filtrats;
+        _avisaNoTrobatsDesdob(grup, matNom, d.noTrobats);
+      }
     }
 
     /* ⚠ UN GRUP BUIT DE DEBÒ NO ÉS EL MATEIX QUE UNA PETICIÓ QUE HA FALLAT.
@@ -1308,8 +1379,17 @@ async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
     if (alumnes.length || grupBuitDeDebo) {
       alumnes.forEach(a => { if (!a.grupOrigen) a.grupOrigen = grup; });
       _aplicaGrupStudents(alumnes);
-      _grupStudentsCarregat = clau;
-      try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes, ts: Date.now() })); } catch(e) {}
+      if (desdobDubtos) {
+        _grupStudentsCarregat = null;   // que la propera vegada es torni a demanar
+        try { localStorage.removeItem(cacheKey); } catch(e) {}
+        if (typeof showToast === 'function') {
+          showToast('No he pogut saber si «' + _assigNomNet(materia) + ' · ' + grup + '» va per desdoblament: ' +
+                    'et surt la classe sencera. Torna-la a obrir d\'aquí a una estona.', 'error');
+        }
+      } else {
+        _grupStudentsCarregat = clau;
+        try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes, ts: Date.now() })); } catch(e) {}
+      }
       // Repinta si estem a la pàgina de notes d'aquest grup
       if (typeof renderNotesTable === 'function' && notesContext && notesContext.grup === grup) {
         try { renderNotesTable(); } catch(e) {}
@@ -1321,6 +1401,7 @@ async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
 // Restaura els alumnes del grup de tutoria (per a la pàgina Alumnes,
 // registres, observacions... que sempre són del grup propi).
 function _restoreTutoriaStudents() {
+  _llistaDAssignatura = null;    // tornem a la classe sencera
   if (!_tutoriaAlumnes || !_tutoriaAlumnes.length) return;
   const grup = (typeof _grupDeTreball === 'function') ? _grupDeTreball() : null;
   // Només es pot estalviar la feina si el que hi ha carregat és la llista
@@ -1585,7 +1666,14 @@ function _desdobProblema(curs, assig) {
 // si no, carrega la classe sencera (getGrupAlumnes).
 async function _loadDesdobStudents(curs, assig) {
   if (!config.scriptUrl) return;
+  _llistaDAssignatura = 'altres|' + _desdobMapKey(curs, assig);  // veure `_aplicaTutoriaAlumnes`
+  /* Número de càrrega, com a `_refreshGrupStudents`: si mentrestant se'n
+     demana una altra (un altre grup del desdoblament, una altra assignatura),
+     aquesta, quan arribi, ja no mana. Sense això, clicar dos grups seguits
+     podia deixar a la pantalla el primer amb el nom del segon. */
+  const meu = ++_grupCarregaId;
   await _desdobCarregaGrups(curs, assig);
+  if (meu !== _grupCarregaId) return;
   const o = _desdobOpcions(curs, assig);
   const grup = _desdobGrupActual(curs, assig);
   if (!grup) {
@@ -1643,6 +1731,7 @@ async function _loadDesdobStudents(curs, assig) {
       alumnes = (resposta && resposta.ok && resposta.alumnes) ? resposta.alumnes : [];
       alumnes.forEach(a => { a.grupOrigen = grup; });
     }
+    if (meu !== _grupCarregaId) return;      // ha arribat tard: ja en manen una altra
     if (alumnes.length) {
       _aplicaGrupStudents(alumnes);
       _grupStudentsCarregat = clau;
@@ -1910,17 +1999,41 @@ async function _carregaAlumnesGrupNet(grup, materia) {
     let alumnes = (r.ok && r.alumnes) ? r.alumnes : [];
 
     // Aplica desdoblament si l'assignatura n'és
+    /* ⚠ SI NO SE SAP SI ÉS MITJA CLASSE, NO ES DONA PER BONA LA SENCERA.
+
+       Abans, si la pregunta del desdoblament fallava (un mal moment del
+       servidor), es queia en silenci a la classe sencera, es desava a la
+       còpia del navegador i es donava per carregada: durant deu minuts, i
+       fins que no es recarregués l'app, la mestra veia tota la classe a una
+       assignatura de mitja. Ara es torna a provar un cop i, si torna a
+       fallar, es diu i no es guarda res: la propera vegada es tornarà a
+       demanar. */
+    let desdobDubtos = false;
     if (materia && alumnes.length) {
       const parts = grup.split(' ');
       const matNom = _assigNomNet(materia);
-      try {
-        const d = await appsScriptGet({ action:'getDesdoblament', curs:parts[0], linia:parts[1], assignatura:matNom });
-        if (d.ok && d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
-          const queden = new Set(d.alumnes.map(a => a.nom));
-          const filtrats = alumnes.filter(a => queden.has(a.nom));
-          if (filtrats.length) alumnes = filtrats;
-        }
-      } catch(e) {}
+      let d = null;
+      for (let intent = 0; intent < 2 && !(d && d.ok); intent++) {
+        try { d = await appsScriptGet({ action:'getDesdoblament', curs:parts[0], linia:parts[1], assignatura:matNom }); }
+        catch (e) { d = null; }
+        if (meu !== _grupCarregaId) return;
+      }
+      if (!d || !d.ok) {
+        desdobDubtos = true;
+      } else if (d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
+        /* Es casen pel CODI de l'alumne (no canvia mai) i, si no en té, pel
+           nom normalitzat. Abans era el nom exacte: un espai de més o un
+           accent diferent i el nen desapareixia de la llista. */
+        const nn = x => _normNomSimple(x).replace(/\s+/g, ' ');
+        const codis = new Set(), noms = new Set();
+        d.alumnes.forEach(a => {
+          if (a.uid) codis.add(String(a.uid));
+          else noms.add(nn(a.nom));            // sense codi: només pel nom
+        });
+        const filtrats = alumnes.filter(a => a.uid && codis.has(String(a.uid)) ? true : noms.has(nn(a.nom)));
+        if (filtrats.length) alumnes = filtrats;
+        _avisaNoTrobatsDesdob(grup, matNom, d.noTrobats);
+      }
     }
 
     if (alumnes.length) {
