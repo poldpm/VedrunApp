@@ -18,12 +18,12 @@ no barrejar-se amb la resta de coses del dia a dia:
 ```
 C:\Escorial\VedrunApp\
 │
-│   LES TRES PLANTILLES, a l'arrel. No són de cap mestra.
-├── VedrunApp-Tutors\          ← l'APP MARE: el taller, i la plantilla
-│                                dels tutors. NO es mou mai: hi viuen les
-│                                eines, les converses i la memòria.
-├── VedrunApp-Especialistes\   ← plantilla del rol especialista
-├── VedrunApp-Direccio\        ← plantilla del rol direcció
+│   L'APP MARE, a l'arrel. No és de cap mestra.
+├── VedrunApp-Tutors\          ← el taller, i la plantilla de TOTS els rols.
+│                                NO es mou mai: hi viuen les eines, les
+│                                converses i la memòria. A plantilles/ hi té
+│                                les peces dels rols d'especialista i de
+│                                direcció, i d'allà en surten les seves apps.
 │
 │   LES APPS DE LES MESTRES, cadascuna a la carpeta del seu rol.
 ├── tutors\
@@ -173,10 +173,21 @@ necessiti la seva app, surt d'aquí amb `nova-filla.js` (veure aquí sobre), i
 tot el que es millori per a les especialistes es fa **a la mare** darrere
 `esEspecialista()`, no en aquesta carpeta.
 
-**NO es publica enlloc, i és a posta.** Aquesta carpeta és una plantilla que
-viu només a l'ordinador d'en Pol: no té repositori ni GitHub Pages, i no cal
-que en tingui. `nova-filla.js` en copia fitxers, no clona cap repositori.
-Qui té una adreça a Internet és **l'app de cada mestra**, no aquesta.
+**NO es publica enlloc, i és a posta.** Qui té una adreça a Internet és
+**l'app de cada mestra**, no aquesta.
+
+⚠ **I des de la v271 ja no és ni una carpeta.** En Pol, 7/10/2026: «no calen
+que tinguin repositori si no s'han de publicar, només serveixen com a
+plantilla». Tenia raó, i encara més: d'aquella carpeta només se'n treien
+QUATRE fitxers, i tres ja eren a `plantilles/especialistes/` dins la mare (el
+quart és el token, que és el mateix per a tota l'escola i surt de la mare). I
+el `js/rol.js` ja es refà amb el de la mare de totes maneres, precisament
+perquè la plantilla se'l va quedar endarrerit durant setmanes.
+
+Ara `nova-filla.js --especialista` surt de `plantilles/especialistes/`, i per
+tant **una app nova es pot crear des de qualsevol ordinador**, també des d'una
+sessió al núvol. Ho vigila `node eines/comprova-nova-filla.js`, que crea una
+app de cada rol de debò i la mira peça per peça.
 
 ## L'app de direcció (tampoc no és d'una persona)
 
