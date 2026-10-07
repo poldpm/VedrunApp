@@ -918,6 +918,18 @@ function refreshStudentRow(sid) {
 /* ============================================================
    RENDERITZA LA TAULA COMPLETA
    ============================================================ */
+/* Els distintius PI i AM al costat del nom, com a la pàgina d'Alumnes.
+   Mestres que posaven notes, 7/10/2026: «ens aniria bé veure-ho directament».
+   Només es mostren: no fan res en clicar-los. Surten del full «Grups» (el
+   mateix que omple la fitxa), o sigui que també hi són a les assignatures
+   d'un altre grup. */
+function _notesBadgesPIAM(s) {
+  const pd = (typeof personal !== 'undefined' && personal && personal[s.id]) || {};
+  const pi = String(pd.pi || '').trim(), am = String(pd.am || '').trim();
+  return (pi ? '<span class="alumne-badge-pi notes-badge" title="Pla Individualitzat: ' + escapeHtml(pi.replace(/\|/g, ', ')) + '">PI</span>' : '') +
+         (am ? '<span class="alumne-badge-am notes-badge" title="Adaptació Metodològica: ' + escapeHtml(am.replace(/\|/g, ', ')) + '">AM</span>' : '');
+}
+
 function renderNotesTable() {
   try { _notesAmbPendents(); } catch (e) {}
   const empty = document.getElementById('notesEmpty');
@@ -997,7 +1009,7 @@ function renderNotesTable() {
     const tr = document.createElement('tr');
     // Nom
     const tdNom = document.createElement('td'); tdNom.className='notes-td-name';
-    tdNom.innerHTML = `<div class="notes-td-name-inner"><div class="student-avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${getInitials(s.nom)}</div><span>${escapeHtml(typeof nomAlumne==='function'?nomAlumne(s):s.nom)}</span></div>`;
+    tdNom.innerHTML = `<div class="notes-td-name-inner"><div class="student-avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${getInitials(s.nom)}</div><span>${escapeHtml(typeof nomAlumne==='function'?nomAlumne(s):s.nom)}</span>${_notesBadgesPIAM(s)}</div>`;
     tr.appendChild(tdNom);
 
     notesItems.forEach(item => {

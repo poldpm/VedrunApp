@@ -1,8 +1,8 @@
 {
-  "versio": "v266",
+  "versio": "v267",
   "data": "2026-10-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Direcció: als Registres d’aula i a Observacions, el grup que mana és el que tries al desplegable de dalt de la pàgina. Abans, en crear un ítem nou, et deia que triessis un grup encara que ja el tinguessis triat, perquè mirava el de la pàgina Alumnes."
+    "A les notes de cada assignatura, al costat del nom de l’alumne hi surten les etiquetes PI i AM, com a la pàgina d’Alumnes. Passant-hi el ratolí per sobre et diu de quines àrees és."
   ]
 }

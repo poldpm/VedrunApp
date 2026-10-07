@@ -1414,6 +1414,13 @@ body {
   display: flex; align-items: center; justify-content: center; gap: 10px;
   height: 100%;
 }
+/* PI / AM al costat del nom, a les notes (més petits i enganxats al nom) */
+.notes-td-name-inner .notes-badge {
+  margin-left: -6px; flex-shrink: 0;
+  font-size: 9px; font-weight: 800; line-height: 1.4;
+  padding: 1px 4px; border-radius: 3px;
+  cursor: default;
+}
 
 /* Cel·la d'ítem: punts dalt + nota baix, centrat vertical */
 .notes-td-item {
