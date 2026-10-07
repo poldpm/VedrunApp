@@ -1,9 +1,9 @@
 {
-  "versio": "v269",
+  "versio": "v270",
   "data": "2026-10-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Ni l'app ni el manual no porten escrit enlloc el nom de cap alumne: on hi havia exemples amb noms de criatures de l'escola, ara hi ha noms inventats. Les dades de debò només són al full de càlcul, com sempre.",
-    "El manual ja no parla de la «Carpeta Viatgera»: és una cosa que de moment només fa servir una mestra, i explicar-la et feia buscar una cosa que no tens. Si la tens al teu perfil o al teu full de càlcul, segueix funcionant igual."
+    "La «Carpeta Viatgera» passa a ser una eina que s'encén a qui la demani, com les rúbriques d'avaluació. Si no la tens encesa, ja no et surt ni com a assignatura ni com a columna, encara que al teu full de càlcul hi hagi la pestanya.",
+    "Important: abans, una columna de Carpeta Viatgera que no es veia podia estar comptant per a la nota final. Ara, si no la tens, no hi compta."
   ]
 }

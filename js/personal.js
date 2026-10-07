@@ -1616,3 +1616,13 @@
 /* Rúbriques d'avaluació d'activitats (Eines → Rúbriques d'avaluació).
    Encès el 29/9/2026 per anar-la provant mentre es fa. */
 window.EINES_RUBAVAL = true;
+
+/* La Carpeta Viatgera: la pestanya de notes i la columna que surt sola a
+   Mates i Català, amb el seu pes.
+
+   Des de la v270 és una eina com les rúbriques i neix apagada. Abans n'hi
+   havia prou amb tenir la pestanya al full, i això volia dir que la tenia
+   qualsevol que se la posés sense voler. Aquesta és, de moment, l'única
+   app que l'ha de tenir encesa (en Pol, 7/10/2026: «només l'he de tenir
+   jo»). */
+window.EINES_CARPETA = true;

@@ -131,6 +131,14 @@ GitHub és l'única còpia que veuen tots. Per tant, **sense que ho demani**:
 - Si el pull o el push fallen, digues-ho clarament: si no, el canvi es queda
   en un sol ordinador i en Pol no ho sabrà.
 
+⚠ **EL GIT NO EL FA MAI EN POL.** Ell, 7/10/2026: «no sé fer git pull. fes-ho
+tot tu sempre». O sigui que **cap tasca de git no se li deixa a ell**: el
+pull, el commit, el push, fusionar una branca a `main`, publicar cada filla…
+tot ho fas tu, i sense preguntar-ho. No li diguis mai «et queda per fer» ni
+«ja ho pots fusionar»: si s'ha de fer, fes-ho. Si de debò no pots (no tens
+accés al repositori, o la carpeta no existeix en remot), digues **què** no
+has pogut fer i **per què**, no li donis una llista d'ordres per escriure.
+
 ## Treballar des de qualsevol lloc (sessió remota)
 
 En una sessió remota les carpetes `C:/Escorial/...` no existeixen:

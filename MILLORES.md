@@ -195,3 +195,50 @@ revertiria.
 
 **Depèn de:** només pantalla. La mestra no ha de fer res: li arriba amb l'avís
 de versió nova. No cal tocar el `Code.gs` ni redesplegar res.
+
+## `carpeta-viatgera` — La Carpeta Viatgera com a columna de la nota
+
+**Què fa:** la nota de la Carpeta Viatgera es posa un sol cop i surt sola, amb
+el seu pes, a les graelles de Matemàtiques i Català.
+
+**Fitxers:**
+- `js/app.js` — `carpetaEncesa()` i `esClauCarpeta()` (l'interruptor i les dues
+  claus amb què arriba), i el filtre de la llista d'assignatures de la fitxa.
+- `js/notes.js` — `carpetaFora()`, cridada des de `sortCarpetaLast()` i des del
+  refresc de fons.
+- `Code.gs` — `CARPETA_NOTE`, `MATERIES_AMB_CARPETA`, `propagaCarpeta()` i
+  `moveCarpetaBeforeMitjana()`. Ja hi era des de la v268; no s'hi ha tocat res.
+- El `js/personal.js` de qui la tingui: `window.EINES_CARPETA = true`.
+
+**Com funciona:** la mestra té una pestanya de notes «Carpeta Viatgera» al seu
+full (o l'assignatura al perfil). Quan hi desa una nota, `propagaCarpeta()`
+escriu la mitjana d'aquella pestanya a una columna de Mates i Català, marcada
+amb la nota de cel·la `CARPETA_NOTE` (`10|2|carpeta_ref`), de només lectura i
+amb pes 2. La columna es manté sempre just abans de «Mitjana».
+
+**Paranys:**
+- **L'interruptor no filtra només la pantalla: treu l'ítem de `notesItems`.**
+  `calcMitjana()` recorre la llista, o sigui que una columna amagada però
+  present seguiria comptant per a la nota final sense que es veiés enlloc. Això
+  és pitjor que ensenyar-la.
+- Arriba amb **dues claus**: `carpeta` (la pestanya del full) i
+  `carpetaviatgera` (l'assignatura del perfil, normalitzada). Les dues s'han
+  de filtrar.
+- El refresc de fons **reemplaça** `notesItems` sense passar per
+  `sortCarpetaLast()`: per això el filtre també hi és a sobre.
+- `MATERIES.carpeta` hi ha de seguir sent encara que estigui apagada, perquè
+  qui la té vegi el rètol bo i no la clau.
+- **No és al `manual.html` ni a la descripció del Vedrunu.** És una eina
+  d'una sola mestra: un manual que explica una cosa que no tens et fa buscar-la
+  i no trobar-la. Si algun dia es generalitza, llavors sí.
+
+**A qui s'ofereix:** de moment, **només a la Mireia Duran**, i l'entrada del
+catàleg és al seu `js/personal.js`, no a `js/millores.js` de la mare. El
+catàleg només sap filtrar per ROL (`tutor`, `especialista`, `direccio`) i ella
+és tutora com tres més, o sigui que posar-la a la mare l'oferiria a tothom.
+Quan s'hagi d'oferir a més gent, es mou l'entrada a `js/millores.js` amb
+`interruptor: 'EINES_CARPETA'` i el `rols` que toqui.
+
+**Depèn de:** només pantalla. La mestra no ha de fer res: s'encén posant-li
+l'interruptor al seu `js/personal.js`. El `Code.gs` ja ho porta des de la v268,
+o sigui que no cal redesplegar res.

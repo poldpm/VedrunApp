@@ -25,6 +25,33 @@ const MATERIES = {
 };
 const MATERIA_KEYS = ['general','matematiques','catala','medi','musica','angles'];
 
+/* ============================================================
+   QUI TÉ LA CARPETA VIATGERA
+   ------------------------------------------------------------
+   És una eina d'una sola mestra, com les rúbriques: neix apagada
+   i només la veu qui tingui `window.EINES_CARPETA = true` al seu
+   `js/personal.js`.
+
+   ⚠ Abans no hi havia interruptor: n'hi havia prou que la mestra
+   tingués la pestanya «Carpeta Viatgera» al seu full de càlcul o
+   l'assignatura al perfil, i la columna li sortia. Això volia dir
+   que prou que se la posés sense voler i ja la tenia, i que treure-la
+   d'una app passava per anar-li a tocar el full. Amb l'interruptor
+   es decideix des de l'app i no es toca res del que ella té escrit.
+
+   Quan està apagada NO es filtra només la pantalla: la columna surt
+   també de la llista d'ítems, perquè si no comptaria per a la mitjana
+   sense que es veiés enlloc —i això és pitjor que ensenyar-la.      */
+function carpetaEncesa() {
+  try { return window.EINES_CARPETA === true; } catch (e) { return false; }
+}
+/* Les dues claus amb què arriba: la del full (`carpeta`) i la que surt
+   de normalitzar l'assignatura del perfil (`carpetaviatgera`). */
+function esClauCarpeta(clau) {
+  const k = String(clau == null ? '' : clau);
+  return k === 'carpeta' || k === 'carpetaviatgera';
+}
+
 const MATERIA_COLORS = {
   general:      { bg: '#F1F5F9', text: '#475569' },
   matematiques: { bg: '#EEF2FF', text: '#3730A3' },
@@ -2657,6 +2684,8 @@ async function loadFitxaNotes(studentId, container) {
     _showList = (Array.isArray(mats) && mats.length) ? mats.slice()
       : Object.keys(resum || {}).map(k => ({ key: k, nom: (typeof MATERIES !== 'undefined' && MATERIES[k]) || k }));
   }
+  // La Carpeta Viatgera, només a qui la tingui encesa (veure `carpetaEncesa`).
+  if (!carpetaEncesa()) _showList = _showList.filter(x => !esClauCarpeta(x.key));
   const MATS_SHOW = _showList.map(x => x.key);
   const LBL = {}; _showList.forEach(x => { LBL[x.key] = x.nom; });
 

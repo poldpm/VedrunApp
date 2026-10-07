@@ -131,10 +131,22 @@ function calcMitjana(sid) {
 
 /* --- Ordre: Carpeta sempre al final --- */
 function sortCarpetaLast(items) {
-  const normal   = items.filter(i => !i.readonly && !i.isActitud);
-  const actitud  = items.filter(i => i.isActitud);
-  const carpeta  = items.filter(i => i.readonly && !i.isActitud);
+  const nets     = carpetaFora(items);
+  const normal   = nets.filter(i => !i.readonly && !i.isActitud);
+  const actitud  = nets.filter(i => i.isActitud);
+  const carpeta  = nets.filter(i => i.readonly && !i.isActitud);
   return [...normal, ...actitud, ...carpeta];
+}
+
+/* Treu la columna de la Carpeta Viatgera a qui no la tingui encesa.
+   ⚠ Es treu de la LLISTA, no només de la taula: `calcMitjana()` recorre
+   `notesItems`, o sigui que una columna amagada però present seguiria
+   comptant per a la nota i ningú no sabria d'on surt. Veure
+   `carpetaEncesa()` a js/app.js. */
+function carpetaFora(items) {
+  const llista = items || [];
+  if (typeof carpetaEncesa !== 'function' || carpetaEncesa()) return llista;
+  return llista.filter(i => String(i && i.id) !== 'carpeta_ref');
 }
 
 /* ============================================================
@@ -600,7 +612,7 @@ async function _loadNotesBackground() {
     const changed = JSON.stringify(newItems)  !== JSON.stringify(prevItemsServer) ||
                     JSON.stringify(newValors) !== JSON.stringify(prevValorsServer);
 
-    notesItems  = newItems;
+    notesItems  = carpetaFora(newItems);
     notesValors = newValors;
     noEntregats = newNE;
     notesComentaris = newComs;
