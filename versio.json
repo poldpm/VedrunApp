@@ -1,8 +1,8 @@
 {
-  "versio": "v267",
+  "versio": "v268",
   "data": "2026-10-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A les notes de cada assignatura, al costat del nom de l’alumne hi surten les etiquetes PI i AM, com a la pàgina d’Alumnes. Passant-hi el ratolí per sobre et diu de quines àrees és."
+    "Si fas servir categories a les notes (amb un % per a cada una), ara la nota de cada activitat es desa sempre al full de càlcul. Abans, en algunes columnes podia sortir «Columna no trobada»."
   ]
 }

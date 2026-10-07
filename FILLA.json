@@ -1,7 +1,8 @@
 {
   "mestra": "Pol",
-  "mareVersio": "v267",
+  "mareVersio": "v268",
   "propis": [
+    "manual.html",
     "manifest.webmanifest",
     "manifest.json"
   ],

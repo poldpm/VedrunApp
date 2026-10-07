@@ -2550,9 +2550,16 @@ function getGrupsSheetId(ss) {
 }
 const MATERIA_NOM = {
   general:'General', matematiques:'Matemàtiques', catala:'Català',
-  medi:'Medi Natural', musica:'Música', angles:'Anglès', carpeta:'Carpeta Viatgera'
+  medi:'Medi Natural', musica:'Música', angles:'Anglès', carpeta:'Carpeta Viatgera',
+  /* Al perfil s'hi tria «Carpeta Viatgera», i la clau que en fa l'app és
+     aquesta. Va DARRERE de `carpeta`: així el resum de la fitxa l'anomena
+     igual que el perfil i no la treu dues vegades. */
+  carpetaviatgera:'Carpeta Viatgera'
 };
-const MATERIES_AMB_CARPETA = ['matematiques','catala','medi'];
+/* On compta la nota de la Carpeta Viatgera (com una columna més, de pes 2).
+   Medi en va sortir el 7/10/2026: la carpeta són deures de mates i català. */
+const MATERIES_AMB_CARPETA = ['matematiques','catala'];
+function _esCarpeta_(materia) { return materia === 'carpeta' || materia === 'carpetaviatgera'; }
 const COL_OBS      = 'Observacions';
 const NUM_TRIMS    = 3;
 const CARPETA_NOTE = '10|2|carpeta_ref';
@@ -4402,7 +4409,7 @@ function getNotes(ss, materia, trimestre, grup) {
       var c = -1;
       allNotes.forEach(function (m, i) {
         var p = (m || '').split('|');
-        if (p.length === 3 && parseInt(p[2]) === it.id) c = i;
+        if (_colIdNota_(m) === it.id) c = i;
       });
       if (c === -1) return;
       for (var sc = 0; sc < numAlumnes; sc++) {
@@ -4473,6 +4480,8 @@ function saveNotaCats(ss, materia, trimestre, cats, assign, grup) {
     }
   }
   refreshMitjanaColumn(sh);
+  // Canviar un % de la Carpeta canvia la nota que en reben Mates i Català.
+  if (_esCarpeta_(materia)) propagaCarpetaTots_(ss, trimestre, sh, grup);
   return { ok:true, cats:neta };
 }
 
@@ -4612,7 +4621,7 @@ function _notaColumnaQueJaHiEs_(item, hdrs, metas) {
   var perNom = null;
   for (var i = 0; i < metas.length; i++) {
     var p = (metas[i] || '').toString().split('|');
-    if (p.length !== 3 || isNaN(parseInt(p[2]))) continue;
+    if (_colIdNota_(metas[i]) === null) continue;
     if (String(parseInt(p[2])) === String(parseInt(item.id))) return { itemId: parseInt(p[2]), motiu: 'codi' };
     if (!perNom && nomNet && (hdrs[i] || '').toString().trim().toLowerCase() === nomNet) {
       perNom = { itemId: parseInt(p[2]), motiu: 'nom' };
@@ -4705,9 +4714,10 @@ function deleteNotaItem(ss, materia, trimestre, itemId, grup) {
   var metas=sh.getRange(1,1,1,lc).getNotes()[0];
   for(var i=metas.length-1;i>=0;i--){
     var p=(metas[i]||'').split('|');
-    if(p.length===3&&parseInt(p[2])===itemId){sh.deleteColumn(i+1);break;}
+    if(_colIdNota_(metas[i])===itemId){sh.deleteColumn(i+1);break;}
   }
   refreshMitjanaColumn(sh);
+  if (_esCarpeta_(materia)) propagaCarpetaTots_(ss, trimestre, sh, grup);
   return{ok:true};
 }
 
@@ -4738,7 +4748,7 @@ function updateNota(ss, materia, trimestre, itemId, studentId, punts, grup, nom)
   var lc=sh.getLastColumn();
   var metas=sh.getRange(1,1,1,lc).getNotes()[0];
   var col=-1;
-  metas.forEach(function(m,i){ var p=(m||'').split('|'); if(p.length===3&&parseInt(p[2])===itemId) col=i+1; });
+  metas.forEach(function(m,i){ if(_colIdNota_(m)===itemId) col=i+1; });
   if(col===-1)return{ok:false,error:'Columna no trobada: '+itemId};
 
   // Localitza la fila PEL NOM (robust); si no el troba, la crea al final
@@ -4776,7 +4786,7 @@ function updateNota(ss, materia, trimestre, itemId, studentId, punts, grup, nom)
   colorNota(cellN,nota);
 
   recalcMitjana(sh,rowP);
-  if(materia==='carpeta') propagaCarpeta(ss,trimestre,nom,sh,rowP,grup);
+  if(_esCarpeta_(materia)) propagaCarpeta(ss,trimestre,nom,sh,rowP,grup);
   // Centra i aplica Nunito a la fila afectada
   var lc2=sh.getLastColumn();
   sh.getRange(rowP,1,2,lc2)
@@ -4904,7 +4914,7 @@ function updateNotesLot(ss, materia, trimestre, grup, canvis) {
   var colDe = {};
   meta.forEach(function (m, i) {
     var p = (m || '').split('|');
-    if (p.length === 3 && !isNaN(parseInt(p[2]))) colDe[String(parseInt(p[2]))] = i + 1;
+    if (_colIdNota_(m) !== null) colDe[String(_colIdNota_(m))] = i + 1;
   });
   // Primera fila de cada nom, com `_trobaFilaAlumne`.
   var filaDe = {};
@@ -4985,7 +4995,7 @@ function updateNotesLot(ss, materia, trimestre, grup, canvis) {
       dades[rowP - 1][col - 1] = val; dades[rowN - 1][col - 1] = nota;
     }
     tocades[rowP] = true;
-    if (materia === 'carpeta' && c.nom) carpeta.push({ nom: c.nom, rowP: rowP });
+    if (_esCarpeta_(materia) && c.nom) carpeta.push(c.nom);
     resultats.push({ i: i, ok: true });
   });
 
@@ -5005,21 +5015,22 @@ function updateNotesLot(ss, materia, trimestre, grup, canvis) {
   Object.keys(colDe).forEach(function (id) {
     var c2 = colDe[id];
     var p2 = (metaAra[c2 - 1] || '').toString().split('|');
-    if (p2.length !== 3 || String(parseInt(p2[2])) !== String(id)) haCanviat = true;
+    if (_colIdNota_(metaAra[c2 - 1]) === null || String(parseInt(p2[2])) !== String(id)) haCanviat = true;
   });
   if (haCanviat) {
     return { ok: false, _columnesMogudes: true,
       error: 'Mentre desava, algú ha afegit o esborrat una columna d\'aquesta assignatura ' +
              '(potser tu, en un altre aparell). No dono les notes per desades: es tornaran a enviar.' };
   }
-  carpeta.forEach(function (x) {
-    /* Si la Carpeta Viatgera no s'ha pogut propagar a les altres matèries, la
-       mestra ho ha de saber: abans es quedava en un `catch` buit i la resposta
-       deia que tot havia anat bé (auditoria del 27/9/2026). */
-    try { propagaCarpeta(ss, trimestre, x.nom, sh, x.rowP, grup); }
-    catch (e) { resultats.push({ i: -1, ok: false, error: 'La nota de Carpeta Viatgera de ' + x.nom +
+  /* Si la Carpeta Viatgera no s'ha pogut propagar a les altres matèries, la
+     mestra ho ha de saber: abans es quedava en un `catch` buit i la resposta
+     deia que tot havia anat bé (auditoria del 27/9/2026). Ara es copien tots
+     els nens del lot d'una tirada, no un per un. */
+  if (carpeta.length) {
+    try { propagaCarpetaTots_(ss, trimestre, sh, grup, carpeta); }
+    catch (e) { resultats.push({ i: -1, ok: false, error: 'La nota de Carpeta Viatgera de ' + carpeta.join(', ') +
       ' s\'ha desat aquí, però no s\'ha pogut copiar a les altres matèries: ' + e.message }); }
-  });
+  }
   return { ok: true, resultats: resultats };
 }
 
@@ -5098,7 +5109,7 @@ function setNoEntregat(ss, materia, trimestre, itemId, studentId, valor, grup, n
   var lc=sh.getLastColumn();
   var metas=sh.getRange(1,1,1,lc).getNotes()[0];
   var col=-1;
-  metas.forEach(function(m,i){ var p=(m||'').split('|'); if(p.length===3&&parseInt(p[2])===itemId) col=i+1; });
+  metas.forEach(function(m,i){ if(_colIdNota_(m)===itemId) col=i+1; });
   if(col===-1)return{ok:false,error:'Columna no trobada'};
   var rowP = _trobaFilaAlumne(sh, nom);
   /* ⚠ Sense trobar el nom, NO s'escriu per posició si el full té la llista
@@ -5171,54 +5182,99 @@ function moveCarpetaBeforeMitjana(sh) {
    altre nen). La pestanya de desti tambe es busca amb el grup, com la
    d'origen; abans s'ignorava i anava a parar a la pestanya d'un altre grup. */
 function propagaCarpeta(ss, trimestre, nom, carpetaSh, rowP, grup) {
-  // Calcula la mitjana de Carpeta per aquest alumne (lectura batch)
-  var lc=carpetaSh.getLastColumn();
-  var metas=carpetaSh.getRange(1,1,1,lc).getNotes()[0];
-  var rowData=carpetaSh.getRange(rowP,1,1,lc).getValues()[0];
-  var sumV=0,sumP=0;
-  metas.forEach(function(m,i){
-    var p=(m||'').split('|');
-    if(p.length!==3||isNaN(parseFloat(p[0])))return;
-    var v=rowData[i];
-    if(v===''||v===null||v==='NE')return;
-    var vf=parseFloat(v); if(isNaN(vf))return;
-    sumV+=(vf/parseFloat(p[0])*10)*parseFloat(p[1]); sumP+=parseFloat(p[1]);
-  });
-  var mitjanaCarpeta=sumP>0?Math.round(sumV/sumP*100)/100:'';
+  if (!nom) return;
+  propagaCarpetaTots_(ss, trimestre, carpetaSh, grup, [nom]);
+}
 
-  MATERIES_AMB_CARPETA.forEach(function(mat){
-    var sh=ss.getSheetByName(_notesTabName(trimestre, MATERIA_NOM[mat], grup)); if(!sh)return;
-    var lc2=sh.getLastColumn();
-    var hdrs2=lc2>0?sh.getRange(1,1,1,lc2).getValues()[0]:[];
-    var mts2=lc2>0?sh.getRange(1,1,1,lc2).getNotes()[0]:[];
-    var cCol=-1,mCol=-1;
-    hdrs2.forEach(function(h,i){
-      if((mts2[i]||'')===CARPETA_NOTE)cCol=i+1;
-      if((h||'').toString().trim()==='Mitjana')mCol=i+1;
-    });
-    if(cCol===-1){
-      var ins=lc2+1;
-      for(var i=0;i<hdrs2.length;i++){var h=(hdrs2[i]||'').toString().trim();if(h==='Mitjana'||h===COL_OBS){ins=i+1;break;}}
-      if(ins<=lc2)sh.insertColumnsBefore(ins,1);
-      var c1=sh.getRange(1,ins);
-      c1.setValue('Carpeta Viatgera').setFontWeight('bold').setHorizontalAlignment('center').setBackground('#FBEAED').setFontColor('#7A1E2E').setFontFamily('Nunito');
-      c1.setNote(CARPETA_NOTE);
-      sh.getRange(2,ins).setValue('Pes: 2').setFontColor('#A63050').setFontSize(9).setHorizontalAlignment('center').setBackground('#F5D0D6').setFontFamily('Nunito');
-      sh.getRange(3,ins).setValue('/10').setFontColor('#A63050').setFontSize(9).setHorizontalAlignment('center').setBackground('#F5D0D6').setFontFamily('Nunito');
-      sh.autoResizeColumn(ins); if(sh.getColumnWidth(ins)<90)sh.setColumnWidth(ins,90);
-      cCol=ins;
+/* ⚠ LA CARPETA ES COPIAVA AMB UNA MITJANA QUE NO ERA LA SEVA (7/10/2026).
+
+   La nota que anava a Mates i Català es calculava aquí a part, amb una
+   mitjana plana de les activitats: no sabia res de categories. Amb la
+   Carpeta partida en «Dossier de lletres» i «Activitats», la pestanya de la
+   Carpeta deia una nota i Mates en rebia una altra. Ara és la MATEIXA funció
+   que escriu la Mitjana de la Carpeta (`_mitjanaFila_`).
+
+   I s'escrivia a la fila de BAIX de l'alumne i després es fusionava amb la
+   de dalt: en fusionar, el Google es queda el que hi ha a dalt (que era buit)
+   i la nota es perdia. Ara va a dalt, com totes les altres.
+
+   `noms`: només aquests nens (el que s'acaba de desar). Sense `noms`, tots
+   els de la Carpeta (quan canvien les categories o s'esborra una activitat,
+   que mouen la nota de tothom). Un nen que no és a la pestanya de Mates o
+   de Català (no el fa aquella mestra) no s'hi afegeix: s'hi salta. */
+function propagaCarpetaTots_(ss, trimestre, carpetaSh, grup, noms) {
+  // 1. La nota de Carpeta de cada nen, d'una sola lectura.
+  var lc = carpetaSh.getLastColumn(); if (lc < 2) return;
+  var lr = Math.max(carpetaSh.getLastRow(), DATA_ROW);
+  var dades = carpetaSh.getRange(1, 1, lr, lc).getValues();
+  var metas = carpetaSh.getRange(1, 1, 1, lc).getNotes()[0];
+  var nomesAquests = null;
+  if (noms && noms.length) { nomesAquests = {}; noms.forEach(function (n) { nomesAquests[_normNom(n)] = true; }); }
+  var notaDe = {};
+  for (var r = DATA_ROW; r <= lr; r += 2) {
+    var nom = (dades[r - 1][0] || '').toString().trim(); if (!nom) continue;
+    var k = _normNom(nom);
+    if (nomesAquests && !nomesAquests[k]) continue;
+    if (k in notaDe) continue;
+    notaDe[k] = _mitjanaFila_(dades[0], metas, dades[r - 1], dades[r] || []).mitj;
+  }
+  if (!Object.keys(notaDe).length) return;
+
+  // 2. A cada assignatura on compta, a la columna de la Carpeta.
+  MATERIES_AMB_CARPETA.forEach(function (mat) {
+    var sh = ss.getSheetByName(_notesTabName(trimestre, MATERIA_NOM[mat], grup)); if (!sh) return;
+    var cCol = _asseguraColCarpeta_(sh);
+    var lc2 = sh.getLastColumn(), lr2 = Math.max(sh.getLastRow(), DATA_ROW);
+    var hdr2 = sh.getRange(1, 1, 1, lc2).getValues()[0];
+    var mts2 = sh.getRange(1, 1, 1, lc2).getNotes()[0];
+    var d2 = sh.getRange(1, 1, lr2 + 1, lc2).getValues();
+    var vistos = {};
+    for (var rp = DATA_ROW; rp <= lr2; rp += 2) {
+      var n2 = (d2[rp - 1][0] || '').toString().trim(); if (!n2) continue;
+      var k2 = _normNom(n2);
+      if (!(k2 in notaDe) || vistos[k2]) continue;
+      vistos[k2] = true;
+      var nota = notaDe[k2];
+      var rang = sh.getRange(rp, cCol, 2, 1);
+      try { rang.breakApart(); } catch (ex) {}
+      rang.setValues([[nota === '' ? '' : nota], ['']]);
+      try { rang.merge(); } catch (ex) {}
+      var cel = sh.getRange(rp, cCol);
+      cel.setNumberFormat('0.00').setFontWeight('bold').setFontSize(11)
+        .setHorizontalAlignment('center').setVerticalAlignment('middle').setFontFamily('Nunito');
+      colorNota(cel, nota);
+      d2[rp - 1][cCol - 1] = nota === '' ? '' : nota; d2[rp][cCol - 1] = '';
+      _escriuMitjana_(sh, rp, _mitjanaFila_(hdr2, mts2, d2[rp - 1], d2[rp]));
     }
-    var rp=_trobaFilaAlumne(sh, nom); if(rp===-1)return; var rn=rp+1;
-    try{sh.getRange(rp,cCol,2,1).breakApart();}catch(ex){}
-    sh.getRange(rp,cCol).setValue('').setFontColor('#AAAAAA').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('bottom');
-    var cellN=sh.getRange(rn,cCol);
-    cellN.setValue(mitjanaCarpeta===''?'':mitjanaCarpeta).setNumberFormat('0.00')
-      .setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center').setVerticalAlignment('top');
-    colorNota(cellN,mitjanaCarpeta);
-    try{sh.getRange(rp,cCol,2,1).merge();}catch(ex){}
-    moveCarpetaBeforeMitjana(sh);
-    recalcMitjana(sh,rp);
   });
+}
+
+/* La columna «Carpeta Viatgera» d'una pestanya de Mates o Català: la busca
+   i, si no hi és, la fa just abans de la Mitjana. Torna el número de columna. */
+function _asseguraColCarpeta_(sh) {
+  var lc = sh.getLastColumn();
+  var hdrs = lc > 0 ? sh.getRange(1, 1, 1, lc).getValues()[0] : [];
+  var mts  = lc > 0 ? sh.getRange(1, 1, 1, lc).getNotes()[0] : [];
+  for (var i = 0; i < mts.length; i++) {
+    if ((mts[i] || '') === CARPETA_NOTE) {
+      moveCarpetaBeforeMitjana(sh);
+      var mts2 = sh.getRange(1, 1, 1, sh.getLastColumn()).getNotes()[0];
+      for (var j = 0; j < mts2.length; j++) if ((mts2[j] || '') === CARPETA_NOTE) return j + 1;
+      return i + 1;
+    }
+  }
+  var ins = lc + 1;
+  for (var h = 0; h < hdrs.length; h++) {
+    var hn = (hdrs[h] || '').toString().trim();
+    if (hn === 'Mitjana' || hn === 'Nota' || hn === COL_OBS) { ins = h + 1; break; }
+  }
+  if (ins <= lc) sh.insertColumnsBefore(ins, 1);
+  sh.getRange(1, ins, 3, 1).setValues([['Carpeta Viatgera'], ['Pes: 2'], ['/10']])
+    .setHorizontalAlignment('center').setFontFamily('Nunito');
+  sh.getRange(1, ins).setFontWeight('bold').setBackground('#FBEAED').setFontColor('#7A1E2E').setNote(CARPETA_NOTE);
+  sh.getRange(2, ins, 2, 1).setFontColor('#A63050').setFontSize(9).setBackground('#F5D0D6');
+  sh.setColumnWidth(ins, 110);
+  return ins;
 }
 
 /* ============================================================
@@ -5275,6 +5331,22 @@ const ACTITUD_NOTE_BASE = '10|2|actitud_ref';
 function _esColActitud_(meta) {
   var m = (meta || '').toString();
   return m === ACTITUD_NOTE_BASE || m.indexOf(ACTITUD_NOTE_BASE + '|') === 0;
+}
+
+/* ⚠ LES COLUMNES AMB CATEGORIA NO ES TROBAVEN PER DESAR-HI NOTES (7/10/2026).
+
+   Des del 29/9 una columna pot dir de quina categoria és amb un quart tros
+   a la seva nota («10|1|172…|c2»). La lectura ja ho sabia, però el desat de
+   notes, el NE, els comentaris i l'esborrat de columna encara buscaven
+   EXACTAMENT tres trossos: a les pestanyes per categories responien
+   «Columna no trobada» i la nota no arribava al full. Ara tots busquen la
+   columna amb aquesta funció. Torna el codi de la columna, o null si aquella
+   cel·la no és d'una activitat (Carpeta, actitud, Mitjana…). */
+function _colIdNota_(meta) {
+  var p = (meta || '').toString().split('|');
+  if (p.length !== 3 && p.length !== 4) return null;
+  var id = parseInt(p[2]);
+  return isNaN(id) ? null : id;
 }
 
 // Les categories d'una pestanya, a partir de la nota de la cel·la A1.
@@ -5992,7 +6064,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v265';
+var BACKEND_VERSIO = 'v268';
 
 var MAX_CELA = 45000;
 
@@ -7258,7 +7330,7 @@ function saveNotaComentari(ss, materia, trimestre, itemId, nom, text, grup) {
   var col = -1;
   metas.forEach(function (m, i) {
     var p = (m || '').split('|');
-    if (p.length === 3 && parseInt(p[2]) === parseInt(itemId)) col = i + 1;
+    if (_colIdNota_(m) !== null && _colIdNota_(m) === parseInt(itemId)) col = i + 1;
   });
   if (col === -1) return { ok:false, error:'Activitat no trobada' };
 
