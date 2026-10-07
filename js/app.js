@@ -10,8 +10,8 @@
    anomenar bé. Però no és a `MATERIA_KEYS`, o sigui que no s'ofereix a
    ningú: surt només si la mestra se l'ha posada ella.
 
-   Per això NO és al `manual.html` ni a la descripció del Vedrunu: un
-   manual que explica una cosa que no tens et fa buscar-la i no trobar-la.
+   Per això NO és al `manual.html`: un manual que explica una cosa que no
+   tens et fa buscar-la i no trobar-la.
    Si algun dia s'ha d'oferir a més gent, va al catàleg de
    `js/millores.js` amb el seu interruptor, com les altres eines. */
 const MATERIES = {
@@ -3687,6 +3687,9 @@ function updateHomeCounters() {
      ja valia zero —o sigui que el número no s'hauria vist mai i l'avís no
      hauria servit de res. */
   if (typeof _milloresPintaBotoInici === 'function') _milloresPintaBotoInici();
+  // L'avís fort de sobre (la targeta vermella): el mateix moment i el mateix
+  // motiu. Si no es pinta en pintar l'inici, no es veuria mai.
+  if (typeof _avisIniciPinta === 'function') _avisIniciPinta();
 
   // Comptador a la pàgina d'alumnes
   const panelCount = document.getElementById('panelCount');
@@ -3924,17 +3927,14 @@ function _teclatPrem(e) {
 }
 
 function _finestraTeclat(e) {
-  /* ⚠ TRES COSES QUE NO ES TANCAVEN AMB ESCAPE.
+  /* ⚠ DUES COSES QUE NO ES TANCAVEN AMB ESCAPE.
 
-     Trobat a l auditoria del 6/9/2026: el menu del mobil, el panell d en
-     Vedrunu i les dues finestres de Millores no son `.modal-overlay`, i per
-     tant es quedaven fora d aquest gestor. Amb el teclat no hi havia manera
-     de sortir-ne. */
+     Trobat a l auditoria del 6/9/2026: el menu del mobil i les dues
+     finestres de Millores no son `.modal-overlay`, i per tant es quedaven
+     fora d aquest gestor. Amb el teclat no hi havia manera de sortir-ne. */
   if (e.key === 'Escape') {
     const menu = document.querySelector('.sidebar.open, #sidebar.open');
     if (menu) { e.preventDefault(); if (typeof closeSidebar === 'function') closeSidebar(); return; }
-    const ved = document.querySelector('.vedrunu-panel.open');
-    if (ved) { e.preventDefault(); if (typeof toggleVedrunu === 'function') toggleVedrunu(); return; }
   }
   const el = _finestraOberta();
   if (!el) return;
@@ -4555,7 +4555,7 @@ function _idJs(v) {
    ELS ERRORS, EN CATALÀ I AMB SENTIT
    ------------------------------------------------------------
    Trobat a l'auditoria del 6/9/2026, i sortia per tot arreu: al registre,
-   a les tasques, al calendari, a Vedrunu, a les millores. La mestra veia
+   a les tasques, al calendari, a les millores. La mestra veia
    coses com «Failed to fetch», «Unexpected token '<'» o «HTTP 500», que no
    li diuen ni què ha passat ni què ha de fer.
 

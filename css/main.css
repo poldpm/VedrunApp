@@ -2939,135 +2939,6 @@ body {
 .fitxa-avis-drets { background: #EEF2FF; color: #3730A3; }
 .fitxa-avis-emvic { background: #ECFDF5; color: #065F46; }
 
-/* ============================================================
-   VEDRUNU — Assistent IA
-   ============================================================ */
-.vedrunu-fab {
-  position: fixed; bottom: 24px; right: 24px; z-index: 200;
-  width: 60px; height: 60px; border-radius: 50%;
-  background: var(--garnet-deep); border: none;
-  color: #fff; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 16px rgba(123,38,56,0.4);
-  transition: transform 0.2s, box-shadow 0.2s;
-  padding: 0; overflow: hidden;
-}
-.vedrunu-fab img { width: 42px; height: 42px; object-fit: contain; }
-.vedrunu-fab:hover { transform: scale(1.08); box-shadow: 0 6px 22px rgba(123,38,56,0.5); }
-.vedrunu-fab:active { transform: scale(0.96); }
-
-.vedrunu-panel {
-  position: fixed; bottom: 92px; right: 24px; z-index: 200;
-  width: 400px; max-width: calc(100vw - 32px);
-  height: 600px; max-height: calc(100vh - 130px);
-  background: var(--card, #fff); border: 1px solid var(--border);
-  border-radius: 18px; box-shadow: 0 12px 48px rgba(0,0,0,0.22);
-  display: none; flex-direction: column; overflow: hidden;
-}
-.vedrunu-panel.open { display: flex; animation: vedrunuIn 0.22s ease; }
-@keyframes vedrunuIn { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
-
-.vedrunu-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px; background: var(--garnet-deep); color: #fff;
-}
-.vedrunu-header-left { display: flex; align-items: center; gap: 10px; }
-.vedrunu-avatar {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: transparent; display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
-}
-.vedrunu-avatar img { width: 30px; height: 30px; object-fit: contain; }
-.vedrunu-title { font-size: 15px; font-weight: 800; line-height: 1.1; }
-.vedrunu-sub { font-size: 11px; color: rgba(255,255,255,0.6); }
-.vedrunu-close {
-  background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer;
-  padding: 4px; border-radius: 6px; display: flex;
-}
-.vedrunu-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
-
-.vedrunu-messages {
-  flex: 1; overflow-y: auto; padding: 16px;
-  display: flex; flex-direction: column; gap: 12px;
-  background: var(--bg, #FAF7F8);
-}
-.vedrunu-msg { max-width: 85%; font-size: 14px; line-height: 1.55; }
-.vedrunu-msg-user {
-  align-self: flex-end; background: var(--crimson); color: #fff;
-  padding: 9px 13px; border-radius: 14px 14px 4px 14px;
-}
-.vedrunu-msg-bot {
-  align-self: flex-start; background: #fff; color: var(--text-main, #2A2124);
-  padding: 10px 14px; border-radius: 14px 14px 14px 4px;
-  border: 1px solid var(--border);
-}
-.vedrunu-msg-bot p { margin: 0 0 8px; }
-.vedrunu-msg-bot p:last-child { margin-bottom: 0; }
-.vedrunu-msg-bot strong { color: var(--garnet-text); }
-.vedrunu-msg-bot ul { margin: 4px 0 8px 18px; }
-.vedrunu-msg-bot li { margin-bottom: 3px; }
-
-.vedrunu-typing { display: flex; gap: 4px; padding: 12px 14px; align-self: flex-start; }
-.vedrunu-typing span {
-  width: 7px; height: 7px; border-radius: 50%; background: var(--garnet-mid);
-  animation: vedrunuBounce 1.2s infinite;
-}
-.vedrunu-typing span:nth-child(2) { animation-delay: 0.15s; }
-.vedrunu-typing span:nth-child(3) { animation-delay: 0.3s; }
-@keyframes vedrunuBounce { 0%,60%,100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-6px); opacity: 1; } }
-
-/* Targeta de confirmació d'acció */
-.vedrunu-action-card {
-  align-self: flex-start; max-width: 90%;
-  background: #fff; border: 1.5px solid var(--crimson); border-radius: 12px;
-  padding: 12px 14px; font-size: 13.5px;
-}
-.vedrunu-action-title { font-weight: 700; color: var(--garnet-deep); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-.vedrunu-action-detail { color: var(--text-muted, #8A7F82); margin-bottom: 4px; }
-.vedrunu-action-detail strong { color: var(--text-main, #2A2124); }
-.vedrunu-action-btns { display: flex; gap: 8px; margin-top: 10px; }
-.vedrunu-action-btns button {
-  flex: 1; padding: 7px; border-radius: 8px; font-size: 13px; font-weight: 600;
-  cursor: pointer; border: none; font-family: inherit;
-}
-.vedrunu-btn-confirm { background: var(--crimson); color: #fff; }
-.vedrunu-btn-cancel { background: var(--bg-alt, #F5F5F5); color: var(--text-muted, #888); border: 1px solid var(--border) !important; }
-
-.vedrunu-input-row {
-  display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border);
-  background: #fff; align-items: flex-end;
-}
-.vedrunu-input {
-  flex: 1; border: 1.5px solid var(--border); border-radius: 12px;
-  padding: 9px 12px; font-family: inherit; font-size: 14px;
-  resize: none; -webkit-appearance: none; appearance: none;
-  max-height: 120px; outline: none; line-height: 1.4;
-  overflow-y: auto;
-}
-.vedrunu-input::-webkit-inner-spin-button,
-.vedrunu-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.vedrunu-input:focus { border-color: var(--crimson); }
-.vedrunu-send {
-  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
-  background: var(--crimson); color: #fff; border: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.vedrunu-send:hover { background: var(--garnet-deep); }
-.vedrunu-send:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.vedrunu-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.vedrunu-sugg {
-  font-size: 12px; padding: 6px 10px; border-radius: 14px;
-  background: var(--garnet-soft, #FBEAED); color: var(--garnet-text, #7A1E2E);
-  border: none; cursor: pointer; font-family: inherit;
-}
-.vedrunu-sugg:hover { background: var(--garnet-soft2, #F5D0D6); }
-
-@media (max-width: 480px) {
-  .vedrunu-panel { right: 8px; left: 8px; width: auto; bottom: 84px; height: calc(100vh - 110px); }
-  .vedrunu-fab { bottom: 16px; right: 16px; }
-}
-
 /* Secció desplegable del menú lateral (Eines) */
 .nav-section-toggle {
   display: flex; align-items: center; justify-content: space-between;
@@ -5019,6 +4890,36 @@ body.app-ocupada { cursor: progress; }
    les targetes de dalt són el que la mestra fa servir cada matí, i això
    és una cosa que mirarà de tant en tant.
    ============================================================ */
+/* ============================================================
+   AVÍS FORT DE L'INICI
+   ------------------------------------------------------------
+   Va just sobre «Possibles actualitzacions» i és per dir una cosa
+   que s'ha de llegir un cop i prou. Vermell d'alerta a posta, no el
+   granat de la casa: el granat és el color de tot i no cridaria.
+   ============================================================ */
+.home-avis-fort {
+  display: flex; align-items: flex-start; gap: 12px;
+  width: 100%; margin-top: 12px; padding: 14px 16px;
+  background: #FEF2F2; border: 1px solid #FECACA;
+  border-left: 3px solid #B91C1C;
+  border-radius: var(--r-md);
+  text-align: left;
+}
+.home-avis-fort > svg { width: 22px; height: 22px; flex-shrink: 0; color: #B91C1C; margin-top: 1px; }
+.home-avis-fort-cos { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.home-avis-fort-text {
+  margin: 0; font-size: 13px; line-height: 1.5; color: #7F1D1D;
+}
+.home-avis-fort-ok {
+  align-self: flex-start;
+  font: inherit; font-size: 12.5px; font-weight: 700;
+  padding: 7px 14px; border-radius: 999px; cursor: pointer;
+  background: #B91C1C; color: #fff; border: none;
+  transition: background var(--ease), transform 0.16s ease-out;
+}
+.home-avis-fort-ok:hover { background: #991B1B; }
+.home-avis-fort-ok:active { transform: scale(0.97); }
+
 .home-millores {
   display: flex; align-items: center; gap: 14px;
   width: 100%; margin-top: 12px; padding: 14px 16px;
@@ -5486,9 +5387,8 @@ body.app-ocupada { cursor: progress; }
   .panel-drawer,
   .drawer { max-height: 100dvh; }
   .modal { max-height: calc(100dvh - 48px); }
-  .vedrunu-panel { max-height: calc(100dvh - 110px); }
 }
-.modal, .panel-drawer, .drawer, .vedrunu-panel, .sidebar {
+.modal, .panel-drawer, .drawer, .sidebar {
   overscroll-behavior: contain;
 }
 /* Prou espai per sota, on hi ha la barra del sistema (iPhone amb osca) */
@@ -5533,13 +5433,6 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 10;
   line-clamp: 10;
-}
-
-/* ⚠ Un missatge llarg sense espais (una adreca enganxada) desbordava el
-   panell del Vedrunu cap a la dreta i tapava el boto de tancar. */
-.vedrunu-msg, .vedrunu-action-detail, .vedrunu-action-title {
-  overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 /* La nota triada per moure-la tocant (mobil i tauleta) */

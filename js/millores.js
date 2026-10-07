@@ -337,3 +337,55 @@ async function _milloraEnviaFer() {
     showToast('No s\'ha pogut enviar: ' + ((typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') || 'prova-ho més tard'), 'error');
   }
 }
+
+/* ============================================================
+   L'AVÍS FORT DE L'INICI
+   ------------------------------------------------------------
+   La targeta vermella que hi ha just sobre «Possibles
+   actualitzacions». És per dir una cosa que s'ha de llegir un cop
+   i prou: es marca com a llegida i no torna a sortir mai més.
+
+   Per què viu en aquest fitxer: on es desa el que ja s'ha llegit
+   ja és aquí (`_milloresLlegeix` / `_milloresDesa`), i el que
+   importa d'aquestes dues funcions és que **ho desen al perfil**,
+   no al navegador. En Pol, 6/9/2026: una cosa marcada des del PC
+   tornava a sortir al mòbil com si no s'hagués fet. Un avís que no
+   marxa mai deixa de ser un avís.
+
+   ⚠ NEIX AMAGAT. Només el veu qui el tingui encès al seu
+   `js/personal.js` amb `window.AVIS_INICI = '<id>'`. Per això una app
+   nova no l'hereta: no té sentit donar notícies velles a qui arriba
+   ara. El text de l'avís viu a l'index.html.
+   ============================================================ */
+const AVIS_INICI_CLAU = 'avis_inici';
+
+/* Quin avís toca ara, o res. El posa el `js/personal.js` de cada app:
+   `window.AVIS_INICI = 'adeu-assistent'`. És un id i no un `true` perquè el
+   dia que hi hagi un altre avís, qui ja hagués marcat aquest el torni a
+   veure: el que es desa va per id. */
+function _avisIniciId() {
+  try {
+    const v = window.AVIS_INICI;
+    return (typeof v === 'string' && v) ? v : null;
+  } catch (e) { return null; }
+}
+function _avisIniciJaLlegit(id) {
+  return !!_milloresLlegeix(AVIS_INICI_CLAU)[id];
+}
+
+/* El botó «Marcar com a llegit». */
+function avisIniciMarcaLlegit() {
+  const id = _avisIniciId();
+  if (!id) return;
+  const d = _milloresLlegeix(AVIS_INICI_CLAU);
+  d[id] = new Date().toISOString().slice(0, 10);
+  _milloresDesa(AVIS_INICI_CLAU, d);
+  _avisIniciPinta();
+}
+
+function _avisIniciPinta() {
+  const c = document.getElementById('avisInici');
+  if (!c) return;
+  const id = _avisIniciId();
+  c.style.display = (id && !_avisIniciJaLlegit(id)) ? 'flex' : 'none';
+}

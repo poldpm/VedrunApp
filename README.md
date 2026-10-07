@@ -30,7 +30,7 @@ vedruna-app/
 │   ├── config.local.js     # Token del dispositiu (NO se substitueix en actualitzar)
 │   ├── app.js              # Nucli de l'app
 │   ├── perfil.js, notes.js, seients.js, grupview.js,
-│   ├── postits.js, horari.js, vedrunu.js
+│   ├── postits.js, horari.js
 └── img/                    # Icones, logo, favicons
 ```
 

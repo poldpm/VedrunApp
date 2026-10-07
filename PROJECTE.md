@@ -79,8 +79,7 @@ vedruna-app/
 │   ├── regdocents.js       # Registres amb el claustre a les files (direcció)
 │   ├── segentrevistes.js   # Seguiment de les entrevistes dels tutors (direcció)
 │   ├── postits.js          # Notes i post-its
-│   ├── horari.js           # Horari (plantilla setmanal → omple planning)
-│   └── vedrunu.js          # Xatbot "Vedrunu" (IA)
+│   └── horari.js           # Horari (plantilla setmanal → omple planning)
 └── img/                    # Icones, logo, favicons
 ```
 

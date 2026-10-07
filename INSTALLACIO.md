@@ -37,8 +37,8 @@ mestre i la fa ella mateixa mentre l'instal·les. Veure l'apartat aquí sota.
 
 **Per què no una de sola per a tothom:** la quota gratuïta va per clau. Amb
 una de compartida, la mestra que un dia genera trenta comentaris deixa les
-altres sense, i si Google decideix estrènyer-la, s'apaga en Vedrunu i el
-generador de comentaris **de tot el claustre alhora**. Amb una per cap, cada
+altres sense, i si Google decideix estrènyer-la, s'apaga el generador de
+comentaris **de tot el claustre alhora**. Amb una per cap, cada
 una té la seva quota i el que faci l'una no afecta les altres.
 
 **Qui la fa:** ella, amb el seu compte, mentre ets al seu costat. Tu no pots
@@ -60,8 +60,8 @@ entrar al seu Apps Script.
 
 Si el dia de la instal·lació no la té, deixa-la buida: `configuraTot()` fa
 tota la resta igual i diu «FALTA GEMINI_KEY». L'app funciona sencera menys
-dues coses — **en Vedrunu** i el **generador de comentaris** (que ensenya
-l'esborrany sense retocar).
+una cosa: el **generador de comentaris** (que ensenya l'esborrany sense
+retocar).
 
 ---
 

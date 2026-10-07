@@ -1,9 +1,9 @@
 {
-  "versio": "v270",
+  "versio": "v271",
   "data": "2026-10-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "La «Carpeta Viatgera» passa a ser una eina que s'encén a qui la demani, com les rúbriques d'avaluació. Si no la tens encesa, ja no et surt ni com a assignatura ni com a columna, encara que al teu full de càlcul hi hagi la pestanya.",
-    "Important: abans, una columna de Carpeta Viatgera que no es veia podia estar comptant per a la nota final. Ara, si no la tens, no hi compta."
+    "En Vedrunu, l'assistent, ja no hi és. Per poder complir amb el reglament sobre l'ús de la IA s'ha tret del tot: el botó de baix a la dreta, el panell i l'apartat del manual.",
+    "El generador de comentaris segueix igual: la clau de Gemini que tens posada serveix per a ell i no s'ha de tocar res."
   ]
 }

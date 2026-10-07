@@ -228,7 +228,7 @@ amb pes 2. La columna es manté sempre just abans de «Mitjana».
   `sortCarpetaLast()`: per això el filtre també hi és a sobre.
 - `MATERIES.carpeta` hi ha de seguir sent encara que estigui apagada, perquè
   qui la té vegi el rètol bo i no la clau.
-- **No és al `manual.html` ni a la descripció del Vedrunu.** És una eina
+- **No és al `manual.html`.** És una eina
   d'una sola mestra: un manual que explica una cosa que no tens et fa buscar-la
   i no trobar-la. Si algun dia es generalitza, llavors sí.
 

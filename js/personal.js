@@ -1626,3 +1626,19 @@ window.EINES_RUBAVAL = true;
    app que l'ha de tenir encesa (en Pol, 7/10/2026: «només l'he de tenir
    jo»). */
 window.EINES_CARPETA = true;
+
+/* ============================================================
+   L'AVÍS DE L'INICI
+   ------------------------------------------------------------
+   La targeta vermella de sobre «Possibles actualitzacions». El
+   text viu a l'index.html; aquí només hi diu QUIN avís toca.
+
+   Aquesta app el té perquè ha fet servir l'assistent i se li ha de
+   dir que ja no hi és. Una app nova no neix amb aquesta línia: no
+   té sentit donar l'adéu a una eina que no ha tingut mai.
+
+   Quan la mestra el marqui com a llegit, no li tornarà a sortir
+   (es desa al seu perfil i per tant també al mòbil). Aquesta línia
+   es pot treure d'aquí quan ja faci temps que el va llegir.
+   ============================================================ */
+window.AVIS_INICI = 'adeu-assistent';
