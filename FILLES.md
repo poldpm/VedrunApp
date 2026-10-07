@@ -254,6 +254,7 @@ node eines/sync-filla.js "C:/Escorial/VedrunApp/VedrunApp-Anna"
 
 - `--prova` ensenya què faria **sense tocar res**. Val la pena mirar-ho sempre.
 - Copia tot el que no és propi d'ella i **deixa intactes** els seus fitxers.
+- **Treu els fitxers que la mare ja no té** (veure aquí sota).
 - Actualitza `FILLA.json` amb la versió de la mare que li ha quedat.
 
 Després: provar l'app i pujar-la al seu GitHub. Amb l'avís de versió nova, la
@@ -261,6 +262,37 @@ mestra veurà sola que hi ha una actualització.
 
 ⚠️ Si l'arranjament tocava un fitxer **propi** d'ella (típicament `js/notes.js`),
 l'eina no l'hi aplica: s'hi ha de posar a mà. L'eina avisa quan passa.
+
+### Quan a la mare es TREU un fitxer
+
+El 7/10/2026 es va treure una eina sencera de la mare i es va passar el sync a
+les sis apps. L'eina només copiava: el seu fitxer de `js/` i la seva icona es
+van quedar a totes sis —**i publicats**— i `estat-apps.js` deia «Tot al dia»
+igualment. Es van haver de treure a mà.
+
+Ara el sync també els treu, i `estat-apps.js` els diu («LI SOBREN FITXERS»).
+
+**La regla que fa que això no sigui perillós: només s'esborra el que la pròpia
+eina hi va posar**, no «tot el que la mare no té». Per això cada filla porta al
+seu `FILLA.json` la llista `fitxersMare`: què tenia la mare l'últim cop que es
+van sincronitzar. Un orfe és un que és a aquella llista, encara és a la filla i
+a la mare ja no hi és.
+
+Mai no es toca:
+
+- els seus `propis`,
+- el seu token (`js/config.local.js`) i el seu rol (`js/rol.js`),
+- les seves personalitzacions (`js/personal.js`),
+- i **un fitxer que la mare no ha tingut mai**: una foto, un full, una prova
+  que algú hi va deixar. Aquests no són orfes de res. Si el sync els esborrés,
+  qui els perd no sabria ni que els ha perdut.
+
+Una filla que no porti encara la llista (sincronitzada per última vegada abans
+d'aquell dia) no en té cap: l'eina ho diu, li escriu la llista en aquell mateix
+sync, i del següent endavant ja es treuen sols.
+
+Ho vigila `node eines/comprova-orfes.js`, que treballa amb una mare i una filla
+de mentida i comprova sobretot **què no ha de tocar**.
 
 ---
 
