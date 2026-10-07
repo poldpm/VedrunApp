@@ -2,6 +2,18 @@
    Vedruna Escorial Vic — Gestió de Notes · app.js
    ============================================================ */
 
+/* ⚠ LA CARPETA VIATGERA ÉS D'UNA SOLA MESTRA (en Pol, 7/10/2026: «és una
+   cosa que només faig servir jo»).
+
+   Aquí hi ha el seu RÈTOL perquè, a qui la tingui com a assignatura al seu
+   perfil o com a pestanya al seu full, la pantalla de notes la pugui
+   anomenar bé. Però no és a `MATERIA_KEYS`, o sigui que no s'ofereix a
+   ningú: surt només si la mestra se l'ha posada ella.
+
+   Per això NO és al `manual.html` ni a la descripció del Vedrunu: un
+   manual que explica una cosa que no tens et fa buscar-la i no trobar-la.
+   Si algun dia s'ha d'oferir a més gent, va al catàleg de
+   `js/millores.js` amb el seu interruptor, com les altres eines. */
 const MATERIES = {
   general:      'General',
   matematiques: 'Matemàtiques',
@@ -7458,7 +7470,7 @@ function _generarHeterogenis(alumnes, aleatoritzar) {
 
   /* ⚠ AQUÍ ELS 200 REINTENTS NO SERVIEN DE RES.
 
-     Quan una condició («l'Aitana i en Bernat no poden anar junts») no es
+     Quan una condició («l'Estel i en Marçal no poden anar junts») no es
      complia, es tornava a generar fins a 200 vegades. Però l'única cosa que
      es barrejava eren els vectors de PI i d'AM, que són dos o tres alumnes:
      el gruix de la classe (`resta`) quedava ordenat exactament igual per

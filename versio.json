@@ -1,8 +1,9 @@
 {
-  "versio": "v268",
+  "versio": "v269",
   "data": "2026-10-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Si fas servir categories a les notes (amb un % per a cada una), ara la nota de cada activitat es desa sempre al full de càlcul. Abans, en algunes columnes podia sortir «Columna no trobada»."
+    "Ni l'app ni el manual no porten escrit enlloc el nom de cap alumne: on hi havia exemples amb noms de criatures de l'escola, ara hi ha noms inventats. Les dades de debò només són al full de càlcul, com sempre.",
+    "El manual ja no parla de la «Carpeta Viatgera»: és una cosa que de moment només fa servir una mestra, i explicar-la et feia buscar una cosa que no tens. Si la tens al teu perfil o al teu full de càlcul, segueix funcionant igual."
   ]
 }

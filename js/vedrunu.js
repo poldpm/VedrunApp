@@ -274,7 +274,7 @@ FUNCIONAMENT DE L'APP (per respondre dubtes):
 - Alumnes: targetes. Dades de família, observacions mèdiques (creu +), PI i AM (amb assignatures), i aspectes conductuals/necessitats. Badges PI (blau) i AM (taronja) a la targeta.
 - Fitxa alumne: avisos, dades, observacions per trimestre, notes finals i assoliments.
 - Observacions: graella per apuntar observacions per assignatura i trimestre.
-- Notes d'assignatures: graella per trimestre. Afegir ítems (nom, punts, pes). Calcula nota sobre 10, mitjana i nota final. NE = No Entregat (compta 0). Actitud: 5 aspectes 1-10. Carpeta Viatgera.
+- Notes d'assignatures: graella per trimestre. Afegir ítems (nom, punts, pes). Calcula nota sobre 10, mitjana i nota final. NE = No Entregat (compta 0). Actitud: 5 aspectes 1-10.
 - Assoliments: objectius amb valors ✓/~/✗/—. Percentatge per alumne. Es sincronitza sol al full de càlcul.
 - Registres d'aula: graella flexible (checkbox o text) per registrar coses del dia a dia.
 - Generador de grups: forma grups automàtics amb condicions d'incompatibilitat.

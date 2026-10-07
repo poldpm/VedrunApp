@@ -3892,7 +3892,7 @@ function setAlumnes(ss, alumnes) {
      `savePersonal` i `getAllPersonal` hi van pel NÚMERO DE FILA. Treure un
      alumne del mig feia pujar tots els noms de sota una fila i deixava
      l'observació, el PI i l'AM de cadascú a la fila del nen de sobre: la
-     Clara es quedava amb l'al·lèrgia d'en Bernat. I el `clearContent` de la
+     Cèlia es quedava amb l'al·lèrgia d'en Marçal. I el `clearContent` de la
      cua arribava fins a la columna 7, o sigui que el PI/AM/específic de la
      fila sobrant quedaven orfes i el pròxim alumne nou els heretava.
 
@@ -4004,7 +4004,7 @@ function savePersonal(ss, rowId, d) {
    Abans, aquesta funció escrivia la columna A amb l'ordre nou i **no tocava
    les creus**. O sigui que el dia que la sincronització reordenava el full
    «Grups» de l'escola —cada quinze minuts—, tots els noms es movien i les
-   creus es quedaven quietes: les de l'Aitana passaven a ser de la Laia. Sense
+   creus es quedaven quietes: les de l'Estel passaven a ser de la Lena. Sense
    cap error, sense cap avís, i amb la mestra marcant a sobre.
 
    Ara les creus es mouen AMB el nen: es llegeix la graella sencera, es fa un
@@ -4282,8 +4282,8 @@ function saveObservacio(ss, sid, materia, trimestre, text, replace, nomAlumne) {
    Trobat a la segona auditoria (8/9/2026). Això calculava la fila amb
    `sid*2 + DATA_ROW`, o sigui amb la POSICIÓ de l'alumne a la llista. El full
    «Grups» de l'escola es reordena sol cada quart d'hora; amb el full
-   reordenat, demanar d'esborrar l'observació de l'Aitana esborrava la d'en
-   Dídac i deixava la de l'Aitana intacta. Dues fitxes malmeses d'un sol clic,
+   reordenat, demanar d'esborrar l'observació de l'Estel esborrava la d'en
+   Dídac i deixava la de l'Estel intacta. Dues fitxes malmeses d'un sol clic,
    al full que llegeix tot el claustre, i sense poder-ho desfer.
 
    És el mateix patró que ja s'havia arreglat a `updateRegistreCell`, a
@@ -5879,7 +5879,7 @@ function updateActitudBatch(ss, materia, trimestre, mitjanes, grup, noms) {
               meta: lcAra>=2 ? sh.getRange(1,1,1,lcAra).getNotes()[0]  : [] };
 
   /* ⚠ Igual que a `updateActitud`: la fila la mana el NOM, no la posició.
-     `noms` és { "<sid>": "Aitana Puig Serra", … } i l'envia el navegador.
+     `noms` és { "<sid>": "Estel Puig Serra", … } i l'envia el navegador.
      Amb una app antiga que encara no l'enviï, es fa com abans. */
   noms = noms || {};
   var teLlista = _teLlistaDeNoms_(sh);
@@ -7447,7 +7447,7 @@ function migrateOldFormat(){
 var LLISTES_ID = '17iWVwC7tHJqAjd-khBRZ1B7WwLKCeuxhKsOh_I0_rtQ';
 
 /* Nom comparable: sense accents, sense majúscules, sense espais de més.
-   "Miquel dels Sants  Genís" i "miquel dels sants genis" són el mateix. */
+   "Pere dels Sants  Genover" i "pere dels sants genover" són el mateix. */
 function _nomClau_(nom, cognoms) {
   var s = String(nom || '') + ' ' + String(cognoms || '');
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -8454,11 +8454,11 @@ function ordenaGrupsDEBO() {
    El document de fitxes de grup de l'escola anomena les criatures
    com se'ls crida a classe, no com consten a la llista oficial:
 
-     · "Lilly"  és l'Adesuwa LILLY Alile      (el segon nom)
-     · "Zion"   és l'Imadeyunuagbon ZION ...  (el segon nom)
-     · "Bouba"  és en Boubacar-Sidy Balde     (escurçat)
-     · "Arlet P" desfà l'empat amb l'altra Arlet del grup
-     · "Arnar B" és l'Arnau, amb una lletra picada de més
+     · "Nelia"  és l'Oseyomon NELIA Ebosele   (el segon nom)
+     · "Tiwa"   és l'Oghenekevwe TIWA ...     (el segon nom)
+     · "Mamad"  és en Mamadou-Lamine Sidibe     (escurçat)
+     · "Nerea P" desfà l'empat amb l'altra Nerea del grup
+     · "Ernast B" és l'Ernest, amb una lletra picada de més
 
    Buscar per la columna "Nom" fallaria en 71 de 143 files.
 
@@ -8469,7 +8469,7 @@ function ordenaGrupsDEBO() {
    ============================================================ */
 
 /* Trosseja un nom en paraules comparables, sense accents ni guions.
-   "Boubacar-Sidy" → ["boubacar","sidy"] */
+   "Mamadou-Lamine" → ["mamadou","lamine"] */
 function _mots_(s) {
   return String(s == null ? '' : s)
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -8522,16 +8522,16 @@ function _qui_(preparats, etiqueta, alies) {
   }
 
   // 1) Totes les paraules de l'etiqueta són del nom o del cognom.
-  //    Cobreix "Kai Molist", "Miquel Genís" i també "Lilly" tota sola.
+  //    Cobreix "Teo Mestres", "Pere Genover" i també "Nelia" tota sola.
   var r = tria(preparats.filter(function (p) {
     return mots.every(function (m) { return p.tots.indexOf(m) >= 0; });
   }), 'exacte', 'n\'hi ha ' + '' + 'més d\'un que hi encaixa');
   if (r) return r;
 
-  // 2) "Arlet P", "Dani R": nom + inicial del cognom.
+  // 2) "Nerea P", "Gabri R": nom + inicial del cognom.
   //    Es mira PRIMER la inicial del PRIMER cognom, que és com ho escriu
-  //    tothom. Si es miressin tots els cognoms alhora, l'Arlet Muntal
-  //    PARRAMON també quadraria amb "Arlet P" i no en podríem triar cap.
+  //    tothom. Si es miressin tots els cognoms alhora, la Nerea Morell
+  //    PALAU també quadraria amb "Nerea P" i no en podríem triar cap.
   if (mots.length === 2 && mots[1].length === 1) {
     var elNom = function (p) { return _quadraMot_(p.noms, mots[0]); };
     r = tria(preparats.filter(function (p) {
@@ -8554,10 +8554,10 @@ function _qui_(preparats, etiqueta, alies) {
     if (r) return r;
   }
 
-  // 4) Escurçat: "Gio" per "Giorgi", "Bouba" per "Boubacar", "Dani Prieto"
-  //    per "Daniel Prieto". Amb tres lletres n'hi ha prou PERQUÈ després
-  //    s'exigeix que no hi encaixi ningú més: "Mar" no passaria d'aquí en
-  //    un grup amb una Maria i un Marc.
+  // 4) Escurçat: "Vak" per "Vakhtang", "Mamad" per "Mamadou", "Gabri Prados"
+  //    per "Gabriel Prados". Amb tres lletres n'hi ha prou PERQUÈ després
+  //    s'exigeix que no hi encaixi ningú més: "Rosa" no passaria d'aquí en
+  //    un grup amb una Rosalia i una Rosalinda.
   if (mots.every(function (m) { return m.length >= 3; })) {
     r = tria(preparats.filter(function (p) {
       return mots.every(function (m) { return _quadraMot_(p.tots, m); });
@@ -8565,7 +8565,7 @@ function _qui_(preparats, etiqueta, alies) {
     if (r) return r;
   }
 
-  // 5) Una lletra picada: "Arnar" per "Arnau", "Caycedo" per "Caicedo".
+  // 5) Una lletra picada: "Ernast" per "Ernest", "Cardoso" per "Cardozo".
   r = tria(preparats.filter(function (p) {
     return mots.every(function (m) {
       return p.tots.some(function (t) { return t === m || (m.length >= 5 && _distancia1_(m, t)); });
@@ -8574,10 +8574,10 @@ function _qui_(preparats, etiqueta, alies) {
   if (r) return r;
 
   // 6) L'últim recurs: una part del nom quadra i la resta no s'assembla a
-  //    ningú més del grup. És el cas de l'"Obed Mdowo", que és l'Obed
-  //    MFODWO amb el cognom mal escrit. ⚠ Només val si NOMÉS UN nen del
+  //    ningú més del grup. És el cas del "Kofi Nyrako", que és en Kofi
+  //    NYARKO amb el cognom mal escrit. ⚠ Només val si NOMÉS UN nen del
   //    grup té res a veure amb l'etiqueta: si en toca dos, vol dir que a
-  //    la casella hi ha dos nens ("Aliou Zion") i no se n'ha de triar cap.
+  //    la casella hi ha dos nens ("Alasane Tiwa") i no se n'ha de triar cap.
   if (mots.length >= 2) {
     var toquen = [];
     preparats.forEach(function (p) {
@@ -8593,20 +8593,20 @@ function _qui_(preparats, etiqueta, alies) {
     }
     if (toquen.length > 1) {
       // Potser no és un nom mal escrit: són DOS NENS en una casella.
-      // "Aliou Zion" a 3r A són l'Alilou i la Zion, que comparteixen
+      // "Alasane Tiwa" a 3r A són l'Alassane i la Tiwa, que comparteixen
       // adaptació. Val només si cada paraula toca un nen DIFERENT i no
       // en sobra cap: si dues paraules apuntessin al mateix nen, seria
       // un nom sol i no una llista.
       /* ⚠ I cada paraula ha de ser un NOM DE PILA, no un cognom.
 
-         Al 4t C el document diu «Saja el Marnissi» al suport de biblioteca.
-         A la classe hi ha la Saja El JARROUDI i l'Alaa El MARNISSI: el nom
+         Al 4t C el document diu «Hiba el Berrada» al suport de biblioteca.
+         A la classe hi ha la Hiba El CHAABANE i l'Amal El BERRADA: el nom
          d'una amb el cognom de l'altra. Mirant nom i cognoms alhora, això
          semblava una llista de dues nenes i totes dues rebien el suport —una
          d'elles sense que el document ho digui enlloc. És el pitjor cas que
          hi ha, i el va trobar el repàs del 6/9/2026.
 
-         Una llista de debò («Aliou Zion» a 3r A) són dos noms de pila. Si un
+         Una llista de debò («Alasane Tiwa» a 3r A) són dos noms de pila. Si un
          dels mots és un cognom, allò és UN nom i prou —i si toca dos nens,
          no se sap de qui és: val més no escriure-ho a ningú. */
       var perMot = mots.map(function (m) {
@@ -8633,7 +8633,7 @@ function _qui_(preparats, etiqueta, alies) {
 }
 
 /* Una paraula de l'etiqueta quadra amb alguna del nen: igual, o el seu
-   començament ("gio" → "giorgi"). */
+   començament ("vak" → "vakhtang"). */
 function _quadraMot_(llista, m) {
   return llista.some(function (t) { return t === m || (m.length >= 3 && t.indexOf(m) === 0); });
 }
@@ -8643,11 +8643,11 @@ function _quadraMot_(llista, m) {
    equivocada.
 
    1a — qui hi encaixa pel NOM guanya qui només hi encaixa pel COGNOM.
-        "Mohamed" és el nom d'en Mohamed Ahidar i el segon cognom d'en
-        Rayan Radi Mohamed. Quan una mestra escriu "Mohamed", parla del
+        "Youssef" és el nom d'en Youssef Alaoui i el segon cognom d'en
+        Ilias Naciri Youssef. Quan una mestra escriu "Youssef", parla del
         primer.
    2a — qui el porta com a PRIMER nom guanya qui el porta de segon.
-        "Isabella" és la Isabella Romero, no la Dariana Isabella. */
+        "Valentina" és la Valentina Rivas, no la Daniela Valentina. */
 function _desempata_(cands, mots) {
   var perNom = cands.filter(function (p) {
     return mots.every(function (m) { return _quadraMot_(p.noms, m); });
@@ -8689,7 +8689,7 @@ function _distancia1_(a, b) {
    NO és una taula: són 18 fitxes, i cada fitxa guarda la
    informació al revés del que necessita l'app —
 
-     camp → llista de noms      ("PI Català: Yasmin, Àlex i Rayan")
+     camp → llista de noms      ("PI Català: Salma, Jyoti i Ilias")
      i l'app vol
      alumne → camps
 
@@ -8822,7 +8822,7 @@ function _fitxaLlegeix_(sh) {
     // ⚠ CEL·LES COMBINADES. Al document, un "Català:" pot valer per a
     // quatre files: només la primera porta l'etiqueta i la resta arriben
     // buides. Sense això, aquelles files es guardaven amb el camp en blanc
-    // i el PI d'aquells alumnes quedava en un ": Mohamed nivell I5" que no
+    // i el PI d'aquells alumnes quedava en un ": Youssef nivell I5" que no
     // diu de què és.
     //
     // No es va veure fins a la passada en sec amb les dades de debò: el
@@ -8834,8 +8834,8 @@ function _fitxaLlegeix_(sh) {
     //
     //   Família (pares separats…) | Família Violeta Nadal (es van enfadar…)
     //                             | Jana Codina (pares separats, la mare té…)
-    //                             | Aliou (el pare parla castellà, però…)
-    //                             | Avneet (moltíssimes absències i retards…)
+    //                             | Alasane (el pare parla castellà, però…)
+    //                             | Navjot (moltíssimes absències i retards…)
     //
     // Sense això, de tot aquest bloc només n'arribava la primera fila i la
     // situació familiar de la resta es perdia sencera. Ho va trobar el repàs
@@ -8875,12 +8875,12 @@ function _fitxesTotes_() {
 }
 
 /* Paraules que comencen en majúscula però no són cap nen. Surten de
-   llegir el document de debò: "Possible Elna", "Totes les àrees",
+   llegir el document de debò: "Possible Emma", "Totes les àrees",
    "Seria ideal per...", "Comencem fent adaptacions...". Sense això,
    cada frase generava un candidat fantasma que tapava els dubtes bons. */
 /* ⚠ Aquí NO hi poden anar "intervenció", "derivació", "mare", "pare" ni
    "tutor": al document van seguits del nom d una PERSONA QUE NO ES CAP
-   ALUMNE (la Núria de l EAP, la Mercè logopeda, el tutor de la Llar). Si
+   ALUMNE (la Dolors de l EAP, la Glòria logopeda, el tutor de la Llar). Si
    se saltessin, el nom de darrere es prendria per un nen, i el dia que
    coincidís amb el d un alumne li penjaríem el PI d un altre. */
 var FITXA_NO_NOMS = {
@@ -8891,8 +8891,8 @@ var FITXA_NO_NOMS = {
   si: 1, no: 1, hi: 1, ja: 1, ara: 1, molt: 1, molta: 1, molts: 1,
 
   // 2 = ATURA-HO AQUI: darrere seu NO hi ha mai cap nen, i sovint hi ha el
-  // nom d una persona adulta. "Intervencio Nuria" es la Nuria de l EAP;
-  // "Tutor Jordi Gutierrez" es el tutor de la Llar; "Va amb la Merce" es
+  // nom d una persona adulta. "Intervencio Dolors" es la Dolors de l EAP;
+  // "Tutor Jordi Guerrero" es el tutor de la Llar; "Va amb la Gloria" es
   // la logopeda. El dia que un d aquests noms coincideixi amb el d un
   // alumne, li penjariem el PI d un altre. Per aixo la casella no dona res.
   intervencio: 2, derivacio: 2, tutor: 2, tutora: 2, mestre: 2, mestra: 2,
@@ -8914,16 +8914,16 @@ var FITXA_NO_NOMS = {
   iq: 2, beet: 2, oar: 2, plv: 2, ss: 2, aij: 2,
 };
 
-/* D'una casella com "Yasmin, Àlex, Rayan i Lexian" en surten quatre
-   candidats. D'una com "Olivia- Cal fer valoració. Hi ha algun retard..."
+/* D'una casella com "Salma, Jyoti, Ilias i Zhihao" en surten quatre
+   candidats. D'una com "Vivian- Cal fer valoració. Hi ha algun retard..."
    en surt un i prou, perquè la resta és text.
 
 /* NOMS ESCRITS UN DARRERE L'ALTRE, SENSE CAP SEPARADOR.
 
    Al document n'hi ha, i fins ara es perdien SENCERS:
 
-     Biblioteca (BEET) │ Nour Ahrika Hudaifa Aarab Maryam Bilal Zoe Alana…
-     EMVic             │ Arià Casals Mariona Seguranyes Tecla Selva
+     Biblioteca (BEET) │ Imane Harrak Soufiane Azzouzi Nawal Bakkali Lina Ayadi…
+     EMVic             │ Eloi Cardús Montse Serrabona Gràcia Soldevila
 
    Sense comes ni «i», el lector de llistes no hi veu cap nom: es pensa que
    tot plegat és un nom de set paraules i el descarta. Vuit alumnes del 4t A
@@ -8958,7 +8958,7 @@ function _fitxaHiHaUnNom_(txt, esNom) {
 function _fitxaNomsSeguits_(v, esNom) {
   if (typeof esNom !== 'function') return [];
   /* El que hi hagi a partir del primer parèntesi no és cap nom: al 4t A la
-     casella de la biblioteca acaba amb «Francesca (li aniria bé, però el curs
+     casella de la biblioteca acaba amb «Griselda (li aniria bé, però el curs
      passat no va complir)». */
   var mots = String(v == null ? '' : v).split('(')[0].trim().split(/\s+/)
                /* Fora la puntuació solta: quan un parèntesi s'ha canviat per
@@ -8986,7 +8986,7 @@ function _fitxaNomsSeguits_(v, esNom) {
 
 /* Els noms que hi ha dins d'una casella.
    ⚠ Es prefereix perdre un nom que no pas endevinar-ne un. Al document hi
-   ha molts noms propis que NO són alumnes (la Núria de l'EAP, la Mercè
+   ha molts noms propis que NO són alumnes (la Dolors de l'EAP, la Glòria
    logopeda, el CSMIJ, l'Espai Viu). Si es busqués un nom enmig d'una
    frase, un dia n'hi hauria un que coincidiria amb el d'un nen i li
    penjaríem el PI d'un altre. Per això només es mira el començament. */
@@ -8998,7 +8998,7 @@ function _fitxaNoms_(valor, esNom) {
   v = v.replace(/(^|[^A-Za-zÀ-ÿ])([A-Za-zÀ-ÿ])\.\s*/g, '$1$2 ');
 
   /* El que hi ha DINS d'un parèntesi no és cap nom, i el que ve just
-     després sí. «Illyas (no diagnosticat) Samuel Caicedo (possible)» i
+     després sí. «Iddris (no diagnosticat) Samuel Cardozo (possible)» i
      «Martí Farrés (migdia lectura) Mireia Camprubí (mates)»: el segon nom
      es perdia sempre, perquè el lector es tallava al primer parèntesi. En
      Samuel es quedava sense el TEA i la Mireia sense el suport de
@@ -9011,22 +9011,22 @@ function _fitxaNoms_(valor, esNom) {
   v = v.replace(/\(([^)]*)\)/g, function (tot, dins) {
     if (dins.indexOf(':') >= 0) return tot;
     /* ⚠ I si a dins hi ha el NOM d'un alumne, tampoc no es toca.
-       Al 4t C el document té un parèntesi que ningú no va tancar: «Fajr El
-       Asri (punt fort… Manca de concentració. Kadijatou Jawo (molt tímida…»
+       Al 4t C el document té un parèntesi que ningú no va tancar: «Doha El
+       Asraoui (punt fort… Manca de concentració. Fatima Sanneh (molt tímida…»
        El primer «)» que troba és molt més avall, i pel camí s'empassa la
-       Kadijatou. Traient-lo, ella perdia el seu PI. Un parèntesi que conté
+       Fatima. Traient-lo, ella perdia el seu PI. Un parèntesi que conté
        un nen no és cap aclariment: és que està mal tancat. */
     if (_fitxaHiHaUnNom_(dins, esNom)) return tot;
     return ' , ';
   });
 
-  // Els noms tant poden anar abans dels dos punts ("Sami: certificat de
-  // discapacitat") com després ("Comencem fent adaptacions...: Manel,
-  // Johan"). Es miren totes dues bandes: la que és prosa no dóna res.
+  // Els noms tant poden anar abans dels dos punts ("Nabil: certificat de
+  // discapacitat") com després ("Comencem fent adaptacions...: Marcel,
+  // Joan"). Es miren totes dues bandes: la que és prosa no dóna res.
   /* ⚠ Primer les BARRES, i cada tros es mira sencer. El document les fa
      servir per llistar gent, i sovint darrere d'una frase acabada en punt:
 
-       "TEL: Cristofer (possible TEL) cal fer el seguiment amb la Mercè…,
+       "TEL: Cristofer (possible TEL) cal fer el seguiment amb la Glòria…,
              encara no tenen el diagnòstic. / Alan Chudyga"
 
      Com que només es mira la primera frase de cada tros —la regla que evita
@@ -9043,8 +9043,8 @@ function _fitxaNoms_(valor, esNom) {
      grup— i el text és una tirallonga de noms sense comes, es prova de
      partir-la contra la llista.
 
-     El segon cas és el del 4t A: «Nour Ahrika Hudaifa Aarab Maryam Bilal Zoe
-     Alana Francesca (…)». Amb pocs noms el lector en fa UN de sol de tres
+     El segon cas és el del 4t A: «Imane Harrak Soufiane Azzouzi Nawal Bakkali Lina
+     Ayadi Griselda (…)». Amb pocs noms el lector en fa UN de sol de tres
      paraules —que no és ningú— i es quedava tan ample. */
   var capNingu = typeof esNom === 'function' && fora.length &&
                  !fora.some(function (n) { return esNom(n); });
@@ -9060,20 +9060,20 @@ function _fitxaNoms_(valor, esNom) {
    La primera frase sempre compta. De les altres, depèn —i les dues coses
    passen de debò al document:
 
-     "Shaira, Rim i Mohamed. Gio i Dina se'ls hi ofereix, però les famílies
+     "Zahra, Wiam i Youssef. Vak i Hind se'ls hi ofereix, però les famílies
       ho rebutgen."
-        → la segona frase parla de qui NO en rep. Llegint-la, a la Dina li
+        → la segona frase parla de qui NO en rep. Llegint-la, a la Hind li
           escrivíem «Suport biblioteca» quan el document diu el contrari.
 
-     "Marco Zinola (bloqueig emocional), nivell lector molt baix. Bavneet
-      Kaur (dificultats comunicatives). Fajr El Asri (punt fort en
+     "Matías Zanetti (bloqueig emocional), nivell lector molt baix. Prabhjot
+      Kaur (dificultats comunicatives). Doha El Asraoui (punt fort en
       l'expressió oral)."
         → aquí cada frase és UN NEN MÉS. Quedant-nos amb la primera, tres
           alumnes del 4t C es quedaven sense el seu PI. El repàs del
           6/9/2026 ho va trobar.
 
    La diferència no és la puntuació: és si la frase COMENÇA per un nen
-   d'aquell grup. «Gio i Dina se'ls hi ofereix…» també comença per noms…
+   d'aquell grup. «Vak i Hind se'ls hi ofereix…» també comença per noms…
    però la frase sencera diu que no en reben, i per això la regla és més
    estreta: la frase ha de començar per un nen I no per una llista de nens
    seguida d'un verb. En la pràctica: es mira el primer tros fins a la
@@ -9106,25 +9106,25 @@ var FITXA_PARTICULES = {
 function _fitxaNomsBanda_(v, esNom) {
   /* Dos talls, i no fan la mateixa feina.
 
-     El GUIONET amb espais ("Mohamed Ahidar - Nouvingut des del 3 de
+     El GUIONET amb espais ("Youssef Alaoui - Nouvingut des del 3 de
      desembre") separa el nom de l'explicació: el que ve després NO és
-     un altre nen. Entre lletres forma part del nom, i en Boubacar-Sidy
+     un altre nen. Entre lletres forma part del nom, i en Mamadou-Lamine
      no s'ha de partir.
 
-     La COMA i la "i" ("Gala i Mustafa necessiten PI de tot") separen
+     La COMA i la "i" ("Gaia i Hicham necessiten PI de tot") separen
      NOMS. Aquí el segon tros sí que comença per un nen, encara que
      després continuï amb l'explicació.
 
-     Confondre-ho costava dues coses alhora: en Mustafa es quedava
-     sense l'entrada, i a la Gala li anava a la fitxa una frase que
+     Confondre-ho costava dues coses alhora: en Hicham es quedava
+     sense l'entrada, i a la Gaia li anava a la fitxa una frase que
      parlava dels dos. */
   /* ⚠ NOMÉS LA PRIMERA FRASE.
 
-     "Shaira, Rim, Inowa, Johan, Grethel i Mohamed. Gio i Dina se'ls hi
+     "Zahra, Wiam, Ibtissam, Joan, Gisela i Youssef. Vak i Hind se'ls hi
      ofereix, però les famílies ho rebutgen."
 
      La primera frase és la llista de qui en rep. La segona parla de qui
-     NO en rep. Llegint-ho tot, a la Dina li acabàvem escrivint "Suport
+     NO en rep. Llegint-ho tot, a la Hind li acabàvem escrivint "Suport
      biblioteca" quan el document diu exactament el contrari.
 
      Val per a totes: darrere d'un punt hi ha un aclariment, no més
@@ -9134,7 +9134,7 @@ function _fitxaNomsBanda_(v, esNom) {
   _fitxaFrasesUtils_(v, esNom).forEach(function (frase) {
   frase.split(/\s+[-–—]\s+/).forEach(function (part, kPart) {
     part.split(/\s*[,;/|\n]\s*|\s+i\s+|\s+y\s+/).forEach(function (t, kTros) {
-      // Un guionet enganxat al nom i seguit d'espai ("Olivia- Cal fer...")
+      // Un guionet enganxat al nom i seguit d'espai ("Vivian- Cal fer...")
       // també talla; entre lletres, no.
       var cap = String(t).replace(/-(?![A-Za-zÀ-ÿ])/g, ' | ');
       cap = cap.split(/[(.|!?¡¿]/)[0].trim();
@@ -9148,20 +9148,20 @@ function _fitxaNomsBanda_(v, esNom) {
       var mots = cap.split(/\s+/);
       var net = function (x) { return _fnorm_(x).replace(/[^a-z]/g, ''); };
       var i = 0;
-      // Salta les paraules que mai no són un nen ("Possible Elna" → Elna),
+      // Salta les paraules que mai no són un nen ("Possible Emma" → Emma),
       // i atura't del tot si la primera és de les que porten un adult a
-      // darrere ("Intervenció Núria" → res).
+      // darrere ("Intervenció Dolors" → res).
       if (FITXA_NO_NOMS[net(mots[0])] === 2) return;
       while (i < mots.length && FITXA_NO_NOMS[net(mots[i])] === 1) i++;
       if (i < mots.length && FITXA_NO_NOMS[net(mots[i])] === 2) return;
 
-      // Els noms van en majúscula i el que ve després, no. De "Mohamed
-      // nivell I5" en surt "Mohamed"; de "molt mal comportament", res.
+      // Els noms van en majúscula i el que ve després, no. De "Youssef
+      // nivell I5" en surt "Youssef"; de "molt mal comportament", res.
       var bons = [];
       for (; i < mots.length; i++) {
         var m = mots[i].replace(/^[^A-Za-zÀ-ÿ0-9]+|[^A-Za-zÀ-ÿ0-9]+$/g, '');
         /* Les partícules dels cognoms van en minúscula i formen part del nom:
-           «Maria d'Agostino», «Abril de Luna». Només compten si al darrere hi
+           «Maria d'Angelo», «Abril de Lara». Només compten si al darrere hi
            ve una paraula en majúscula —així «La van derivar» segueix sense ser
            cap nen— i si ja hi ha un nom al davant. Sense això, a l'EMVic del
            4t C la Maria i l'Abril hi sortien amb el cognom com si fos un text
@@ -9175,7 +9175,7 @@ function _fitxaNomsBanda_(v, esNom) {
       }
       if (!bons.length || bons.length > 4) return;
       // ⚠ Els articles NO poden anar a la llista de paraules d'aturada: "El
-      // Klai", "El Mouden" i "El Asri" són cognoms de debò. Però una paraula
+      // Ghazi", "El Benali" i "El Asraoui" són cognoms de debò. Però una paraula
       // sola de dues lletres no és mai un nen —"La van derivar", "IQ alt"—,
       // i cap alumne de l'escola no en té cap de tan curt.
       if (bons.length === 1 && bons[0].length <= 2) return;
@@ -9216,8 +9216,8 @@ function _fitxaAlumnes_(gss, grup) {
    ELS ÀLIES
    ------------------------------------------------------------
    Hi ha empats que cap regla no pot desfer. A 2n C hi ha dues
-   Gales i totes dues es diuen Gala de primer nom; quan la mestra
-   escriu "Gala" parla de la Gala Elizalde, però això només ho
+   Gaies i totes dues es diuen Gaia de primer nom; quan la mestra
+   escriu "Gaia" parla de la Gaia Espinal, però això només ho
    sap ella.
 
    Un àlies és aquesta resposta, guardada perquè no s'hagi de
@@ -9237,7 +9237,7 @@ function _aliesDesa_(gss, grup, mapa) {
 }
 
 /* Diu qui és, d'una vegada per totes.
-     posaAlies('2n C', 'Gala', 'Elizalde')
+     posaAlies('2n C', 'Gaia', 'Espinal')
    El tercer és qualsevol cosa que la distingeixi: un cognom, el
    nom sencer... El que calgui perquè només hi encaixi ella. */
 function posaAlies(grup, etiqueta, qui) {
@@ -9359,7 +9359,7 @@ function fitxesInforme(ss) {
       c.dubtes++;
       var per = r.dubte;
       // ⚠ Només es mira si és d'un altre grup quan a AQUEST no hi ha ningú
-      // que hi encaixi. Si n'hi ha dos (les dues Gales de 2n C), el
+      // que hi encaixi. Si n'hi ha dos (les dues Gaies de 2n C), el
       // problema és l'empat, no el grup: dir "no és d'aquest grup" seria
       // mentida i, a més, amagaria l'ordre per resoldre'l.
       if (/no trobo ningú/.test(per || '')) {
@@ -9374,8 +9374,8 @@ function fitxesInforme(ss) {
       par[1].forEach(function (x) {
         if (!x.etiqueta || _fnorm_(x.etiqueta) === 'nom alumne/a') return;
         if (!/[A-Za-zÀ-ÿ]/.test(x.etiqueta)) return;      // un guionet i prou
-        // Una observació pot ser de dos nens alhora ("Ricard i Badr",
-        // "Àlex i Biel"). Si no es partís, no seria de cap dels dos.
+        // Una observació pot ser de dos nens alhora ("Ricard i Tarik",
+        // "Jyoti i Biel"). Si no es partís, no seria de cap dels dos.
         var qui = x.etiqueta.split(/\s+i\s+|\s*,\s*/).map(function (s) { return s.trim(); })
                             .filter(function (s) { return s; });
         if (!qui.length) qui = [x.etiqueta];
@@ -9465,7 +9465,7 @@ function provaFitxes() {
    1. NOMÉS s'escriu el que se sap de qui és. Les caselles amb
       dubte no toquen res: es diuen i ja està.
    2. Si una casella parla d'UN sol nen, se'n guarda tot el text
-      ("Sami: certificat de discapacitat. TEA de grau 3..."). Si
+      ("Nabil: certificat de discapacitat. TEA de grau 3..."). Si
       en parla de diversos, només l'etiqueta ("TEA"), perquè si
       no li penjaríem a cadascun l'explicació dels altres.
    3. Si el document no diu res d'un alumne en un camp, aquell
@@ -9529,10 +9529,10 @@ var FITXA_COL_NOM = {
      Dídac (2n B)      → «A»            (de «no pot coincidir amb la Bruna
                                           Crusats (A) ni amb l'Haron (A)»)
      Asher (6è A)      → «grup B»       (de «no posar-lo amb en Crixus (grup B)»)
-     Malang (4t B)     → «el cuiden»
-     Rim i Dina (4t B) → «i vigilar»
-     Laia (4t B)       → «Vigilar també el trio Laia Olvera i»
-     Shaira (4t B)     → «força problemes amb M»
+     Moussa (4t B)     → «el cuiden»
+     Wiam i Hind (4t B) → «i vigilar»
+     Lena (4t B)       → «Vigilar també el trio Lena Oller i»
+     Zahra (4t B)     → «força problemes amb M»
 
    Cap d'aquests no diu res, i tots dos són pitjors que un buit: amaguen
    que allà hi falta alguna cosa. Ningú no anirà a mirar el document per una
@@ -9630,8 +9630,8 @@ function _parlaDAltres_(text, prep, uidsSeus) {
   var altri = false;
   prep.forEach(function (p) {
     if (altri || uidsSeus[p.ref.uid]) return;
-    // ⚠ Només el NOM, no el cognom. A 6è C hi ha l Aina GARCIA Mas i l Anna
-    // Monteis GARCIA: amb el cognom, "Aina Garcia (no medica)" semblava que
+    // ⚠ Només el NOM, no el cognom. A 6è C hi ha l Olga GÁLVEZ Mas i l Anna
+    // Montells GÁLVEZ: amb el cognom, "Olga Gálvez (no medica)" semblava que
     // parlava de totes dues i la nena perdia el "(no medica)". Un cognom
     // compartit no vol dir que el text parli de l altra criatura; un nom
     // de pila enmig d una frase, gairebé sempre sí.
@@ -9721,7 +9721,7 @@ function _fitxaPerAlumne_(f, prep, alies) {
      l'esquerra hi ha el text de plantilla «Nom alumne/a» —que ningú no ha
      canviat— i el nom va davant dels dos punts:
 
-       Nom alumne/a | Sami: certificat de discapacitat. TEA de grau 3…
+       Nom alumne/a | Nabil: certificat de discapacitat. TEA de grau 3…
 
      Sense això, aquells informes no arribaven a ningú, i són justament els
      que més importen. Torna { nom, text } o null.                          */
@@ -9754,7 +9754,7 @@ function _fitxaPerAlumne_(f, prep, alies) {
       if (!tots.length) return;
       // El text és de tots els que hi surten. ⚠ Si la casella no en porta,
       // NO s'hi pot posar l'etiqueta: seria escriure-li el seu propi nom a
-      // la fitxa, que no diu res ("Informe EAP: Maher el Ghazaoui"). El que
+      // la fitxa, que no diu res ("Informe EAP: Yassin el Chraibi"). El que
       // vol dir aquella fila és que en TÉ, i això sí que val la pena.
       var text = String(x.valor || '').trim() ||
                  (par[0] === 'eap' ? 'Té informe de l\'EAP' : '');
@@ -9781,10 +9781,10 @@ function _fitxaPerAlumne_(f, prep, alies) {
       var textLlarg = String(x.valor || '').trim();
       var teExplicacio = textLlarg.length > (noms.join(' ').length + 4);
       // ⚠ I encara que en resolgui un de sol, si el text ANOMENA UN ALTRE
-      // NEN del grup, només s'hi guarda l'etiqueta. "Arnau Arcalà:
-      // problemes emocionals. Nour Ahrika: dificultats d'aprenentatge"
-      // resol només l'Arnau —la Nour va després d'un punt— i, sense això,
-      // a la fitxa de l'Arnau hi acabava el que és de la Nour.
+      // NEN del grup, només s'hi guarda l'etiqueta. "Ernest Arqués:
+      // problemes emocionals. Imane Harrak: dificultats d'aprenentatge"
+      // resol només l'Ernest —la Imane va després d'un punt— i, sense això,
+      // a la fitxa de l'Ernest hi acabava el que és de la Imane.
       var dAltri = solUn && _parlaDAltres_(textLlarg, prep, uid1);
 
       /* Qui va dins d'un parèntesi amb matís s'endú l'etiqueta AMB el
@@ -9799,9 +9799,9 @@ function _fitxaPerAlumne_(f, prep, alies) {
 
       /* I el parèntesi que va JUST DARRERE d'un nom també és seu.
 
-         Al 4t A: «Nour Ahrika Hudaifa Aarab Maryam Bilal Zoe Alana Francesca
+         Al 4t A: «Imane Harrak Soufiane Azzouzi Nawal Bakkali Lina Ayadi Griselda
          (li aniria bé, però el curs passat no va complir)». Sense això, a la
-         Francesca li quedava «Biblioteca (BEET)» pelat —o sigui, que hi va—
+         Griselda li quedava «Biblioteca (BEET)» pelat —o sigui, que hi va—
          quan el document diu justament el contrari. Una marca que digui que
          un nen rep una cosa que no rep és pitjor que no tenir-ne cap: ningú
          no va a comprovar un suport que la fitxa ja dóna per fet. */
@@ -9860,7 +9860,7 @@ function _fitxaPerAlumne_(f, prep, alies) {
     // cosa DIFERENT de cadascun. Sense això, a tots els arribava el rètol
     // del camp i prou: "Intoleràncies, al·lèrgies..." no diu quina.
     /* Li passem com es mira si un text es un alumne d'aquest grup: es
-       l'unica manera de distingir "No carn: Ghofrane" de "Grethel: al.lergia
+       l'unica manera de distingir "No carn: Ghofrane" de "Gisela: al.lergia
        a la pinya", que estan escrits igual i volen dir el contrari. */
     var trossos = _fitxaGrupTrossos_(x.valor, function (txt) {
       var r = _qui_(prep, txt, alies);
@@ -9881,7 +9881,7 @@ function _fitxaPerAlumne_(f, prep, alies) {
          es el que li dona sentit. Amb els altres no: "No carn" ja s'enten,
          i "Familia (pares separats, relacio amb l'escola...): mare
          conflictiva" seria illegible. Trobat el 5/9/2026 mirant com quedava
-         la fitxa de la Gala, no el codi. */
+         la fitxa de la Gaia, no el codi. */
       /* «alumnes biblioteca» hi entra pel mateix motiu: allà la mestra hi
          escriu matisos («li aniria bé, però el curs passat no va complir»)
          que sols no diuen de què parlen, i que sense el rètol semblarien una
@@ -9891,7 +9891,7 @@ function _fitxaPerAlumne_(f, prep, alies) {
          són títols d'apartat i no s'escriuen mai sense text. */
       qui.forEach(function (a) {
         /* Les caselles que només són una marca (EMVic) es guarden com a «Sí».
-           Però si d'aquell nen se n'ha dit alguna cosa —«En Nico el curs 26-27
+           Però si d'aquell nen se n'ha dit alguna cosa —«En Rai el curs 26-27
            no anirà a EM»— val el que se n'ha dit: marcar-lo com que hi va és
            dir el contrari del que diu el document. */
         if (!ambText) { per(a.uid)[on].push(txt ? txt : 'Sí'); return; }
@@ -9975,8 +9975,8 @@ function _fitxesEmpremta_(doc, gss) {
      deia «UN ERROR MÉS DELS MOLTÍSSIMS QUE PORTEM... JA HI TORNEM A SER».
      L'errada no era del lector: era que ningú no havia tornat a passar-lo.
 
-     A la fitxa de l'Alana Sofia del 2n C hi havia el que és de la Gala
-     Elizalde. Amb el codi d'ara la lectura és correcta; el full guardava una
+     A la fitxa de l'Aurora Sofia del 2n C hi havia el que és de la Gaia
+     Espinal. Amb el codi d'ara la lectura és correcta; el full guardava una
      resta d'una versió d'abans, i res no l'havia de treure.
 
      Posant-hi la versió del codi, enganxar una biblioteca nova torna a
@@ -10667,7 +10667,7 @@ function _fitxesAplicaTxt_(prova) {
    ELS DUBTES, PERQUÈ ELS RESOLGUI UNA MESTRA
    ------------------------------------------------------------
    Hi ha empats que cap regla no pot desfer: a 2n C hi ha dues
-   Gales i totes dues es diuen Gala de primer nom.
+   Gaies i totes dues es diuen Gaia de primer nom.
 
    ⚠ Això NO es pot resoldre des de l'editor de l'Apps Script:
    allà només es poden executar funcions SENSE arguments, i
@@ -10792,7 +10792,7 @@ function fitxesDubtes(ss, nomesGrup) {
        Passa als apartats escrits en prosa —«Relació entre iguals»,
        «Família»—, on un paràgraf parla de mig grup alhora. El repàs del
        6/9/2026 en va trobar a quatre classes: «grup B» a l'Asher, «A» al
-       Dídac, «i vigilar» a la Rim i la Dina, «el cuiden» al Malang.
+       Dídac, «i vigilar» a la Wiam i la Hind, «el cuiden» al Moussa.
 
        Cap regla no partirà bé un paràgraf sempre, i per això el bocí ja no
        s'escriu. Però callar seria tornar al problema d'abans: la mestra no
@@ -10996,7 +10996,7 @@ function _contacteTelefons_(valors) {
   return fora.join(' · ');
 }
 
-/* "Faouzia" + "Bakhti Laaguid" → "Faouzia Bakhti Laaguid" */
+/* "Fadwa" + "Zemmouri Lamrani" → "Fadwa Zemmouri Lamrani" */
 function _contacteQui_(nom, cognoms) {
   return (String(nom || '').trim() + ' ' + String(cognoms || '').trim()).replace(/\s+/g, ' ').trim();
 }
@@ -11095,8 +11095,8 @@ function _contactesTots_(ss) {
 
    Amb les 432 files de debò del curs 2026-27 això n'aparella 431 d'un a un,
    cap ambigua. Els set que el full de la secretaria escriu diferent hi
-   entren sols: "Aliou / Alilou Kande", "Sajda El Asri Hakim / Sajda El
-   Asri", "Eypril Yamilet / Yamilet Eypril Tapia Choque"… El que queda és la
+   entren sols: "Alasane / Alassane Camara", "Hajar El Asraoui Hakimi / Hajar El
+   Asraoui", "Abril Yaneth / Yaneth Abril Tapullima Chuquin"… El que queda és la
    Carina Cortes Galvez de 4t A, que ja no és al grup. */
 function _contacteEncaixa_(a, b) {
   var A = _motsUtils_(a), B = _motsUtils_(b);
@@ -11315,7 +11315,7 @@ function contactesAplicaSiCal(ss) {
    Com és el full (setembre 2026): una pestanya per curs, amb la capçalera
    «Alumne/a | Classe | Pare/mare | Telèfon | Observacions | REVISAT |
    Data». A la pestanya de 4t la primera es diu «Columna 1». La classe porta
-   la tutora al darrere: «1r C- Marta Salarich», «4rt A- Gemma Muntadas».
+   la tutora al darrere: «1r C- Marta Sellarès», «4rt A- Gemma Monclús».
    Els noms, uns «Nom Cognoms» i uns altres «Cognoms, Nom». I a la de 1r,
    «NO PORC» està escrit a la columna Data: en Pol va decidir llegir-ho
    igualment.
@@ -11339,7 +11339,7 @@ function _resolSalutId(ss) {
   return SALUT_ID_ESCOLA || '';
 }
 
-/* «1r C- Marta Salarich» → «1r C» · «4rt A- Gemma Muntadas» → «4t A».
+/* «1r C- Marta Sellarès» → «1r C» · «4rt A- Gemma Monclús» → «4t A».
    Torna null si no hi ha cap grup que s'entengui. */
 var SALUT_CURSOS = { '1': '1r', '2': '2n', '3': '3r', '4': '4t', '5': '5è', '6': '6è' };
 function _salutGrup_(txt) {
@@ -11362,7 +11362,7 @@ function _salutSemblen_(a, b) {
   });
 }
 
-/* «El Jarroudi , Sami» → «Sami El Jarroudi». Els que ja van «Nom Cognoms»
+/* «El Chaabane , Nabil» → «Nabil El Chaabane». Els que ja van «Nom Cognoms»
    es deixen com estan. L'aparellament no mira l'ordre, però l'informe sí
    que el llegeix una persona. */
 function _salutNom_(v) {
@@ -11524,9 +11524,9 @@ function salutAplica(ss, prova, nomesGrup) {
         if (toca.length !== 1) {
           /* Per al TALL 4 (més avall): una fila sense parella només protegeix
              el grup si pot ser d'algun nen d'AQUEST grup. N'encaixen dos → sí.
-             No n'encaixa cap però comparteix algun mot amb un alumne («Maikel
-             Fajardo Calvo» / «Maikel Alexis Fajardo Villalta», «Damilola
-             Rasheed Ifeoluwa» / «Rasheed Damilola Lawal») → sí: és un nom mal
+             No n'encaixa cap però comparteix algun mot amb un alumne («Mikel
+             Fajarnés Calvet» / «Mikel Alexis Fajarnés Vilella», «Adeola
+             Olumide Adebayo» / «Olumide Adeola Lawal») → sí: és un nom mal
              escrit d'un nen que hi és. No s'assembla a NINGÚ → no: és d'un nen
              que ja no hi és. En Pol, 16/9/2026: «Seyf ja no hi és». Sense
              això, la seva fila deixava 2n C congelat per sempre. */
@@ -11580,8 +11580,8 @@ function salutAplica(ss, prova, nomesGrup) {
            que no s'ha sabut de qui és, NO es buida ningú del grup.
 
            Trobat en fer la passada en sec amb les dades de debò (16/9/2026):
-           la Damilola de 3r B surt al full de direcció com «Damilola Rasheed
-           Ifeoluwa» i al de grups com «Rasheed Damilola Lawal». No encaixa, i
+           la Adeola de 3r B surt al full de direcció com «Adeola Olumide
+           Adebayo» i al de grups com «Olumide Adeola Lawal». No encaixa, i
            fa bé de no endevinar-ho. Però sense aquest tall passava el pitjor:
            la seva al·lèrgia PLV del full de direcció no arribava, i la que
            tenia d'abans s'esborrava pel mirall. La nena quedava sense cap
@@ -11606,7 +11606,7 @@ function salutAplica(ss, prova, nomesGrup) {
              mateix dia s'escrivia dues vegades al mateix grup, la segona
              còpia trepitjava la primera. El 16/9/2026, la de l'activació era
              l'ÚNICA constància de set informacions de salut que el full de
-             direcció no porta (les convulsions del Malang, els desmais del
+             direcció no porta (les convulsions del Moussa, els desmais del
              Roc…): n'hi hauria hagut prou que direcció toqués el 4t B aquell
              mateix vespre perquè es perdessin. Amb l'hora al darrere cada
              còpia és una fila pròpia i no se'n trepitja cap. */
@@ -11788,7 +11788,7 @@ function _salutTxt_(prova) {
    ------------------------------------------------------------
    La sincronització normal ja treu el que ha deixat de dir-se,
    però només d'allò que sap que hi va escriure ella. El que hi
-   va escriure una versió anterior amb un error —a la Dina li
+   va escriure una versió anterior amb un error —a la Hind li
    vaig posar "Suport biblioteca" quan el document deia que la
    seva família ho havia rebutjat— no en queda constància, i
    s'hi quedaria per sempre.
@@ -11984,12 +11984,12 @@ function _fitxesNetejaTxt_(prova) {
    patrons, sempre els mateixos:
 
      "condició: noms"
-        No xarxes: Dídac, Antoni, Juliet. No Revistes: Sami, Pau.
-        Al·lèrgic peix: Leo No porc: Mohamed, Badr i Sami.
+        No xarxes: Dídac, Antoni, Juliet. No Revistes: Nabil, Pau.
+        Al·lèrgic peix: Leo No porc: Youssef, Tarik i Nabil.
 
      "nom (què li passa)"
-        Gursehaj (només mare), Aran (família molt pendent),
-        Sofia (mare pendent)
+        Harleen (només mare), Aleix (família molt pendent),
+        Mireia (mare pendent)
 
    Sense això, a cada nen li arribava el RÈTOL del camp
    ("Intoleràncies, al·lèrgies...") i prou, que no diu res: sembla
@@ -12002,12 +12002,12 @@ function _fitxesNetejaTxt_(prova) {
    obrint la primera fitxa que va mirar:
 
      "No porc: Seyf, Raed  No carn: Ghofrane"      → CONDICIO: noms
-     "Malang Balde: Convulsions febrils  Grethel: Al.lergica a la pinya"
+     "Moussa Sidibe: Convulsions febrils  Gisela: Al.lergica a la pinya"
                                                     → NOM: condicio
 
    Fins ara nomes s'entenia la primera. Amb la segona, el codi es pensava
-   que el nom era la condicio i li penjava al vei: la Grethel va acabar amb
-   "Malang Balde" com a informacio medica.
+   que el nom era la condicio i li penjava al vei: la Gisela va acabar amb
+   "Moussa Sidibe" com a informacio medica.
 
    Per saber quina de les dues es, es MIRA si el que hi ha davant dels dos
    punts es un alumne d'aquell grup. Aixo no es pot endevinar pel text —hi
@@ -12024,17 +12024,17 @@ function _fitxesNetejaTxt_(prova) {
         → la Queralt s'enduia el matís dels altres dos. A la seva fitxa hi
           deia que se li poden fer fotos quan el document diu que no.
 
-     "…els de l'Aina Graboleda (reunions junts) Arià Casals, té dues mares"
-        → «reunions junts» anava a l'Arià, que és el nom de DARRERE.
+     "…els de l'Olga Garrigós (reunions junts) Eloi Cardús, té dues mares"
+        → «reunions junts» anava a l'Eloi, que és el nom de DARRERE.
 
-     "Nico, Jana, Maurici (En Nico el curs 26-27 no anirà a EM)"
-        → el parèntesi es llençava i en Nico quedava marcat com que hi va.
+     "Rai, Jana, Maurici (En Rai el curs 26-27 no anirà a EM)"
+        → el parèntesi es llençava i en Rai quedava marcat com que hi va.
 
    Les regles, que surten de com escriu la gent i no de cap teoria:
 
    · Un parèntesi és del que té JUST AL DAVANT. Si aquells noms van units
      per una «i» («Agnès i Eric»), és de tots dos; si hi ha una coma pel
-     mig («Candid, Francesca»), només de l'últim.
+     mig («Candid, Griselda»), només de l'últim.
    · Si DINS del parèntesi hi ha el nom d'un alumne del grup, el parèntesi
      parla d'ELL, no de la llista de davant —i aleshores ell surt de la
      llista, perquè el que se'n diu sovint és justament que no hi va.
@@ -12067,14 +12067,14 @@ function _fitxaTrossosParens_(v, sapQuiEs) {
 
     var nomsDins = _fitxaNoms_(dins, sapQuiEs).filter(sapQuiEs);
     var nomsRun = _fitxaNoms_(neteja(run), sapQuiEs);
-    /* Si el tros de davant és prosa —«…només hi ha els de l'Aina Graboleda
+    /* Si el tros de davant és prosa —«…només hi ha els de l'Olga Garrigós
        (reunions junts)»— el nom hi és al FINAL, no al principi, i el lector
        de llistes no el veu.
 
        ⚠ I ha de començar en MAJÚSCULA. Sense això, «Pares Ariadna mal
-       separats, donar dos coses (informes no cal…)» acabava donant el
-       parèntesi a un nen que es diu Osahon Moses: «coses» està a una lletra
-       de «Moses», i la comparació tolerant —que hi és per als noms mal
+       separats, parlar amb les mares (informes no cal…)» acabava donant el
+       parèntesi a un nen que es diu Idahosa Mores: «mares» està a una lletra
+       de «Mores», i la comparació tolerant —que hi és per als noms mal
        escrits— s'empassava un mot qualsevol d'una frase. En català un nom
        va en majúscula; una paraula solta en minúscula no ho és mai. */
     if (!nomsRun.length) {
@@ -12124,14 +12124,14 @@ function _fitxaGrupTrossos_(valor, esNom) {
 
      La casella de «Família» del 4t B és un paràgraf sencer:
 
-       «Pares de l'Èric i l'Aina separats. No es porten bé. Maria Antonia
-        custòdia només mare. Només pot marxar amb ella o Jero (fer
-        autorització inici de curs). Manel viu a la Llar juvenil. Johan nen
-        adoptat. En Gio va venir a l'escola a 1r.»
+       «Pares de l'Hèctor i l'Olga separats. No es porten bé. Maria Antonia
+        custòdia només mare. Només pot marxar amb ella o Jordi (fer
+        autorització inici de curs). Marcel viu a la Llar juvenil. Joan nen
+        adoptat. En Vak va venir a l'escola a 1r.»
 
      Cada frase parla d'un nen diferent. Mirant la casella sencera, el
      parèntesi del mig se n'enduia tota la primera meitat i el que venia
-     després quedava fet una sopa: en Johan perdia el «nen adoptat» i en Gio
+     després quedava fet una sopa: en Joan perdia el «nen adoptat» i en Vak
      el «va venir a l'escola a 1r». Es va veure a la passada en sec del
      6/9/2026, comparant el «abans» amb el «ara».
 
@@ -12258,7 +12258,7 @@ function _fitxaLlegeixNomCond_(v, esNom) {
 }
 
 /* Es aquest text un alumne? Es prova sencer i, si no, les seves ultimes
-   paraules: al document hi ha "Malang Balde" pero tambe nomes "Grethel". */
+   paraules: al document hi ha "Moussa Sidibe" pero tambe nomes "Gisela". */
 function _fitxaMiraSiEsNom_(text, esNom) {
   var net = _fitxaNetejaCond_(text);
   if (!net) return false;
