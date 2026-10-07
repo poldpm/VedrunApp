@@ -2998,9 +2998,9 @@ function renderObsGrid() {
      Sense grup triat, l'avís de dalt deia «Primer tria un grup» i just a sota
      hi sortien divuit nens d'un altre grup, amb les seves observacions. La
      direcció podia escriure-hi creient que eren del grup que mirava. */
-  if (_rolDireccio() && !_dirGrup()) {
+  if (_dirSenseGrup()) {
     if (empty) {
-      empty.innerHTML = '<p>Primer tria un grup a <strong>Alumnes</strong>. ' +
+      empty.innerHTML = '<p>Primer tria un grup ' + _dirOnTriarGrup() + '. ' +
         'Fins llavors no puc saber de quins nens em parles.</p>';
       empty.style.display = 'block';
     }
@@ -3385,8 +3385,8 @@ async function addRegistreItem() {
      La direcció no és tutora de cap grup: fins que no en tria un, el registre
      no té pestanya on anar i la columna acabava en un full «Registres d'aula»
      sense amo, que després no trobava ningú. */
-  if (_rolDireccio() && !_dirGrup()) {
-    showToast('Primer tria el grup a dalt: sense grup no sé a quin registre va aquest ítem.', 'error');
+  if (_dirSenseGrup()) {
+    showToast('Primer tria el grup ' + _dirOnTriarGrup().replace(/<[^>]+>/g, '') + ': sense grup no sé a quin registre va aquest ítem.', 'error');
     return;
   }
   /* Dos ítems amb el mateix nom a la mateixa taula no es poden distingir:
@@ -3521,6 +3521,12 @@ async function syncRegistre(){
     await _rolCarregaGrupTreball(_entradaTreball, 'registres');
     return;
   }
+  // A direcció amb grups al perfil, com una especialista: el del selector.
+  if (_dirAmbSelector()) {
+    if (typeof _grupStudentsCarregat !== 'undefined') _grupStudentsCarregat = null;
+    await _rolCarregaGrupTreball(_entradaTreball, 'registres');
+    return;
+  }
   // A direcció, el registre és el del grup triat: recarrega'l sencer.
   if (_rolDireccio()) {
     if (_dirGrup()) await _dirCarregaGrup(_dirGrup());
@@ -3537,8 +3543,8 @@ function renderRegistre() {
   tbody.innerHTML='';
   /* Mateix motiu que a Observacions: sense grup triat, la direcció veia les
      files dels alumnes que hagués carregat una altra pantalla. */
-  if (_rolDireccio() && !_dirGrup()) {
-    empty.innerHTML = '<p>Primer tria un grup a <strong>Alumnes</strong>. ' +
+  if (_dirSenseGrup()) {
+    empty.innerHTML = '<p>Primer tria un grup ' + _dirOnTriarGrup() + '. ' +
       'Cada grup té el seu registre.</p>';
     empty.style.display='block'; table.style.display='none'; return;
   }
@@ -4900,8 +4906,39 @@ function canviaGrupRegistre(clau) {
      creus d'un grup acabarien a les files d'un altre. */
 function _registreGrup() {
   if (typeof esEspecialista === 'function' && esEspecialista()) return _clauRegistre || '';
-  if (_rolDireccio()) return (typeof _direccioGrup !== 'undefined' && _direccioGrup) ? _direccioGrup : '';
+  if (_rolDireccio()) {
+    if (_dirAmbSelector()) return _clauRegistre || '';
+    return (typeof _direccioGrup !== 'undefined' && _direccioGrup) ? _direccioGrup : '';
+  }
   return '';
+}
+
+/* ⚠ «TRIA UN GRUP» AMB EL GRUP JA TRIAT (la Imma, 7/10/2026).
+
+   Des del 28/9, la direcció que ha dit al perfil a quins grups fa classe
+   tria el grup de Registres i d'Observacions amb el selector de dalt de la
+   mateixa pàgina, com una especialista. Però aquestes pàgines encara
+   miraven el grup de la pàgina ALUMNES: si allà no n'havia triat cap, en
+   crear un ítem li deia que primer triés el grup —que ja tenia triat a
+   dalt—, i si n'hi havia un, l'ítem anava al registre d'aquell, no al del
+   selector.
+
+   Ara: amb grups al perfil, mana el selector; sense, el grup d'Alumnes,
+   com abans. */
+function _dirAmbSelector() {
+  return _rolDireccio() && typeof _perfilEntradesAmbGrup === 'function' &&
+         _perfilEntradesAmbGrup().length > 0;
+}
+
+// True si som a direcció i encara no hi ha cap grup on treballar.
+function _dirSenseGrup() {
+  if (!_rolDireccio()) return false;
+  return _dirAmbSelector() ? !_clauRegistre : !_dirGrup();
+}
+
+// On s'ha de triar el grup, per dir-ho a l'avís.
+function _dirOnTriarGrup() {
+  return _dirAmbSelector() ? 'al selector de dalt' : 'a <strong>Alumnes</strong>';
 }
 
 /* ============================================================
@@ -4946,12 +4983,24 @@ function _dirAvisGrup(idElement, amb, sense) {
   el.textContent = g ? amb.replace('{grup}', g) : sense;
 }
 
+/* A Registres i Observacions, amb el selector de dalt ja es veu de quin grup
+   és: l'avís sobra, i parlaria del grup d'Alumnes, que allà no mana. (Al
+   plànol de l'aula sí: aquell sempre és el grup d'Alumnes.) */
+function _dirAmagaAvisSiSelector(id) {
+  if (!_dirAmbSelector()) return false;
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+  return true;
+}
+
 function _dirAvisRegistres() {
+  if (_dirAmagaAvisSiSelector('regGrupAvis')) return;
   _dirAvisGrup('regGrupAvis',
     'Aquest és el registre de {grup}. Cada grup té el seu.',
     'Primer tria un grup a Alumnes: el registre i els alumnes són els d\'aquell grup.');
 }
 function _dirAvisObservacions() {
+  if (_dirAmagaAvisSiSelector('obsGrupAvis')) return;
   _dirAvisGrup('obsGrupAvis',
     'Observacions de {grup}. Les veu tot el claustre.',
     'Primer tria un grup a Alumnes: hi veuràs els seus alumnes i les seves observacions.');
