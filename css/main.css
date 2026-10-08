@@ -4546,6 +4546,91 @@ body {
 }
 
 /* ============================================================
+   INCIDÈNCIES COMUNICADES A LA FAMÍLIA (eina opcional)
+   ------------------------------------------------------------
+   Veure `js/incidencies.js`. El botó de la targeta reaprofita
+   `.alumne-card-btn` sencer —marc, mida i àrea del dit al mòbil—
+   i només hi afegeix que el cercle vermell no es despinti en
+   passar-hi el ratolí: el color el porta el SVG, no el `color`.
+   ============================================================ */
+.inc-card-btn:hover { border-color: #C0392B; }
+.inc-card-btn svg   { width: 16px; height: 16px; }
+@media (hover: none) { .inc-card-btn svg { width: 19px; height: 19px; } }
+
+/* El compte, a la fitxa i enlloc més */
+.inc-compte {
+  margin: 0 0 10px; font-size: 13px; color: var(--text-muted);
+}
+.inc-compte strong { color: #C0392B; font-size: 15px; }
+
+.inc-llista { list-style: none; margin: 0 0 12px; padding: 0; }
+.inc-item { padding: 9px 0; border-bottom: 1px solid var(--border); }
+.inc-item:last-child { border-bottom: none; }
+.inc-item-cap { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.inc-data { font-weight: 600; font-size: 13.5px; color: var(--text-main); }
+.inc-text {
+  margin-top: 4px; font-size: 13px; color: var(--text-muted);
+  line-height: 1.5; white-space: pre-wrap;
+}
+.inc-mini {
+  border: 1px solid var(--border); background: transparent; cursor: pointer;
+  font: inherit; font-size: 11.5px; color: var(--text-muted);
+  padding: 2px 8px; border-radius: var(--r-sm);
+}
+.inc-mini:hover { border-color: var(--crimson); color: var(--crimson); }
+.inc-mini-x { font-size: 14px; line-height: 1; padding: 2px 7px; flex-shrink: 0; }
+.inc-afegir { margin-top: 2px; }
+
+/* A qui anirà: les adreces, i l'avís de quan no n'hi ha cap */
+.inc-desti { display: flex; flex-wrap: wrap; gap: 6px; }
+.inc-chip {
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px 10px;
+  font-size: 12.5px; color: var(--text-main);
+}
+.inc-desti-buit {
+  display: block; background: #FDF0EE; border: 1px solid #F0C8C2;
+  border-radius: var(--r-sm); padding: 9px 11px;
+  font-size: 12.5px; color: #8A2E22; line-height: 1.5;
+}
+
+/* La previsualització: el correu sencer, tal com el rebrà la família */
+.inc-previa {
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 11px 13px; margin-bottom: 8px;
+  max-height: 260px; overflow-y: auto;
+}
+.inc-previa-assumpte {
+  font-size: 13px; font-weight: 600; color: var(--text-main);
+  padding-bottom: 7px; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.inc-previa-assumpte span {
+  font-weight: 500; font-size: 10.5px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .05em; margin-right: 6px;
+}
+.inc-previa-cos {
+  font-size: 12.5px; color: var(--text-main);
+  line-height: 1.65; white-space: pre-wrap;
+}
+
+/* L'editor de la part fixa */
+.inc-plantilla {
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 13px; margin-bottom: 14px; background: var(--surface-tint);
+}
+.inc-comodins {
+  list-style: none; margin: 7px 0 0; padding: 0;
+  font-size: 11.5px; color: var(--text-muted); line-height: 1.9;
+}
+.inc-comodins code {
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 1px 5px; border-radius: 4px; color: var(--crimson);
+  font-size: 11px; margin-right: 4px;
+}
+.inc-plantilla-accions { display: flex; gap: 8px; justify-content: flex-end; }
+.inc-avis { margin-top: 4px; }
+
+/* ============================================================
    REUNIONS — LES HORES EN CALENDARI
    ------------------------------------------------------------
    Mateixa graella i mateixos colors que el calendari de l'app.

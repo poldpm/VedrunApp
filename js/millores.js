@@ -66,6 +66,11 @@ const MILLORES = [
     ],
     data: '2026-09-05',
     rols: ['tutor', 'direccio'],
+    /* Com se sap si ja la té: l'interruptor del seu `js/personal.js`. Des de
+       la v274 el codi és al base i arriba a totes les apps, però neix
+       apagat: sense això, «Possibles actualitzacions» l'hi oferiria tenint
+       ja el botó a cada targeta d'alumne. */
+    interruptor: 'EINES_INCIDENCIES',
   },
   {
     id: 'rubriques-avaluacio',

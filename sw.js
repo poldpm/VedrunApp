@@ -1,5 +1,5 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v272';
+const CACHE = 'vedruna-v274';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
   './js/espera.js', './js/pdfhorari.js', './js/millores.js', './js/rol.js', './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js',
@@ -16,6 +16,10 @@ const ASSETS = [
      connexió l'eina no hi era. És el mateix forat del 6/9/2026 amb el
      `personal.js`. */
   './js/rubaval.js', './js/rubaval-ui.js',
+  /* Avisar la família d'una incidència (v274). Mateix motiu que els dos de
+     dalt: és una eina opcional, però el fitxer és al base de totes les apps
+     i sense ell, desconnectada, el botó de la targeta no hi seria. */
+  './js/incidencies.js',
   './img/logo-horitzontal.png', './img/link_gmail.png', './img/link_drive.png',
   './img/link_clickedu.png', './img/link_coordinacio.png', './img/link_classdojo.png',
 ];

@@ -2418,6 +2418,12 @@ function renderAlumnesList() {
     card.querySelectorAll('.alumne-card-btn')[0].addEventListener('click', e => { e.stopPropagation(); openPersonalDrawer(s.id); });
     card.querySelectorAll('.alumne-card-btn')[1].addEventListener('click', e => { e.stopPropagation(); openObsDrawer(s.id); });
 
+    /* El tercer botó, el d'avisar la família d'una incidència. És una eina
+       opcional i neix apagada: a qui no la tingui, aquí no hi passa res.
+       Dins d'un `try` perquè un error pintant un botó no pugui deixar la
+       llista d'alumnes a mitges. */
+    try { if (window.Incidencies) Incidencies.afegeixBotoTargeta(card, s); } catch (e) {}
+
     _alFrag.appendChild(card);
   });
   container.appendChild(_alFrag);
@@ -2607,6 +2613,11 @@ async function renderFitxa(studentId) {
     if (c0) c0.setAttribute('data-alumne', String(studentId));
     pintaEntrevistes(studentId);
   }
+
+  /* Incidències comunicades a la família (eina opcional). No demana res al
+     servidor: surt del perfil, que ja el tenim. A qui no la tingui encesa,
+     amaga la targeta i prou. */
+  try { if (window.Incidencies) Incidencies.pintaFitxa(studentId); } catch (e) {}
   _updateFitxaNav();
 }
 
@@ -8803,6 +8814,10 @@ function _applyBootstrap(boot) {
     if (typeof _perfilRender === 'function') _perfilRender();
     if (typeof _perfilUpdateNav === 'function') _perfilUpdateNav();
     if (typeof perfilRenderAllSelectors === 'function') perfilRenderAllSelectors();
+    /* Aquí `_perfil` també s'ha reemplaçat sencer, i les incidències
+       comunicades hi viuen a dins: si recarrega amb una fitxa oberta, el
+       compte s'ha de tornar a pintar amb el que acaba d'arribar. */
+    try { if (window.Incidencies) Incidencies.refresca(); } catch (e) {}
   }
 
   // 2) Alumnes: prioritza els del grup de tutoria (full "Grups").

@@ -60,27 +60,59 @@ tutoria ni són qui escriu a les famílies.
 per explicar una incidència, i d'allà surt el Gmail amb el correu a la família
 ja escrit; a la fitxa de l'alumne hi queda el compte de les comunicades.
 
-**Fitxers:** només `js/personal.js` de la seva app. Res més. El CSS, el botó,
-el formulari i l'apartat de la fitxa s'injecten tots des d'allà, o sigui que
-no hi ha cap fitxer base tocat i l'app segueix rebent tots els arranjaments.
+**Com s'encén:** a `js/personal.js` de la seva app,
+
+```js
+window.EINES_INCIDENCIES = true;
+```
+
+Sense això no hi ha ni botó a les targetes ni apartat a la fitxa. ⚠ Al
+`personal.js` **no s'hi puja la versió**: el proper sync la revertiria.
+
+**Fitxers:** ⚠ **des de la v274 això és al BASE**, no al `personal.js` de
+cada mestra. Abans s'enganxava sencer a `js/personal.js`; es va passar al
+base perquè així totes tenen la mateixa versió i reben els arranjaments, en
+comptes de tenir-ne cadascuna una còpia que divergeix. Si trobes una app amb
+l'enganxall vell al `personal.js`, **treu-l'hi i deixa-hi només
+l'interruptor**: si no, tindrà el botó dues vegades.
+
+- `js/incidencies.js` — tot: l'interruptor, la plantilla, el botó, la
+  finestra, el registre i l'apartat de la fitxa.
+- `css/main.css` — bloc `.inc-*`.
+- `index.html` — el `<script>` i la `.fitxa-card` `#fitxaIncidenciesCard`
+  (neix amb `display:none`), just després de la d'`#fitxaEntrevistes`.
+- `js/app.js` — tres línies: el botó dins `renderAlumnesList`, `pintaFitxa`
+  dins `renderFitxa` i `refresca()` quan el bootstrap reemplaça `_perfil`.
+- `js/perfil.js` — una línia: `refresca()` quan arriba el perfil del full.
+- `js/millores.js` — `interruptor: 'EINES_INCIDENCIES'` a l'entrada.
+- `sw.js` — `./js/incidencies.js` a l'`ASSETS`, o desconnectada no hi seria.
 
 **Com funciona:**
 
-- S'embolcallen tres funcions que ja hi són: `renderAlumnesList` (per afegir
-  el botó a `.alumne-card-actions` de cada targeta), `renderFitxa` (per
-  encaixar una `.fitxa-card` just després de la que conté `#fitxaEntrevistes`)
-  i `perfilRenderAllSelectors` (per repintar quan arriba el perfil del full).
-- El CSS es posa amb un `<style>` creat des del JS. Els noms de classe van
-  amb prefix propi per no xocar amb res del base.
-- El botó és una `<button>` de 30×30 amb el mateix marc que els seus dos
-  veïns; a dins, un SVG amb el cercle ple i l'exclamació blanca. Blanc sobre
-  `#C0392B` són 5,44:1 de contrast, o sigui que passa l'AA.
+- `_hiEs()` és `window.EINES_INCIDENCIES === true && !esEspecialista()`. Es
+  llegeix **en directe a cada crida**, no en carregar el fitxer: `personal.js`
+  es carrega l'ÚLTIM i en aquell moment l'interruptor encara no hi és. La
+  segona meitat és a posta: una especialista no té tutoria ni és qui escriu a
+  les famílies, i val més comprovar-ho dues vegades que trobar-se escrivint a
+  una família que no és la seva.
+- El botó és una `<button>` que reaprofita `.alumne-card-btn` sencer (marc,
+  mida i els 44×44 del dit al mòbil); a dins, un SVG amb el cercle ple i
+  l'exclamació blanca. Blanc sobre `#C0392B` són 5,44:1 de contrast, o sigui
+  que passa l'AA.
 - El correu s'obre amb `window.open` cap a
   `https://mail.google.com/mail/?view=cm&fs=1&to=…&su=…&body=…`. No s'envia
   res des de l'app: només es prepara el redactor.
 - Les adreces surten de `personal[id].correu1` i `.correu2`, partides per
-  comes, punts i comes o espais (un camp en pot portar més d'una) i sense
-  repetits. El gènere surt de `students[i].genere`.
+  comes, punts i comes, barres o espais (un camp en pot portar més d'una) i
+  sense repetides. El gènere surt de `students[i].genere`.
+- La plantilla té comodins en català (`{nom}`, `{elnom}`, `{fill}`,
+  `{incidencia}`, `{mestra}`, `{grup}`) i es pot editar des de la mateixa
+  finestra. `{elnom}` passa per `_articleNom()`, que ja resol «en Marc / la
+  Maria / l'Anna». En desar-la es comprova que hi quedi `{incidencia}`: sense
+  ell, el que escrigui de cada cas no sortiria al correu.
+- La previsualització ensenya el correu sencer i es repinta a cada tecla, per
+  oient (`addEventListener('input')`) i no amb un `oninput` escrit dins d'una
+  cadena.
 - **Es desa dins del perfil**, a `_perfil.incidencies = { plantilla, registre }`,
   i es puja amb l'acció `saveProfile` que ja existeix. El perfil es desa com
   a JSON lliure, o sigui que hi cap qualsevol cosa: per això aquesta millora
@@ -90,43 +122,46 @@ no hi ha cap fitxer base tocat i l'app segueix rebent tots els arranjaments.
   igual que les entrevistes.
 - El compte va **només a la fitxa**. A la targeta no hi ha ni número ni cap
   marca: tots els botons són idèntics. És a posta —la llista de la classe no
-  ha d'ensenyar a qui s'ha hagut d'escriure a casa.
+  ha d'ensenyar a qui s'ha hagut d'escriure a casa, i menys amb algú altre
+  mirant la pantalla.
 
 **Paranys:**
 
-- `_perfil`, `students`, `personal` i `config` estan declarats amb `let` i
-  **NO són a `window`**: `window._perfil` és `undefined`. Igualment s'hi
-  arriba pel nom pelat des de `personal.js`, perquè tots els `js/*.js` són
-  scripts clàssics i comparteixen el mateix àmbit global. En canvi, les
-  funcions que s'embolcallen (`renderFitxa`, `renderAlumnesList`,
-  `perfilRenderAllSelectors`) sí que són a `window`, perquè són declaracions
-  de funció. Aquesta diferència és la que fa que el patró funcioni.
-- **`_perfil` es reemplaça SENCER** quan el perfil arriba del full i també al
-  bootstrap. No et guardis mai una referència a `_perfil.incidencies`:
-  llegeix-la en directe cada vegada, i repinta després de
-  `perfilRenderAllSelectors` o ensenyaràs el compte d'abans de carregar.
-  Aquest és el bug que t'espera si no ho fas.
+- **`_perfil` es reemplaça SENCER** quan el perfil arriba del full
+  (`js/perfil.js`) i també al bootstrap (`js/app.js`). No et guardis mai una
+  referència a `_perfil.incidencies`: llegeix-la en directe cada vegada
+  (`_calaix()`), i repinta als dos llocs amb `Incidencies.refresca()` o
+  ensenyaràs el compte d'abans de carregar. Aquest és el bug que t'espera si
+  no ho fas, i per això `refresca()` existeix.
 - La clau ha de ser el `rowId`, **no** el `students[].id`: aquest últim és la
-  posició dins la llista i canvia si els alumnes es reordenen.
+  posició dins la llista i canvia si els alumnes es reordenen —i llavors el
+  compte d'un nen passaria a ser d'un altre.
 - El compte se suma quan **s'obre** el Gmail, no quan la família el rep: no hi
   ha manera de saber-ho. Per això cada incidència s'ha de poder esborrar de
-  la fitxa, i el text ho ha de dir.
-- Si la fitxa no té cap correu, digues-ho **en obrir** el formulari (i on
-  s'arregla) i deixa el botó d'enviar blocat. Deixar-la escriure-ho tot i
-  fallar al final és pitjor.
+  la fitxa, i el text ho ha de dir («això només treu l'apunt d'aquí: el correu
+  que vas enviar no es desfà»).
+- Si la fitxa no té cap correu, es diu **en obrir** el formulari (i on
+  s'arregla: el full de la secretaria) i el botó d'enviar neix blocat.
+  Deixar-la escriure-ho tot i fallar al final és pitjor.
 - `window.open` el pot barrar el navegador: cal caure cap a `mailto:`.
-- Tot l'enganxall va dins d'un `try`: si un dia la plantilla canvia el nom
-  d'una d'aquestes funcions, es perd el botó però no l'app.
-- Si es fa a `js/personal.js`, **NO pugis la versió** (`sw.js`, `js/versio.js`,
-  `versio.json`): són fitxers base i el pròxim `sync-totes.js` ho revertiria.
-  Des de la **v257** aquell fitxer se serveix sempre de la xarxa (amb el
-  cache com a reserva), o sigui que el canvi li arriba **a la recàrrega
-  següent**. ⚠ Abans no: era al cache del `sw.js` i s hi quedava fins a la
-  versió següent, encara que fes `Ctrl+Shift+R`. Si la seva app encara
-  serveix una versió anterior a la v257, el primer cop caldrà pujar-la.
+- Els tres ganxos de `js/app.js` i `js/perfil.js` van dins d'un `try`: un
+  error pintant un botó no pot deixar la llista d'alumnes a mitges.
+- El botó no es pot afegir dues vegades a la mateixa targeta: `afegeixBotoTargeta`
+  surt si ja hi troba un `.inc-card-btn`.
+- El missatge s'acaba amb `{mestra}` i `{grup}`, cada un a la seva línia. Una
+  mestra **sense el nom al perfil** enviava un correu que s'acabava amb una
+  línia buida on hi havia d'anar la signatura, i no ho sabria mai. Per això
+  `omple()` va línia per línia: una línia que era **només comodins** i que
+  queda buida desapareix. Les que ella deixi en blanc a posta no es toquen.
+- Al banc de proves del navegador de mentida, `querySelector` torna sempre un
+  element (no `null`), o sigui que **el botó de la targeta no es pot provar
+  per DOM** allà: el guard de «ja hi és» salta sempre. Es prova la lògica
+  (`hiEs`, `correus`, `omple`, `clau`) i l'apartat de la fitxa, que sí que va
+  per `getElementById`. Veure `eines/comprova-incidencies.js`.
 
-**Depèn de:** només pantalla. La mestra no ha de fer res —li arriba i ja està.
-No cal tocar el `Code.gs` ni redesplegar res, perquè `saveProfile` ja hi és.
+**Depèn de:** només pantalla. La mestra no ha de fer res —li arriba amb l'avís
+de versió nova i en Pol li encén l'interruptor. No cal tocar el `Code.gs` ni
+redesplegar res, perquè `saveProfile` ja hi és.
 
 
 ---

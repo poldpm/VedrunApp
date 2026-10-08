@@ -1,8 +1,10 @@
 {
-  "versio": "v272",
-  "data": "2026-10-07",
+  "versio": "v274",
+  "data": "2026-10-08",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Tres icones es pintaven a mitges i ara es veuen senceres: al triangle de l'avís vermell li faltava el punt de l'exclamació, a la del «Pas 1» de la connexió també, i a la del «Llistat d'alumnes per grup» li faltaven els punts de la llista."
+    "Eina nova, i és opcional: «Avisar la família d'una incidència». Escrius en dues línies què ha passat i el correu per a la família surt redactat; abans d'obrir res veus com quedarà sencer i a qui anirà. No s'envia sol —t'obre el Gmail i l'envies tu—, i a la fitxa de l'alumne hi queda el compte de les que has comunicat.",
+    "Si et fa servei, demana-la des de «Possibles actualitzacions», a l'Inici: de sèrie no la té ningú, perquè un botó nou a cada targeta d'alumne no s'ha d'aparèixer sense haver-lo demanat.",
+    "El missatge és teu: el pots canviar des de la mateixa finestra i es queda canviat per a totes les famílies. Al manual, a l'apartat Alumnes, hi ha com funciona tot plegat."
   ]
 }

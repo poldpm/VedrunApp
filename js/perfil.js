@@ -167,6 +167,11 @@ async function _perfilLoadFromSheets() {
       _perfilRender();
       _perfilUpdateNav();
       perfilRenderAllSelectors();
+      /* ⚠ `_perfil` s'acaba de reemplaçar SENCER, i les incidències
+         comunicades a la família hi viuen a dins. Si la fitxa d'un alumne
+         està oberta, el compte que ensenya és el del perfil d'abans: això
+         el torna a pintar amb el que ha arribat del full. */
+      try { if (window.Incidencies) Incidencies.refresca(); } catch(e) {}
     }
   } catch(e) { /* silenciós */ }
 }

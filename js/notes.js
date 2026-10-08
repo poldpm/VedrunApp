@@ -489,15 +489,46 @@ function _remapValorsPerNom(valors, rowNoms) {
 
      Ara una fila que no casa amb ningú es queda fora, i es diu de qui és. La
      nota no s'ha perdut: continua al full sota el nom vell. */
+  /* ⚠ AVISAVA DE NOTES QUE NO EXISTEIXEN (en Pol, 8/10/2026).
+
+     Ell: «com que he posat notes de carpeta viatgera, ara quan entro a català
+     m'avisa que hi ha alumnes que no tinc els quals tenen nota al full de
+     càlcul... això no ha de passar».
+
+     I tenia raó: aquelles files ja eren al full de Català de feia temps
+     —noms vells, o nens que han marxat—, i no tenien CAP nota. El que va
+     canviar és que la Carpeta Viatgera, en propagar-se, va CREAR la seva
+     columna a la pestanya de Català. I resulta que sense cap columna el
+     servidor surt abans d'hora i no torna els noms de fila, o sigui que
+     l'avís no es podia ni plantejar; amb la primera columna, ja es casen els
+     noms i surten aquelles files velles.
+
+     L'avís deia «al full hi ha notes de X» mirant si la fila casava, no si
+     tenia res escrit. Un avís vermell que parla d'unes notes que no
+     existeixen fa dues coses, totes dues dolentes: la fa anar a buscar al
+     full una cosa que no hi és, i li ensenya que els avisos de l'app es
+     poden ignorar.
+
+     Ara una fila òrfena només compta si hi ha alguna cosa ESCRITA de debò.
+     Si és buida, no s'hi perd res i no se'n diu res.
+
+     La columna de la Carpeta no hi compta: no és una nota que ella hagi
+     entrat aquí, és una còpia que hi deixa la pestanya de la Carpeta, i allà
+     continua sencera sota el nom vell. Si comptés, un nen que ha marxat
+     tornaria a encendre l'avís cada cop que es toqués la Carpeta. */
+  const DERIVADES = { carpeta_ref: true };
   const out = {};
   const orfes = {};
   Object.keys(valors).forEach(itemId => {
     out[itemId] = {};
+    const derivada = DERIVADES[itemId] === true;
     Object.keys(valors[itemId]).forEach(pos => {
       const id = posToId[pos];
       if (id === undefined) {
         const nomFull = (rowNoms[pos] || '').toString().trim();
-        if (nomFull) orfes[nomFull] = true;
+        const v = valors[itemId][pos];
+        const teRes = v !== '' && v !== null && v !== undefined;
+        if (nomFull && teRes && !derivada) orfes[nomFull] = true;
         return;
       }
       out[itemId][id] = valors[itemId][pos];
