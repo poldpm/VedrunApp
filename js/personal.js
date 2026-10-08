@@ -1642,3 +1642,22 @@ window.EINES_CARPETA = true;
    es pot treure d'aquí quan ja faci temps que el va llegir.
    ============================================================ */
 window.AVIS_INICI = 'adeu-assistent';
+
+/* ============================================================
+   AVISAR LA FAMÍLIA D'UNA INCIDÈNCIA
+   ------------------------------------------------------------
+   El cercle vermell de cada targeta d'alumne: s'escriu en dues
+   línies què ha passat i el correu per a la família surt redactat,
+   a punt de revisar i enviar des del Gmail.
+
+   El codi és al base de totes les apps des de la v274, però neix
+   APAGAT: un botó vermell nou a cada targeta d'alumne no s'ha
+   d'aparèixer a ningú sense haver-lo demanat. Aquesta app el té
+   encès perquè és qui el va demanar.
+
+   A especialistes no s'encén mai: no tenen tutoria ni són qui
+   escriu a les famílies, i el codi ho torna a comprovar igualment.
+
+   Veure `js/incidencies.js` i la recepta del `MILLORES.md`.
+   ============================================================ */
+window.EINES_INCIDENCIES = true;
