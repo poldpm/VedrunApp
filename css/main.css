@@ -1147,6 +1147,20 @@ body {
   .alumne-card-btn { width: 44px; height: 44px; border-radius: 9px; }
   .alumne-card-btn svg { width: 17px; height: 17px; }
   .alumne-card-actions { gap: 10px; }
+
+  /* ⚠ QUATRE BOTONS NO CABEN EN UNA FILA AL MÒBIL.
+
+     La targeta fa uns 172 px i cada botó n'ha de fer 44 perquè s'encerti
+     amb el dit (veure aquí sobre): quatre ja són 176 px abans de comptar
+     els espais. S'han de partir per força, i val més DOS I DOS que tres i
+     un de sol penjant a sota: ocupa el mateix alt, queda simètric i cada
+     botó es fa més ample, o sigui que encara s'encerta millor.
+
+     Amb tres o menys no hi toca res: aquells sí que hi caben en una fila. */
+  .alumne-card-actions:has(.alumne-card-btn:nth-child(4)) .alumne-card-btn {
+    width: auto;
+    flex: 0 0 calc(50% - 5px);   /* 5 px = la meitat del `gap` de 10 */
+  }
 }
 
 /* ============================================================
