@@ -3461,6 +3461,10 @@ async function addRegistreItem() {
   registreItems.push(item); registreData[item.id]={};
   students.forEach(s=>{registreData[item.id][s.id]=tipus==='checkbox'?false:'';});
   renderRegistre();
+  /* La columna nova es pinta la primera de totes, al costat dels noms. Si la
+     taula estava escorreguda cap a la dreta, la mestra no la veuria: la
+     tornem a l'esquerra perquè la tingui davant. */
+  try { const _t = document.getElementById('registreTable'); if (_t) _t.scrollLeft = 0; } catch (e) {}
   if (config.scriptUrl) {
     /* A la cua, com les creus i com les columnes de notes (26/9/2026): la
        columna es queda a la pantalla i la petició es reintenta sola amb el
@@ -3595,6 +3599,25 @@ async function syncRegistre(){
   await loadAll(); renderRegistre();
 }
 
+/* L'ORDRE DE LES COLUMNES: DE MÉS NOVA A MÉS VELLA.
+
+   Al full, cada ítem nou s'escriu a la columna següent de la dreta, o sigui
+   que `registreItems` arriba de la més vella a la més nova. A la pantalla
+   això volia dir que l'ítem que acabaves de crear quedava a l'altra punta de
+   la taula, sovint fora de la vista: l'havies de buscar amb la barra de
+   desplaçament justament quan més el necessitaves.
+
+   Aquí es giren NOMÉS PER PINTAR-LES. Al full es queden com estaven: si no,
+   cada ítem nou obligaria a remenar les columnes del full de cada grup, i el
+   que hi ha escrit no s'hi juga per una comoditat de pantalla.
+
+   Es giren i prou, no s'ordenen pel codi de l'ítem: els ítems d'abans del
+   8/9/2026 poden no tenir-ne cap de bo, i llavors anirien a parar on no toca.
+   L'ordre del full, en canvi, sempre és l'ordre en què es van crear. */
+function _registreColumnes() {
+  return registreItems.slice().reverse();
+}
+
 function renderRegistre() {
   try { _registreAmbPendents(); } catch (e) {}
   const empty=document.getElementById('registreEmpty'), table=document.getElementById('registreTable');
@@ -3621,7 +3644,8 @@ function renderRegistre() {
   }
   if (!registreItems.length){ empty.style.display='block'; table.style.display='none'; return; }
   empty.style.display='none'; table.style.display='block';
-  registreItems.forEach(item=>{
+  const _cols = _registreColumnes();
+  _cols.forEach(item=>{
     const th=document.createElement('th'); th.className='reg-th-item';
     th.innerHTML=`<div class="reg-th-inner"><span title="${escapeHtml(item.nom)}">${escapeHtml(item.nom)}</span><button class="reg-th-delete" aria-label="Eliminar ${escapeHtml(item.nom)}" title="Eliminar ${escapeHtml(item.nom)}" onclick="deleteRegistreItem('${_idJs(item.id)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`;
     thead.appendChild(th);
@@ -3632,7 +3656,7 @@ function renderRegistre() {
     const tdN=document.createElement('td'); tdN.className='reg-td-name';
     tdN.innerHTML=`<div class="student-avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${getInitials(s.nom)}</div>${escapeHtml(nomAlumne(s))}`;
     tr.appendChild(tdN);
-    registreItems.forEach(item=>{
+    _cols.forEach(item=>{
       const td=document.createElement('td'); td.className='reg-td-cell';
       const val=(registreData[item.id]||{})[s.id];
       if (item.tipus==='checkbox'){ const cb=document.createElement('input'); cb.type='checkbox'; cb.className='reg-checkbox'; cb.checked=val===true||val==='TRUE';
