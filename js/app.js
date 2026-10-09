@@ -5841,11 +5841,23 @@ let _planNoteDaySelected = 'dl';
 function planDayNoteKey(diaId) {
   return 'plan_daynote_' + getPlanWeekId(_planWeekOffset) + '_' + diaId;
 }
-function planDayNoteLoad(diaId) {
-  const v = localStorage.getItem(planDayNoteKey(diaId));
+function _planNotesLlegeix(v) {
   if (!v) return [];
   try { const p = JSON.parse(v); return Array.isArray(p) ? p : (p ? [p] : []); }
   catch(e) { return v ? [v] : []; } // compatibilitat text pla antic
+}
+function planDayNoteLoad(diaId) {
+  return _planNotesLlegeix(localStorage.getItem(planDayNoteKey(diaId)));
+}
+/* Les notes d'un dia d'UNA SETMANA CONCRETA.
+
+   ⚠ `planDayNoteLoad` mira la setmana que s'està veient al planning
+   (`_planWeekOffset`), que no té per què ser aquesta: si la mestra havia
+   deixat el planning mirant la setmana que ve, la portada li ensenyaria les
+   notes d'aquella. La portada sempre vol les d'aquesta setmana, i per això
+   demana l'`offset` i no se'l deixa endevinar. */
+function planDayNotesDeSetmana(diaId, offset) {
+  return _planNotesLlegeix(localStorage.getItem('plan_daynote_' + getPlanWeekId(offset || 0) + '_' + diaId));
 }
 function planDayNoteSave(diaId, arr) {
   if (!arr.length) localStorage.removeItem(planDayNoteKey(diaId));
@@ -7815,6 +7827,8 @@ function _renderHomeAvui() {
   const franges = PLAN_FRANGES;
   const el = document.getElementById('homeHorari');
 
+  _renderHomeAvuiDestacats(avui, diaId);
+
   if (!diaId) {
     el.innerHTML = '<p class="home-empty-hint">Cap dia lectiu avui.</p>';
     return;
@@ -7869,6 +7883,53 @@ function _renderHomeAvui() {
   });
 
   el.innerHTML = teContingut ? html : '<p class="home-empty-hint">No hi ha res al planning d\'avui. <a onclick="showPage(\'planning\')" style="cursor:pointer;color:var(--crimson)">Obrir planning →</a></p>';
+}
+
+/* --- AVUI, el que no és una franja: aniversaris i notes del dia ---
+
+   Fins ara l'apartat «Avui» de la portada només ensenyava l'horari del dia.
+   Qui feia anys sortia al planning i enlloc més, i el que la mestra havia
+   apuntat al dia («avui ve la logopeda», «recordar els permisos») també: si
+   no obria el planning, no s'assabentava d'allò que havia apuntat ella
+   mateixa justament perquè no se li passés. Ara ho té a la portada, a dalt
+   del tot de l'«Avui».
+
+   Els aniversaris, encara que sigui dissabte: un nen pot fer anys en cap de
+   setmana i val més saber-ho el dilluns que no pas gens. Les notes del dia,
+   en canvi, van lligades a un dia de la setmana del planning, i en cap de
+   setmana no n'hi ha. */
+function _renderHomeAvuiDestacats(avui, diaId) {
+  const cont = document.getElementById('homeAvuiDestacats');
+  if (!cont) return;
+  let html = '';
+
+  /* Dins d'un `try`: a qui no té tutoria, els aniversaris es demanen al
+     servidor en segon pla i aquesta funció es pot cridar abans que hi
+     siguin. Que no hi siguin encara no pot deixar la portada a mitges. */
+  let aniv = [];
+  try { if (typeof aniversarisDelDia === 'function') aniv = aniversarisDelDia(avui) || []; }
+  catch (e) { aniv = []; }
+  aniv.forEach(nom => {
+    html += `<div class="home-avui-dest home-avui-dest-aniv">
+      <span class="home-avui-dest-icona" aria-hidden="true">🎂</span>
+      <span class="home-avui-dest-text">Avui fa anys <strong>${escapeHtml(nom)}</strong></span>
+    </div>`;
+  });
+
+  /* Les buides es treuen abans: una nota a què no li queda res escrit no ha
+     de deixar una fila buida a la portada. */
+  const notes = (diaId ? planDayNotesDeSetmana(diaId, 0) : [])
+    .map(n => String(n || '').trim())
+    .filter(Boolean);
+  notes.forEach(textNota => {
+    html += `<div class="home-avui-dest home-avui-dest-nota">
+      <span class="home-avui-dest-icona" aria-hidden="true">⚠</span>
+      <span class="home-avui-dest-text">${escapeHtml(textNota)}</span>
+    </div>`;
+  });
+
+  cont.innerHTML = html;
+  cont.style.display = html ? '' : 'none';
 }
 
 /* --- RECORDATORIS: tasques d'avui + del calendari + notes del planning --- */

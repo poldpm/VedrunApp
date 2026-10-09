@@ -2345,6 +2345,28 @@ body {
 .home-card-header-right { font-size: 11px; color: var(--text-muted); }
 .home-empty-hint { font-size: 13px; color: var(--text-muted); padding: 16px 14px; }
 
+/* Avui: el que no és una franja de l'horari (aniversaris i notes del dia).
+   Va enganxat a dalt, abans de l'horari, amb una línia que el separa. */
+.home-avui-destacats { padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.home-avui-dest {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 6px 9px; border-radius: 7px;
+  font-size: 12px; line-height: 1.35;
+  border: 1px solid transparent;
+}
+.home-avui-dest-icona { flex-shrink: 0; font-size: 13px; line-height: 1.2; }
+.home-avui-dest-text  { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* El mateix rosa del pastís del planning, perquè es reconegui d'una pàgina
+   a l'altra. */
+.home-avui-dest-aniv {
+  background: linear-gradient(135deg, #FBEAED, #F5D0D6);
+  color: #7A1E2E; border-color: #EBC0C8;
+}
+/* I el mateix groc de la nota del dia del planning. */
+.home-avui-dest-nota {
+  background: #FEF3C7; color: #92400E; border-color: #FDE68A;
+}
+
 /* Horari avui */
 .home-horari-list { padding: 6px 0; max-height: 320px; overflow-y: auto; }
 .home-franja {

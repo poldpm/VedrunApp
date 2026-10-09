@@ -1048,6 +1048,16 @@ function _refreshAniversaris() {
     const page = document.getElementById('page-planning');
     if (page && !page.classList.contains('page-hidden')) renderPlanning();
   }
+  /* I la portada, que des de la v278 també els ensenya. A qui no té tutoria
+     els aniversaris arriben del servidor DESPRÉS que la portada s'hagi
+     pintat: sense això, obria l'app i el pastís no hi sortia fins que no
+     canviava de pàgina i tornava. */
+  if (typeof _renderHomeAvui === 'function') {
+    const h = document.getElementById('page-home');
+    if (h && !h.classList.contains('page-hidden')) {
+      try { _renderHomeAvui(); } catch (e) {}
+    }
+  }
 }
 
 /* ============================================================
