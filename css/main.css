@@ -1103,9 +1103,19 @@ body {
   cursor: default;
 }
 
+/* ⚠ ELS BOTONS ES TALLAVEN QUAN N'HI HAVIA MASSA.
+
+   Les targetes fan 150 px d'ample com a mínim (130 al mòbil) i la targeta
+   talla el que li surt (`overflow: hidden`). Amb dos botons sobrava espai,
+   però amb el d'incidències i el d'entrevistes ja són quatre, i al mòbil
+   fan 44 px cadascun perquè s'encertin amb el dit: no hi caben en una fila.
+
+   Amb `flex-wrap` passen a dues files en comptes de quedar tallats, i els
+   44 px del dit es queden com estaven. */
 .alumne-card-actions {
   border-top: 1px solid var(--border);
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 4px;
   padding: 8px;
@@ -4553,6 +4563,12 @@ body {
    i només hi afegeix que el cercle vermell no es despinti en
    passar-hi el ratolí: el color el porta el SVG, no el `color`.
    ============================================================ */
+/* El botó d'entrevistes de la targeta. El calendari té més línies que les
+   altres icones, i a 14 px queda espès: se li donen 15. La resta —marc,
+   mida, àrea del dit— ja ve de `.alumne-card-btn`. */
+.entr-card-btn svg { width: 15px; height: 15px; }
+@media (hover: none) { .entr-card-btn svg { width: 18px; height: 18px; } }
+
 .inc-card-btn:hover { border-color: #C0392B; }
 .inc-card-btn svg   { width: 16px; height: 16px; }
 @media (hover: none) { .inc-card-btn svg { width: 19px; height: 19px; } }

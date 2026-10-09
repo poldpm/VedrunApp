@@ -1,10 +1,10 @@
 {
-  "versio": "v274",
-  "data": "2026-10-08",
+  "versio": "v275",
+  "data": "2026-10-09",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Eina nova, i és opcional: «Avisar la família d'una incidència». Escrius en dues línies què ha passat i el correu per a la família surt redactat; abans d'obrir res veus com quedarà sencer i a qui anirà. No s'envia sol —t'obre el Gmail i l'envies tu—, i a la fitxa de l'alumne hi queda el compte de les que has comunicat.",
-    "Si et fa servei, demana-la des de «Possibles actualitzacions», a l'Inici: de sèrie no la té ningú, perquè un botó nou a cada targeta d'alumne no s'ha d'aparèixer sense haver-lo demanat.",
-    "El missatge és teu: el pots canviar des de la mateixa finestra i es queda canviat per a totes les famílies. Al manual, a l'apartat Alumnes, hi ha com funciona tot plegat."
+    "A Alumnes, a la targeta de cada nen hi tens un botó nou: un calendari amb un vist. Clica'l i s'obre directament el quadre d'apuntar una entrevista amb la família, amb el dia d'avui ja posat, sense haver d'entrar a la fitxa. Acabes de parlar amb uns pares, un clic i ja ho tens apuntat.",
+    "Per veure les entrevistes que ja has fet d'un alumne, editar-les o esborrar-les, continua sent a la seva fitxa. A la llista d'alumnes no hi ha cap número: les targetes són totes iguals.",
+    "Els botons de la targeta ja no es tallen quan n'hi ha molts: si no hi caben en una fila, passen a dues."
   ]
 }

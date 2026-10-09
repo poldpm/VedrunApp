@@ -85,8 +85,70 @@ function pintaEntrevistes(studentId) {
      </button>`;
 }
 
+/* Refresca l'apartat de la fitxa, però NOMÉS si la fitxa oberta és d'aquest
+   alumne. Ve del botó de la targeta: des de la llista es pot apuntar una
+   entrevista a qualsevol nen, i abans d'això la llista de la fitxa (que és
+   amagada, d'un altre alumne) se li omplia amb les del nen de la targeta. */
+function _entrPintaSiToca(studentId) {
+  const c = document.getElementById('fitxaEntrevistes');
+  if (!c) return;
+  const de = c.getAttribute('data-alumne');
+  if (de !== null && String(de) !== String(studentId)) return;
+  pintaEntrevistes(studentId);
+}
+
+/* ---------- el botó de la targeta de l'alumne ---------- */
+/* Un accés directe per apuntar una entrevista sense haver d'obrir la fitxa:
+   des de la llista de la classe, un clic i ja s'hi pot escriure. Va al
+   costat dels altres botons de la targeta, amb el mateix marc i la mateixa
+   mida (i la mateixa àrea del dit al mòbil).
+
+   Un calendari amb un vist: el primer que demana el quadre és quin dia. Les
+   altres icones de la targeta són una persona (dades) i un globus
+   (observacions), o sigui que no es poden confondre.
+
+   ⚠ A la targeta NO hi va cap número. Qui vulgui veure quantes se n'han fet
+   ho té a la fitxa. */
+const ENTR_SVG_BOTO =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+       'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<rect x="3" y="5" width="18" height="16" rx="2"/>' +
+    '<path d="M8 3v4M16 3v4M3 10h18"/>' +
+    '<path d="M9.3 15.2l2.1 2.1 3.6-3.6"/>' +
+  '</svg>';
+
+function afegeixBotoEntrevistes(card, s) {
+  if (!card || !s) return;
+  const zona = card.querySelector('.alumne-card-actions');
+  if (!zona || zona.querySelector('.entr-card-btn')) return;
+  /* Sense tutoria no hi ha entrevistes a fer: millor cap botó que un botó
+     que, en clicar-lo, només sap dir que això no va amb tu. */
+  if (!_entrGrup()) return;
+
+  let nom = '';
+  try { nom = (typeof nomAlumne === 'function') ? nomAlumne(s) : String(s.nom || ''); } catch (e) {}
+
+  const b = document.createElement('button');
+  b.className = 'alumne-card-btn entr-card-btn';
+  b.type = 'button';
+  b.setAttribute('aria-label', 'Apuntar una entrevista amb la família de ' + nom);
+  b.title = 'Apuntar una entrevista amb la família';
+  b.innerHTML = ENTR_SVG_BOTO;
+  b.addEventListener('click', e => { e.stopPropagation(); obreEntrevista(s.id); });
+  zona.appendChild(b);
+}
+
 /* ---------- el formulari ---------- */
 function obreEntrevista(studentId, id) {
+  /* ⚠ Des de la targeta de l'alumne s'hi arriba SENSE passar per la fitxa,
+     que és on es comprovava que hi hagués tutoria i que l'alumne fos al full
+     del grup. Si no es comprova aquí, el quadre s'obre, s'omple, i en desar
+     diu que no s'ha pogut desar: feina per res. Es diu abans d'obrir-lo. */
+  const _rid = ((typeof personal !== 'undefined' ? personal[studentId] : null) || {}).rowId;
+  const _avisa = t => { if (typeof showToast === 'function') showToast(t, 'info'); };
+  if (!_entrGrup()) { _avisa('Les entrevistes són del grup que tutoritzes.'); return; }
+  if (_rid === undefined || _rid === null) { _avisa('Aquest alumne encara no és al full del grup.'); return; }
+
   _entrAlumne = studentId;
   _entrEditant = id || null;
   const l = _entrDe(studentId);
@@ -142,7 +204,7 @@ async function desaEntrevista() {
     });
     if (r && r.ok) {
       await carregaEntrevistes(true);
-      pintaEntrevistes(_entrAlumne);
+      _entrPintaSiToca(_entrAlumne);
       tancaEntrevista();
       showToast(r.compartit === false
         ? 'Apuntada ✓ (encara no s\'ha pogut compartir amb direcció)'
@@ -183,7 +245,7 @@ async function esborraEntrevista(studentId, id) {
   }
   if (r && r.ok) {
     await carregaEntrevistes(true);
-    pintaEntrevistes(studentId);
+    _entrPintaSiToca(studentId);
     showToast('Esborrada', 'success');
   } else {
     showToast((r && r.error) || 'No s\'ha pogut esborrar', 'error');

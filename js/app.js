@@ -2418,10 +2418,18 @@ function renderAlumnesList() {
     card.querySelectorAll('.alumne-card-btn')[0].addEventListener('click', e => { e.stopPropagation(); openPersonalDrawer(s.id); });
     card.querySelectorAll('.alumne-card-btn')[1].addEventListener('click', e => { e.stopPropagation(); openObsDrawer(s.id); });
 
-    /* El tercer botó, el d'avisar la família d'una incidència. És una eina
+    /* El tercer botó: apuntar una entrevista amb la família sense haver
+       d'obrir la fitxa. Només es pinta a qui tingui tutoria (veure
+       js/entrevistes.js). */
+    try { if (typeof afegeixBotoEntrevistes === 'function') afegeixBotoEntrevistes(card, s); } catch (e) {}
+
+    /* I l'últim, el d'avisar la família d'una incidència. És una eina
        opcional i neix apagada: a qui no la tingui, aquí no hi passa res.
        Dins d'un `try` perquè un error pintant un botó no pugui deixar la
-       llista d'alumnes a mitges. */
+       llista d'alumnes a mitges.
+       ⚠ Aquest va SEMPRE al final: els dos primers botons es lliguen per
+       posició (`[0]` i `[1]`, aquí sobre) i els que s'afegeixen per codi han
+       de quedar darrere. */
     try { if (window.Incidencies) Incidencies.afegeixBotoTargeta(card, s); } catch (e) {}
 
     _alFrag.appendChild(card);
