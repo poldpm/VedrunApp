@@ -160,6 +160,27 @@ function debounce(key, fn, ms = 1200) {
 })();
 
 let config        = JSON.parse(localStorage.getItem('vedruna_cfg') || '{}');
+/* ⚠ L'ADREÇA DEL SERVIDOR NO VIVIA ENLLOC MÉS QUE AQUÍ.
+
+   Fins a la v279, la `/exec` només existia dins del `localStorage` d'aquell
+   aparell concret: ni al repositori, ni al full, ni al compte de ningú. Per
+   això, cada mòbil nou, cada ordinador nou i cada esborrada de les dades del
+   navegador deixaven l'app en blanc i la mestra havia de demanar que li
+   tornessin a enganxar. Amb set es podia anar fent; amb vint-i-set, no.
+
+   Ara l'adreça pot venir de `js/config.local.js`, que és el fitxer propi de
+   cada app —viatja amb el seu repositori i el `sync` no el toca mai—, igual
+   que ja hi anava el token. Això vol dir: aparell nou, ja connectada.
+
+   ⚠ El que hi hagi desat MANA per sobre del fitxer, i és a posta: a qui ja
+   li funciona no se li ha de moure res, i si algun dia se li ha de posar una
+   adreça diferent des de Configuració, aquella ha de guanyar. El fitxer
+   només omple el buit. */
+try {
+  if (!config.scriptUrl && typeof window.APP_SCRIPT_URL === 'string' && window.APP_SCRIPT_URL.trim()) {
+    config.scriptUrl = window.APP_SCRIPT_URL.trim();
+  }
+} catch (e) { /* si no hi és, es demana a Configuració com s'ha fet sempre */ }
 /* Els documents que llegeix el servidor, tal com els va dir l ultim cop. Aixi
    els botons de «Aspectes generals grup» i «Llistat d alumnes» ja porten al
    lloc bo abans que arribi el bootstrap. */
@@ -1108,7 +1129,24 @@ function closeAddObsModal(forcat) {
 /* ============================================================
    CONFIG / REGISTRE MODALS
    ============================================================ */
-function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); _avisaTokenDExemple(); _cfgPintaBackend(); }
+function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); _avisaTokenDExemple(); _cfgPintaBackend(); _cfgPintaOrigenUrl(); }
+
+/* D'on ha sortit l'adreça que hi ha a la casella. Si ve del fitxer de l'app i
+   no l'ha enganxada ningú, val més dir-ho: si no, la mestra (o en Pol d'aquí
+   a un any) la veu escrita i no sap qui l'hi ha posat ni si la pot tocar. */
+function _cfgPintaOrigenUrl() {
+  const el = document.getElementById('cfgUrlOrigen');
+  if (!el) return;
+  let desada = '';
+  try { desada = (JSON.parse(localStorage.getItem('vedruna_cfg') || '{}').scriptUrl) || ''; } catch (e) {}
+  const delFitxer = !desada && !!(config.scriptUrl || '').trim();
+  el.style.display = delFitxer ? '' : 'none';
+  if (delFitxer) {
+    el.innerHTML = '✓ <strong>Ja ve posada amb l\'app.</strong> No l\'has de tocar: ' +
+                   'és així a tots els teus aparells i no es perd encara que ' +
+                   'esborris les dades del navegador.';
+  }
+}
 
 /* Quina versió porta el servidor, a Configuració. Dues línies i s'acaba la
    pregunta de sempre després d'enganxar la biblioteca: «hi ha arribat?». */
@@ -1332,6 +1370,21 @@ function saveConfig() {
   const url       = document.getElementById('cfgScriptUrl').value.trim();
   const geminiKey = document.getElementById('cfgGeminiKey')?.value.trim() || '';
   // Validació amb missatges específics
+  /* Buidar la casella i desar = tornar a la que ve amb l'app. Sense això, qui
+     n'havia enganxada una a mà no tenia cap manera de desfer-ho: la seva
+     manava per sempre i la del fitxer no tornava a entrar mai. */
+  if (!url && typeof window.APP_SCRIPT_URL === 'string' && window.APP_SCRIPT_URL.trim()) {
+    try {
+      const _c = JSON.parse(localStorage.getItem('vedruna_cfg') || '{}');
+      delete _c.scriptUrl;
+      localStorage.setItem('vedruna_cfg', JSON.stringify(_c));
+    } catch (e) {}
+    config.scriptUrl = window.APP_SCRIPT_URL.trim();
+    closeConfig();
+    showToast('Tornem a la connexió que ve amb l\'app', 'success');
+    loadAll();
+    return;
+  }
   if (!url) { showToast('Enganxa la URL del Web App', 'error'); return; }
   /* ⚠ AIXÒ ERA UN «CONTÉ script.google.com», I NO N'HI HA PROU.
 
@@ -1604,6 +1657,11 @@ async function _appsScriptGetFetch(params, _retry = true) {
     url.searchParams.set(k, v);
   });
   if (APP_TOKEN) url.searchParams.set('token', APP_TOKEN);
+  /* Qui truca. Només hi va a les apps que tinguin el login encès; a la resta
+     `loginToken()` no existeix o torna '' i l'adreça queda com sempre.
+     Són uns mil caràcters de més a l'adreça, que tant Google com els
+     navegadors admeten de sobres (el límit de debò són desenes de milers). */
+  try { if (typeof loginToken === 'function') { const _t = loginToken(); if (_t) url.searchParams.set('idToken', _t); } } catch (e) {}
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), 45000); // 45s timeout
   try {
@@ -1755,7 +1813,15 @@ async function _appsScriptPostFetch(body, _retry = true) {
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), 45000);
   try {
-    const bodyAmbToken = APP_TOKEN ? Object.assign({}, body, { token: APP_TOKEN }) : body;
+    let bodyAmbToken = APP_TOKEN ? Object.assign({}, body, { token: APP_TOKEN }) : body;
+    /* Qui truca (veure `_appsScriptGetFetch`). A les apps sense login encès
+       no s'hi afegeix res i el cos viatja exactament com sempre. */
+    try {
+      if (typeof loginToken === 'function') {
+        const _t = loginToken();
+        if (_t) bodyAmbToken = Object.assign({}, bodyAmbToken, { idToken: _t });
+      }
+    } catch (e) {}
     const res = await fetch(config.scriptUrl, { method: 'POST', body: JSON.stringify(bodyAmbToken), signal: ctrl.signal });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.json();
@@ -1922,6 +1988,17 @@ async function loadAll() {
        el logo. */
     _arrencadaEstat(_hiHaviaDades ? 'Posant-ho tot al dia…' : 'Carregant les teves dades…');
     const boot = await _peticio;
+
+    /* El servidor diu que qui truca no s'ha identificat, o que la seva
+       credencial ja ha caducat. Es prova de renovar-la en silenci —que és el
+       cas de cada dia: l'app oberta des d'ahir— i, si no es pot, s'ensenya
+       el botó d'entrar. No es tracta com un error de connexió, perquè no ho
+       és i l'avís confondria. */
+    if (boot && boot._loginError) {
+      try { if (typeof loginCaducat === 'function') loginCaducat(); } catch (e) {}
+      _arrencadaFora(true);
+      return;
+    }
 
     // Error d'autorització: el token no coincideix
     if (boot && boot._authError) {
@@ -4732,7 +4809,36 @@ document.addEventListener('DOMContentLoaded', () => {
      ni arribar a Configuració per connectar-la, i no hi havia cap sortida.
      Trobat al QA del 10/9/2026 obrint l'app com la veu una mestra el primer
      dia. Veure eines/comprova-arrencada.js. */
-  loadAll();
+  /* ⚠ LA POSADA EN MARXA TAMBÉ S'HA DE FER QUAN L'ADREÇA VE DEL FITXER.
+
+     Abans de la v279 l'adreça s'enganxava SEMPRE a mà, i la posada en marxa
+     (crear les pestanyes de grup que faltin, protegir i ajustar) penjava
+     d'aquell «Connectar». Ara, en una app acabada de crear, l'adreça ja ve de
+     `js/config.local.js` i aquell botó no es clica mai: sense això, el full
+     d'una mestra nova es quedaria sense pestanyes i ningú no se n'adonaria.
+
+     No es repeteix: porta la seva pròpia marca a l'aparell i només crea el
+     que no hi és. Si falla, calla i ja ho tornarà a provar. */
+  /* ⚠ PRIMER SABER QUI ÉS, I DESPRÉS DEMANAR LES DADES.
+
+     A les apps amb el login encès, `loginArrenca()` mira si aquest aparell ja
+     hi va entrar. Gairebé sempre sí, i llavors no ensenya res i això triga un
+     instant. El primer cop (o si la mestra ha sortit del seu compte de
+     Google) ensenya el botó i, quan entra, ja crida `loadAll()` ell mateix.
+
+     A les apps SENSE login encès torna de seguida i tot va com sempre: aquest
+     camí no canvia res per a ningú més. I si no hi ha xarxa tampoc no tanca
+     cap porta, perquè el que ja hi ha guardat s'ha de poder llegir. */
+  const _arrenca = () => {
+    if (config.scriptUrl) { _autoSetupInicial().catch(() => {}); }
+    loadAll();
+  };
+  if (typeof loginArrenca === 'function' && typeof loginCal === 'function' && loginCal()) {
+    loginArrenca().then(ok => { if (ok) _arrenca(); else _arrencadaFora(true); })
+                  .catch(() => _arrenca());
+  } else {
+    _arrenca();
+  }
 });
 
 /* ============================================================

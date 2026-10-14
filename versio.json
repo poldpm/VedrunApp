@@ -1,9 +1,9 @@
 {
-  "versio": "v278",
-  "data": "2026-10-09",
+  "versio": "v279",
+  "data": "2026-10-14",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A la pàgina d'inici, l'apartat «Avui» ara et diu, a dalt de tot, qui fa anys avui i el que hagis apuntat al dia d'avui al planning. Abans, allò que havies apuntat perquè no se't passés només es veia si obries el planning.",
-    "Els aniversaris surten sols de la data de naixement del full de l'escola, i també si cauen en cap de setmana, perquè el dilluns no se't passi. Si no hi ha ni aniversari ni nota, l'«Avui» comença directament amb l'horari, com sempre."
+    "Preparatius d'una cosa que es provarà primer en una sola app: que l'adreça del servidor vagi dins de l'app (i no s'hagi d'enganxar a cada aparell) i que es pugui entrar amb el compte de Google de l'escola.",
+    "A la teva app no canvia res: tot això neix apagat i només s'encén d'una en una."
   ]
 }

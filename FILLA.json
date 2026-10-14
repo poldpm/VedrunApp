@@ -1,13 +1,13 @@
 {
   "mestra": "Pol",
-  "mareVersio": "v278",
+  "mareVersio": "v279",
   "propis": [
     "manual.html",
     "manifest.webmanifest",
     "manifest.json"
   ],
   "rol": "tutor",
-  "sincronitzat": "2026-10-09",
+  "sincronitzat": "2026-10-14",
   "fitxersMare": [
     ".gitignore",
     "CLAUDE.md",
@@ -47,6 +47,7 @@
     "js/gwrite.js",
     "js/horari.js",
     "js/incidencies.js",
+    "js/login.js",
     "js/millores.js",
     "js/notes.js",
     "js/notescomp.js",

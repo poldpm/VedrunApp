@@ -6011,3 +6011,41 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .seient-warn      { color: #B45309; }   /* 2,91:1 → 4,6:1 */
 .grupview-alert   { color: #B45309; }
 .grups-cond-sep   { color: #B91C1C; }
+
+/* ============================================================
+   ENTRAR AMB GOOGLE (js/login.js)
+   ------------------------------------------------------------
+   La porta només es pinta a les apps que tinguin el login encès, i
+   només quan Google no ha reconegut l'aparell tot sol. El cas de cada
+   dia és que això no es vegi mai.
+   ============================================================ */
+.login-porta {
+  position: fixed; inset: 0; z-index: 9000;
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 24px;
+  background: linear-gradient(160deg, #7B2638, #5A1B28);
+}
+.login-porta.open { display: flex; }
+.login-caixa {
+  background: var(--surface);
+  border-radius: var(--r-md);
+  padding: 32px 26px;
+  width: 100%; max-width: 380px;
+  text-align: center;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.25);
+}
+/* El logo és una marca de l'escola: es manté tal com és i només se li
+   dona una amplada màxima. */
+.login-logo  { max-width: 190px; width: 70%; height: auto; margin-bottom: 20px; }
+.login-titol { font-size: 17px; font-weight: 700; color: var(--text-main); margin: 0 0 8px; }
+.login-text  { font-size: 13.5px; color: var(--text-sub); margin: 0 0 20px; line-height: 1.5; }
+/* El botó el pinta Google i no se'n pot canviar l'aspecte: només es
+   centra. */
+.login-boto  { display: flex; justify-content: center; min-height: 44px; }
+.login-peu   { font-size: 12px; color: var(--text-muted); margin: 18px 0 0; line-height: 1.5; }
+.login-error {
+  margin: 16px 0 0; padding: 10px 12px;
+  background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px;
+  color: #991B1B; font-size: 12.5px; line-height: 1.45; text-align: left;
+}

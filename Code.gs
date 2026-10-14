@@ -2294,6 +2294,102 @@ var FULLS_COMPARTITS = {
 function _appToken()  { return _prop('APP_TOKEN'); }
 function _geminiKey() { return _prop('GEMINI_KEY'); }
 
+/* ============================================================
+   ENTRAR AMB GOOGLE — qui truca, i no només amb quina clau
+   ------------------------------------------------------------
+   El token de l'app viatja al navegador de cada mestra: qui el tingui,
+   hi entra. No es pot arreglar amagant-lo —hi va igualment—; s'arregla
+   comprovant QUI truca. Aquí es mira que la credencial de Google que
+   envia l'app sigui de debò i que el correu sigui del domini de
+   l'escola.
+
+   ⚠ NEIX APAGAT, I ÉS A POSTA. Això és la biblioteca: hi són totes les
+   mestres alhora. Si s'encengués des d'aquí, el dia que fallés
+   es quedarien fora totes de cop. S'encén PROJECTE PER PROJECTE,
+   posant dues propietats a les Script Properties de la seva mestra:
+
+     LOGIN_DOMINI     escorialvic.cat
+     LOGIN_CLIENT_ID  <el client de Google de l'app>
+
+   Sense `LOGIN_DOMINI`, tot això no s'executa mai i el servidor es
+   comporta exactament com abans. I per tornar enrere n'hi ha prou amb
+   esborrar aquella propietat: ni tocar codi, ni desplegar res.
+   ============================================================ */
+function _loginDomini()   { return (_prop('LOGIN_DOMINI') || '').trim(); }
+function _loginClientId() { return (_prop('LOGIN_CLIENT_ID') || '').trim(); }
+
+/* Comprova la credencial amb Google i torna de qui és.
+   { ok:true, email:'…' }  o  { ok:false, error:'…' } */
+function _loginComprova(idToken, domini, clientId) {
+  if (!idToken) return { ok:false, error:'Cal entrar amb el compte de l\'escola.' };
+
+  /* La comprovació va a Google i triga. Es guarda una estona per no fer-la a
+     cada clic: la mateixa credencial dura una hora i, mentre duri, el que ha
+     dit Google no canvia. Es guarda la resposta sota una EMPREMTA del token,
+     no el token: al cache hi ha coses que no cal que hi siguin senceres. */
+  var empremta = '';
+  var cache = null;
+  try {
+    empremta = 'login_' + Utilities.base64Encode(
+      Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken)).slice(0, 32);
+    cache = CacheService.getScriptCache();
+    var guardat = cache.get(empremta);
+    if (guardat) return JSON.parse(guardat);
+  } catch (e) { cache = null; }
+
+  var dades = null;
+  try {
+    var r = UrlFetchApp.fetch(
+      'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken),
+      { muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) {
+      /* ⚠ Això NO es guarda al cache. Un «no» pot ser perquè la credencial ha
+         caducat fa un segon, i l'app en demanarà una de nova tot seguit: si es
+         guardés, la nova es trobaria el no d'abans. */
+      return { ok:false, error:'La sessió ha caducat. Torna a entrar amb Google.', _caducat:true };
+    }
+    dades = JSON.parse(r.getContentText());
+  } catch (e) {
+    /* No s'ha pogut parlar amb Google. NO es deixa passar —seria la manera
+       més fàcil de saltar-s'ho: només cal fer caure aquella crida— però es
+       diu que és cosa del servidor i no d'ella. */
+    return { ok:false, error:'Ara mateix no es pot comprovar qui ets. Torna-ho a provar d\'aquí a un moment.' };
+  }
+
+  var emissorOk = dades.iss === 'accounts.google.com' || dades.iss === 'https://accounts.google.com';
+  if (!emissorOk) return { ok:false, error:'Credencial no vàlida.' };
+  if (clientId && dades.aud !== clientId) {
+    return { ok:false, error:'Aquesta credencial no és d\'aquesta app.' };
+  }
+  if (String(dades.email_verified) !== 'true') {
+    return { ok:false, error:'Aquest correu de Google no està verificat.' };
+  }
+  if (Number(dades.exp || 0) * 1000 < Date.now()) {
+    return { ok:false, error:'La sessió ha caducat. Torna a entrar amb Google.', _caducat:true };
+  }
+  /* El domini. Es miren les dues coses: el camp `hd`, que Google només posa
+     als comptes de Workspace, I el final del correu. Amb una de sola no n'hi
+     hauria prou: un Gmail pot tenir el correu que vulgui a la part de davant,
+     però mai no tindrà el `hd` de l'escola. */
+  var correu = String(dades.email || '').toLowerCase();
+  if (domini) {
+    var dom = domini.toLowerCase();
+    if (String(dades.hd || '').toLowerCase() !== dom || correu.slice(-(dom.length + 1)) !== '@' + dom) {
+      return { ok:false, error:'A aquesta app només s\'hi pot entrar amb el compte @' + domini + '.' };
+    }
+  }
+
+  var bo = { ok:true, email: correu };
+  try {
+    if (cache) {
+      /* Fins que caduqui la credencial, i mai més de cinquanta minuts. */
+      var queda = Math.floor(Number(dades.exp || 0) - (Date.now() / 1000));
+      cache.put(empremta, JSON.stringify(bo), Math.max(60, Math.min(queda, 3000)));
+    }
+  } catch (e) {}
+  return bo;
+}
+
 const TABS = { alumnes: 'Alumnes', registre: "Registres d'aula" };
 
 /* Quina pestanya de registres toca.
@@ -2774,6 +2870,26 @@ function handleRequest(e) {
       return ContentService
         .createTextOutput(JSON.stringify({ ok:false, error:'No autoritzat', _authError:true }))
         .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    /* ── QUI TRUCA (veure `_loginComprova`) ────────────────────────────
+       Només a les mestres que tinguin `LOGIN_DOMINI` a les seves Script
+       Properties. A la resta, aquestes quatre línies no fan res i el
+       servidor es comporta exactament com sempre.
+
+       Va DESPRÉS del token i no abans: així, qui ni tan sols té el token
+       no fa gastar una crida a Google. I va DESPRÉS de les dues accions
+       de les famílies, que són més amunt, perquè qui reserva hora no té
+       ni compte de l'escola ni app. */
+    var _loginDom = _loginDomini();
+    if (_loginDom) {
+      var _qui = _loginComprova((body && body.idToken) || p.idToken || '',
+                                _loginDom, _loginClientId());
+      if (!_qui.ok) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ ok:false, error:_qui.error, _loginError:true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
     }
 
 

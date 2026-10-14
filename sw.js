@@ -1,8 +1,8 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v278';
+const CACHE = 'vedruna-v279';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
-  './js/espera.js', './js/pdfhorari.js', './js/millores.js', './js/rol.js', './js/config.local.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js',
+  './js/espera.js', './js/pdfhorari.js', './js/millores.js', './js/rol.js', './js/config.local.js', './js/login.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js',
   './manifest.webmanifest', './img/favicon.svg', './img/icon-192.png', './img/icon-512.png',
   './img/icon-192-maskable.png', './img/icon-512-maskable.png', './img/icon.png',
   './img/favicon.ico', './img/favicon-32.png', './img/favicon-16.png', './img/apple-touch-icon.png',
@@ -51,6 +51,13 @@ self.addEventListener('fetch', e => {
      primera, o sigui que amb l'altra les respostes del servidor —amb els noms
      dels alumnes, les observacions i les notes a dins— s'anaven guardant al
      cache del navegador i s'hi quedaven per sempre. */
+  /* ⚠ I el d'iniciar sessió tampoc no hi era (v279). El codi de Google que
+     fa el botó «Entra amb Google» viu a accounts.google.com, que NO encaixa
+     amb «script.google.com» de la línia de sota. Sense això, el service
+     worker se'l mirava com si fos un fitxer de l'app i se'n guardava una
+     còpia opaca: el dia que Google el canviï, l'app es quedaria amb el vell
+     i el botó deixaria d'anar sense que ningú sàpiga per què. */
+  if (url.includes('accounts.google.com') || url.includes('gstatic.com')) return;
   if (url.includes('script.google.com') || url.includes('googleusercontent.com') ||
       url.includes('googleapis.com') || url.includes('generativelanguage')) return;
   // versio.json ha de venir SEMPRE del servidor: es el que detecta si el
