@@ -706,6 +706,59 @@ function saveRegistreDocents(ss, items, data, base) {
   return { ok: true, items: items.length, ts: _ts };
 }
 
+/* ============================================================
+   L'HORARI DEL CLAUSTRE
+   ------------------------------------------------------------
+   Qui fa classe a cada hora, de tot el claustre. Surt del PDF
+   d'horaris que passa l'escola, que direcció adjunta un cop
+   (el llegeix el NAVEGADOR, amb js/pdfhorari.js; aquí només
+   s'hi desa el resultat).
+
+   Va al full "Grups" COMPARTIT, com el registre de docents:
+   l'adjunta un director i el veuen tots, sense tornar-ho a fer.
+
+   ⚠ Això és la PLANTILLA del curs, no el dia a dia: no sap res
+   de substitucions ni de sortides. Qui ho llegeixi ho ha de dir.
+
+   ⚠ Qualsevol mestre que obri aquell full de càlcul ho pot
+   llegir. Són els horaris que l'escola ja reparteix a tothom,
+   o sigui que no hi ha res que no sàpiga ja (mateixa nota que
+   al registre de docents).
+   ============================================================ */
+
+var HORCLA_CLAU = 'horari_claustre';
+
+function loadHorariClaustre(ss) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  var r = _jsonDeCela_(gss, '_AppData', HORCLA_CLAU);
+  /* Si hi ha un horari desat i no es pot llegir, s'ha de DIR: tornar-ho
+     buit faria pensar que encara no se n'ha adjuntat cap, i la primera
+     desada se l'enduria (la mateixa pedra del registre de docents). */
+  if (r.malament) return { ok: false, error: 'L\'horari del claustre que hi ha desat no es pot llegir (' +
+    r.mida + ' caràcters). No n\'adjuntis cap altre fins que en Pol ho hagi mirat.' };
+  var o = (r.hi && r.dades) ? r.dades : null;
+  if (!o) return { ok: true, hi: false, mestres: [] };
+  return { ok: true, hi: true, mestres: o.mestres || [], curs: o.curs || '',
+           actualitzat: o.actualitzat || '', per: o.per || '' };
+}
+
+function saveHorariClaustre(ss, mestres, curs, per) {
+  var gss = getGrupsSpreadsheet(ss);
+  if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
+  if (typeof mestres === 'string') { try { mestres = JSON.parse(mestres); } catch (e) { mestres = null; } }
+  if (Object.prototype.toString.call(mestres) !== '[object Array]' || !mestres.length) {
+    return { ok: false, error: 'No m\'ha arribat cap horari per desar.' };
+  }
+  sheetSetJSON(gss, '_AppData', HORCLA_CLAU, JSON.stringify({
+    mestres: mestres,
+    curs: curs || '',
+    per: per || '',
+    actualitzat: Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm')
+  }));
+  return { ok: true, mestres: mestres.length };
+}
+
 /* ------------------------------------------------------------
    EL RECORDATORI DEL DILLUNS
    ------------------------------------------------------------
@@ -2979,6 +3032,8 @@ function handleRequest(e) {
       case 'resumEntrevistes':   result = resumEntrevistes(ss); break;
       case 'loadRegistreDocents': result = loadRegistreDocents(ss); break;
       case 'saveRegistreDocents': result = saveRegistreDocents(ss, body && body.items, body && body.data, body && body.base); break;
+      case 'loadHorariClaustre': result = loadHorariClaustre(ss); break;
+      case 'saveHorariClaustre': result = saveHorariClaustre(ss, body && body.mestres, body && body.curs, body && body.per); break;
       case 'getNotesCompartides':  result = getNotesCompartides(ss, (body&&body.grup)||p.grup); break;
       case 'loadCompartirNotes':   result = loadCompartirNotes(ss, (body&&body.grup)||p.grup, (body&&body.matKey)||p.matKey); break;
       case 'saveCompartirNotes':   result = saveCompartirNotes(ss, body.grup, body.matKey, body.nomAssig, body.nomMestra, !!body.compartir); break;
@@ -6180,7 +6235,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v268';
+var BACKEND_VERSIO = 'v280';
 
 var MAX_CELA = 45000;
 

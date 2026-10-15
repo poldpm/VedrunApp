@@ -179,9 +179,15 @@ const DOCENTS_EINES = [
     desc: 'Quantes entrevistes ha fet cada tutor amb les famílies, i qui no en té cap.',
     icona: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-2-2"/>',
   },
+  {
+    clau: 'onson',
+    titol: 'On és cada mestre',
+    desc: 'Busca un mestre i mira què està fent ara, i qui té permanència.',
+    icona: '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>',
+  },
 ];
 
-const _DOCENTS_CONT = { hub: 'docentsHub', llistat: 'docentsLlistat', coordinacio: 'docentsCoordinacio', registres: 'docentsRegistres', entrevistes: 'docentsEntrevistes' };
+const _DOCENTS_CONT = { hub: 'docentsHub', llistat: 'docentsLlistat', coordinacio: 'docentsCoordinacio', registres: 'docentsRegistres', entrevistes: 'docentsEntrevistes', onson: 'docentsOnSon' };
 let _docentsVistaActual = 'hub';
 
 function initDocents() {
@@ -207,6 +213,7 @@ function docentsVista(vista, _fromPop) {
   if (vista === 'coordinacio' && typeof initCoordinacio === 'function') initCoordinacio();
   if (vista === 'registres' && typeof initRegistreDocents === 'function') initRegistreDocents();
   if (vista === 'entrevistes' && typeof initSeguimentEntrevistes === 'function') initSeguimentEntrevistes();
+  if (vista === 'onson' && typeof initHorariClaustre === 'function') initHorariClaustre();
 }
 
 function _docentsRenderHub() {

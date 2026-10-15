@@ -1,8 +1,8 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v279';
+const CACHE = 'vedruna-v280';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
-  './js/espera.js', './js/pdfhorari.js', './js/millores.js', './js/rol.js', './js/config.local.js', './js/login.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js',
+  './js/espera.js', './js/pdfhorari.js', './js/millores.js', './js/rol.js', './js/config.local.js', './js/login.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/horariclaustre.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js',
   './manifest.webmanifest', './img/favicon.svg', './img/icon-192.png', './img/icon-512.png',
   './img/icon-192-maskable.png', './img/icon-512-maskable.png', './img/icon.png',
   './img/favicon.ico', './img/favicon-32.png', './img/favicon-16.png', './img/apple-touch-icon.png',

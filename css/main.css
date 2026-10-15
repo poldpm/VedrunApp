@@ -3970,6 +3970,9 @@ body {
   font-size: 13px; line-height: 1.55; color: var(--text-sub);
 }
 .callout-app strong { color: var(--garnet-deep); }
+/* El d'avís: el mateix, però amb la ratlla de l'esquerra en groc, perquè
+   es vegi que no és una explicació sinó una cosa a tenir en compte. */
+.callout-app.warn { border-left-color: #C9901A; background: #FDF9F0; }
 
 /* ============================================================
    SEGUIMENT D'ENTREVISTES (direcció)
@@ -4018,6 +4021,76 @@ body {
 }
 .segentr-cap { color: #B3251A; font-weight: 600; }
 .segentr-nodates { color: var(--text-sub); font-size: 11px; font-style: italic; }
+
+/* ------------------------------------------------------------
+   ON ÉS CADA MESTRE
+   El verd és l'únic color que no és de la casa que s'hi fa servir,
+   i és a posta: «permanència» vol dir «hi pots anar», i això ha de
+   saltar a la vista entre tota la resta de granat.
+   ------------------------------------------------------------ */
+.horcla-quan { margin: 0 0 14px; }
+.horcla-quan-camps { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.horcla-camp { display: flex; flex-direction: column; gap: 4px; }
+.horcla-camp-nom { font-size: 11.5px; font-weight: 600; color: var(--text-sub); }
+.horcla-camp .modal-input { min-width: 150px; }
+.horcla-ara { align-self: flex-end; }
+.horcla-quan-diu { margin: 8px 0 0; font-size: 13px; color: var(--text-sub); }
+.horcla-quan-diu strong { color: var(--garnet-deep); }
+
+.horcla-resultats { display: grid; gap: 8px; margin: 14px 0; }
+.horcla-fitxa { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
+.horcla-fitxa.horcla-permanencia { border-color: #BBD9BE; background: #F4FAF4; }
+.horcla-fitxa.es-obert { border-color: var(--border-strong); }
+.horcla-fitxa-cap {
+  display: grid; gap: 2px; width: 100%; padding: 11px 13px;
+  background: none; border: 0; text-align: left; cursor: pointer; font: inherit;
+}
+.horcla-fitxa-cap:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: -3px; }
+.horcla-nom { font-size: 14.5px; font-weight: 700; color: var(--garnet-deep); }
+.horcla-tut { font-size: 11.5px; color: var(--text-sub); }
+.horcla-ara-diu { font-size: 13.5px; color: var(--text-main); margin-top: 3px; }
+.horcla-lliure { color: #1F6B2C; }
+.horcla-nores { color: var(--text-sub); font-style: italic; }
+.horcla-grup {
+  padding: 1px 6px; border-radius: 999px; background: var(--garnet-soft);
+  color: var(--garnet-text); font-size: 11.5px; font-weight: 600;
+}
+
+.horcla-dia { padding: 0 13px 12px; border-top: 1px solid var(--border); }
+.horcla-dia-tit { margin: 10px 0 6px; font-size: 11.5px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: .04em; }
+.horcla-taula { width: 100%; border-collapse: collapse; font-size: 13px; }
+.horcla-taula th {
+  text-align: left; font-weight: 600; color: var(--text-sub); white-space: nowrap;
+  padding: 4px 10px 4px 0; width: 1%; font-variant-numeric: tabular-nums;
+}
+.horcla-taula td { padding: 4px 0; }
+.horcla-taula tr.es-ara th, .horcla-taula tr.es-ara td { background: var(--garnet-soft); font-weight: 700; }
+.horcla-taula tr.es-ara th { border-radius: var(--r-sm) 0 0 var(--r-sm); padding-left: 7px; }
+.horcla-taula tr.es-ara td { border-radius: 0 var(--r-sm) var(--r-sm) 0; padding-right: 7px; }
+
+.horcla-perm { margin: 18px 0 14px; }
+.horcla-perm-cap { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-bottom: 9px; }
+.horcla-perm-tit { margin: 0; font-size: 16px; font-weight: 700; color: var(--garnet-deep); }
+.horcla-perm-sub { font-size: 12px; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.horcla-perm-llista {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 7px;
+}
+.horcla-perm-llista button {
+  display: grid; gap: 1px; width: 100%; padding: 8px 11px; cursor: pointer; font: inherit; text-align: left;
+  border: 1px solid #BBD9BE; border-radius: var(--r-sm); background: #F4FAF4;
+}
+.horcla-perm-llista button:hover { border-color: #8FBF96; }
+.horcla-perm-llista button:focus-visible { outline: 3px solid var(--garnet-deep); outline-offset: 2px; }
+.horcla-perm-nom { font-weight: 600; color: var(--text-main); font-size: 13.5px; }
+.horcla-perm-rol { font-size: 11.5px; color: var(--text-sub); }
+
+.horcla-previ { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; max-height: 210px; overflow: auto; }
+.horcla-previ-un {
+  padding: 2px 8px; border-radius: 999px; background: var(--surface-alt);
+  border: 1px solid var(--border); font-size: 11.5px; color: var(--text-main);
+}
+.horcla-previ-un em { color: var(--text-sub); font-style: normal; }
 
 /* Al registre de docents, sota el nom hi va el grup (o què fa), com a la
    llista d'alumnes hi va l'avatar: ajuda a trobar la fila amb 40 mestres. */

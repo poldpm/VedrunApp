@@ -1,9 +1,10 @@
 {
-  "versio": "v279",
-  "data": "2026-10-14",
+  "versio": "v280",
+  "data": "2026-10-15",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Preparatius d'una cosa que es provarà primer en una sola app: que l'adreça del servidor vagi dins de l'app (i no s'hagi d'enganxar a cada aparell) i que es pugui entrar amb el compte de Google de l'escola.",
-    "A la teva app no canvia res: tot això neix apagat i només s'encén d'una en una."
+    "Direcció: hi ha una eina nova a Docents, «On és cada mestre». Hi escrius un nom i et diu quina classe està fent i a quin grup, o si té permanència i el pots anar a trobar. A sota hi ha la llista de qui té permanència en aquella hora. Comença per l'hora d'ara mateix, i també pots mirar una altra hora o un altre dia del calendari. Surt del PDF d'horaris de l'escola, que s'adjunta un sol cop.",
+    "Quan omples el teu horari des del PDF de l'escola, una classe de dues hores amb el nom llarg ja no et surt partida: abans, a les 14:50 hi deia «Coneixement del» i a les 15:50, «medi».",
+    "Si al PDF el teu nom va enganxat al títol de la pàgina, l'app ja el troba igualment: abans aquella pàgina sortia com a «(sense nom)» i no t'hi sabies trobar."
   ]
 }

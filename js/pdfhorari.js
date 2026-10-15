@@ -167,6 +167,31 @@ function _pdfhTrossos(contingut, mapa) {
 
 /* Aquesta part no toca cap PDF: rep una llista de {x, y, text} i en treu
    l'horari. Es pot provar sola, i és el que fa el banc de proves. */
+/* La tirada més llarga de paraules en MAJÚSCULES que hi hagi dins d'un
+   text. Torna '' si no n'hi ha cap de dues paraules o més. */
+function _pdfhMajuscules(s) {
+  const m = String(s || '').match(/[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ'·-]*(?:\s+[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ'·-]*)+/g);
+  if (!m) return '';
+  let millor = '';
+  m.forEach(function (x) { x = x.trim(); if (x.length > millor.length) millor = x; });
+  return millor;
+}
+
+/* El nom de qui és l'horari: el de més amunt de la pàgina (el nom va a la
+   capçalera, per sobre dels dies i de les hores). */
+function _pdfhNom(trossos) {
+  const cands = [];
+  trossos.forEach(function (t) {
+    const s = _pdfhMajuscules(t.txt);
+    if (s.length < 8) return;
+    if (/^(DILLUNS|DIMARTS|DIMECRES|DIJOUS|DIVENDRES|ESBARJO|DINAR|PATI)\b/.test(s)) return;
+    cands.push({ y: t.y, txt: s });
+  });
+  if (!cands.length) return '';
+  cands.sort(function (a, b) { return a.y - b.y; });
+  return cands[0].txt;
+}
+
 function pdfHorariGraella(trossos) {
   /* Columnes: on comença el nom de cada dia. */
   const colX = {};
@@ -238,11 +263,15 @@ function pdfHorariGraella(trossos) {
     cel[k] = v;
   });
 
-  /* Qui és: el nom va en majúscules, i la tutoria comença per "Tutoria". */
-  const nom = (trossos.filter(function (t) {
-    const s = t.txt.trim();
-    return /^[A-ZÀ-ÖØ-Þ'· -]{8,}$/.test(s) && s.split(/\s+/).length >= 2 && !/^(DILLUNS|ESBARJO|DINAR)/.test(s);
-  })[0] || {}).txt || '';
+  /* Qui és: el nom va en majúscules, i la tutoria comença per "Tutoria".
+
+     ⚠ EL NOM NO SEMPRE VE SOL AL SEU TROS (vist als 36 horaris del 26-27).
+     A la pàgina de la Núria Molas el títol de dalt hi va enganxat
+     —"PrimLriaNÚRIA MOLAS VILLANUEVA"—, i com que abans es demanava que
+     TOT el tros fos en majúscules, aquella pàgina es quedava sense nom:
+     a la llista de qui triar hi sortia "(sense nom)" i ella no s'hi
+     trobava. Ara se'n treu la tirada en majúscules de DINS del tros. */
+  const nom = _pdfhNom(trossos);
   const tut = (trossos.filter(function (t) { return /^Tutoria\b/.test(t.txt.trim()); })[0] || {}).txt || '';
 
   return { nom: nom.trim(), tutoria: tut.trim(), cel: cel };
@@ -301,5 +330,45 @@ async function pdfHorariLlegeix(arrayBuffer) {
     }
   }
   if (!pagines.length) throw new Error('No he trobat cap horari dins d\'aquest PDF.');
+  _pdfhAjuntaPartides(pagines);
   return { pagines: pagines };
+}
+
+/* ---------- 7) Les classes de dues hores que tornaven partides ----------
+
+   ⚠ TROBAT AMB ELS 36 HORARIS DEL 26-27. Una classe que ocupa DUES hores
+   i que té el nom llarg porta el text repartit entre les dues files, i
+   com que aquí les files manen, en sortien dues caselles a mitges: a la
+   Laura Vila, dilluns, "Coneixement del" a les 14:50 i "medi" a les
+   15:50. A la graella de la mestra hi sortia això mateix, i a direcció
+   hauria dit que a les 15:50 fa una assignatura que es diu "medi".
+
+   Com es reconeix sense endevinar res: si les dues meitats, juntes, fan
+   un nom que en alguna ALTRA casella del mateix PDF hi surt sencer, és
+   la mateixa classe. "Coneixement del medi" hi surt 51 cops sencer, i
+   les dues meitats, 6 cops cadascuna —exactament les partides—. Si no
+   hi ha coincidència, no es toca res.
+
+   La classe ocupa les DUES hores, o sigui que el nom sencer va a totes
+   dues caselles: qui la busqui a les 15:50 també l'ha de trobar. */
+function _pdfhAjuntaPartides(pagines) {
+  const sencers = {};
+  pagines.forEach(function (p) {
+    Object.keys(p.cel).forEach(function (k) { sencers[p.cel[k]] = (sencers[p.cel[k]] || 0) + 1; });
+  });
+
+  const fids = PDFH_HORES.map(function (h) { return h[1]; });
+  pagines.forEach(function (p) {
+    PDFH_IDS.forEach(function (dia) {
+      for (let n = 0; n < fids.length - 1; n++) {
+        const ka = dia + '_' + fids[n], kb = dia + '_' + fids[n + 1];
+        const a = p.cel[ka], b = p.cel[kb];
+        if (!a || !b) continue;
+        const junt = (a + ' ' + b).replace(/\s+/g, ' ').trim();
+        if (!sencers[junt]) continue;
+        p.cel[ka] = junt;
+        p.cel[kb] = junt;
+      }
+    });
+  });
 }

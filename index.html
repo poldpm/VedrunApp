@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v279">
+  <link rel="stylesheet" href="css/main.css?v=v280">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -489,6 +489,35 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="tancaPdfHorari()">Cancel·lar</button>
           <button class="btn btn-primary" id="pdfHorariBtn" onclick="_pdfHorariAplica()" disabled>Omplir l'horari</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: adjuntar el PDF d'horaris de tot el claustre (direcció) -->
+    <div class="modal-overlay" id="horClaPdfOverlay" onclick="if(event.target===this)tancaHorClaPdf()">
+      <div class="modal" style="width:min(780px, calc(100vw - 32px))">
+        <div class="modal-header">
+          <div>
+            <div class="modal-header-title">L'horari de tot el claustre</div>
+            <div class="modal-header-sub">Des del PDF que passa l'escola</div>
+          </div>
+          <button class="modal-close" aria-label="Tancar" title="Tancar" onclick="tancaHorClaPdf()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <label class="modal-label" for="horClaFitxer">El PDF dels horaris</label>
+            <input class="form-input" type="file" id="horClaFitxer" accept="application/pdf,.pdf" onchange="_horClaLlegeixPdf(this.files[0])">
+            <div class="modal-hint">El d'horaris dels mestres, el que porta una pàgina per mestra. El llegeix aquest ordinador; el que es desa és el resultat, i el veurà tot l'equip directiu.</div>
+          </div>
+          <div class="modal-field">
+            <label class="modal-label" for="horClaCurs">De quin curs és (opcional)</label>
+            <input class="modal-input" type="text" id="horClaCurs" placeholder="Ex: 26-27" autocomplete="off">
+          </div>
+          <div id="horClaPdfPrevi"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="tancaHorClaPdf()">Cancel·lar</button>
+          <button class="btn btn-primary" id="horClaPdfBtn" onclick="horClaDesaPdf()" disabled>Desar l'horari</button>
         </div>
       </div>
     </div>
@@ -1559,6 +1588,39 @@ Català, Matemàtiques, Anglès, Medi, Català
           <strong>Què hi veus i què no.</strong> Aquí hi arriba <strong>quantes</strong> entrevistes ha fet cada tutor i <strong>quan</strong>. El que el tutor hagi apuntat de com va anar l'entrevista es queda al seu full i no surt d'allà.
         </div>
       </div>
+
+      <!-- Eina: on és cada mestre (què fa ara, i qui té permanència) -->
+      <div id="docentsOnSon" style="display:none">
+        <button class="btn btn-ghost doc-tornar" type="button" onclick="docentsVista('hub')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Docents
+        </button>
+        <section class="hero">
+          <p class="hero-eyebrow">Claustre de primària</p>
+          <h1 class="hero-title">On és cada mestre</h1>
+          <p class="hero-desc">Busca un mestre i et dirà quina classe està fent i a quin grup, o si té permanència i el pots anar a trobar. A sota, qui té permanència en aquesta hora.</p>
+        </section>
+        <div class="registre-toolbar">
+          <button class="btn btn-primary" type="button" onclick="horClaActualitza()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Actualitzar
+          </button>
+          <button class="btn btn-ghost" type="button" onclick="horClaObrePdf()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Adjuntar el PDF
+          </button>
+          <span class="esm-estat" id="horClaEstat" role="status" aria-live="polite"></span>
+        </div>
+        <div id="horClaQuan"></div>
+        <div class="doc-barra">
+          <label class="visually-hidden" for="horClaCercaInput">Cercar un mestre</label>
+          <input class="modal-input doc-cerca" id="horClaCercaInput" type="search" autocomplete="off"
+                 placeholder="Escriu el nom d'un mestre…" oninput="horClaCerca(this.value)">
+        </div>
+        <div id="horClaResultats"></div>
+        <div id="horClaPermanencies"></div>
+        <div id="horClaPeu"></div>
+      </div>
     </div>
 
     <!-- PÀGINA: FITXA ALUMNE -->
@@ -2353,40 +2415,41 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v279"></script>
-  <script defer src="js/pdfhorari.js?v=v279"></script>
-  <script defer src="js/millores.js?v=v279"></script>
-  <script defer src="js/rol.js?v=v279"></script>
-  <script defer src="js/config.local.js?v=v279"></script>
+  <script defer src="js/espera.js?v=v280"></script>
+  <script defer src="js/pdfhorari.js?v=v280"></script>
+  <script defer src="js/millores.js?v=v280"></script>
+  <script defer src="js/rol.js?v=v280"></script>
+  <script defer src="js/config.local.js?v=v280"></script>
   <!-- Entrar amb Google. Va DESPRÉS del config.local.js (d'allà en treu si
        aquesta app el té encès) i ABANS de l'app, que el crida en arrencar.
        A qui no el tingui encès, aquest fitxer no fa res de res. -->
-  <script defer src="js/login.js?v=v279"></script>
-  <script defer src="js/app.js?v=v279"></script>
-  <script defer src="js/notes.js?v=v279"></script>
-  <script defer src="js/seients.js?v=v279"></script>
-  <script defer src="js/perfil.js?v=v279"></script>
-  <script defer src="js/grupview.js?v=v279"></script>
-  <script defer src="js/postits.js?v=v279"></script>
-  <script defer src="js/horari.js?v=v279"></script>
-  <script defer src="js/gwrite.js?v=v279"></script>
-  <script defer src="js/rubriques.js?v=v279"></script>
-  <script defer src="js/rubaval.js?v=v279"></script>
-  <script defer src="js/rubaval-ui.js?v=v279"></script>
-  <script defer src="js/docents.js?v=v279"></script>
-  <script defer src="js/coordinacio.js?v=v279"></script>
-  <script defer src="js/regdocents.js?v=v279"></script>
-  <script defer src="js/segentrevistes.js?v=v279"></script>
-  <script defer src="js/entrevistes.js?v=v279"></script>
-  <script defer src="js/incidencies.js?v=v279"></script>
-  <script defer src="js/notescomp.js?v=v279"></script>
-  <script defer src="js/reunions.js?v=v279"></script>
-  <script defer src="js/versio.js?v=v279"></script>
+  <script defer src="js/login.js?v=v280"></script>
+  <script defer src="js/app.js?v=v280"></script>
+  <script defer src="js/notes.js?v=v280"></script>
+  <script defer src="js/seients.js?v=v280"></script>
+  <script defer src="js/perfil.js?v=v280"></script>
+  <script defer src="js/grupview.js?v=v280"></script>
+  <script defer src="js/postits.js?v=v280"></script>
+  <script defer src="js/horari.js?v=v280"></script>
+  <script defer src="js/gwrite.js?v=v280"></script>
+  <script defer src="js/rubriques.js?v=v280"></script>
+  <script defer src="js/rubaval.js?v=v280"></script>
+  <script defer src="js/rubaval-ui.js?v=v280"></script>
+  <script defer src="js/docents.js?v=v280"></script>
+  <script defer src="js/coordinacio.js?v=v280"></script>
+  <script defer src="js/regdocents.js?v=v280"></script>
+  <script defer src="js/segentrevistes.js?v=v280"></script>
+  <script defer src="js/horariclaustre.js?v=v280"></script>
+  <script defer src="js/entrevistes.js?v=v280"></script>
+  <script defer src="js/incidencies.js?v=v280"></script>
+  <script defer src="js/notescomp.js?v=v280"></script>
+  <script defer src="js/reunions.js?v=v280"></script>
+  <script defer src="js/versio.js?v=v280"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v279"></script>
+  <script defer src="js/personal.js?v=v280"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
