@@ -191,10 +191,11 @@ omplir el perfil i l'horari.
    I un altre cop sense `--prova`. El `--login` és el mateix per a tothom
    (totes les apps viuen al mateix origen de GitHub Pages).
 
-   ⚠ **El `--login` només s'hi posa si el `LOGIN_DOMINI` ja és a la
-   biblioteca.** Si no, la mestra entraria amb Google per no res i, el dia
-   que Google no li anés, es trobaria amb una porta que no protegeix res i
-   que no pot passar.
+   ⚠ **El `--login` ara és obligatori.** Des del 15/10/2026 el servidor
+   exigeix entrar amb Google a tothom, o sigui que una app sense ell naixeria
+   amb la mestra tancada a fora. **L'eina es para si te'n descuides** i et diu
+   què hi falta, abans de crear res. (Hi ha `--sense-login` per si algun dia
+   cal, però avui no cal mai.)
 
    El `--exec` l'escriu al seu `js/config.local.js`, que viatja amb el seu
    repositori i el sync no toca mai. **Això és el que fa que l'app neixi
@@ -340,6 +341,10 @@ cap, i per tant **es queda fora a l'instant**.
 **Per provar-ho amb una sola mestra:** el `LOGIN_CLIENT_ID` a la biblioteca
 (sol no fa res) i el `LOGIN_DOMINI` **al seu pont**, que mana per sobre.
 Quan vagi bé, es treu d'allà i es posa a la biblioteca.
+
+**Com saber que cap app s'ha quedat fora:** `node eines/estat-apps.js` marca
+amb **«SENSE LOGIN»** qualsevol app que no l'enviï. Amb el `LOGIN_DOMINI`
+posat, aquella mestra no pot entrar a la seva pròpia app.
 
 **Per apagar-ho:** esborra `LOGIN_DOMINI` de la biblioteca i torna a ser com
 abans, a l'instant, sense desplegar res. I per deixar fora del login **una
