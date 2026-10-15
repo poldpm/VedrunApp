@@ -1,6 +1,6 @@
 {
   "mestra": "Pol",
-  "mareVersio": "v280",
+  "mareVersio": "v281",
   "propis": [
     "manual.html",
     "manifest.webmanifest",
@@ -46,6 +46,7 @@
     "js/grupview.js",
     "js/gwrite.js",
     "js/horari.js",
+    "js/horariclaustre-dades.js",
     "js/horariclaustre.js",
     "js/incidencies.js",
     "js/login.js",

@@ -73,6 +73,11 @@ let _horClaPagines  = [];     // les pàgines del PDF que s'està adjuntant
    ============================================================ */
 async function initHorariClaustre() {
   if (typeof _rolDireccio === 'function' && !_rolDireccio()) return;
+  /* Els horaris que venen amb l'app, abans de res: així la pantalla ja
+     serveix d'entrada, encara que l'app no estigui connectada o el
+     servidor trigui. Si al full compartit n'hi ha uns altres, els
+     substitueixen en un segon. */
+  if (!_horClaCarregat && !_horClaMestres.length) _horClaPosaBase();
   renderHorariClaustre();
   if (_horClaCarregat || !config.scriptUrl) return;
   await horClaCarrega();
@@ -80,7 +85,11 @@ async function initHorariClaustre() {
 
 async function horClaCarrega() {
   if (!config.scriptUrl) {
-    _horClaEstat('Encara no estàs connectat: ves a Configuració i enganxa la URL.', 'error');
+    /* Sense connexió, els horaris que venen amb l'app ja es veuen. L'avís
+       hi és igualment: sense connectar no se'n podran adjuntar de nous ni
+       es veuran els que hagi penjat l'altre director. */
+    _horClaPosaBase();
+    _horClaEstat('Encara no estàs connectat: el que veus són els horaris que venen amb l\'app. Ves a Configuració i enganxa la URL per veure si n\'hi ha de més nous.', 'error');
     renderHorariClaustre();
     return;
   }
@@ -88,11 +97,19 @@ async function horClaCarrega() {
   try {
     const r = await appsScriptGet({ action: 'loadHorariClaustre', _fons: true });
     if (!r || !r.ok) throw new Error((r && r.error) || 'resposta buida');
-    _horClaMestres = r.mestres || [];
-    _horClaInfo = { curs: r.curs || '', actualitzat: r.actualitzat || '', per: r.per || '' };
+    if (r.mestres && r.mestres.length) {
+      _horClaMestres = r.mestres;
+      _horClaInfo = { curs: r.curs || '', actualitzat: r.actualitzat || '', per: r.per || '' };
+    } else {
+      _horClaPosaBase();
+    }
     _horClaCarregat = true;
     _horClaEstat('');
   } catch (e) {
+    /* Si el servidor no respon però l'app porta els horaris a dins, val
+       més ensenyar-los que deixar la pantalla buida: són els del curs i
+       no caduquen cada dia. L'error es diu igualment. */
+    _horClaPosaBase();
     _horClaEstat(_horClaDiuError(e, 'llegir'), 'error');
   }
   renderHorariClaustre();
@@ -122,6 +139,25 @@ function _horClaDiuError(e, què) {
   return 'No s\'ha pogut ' + què + ': ' +
     (typeof errorHuma === 'function' ? errorHuma(e) : txt) +
     '. Clica Actualitzar per tornar-ho a provar.';
+}
+
+/* ELS HORARIS QUE JA VENEN AMB L'APP.
+   ------------------------------------------------------------
+   En Pol, 15/10/2026: «que els directors ja ho tinguin penjat, que no
+   hagin de penjar res». Si ningú no n'ha adjuntat cap de nou, es fan
+   servir els que porta l'app (js/horariclaustre-dades.js).
+
+   El que hi ha al full compartit MANA sempre: el dia que algú hi
+   adjunti un PDF nou, aquell substitueix aquests i ja no es tornen a
+   mirar. Així els horaris d'un curs vell no ressusciten.
+
+   A les apps que no són de direcció el fitxer de dades hi és buit, i
+   llavors això no fa res (veure NOMES_DIRECCIO a eines/_compara.js). */
+function _horClaPosaBase() {
+  const base = (typeof window !== 'undefined' && window.HORCLA_DADES) || null;
+  if (!base || !base.mestres || !base.mestres.length) { _horClaMestres = []; _horClaInfo = {}; return; }
+  _horClaMestres = base.mestres;
+  _horClaInfo = { curs: base.curs || '', actualitzat: '', per: '', deLApp: true };
 }
 
 async function horClaActualitza() {
@@ -494,12 +530,19 @@ function _horClaPintaPeu() {
     return;
   }
 
+  /* D'on surten: els que venen amb l'app, o els que algú hi ha adjuntat.
+     S'ha de distingir, o ningú no sabrà mai si el que veu és d'aquest curs
+     o d'un PDF que es va penjar fa mesos. */
+  const d = _horClaInfo.deLApp
+    ? `${_horClaMestres.length} mestres${_horClaInfo.curs ? ' · curs ' + escapeHtml(_horClaInfo.curs) : ''} · venen amb l'app. Si l'escola en reparteix de nous, adjunta'ls amb el botó de dalt.`
+    : `${_horClaMestres.length} mestres${_horClaInfo.curs ? ' · curs ' + escapeHtml(_horClaInfo.curs) : ''}${_horClaInfo.actualitzat ? ' · adjuntat el ' + escapeHtml(_horClaInfo.actualitzat) : ''}${_horClaInfo.per ? ' per ' + escapeHtml(_horClaInfo.per) : ''}.`;
+
   cont.innerHTML = `
     <div class="callout-app warn">
       <strong>Això és l'horari del curs, no el d'avui.</strong> No sap res de substitucions,
       de sortides ni de baixes: diu el que <em>toca</em>, que no sempre és el que passa.
     </div>
-    <p class="modal-hint">${_horClaMestres.length} mestres${_horClaInfo.curs ? ' · curs ' + escapeHtml(_horClaInfo.curs) : ''}${_horClaInfo.actualitzat ? ' · adjuntat el ' + escapeHtml(_horClaInfo.actualitzat) : ''}${_horClaInfo.per ? ' per ' + escapeHtml(_horClaInfo.per) : ''}.</p>`;
+    <p class="modal-hint">${d}</p>`;
 }
 
 /* ============================================================
