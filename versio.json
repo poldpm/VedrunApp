@@ -1,10 +1,10 @@
 {
-  "versio": "v287",
+  "versio": "v288",
   "data": "2026-10-15",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Configuració s'ha refet. Ara comença dient-te qui ets i quin grup tens, i continua amb els avisos del matí, el teu Google, les teves coses i la versió de l'app. Tot el que no s'ha de tocar queda plegat a baix de tot.",
-    "Ja no hi ha cap casella per enganxar adreces ni claus: l'app ve connectada de fàbrica. I el botó del peu ja no diu «Connectar», que feia pensar que no ho estiguessis.",
-    "Des de Configuració pots mirar si hi ha una versió nova sense esperar que l'app t'avisi — i també et diu quan ja tens l'última."
+    "Ara l'app et demana entrar amb el teu compte de Google de l'escola (@escorialvic.cat). Només t'ho demana UN COP a cada aparell: a partir d'aquí entra sola, sense clicar res.",
+    "És per protegir les dades dels nens: fins ara, qui trobés l'adreça de l'app hi podia entrar. Ara el servidor comprova que qui demana les dades sigui una persona de l'escola.",
+    "El que tens escrit no es perd: viu al teu full de càlcul, no al navegador. I si comparteixes l'ordinador, pots sortir del teu compte des de Configuració."
   ]
 }
