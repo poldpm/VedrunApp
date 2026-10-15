@@ -2907,8 +2907,17 @@ function handleRequest(e) {
 
        ⚠ AIXÒ NO OBRE RES DE NOU: totes dues ja eren cridables sense token
        des de la pàgina pública. El que fa és permetre treure-la d'aquí.
-       El pas que queda (fer la pàgina estàtica, canviar l'enllaç que reben
-       les famílies i el tipus de desplegament) és una decisió d'en Pol. */
+
+       ⚠ AL DIA (15/10/2026): el desplegament SEGUEIX sent «qualsevol», i ara
+       ja no és un problema. El que protegeix les dades no és qui pot trucar
+       a la porta sinó qui s'ha identificat: més avall es comprova que qui
+       truca tingui un compte de Google del domini de l'escola. Aquestes dues
+       accions en queden fora a posta —qui reserva hora no té ni app ni
+       compte de l'escola— i per això ha de seguir essent «qualsevol».
+
+       O sigui que fer la pàgina de reserves estàtica ja NO fa falta per
+       seguretat. Si algun dia es fa, serà per treure l'HTML d'aquest
+       projecte, que és una altra conversa. */
     if (action === 'reuPublicInfo') {
       return jsonResponse(reuPublicInfo((body && body.calId) || p.calId || p.r));
     }

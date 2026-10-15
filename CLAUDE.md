@@ -8,18 +8,24 @@ has de tenir SEMPRE presents.
 1. Tota la interfície i les converses, en **CATALÀ**.
 2. Els mestres que no són tutors d'un grup s'anomenen **"especialistes"**, mai "no-tutors".
 3. **Les credencials de Google, mai al codi:** van a les Script Properties
-   de l'Apps Script. El token del frontend va a `js/config.local.js` (que NO
-   se substitueix mai).
-   ⚠ **Però aquell token NO és secret, encara que el fitxer digui que ho és,
-   i NO et pot servir de protecció.** Va al navegador de la mestra, o sigui
-   que qui obre l'app el té; i amagar-lo no ho canviaria. Mirat el 7/10/2026:
-   en Pol ho sap i ha decidit deixar-ho per més endavant.
-   Què vol dir per a tu: **no et refiïs d'aquell token per a res**, i no
-   escriguis mai que les dades estan protegides perquè n'hi ha un. Si has de
-   tocar com s'entra al `Code.gs`, llegeix primer el comentari del
-   `handleRequest` —diu quin és l'arranjament de debò i per què encara no
-   s'ha fet. ⚠ I compte: aquest fitxer és dins el repositori PÚBLIC de cada
-   app, com la resta dels `.md`. No hi expliquis com entrar-hi.
+   de l'Apps Script.
+   ⚠ **El token de `js/config.local.js` NO és secret i NO protegeix res**,
+   encara que el fitxer digui que sí. Va al navegador de la mestra: qui obre
+   l'app el té. **No te'n refiïs mai per a res.**
+   **Qui protegeix de debò, des del 15/10/2026, és el login.** El servidor
+   comprova que qui truca s'hagi identificat amb un compte de Google del
+   domini de l'escola, i si no, no contesta. S'encén amb la propietat
+   `LOGIN_DOMINI` de **la biblioteca** —una, per a totes alhora— i es pot
+   apagar esborrant-la. El detall és al comentari del `handleRequest` i a
+   `INSTALLACIO.md`.
+   Què vol dir per a tu:
+   · **Una app nova ha de néixer amb el login** (`nova-filla.js --login`), o
+     la mestra es queda tancada a fora de la seva pròpia app. L'eina es para
+     si te'n descuides, i `estat-apps.js` marca les que no el porten.
+   · **No facis que res depengui del token.** Si has d'afegir una comprovació,
+     va al servidor, no al navegador.
+   ⚠ I compte: aquest fitxer és dins el repositori PÚBLIC de cada app, com la
+   resta dels `.md`. No hi expliquis com entrar-hi.
 4. Tot es desa a **Google Sheets**; localStorage només és cache temporal.
 5. El logo de l'escola és una marca real: no modificar-lo ni aproximar-lo.
 6. **Si el canvi es nota des de l'app, actualitza `manual.html` al mateix canvi.**

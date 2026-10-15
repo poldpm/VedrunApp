@@ -66,7 +66,8 @@ vedruna-app/
 │   └── main.css            # TOTS els estils
 ├── js/
 │   ├── rol.js              # 'tutor', 'especialista' o 'direccio'. NO SE SINCRONITZA mai!
-│   ├── config.local.js     # NOMÉS el token. NO SE SUBSTITUEIX en actualitzar!
+│   ├── config.local.js     # El token, l'adreça del servidor i el login d'aquesta app.
+│   │                       # NO SE SUBSTITUEIX MAI en actualitzar.
 │   ├── personal.js         # El que és propi d'una mestra. Buit a la mare.
 │   ├── app.js              # Nucli: navegació, home, alumnes, notes, planning,
 │   │                       #   calendari, tasques, config, bootstrap, sync
@@ -366,13 +367,40 @@ Per posar-les: executar la funció `configuraCredencials()` un cop des de
 l'editor d'Apps Script, o afegir-les manualment a Configuració del projecte →
 Propietats del script.
 
-### Token de seguretat
-- Al backend: `_appToken()` llegeix `APP_TOKEN` de les propietats. `handleRequest`
-  rebutja qualsevol crida sense el token correcte ("No autoritzat").
-- Al frontend: `window.APP_TOKEN` a `js/config.local.js`. S'envia a cada crida.
-- Els dos han de coincidir. El token NO és una credencial de Google (és una
-  cadena inventada), per això és acceptable tenir-lo al frontend; GitHub no el
-  bloqueja.
+### Qui pot entrar (15/10/2026)
+
+Hi ha dues capes, i només la segona protegeix de debò.
+
+**1. El token — NO protegeix res.**
+- Al backend: `_appToken()` llegeix `APP_TOKEN` de les propietats.
+  `handleRequest` rebutja qualsevol crida sense el token correcte.
+- Al frontend: `window.APP_TOKEN` a `js/config.local.js`, enviat a cada crida.
+- ⚠ **Va al navegador de cada mestra, i el repositori de cada app és públic:
+  qui el vulgui el té.** Serveix per treure soroll (robots, enllaços
+  equivocats), no per guardar dades. **No facis que res depengui d'ell.**
+
+**2. El login amb Google — aquesta sí.**
+- L'app demana entrar amb un compte del domini de l'escola (`js/login.js`).
+  Un sol cop per aparell; després es renova sol.
+- El navegador envia la credencial a cada crida (`idToken`), i
+  `_loginComprova()` la verifica **contra Google** i mira que el `hd` i el
+  final del correu siguin els de l'escola. Si no es pot parlar amb Google, NO
+  es deixa passar.
+- S'encén amb `LOGIN_DOMINI` + `LOGIN_CLIENT_ID` a les propietats de **la
+  biblioteca**: un sol lloc per a totes les mestres. La propietat del projecte
+  d'una mestra mana per sobre (per provar-ho en una de sola, o per deixar-ne
+  una fora amb `LOGIN_DOMINI = no`).
+- Per apagar-ho a tothom: esborrar `LOGIN_DOMINI` de la biblioteca. A
+  l'instant, sense desplegar res.
+- ⚠ **Una app nova ha de néixer amb el login** (`nova-filla.js --login`) o la
+  mestra no hi pot entrar. `nova-filla.js` es para si te'n descuides i
+  `estat-apps.js` marca les que no el porten amb «SENSE LOGIN».
+- Les dues accions de les famílies (`reuPublicInfo`, `reuPublicReserva`) en
+  queden fora a posta: qui reserva hora no té ni app ni compte de l'escola.
+  Per això el desplegament segueix essent «qualsevol», i ara ja no és un
+  problema: el que mana és qui s'ha identificat, no qui pot trucar a la porta.
+- Proves: `eines/comprova-login.js` (21) i les del login a
+  `eines/comprova-biblioteca.js`.
 
 ### Gemini
 - La clau viu al backend. Les crides passen pel backend (acció `gemini`), així
