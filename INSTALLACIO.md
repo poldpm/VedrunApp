@@ -173,12 +173,19 @@ omplir el perfil i l'horari.
 
 ## B · L'app  (3 min)
 
-8. **Crea la seva app** amb una ordre, des de la carpeta de la mare:
+8. **Crea la seva app** amb una ordre, des de la carpeta de la mare, i
+   passa-li **la seva `/exec`** del pas 7:
 
    ```bash
-   node eines/nova-filla.js "<Mestra>" --especialista --prova
-   node eines/nova-filla.js "<Mestra>" --especialista
+   node eines/nova-filla.js "<Mestra>" --especialista --exec "<la seva /exec>" --prova
+   node eines/nova-filla.js "<Mestra>" --especialista --exec "<la seva /exec>"
    ```
+
+   El `--exec` l'escriu al seu `js/config.local.js`, que viatja amb el seu
+   repositori i el sync no toca mai. **Això és el que fa que l'app neixi
+   connectada a tots els seus aparells** i que no s'hagi d'anar a enganxar
+   res enlloc, ni ara ni quan canviï de mòbil, ni quan s'esborrin les dades
+   del navegador.
 
    Amb `--direccio` si és de l'**equip directiu**, i sense res si és
    **tutora**. L'eina la munta a partir de l'app que li toca (la dels
@@ -206,8 +213,9 @@ omplir el perfil i l'horari.
 
    Després: **repositori i GitHub Pages propis** per a la seva carpeta.
 
-9. **Obre la seva URL** al seu navegador → **Configuració** → enganxa el `/exec`
-   → **Connectar**.
+9. **Obre la seva URL** al seu navegador i comprova que **ja surten els seus
+   alumnes sense haver enganxat res**. Si demana la connexió, és que el
+   `--exec` no hi ha anat: mira't el seu `js/config.local.js`.
 
 10. **Instal·la-la** com a app (icona d'instal·lar de la barra del navegador) i
     deixa-la-hi a l'escriptori o a la barra de tasques.
@@ -281,6 +289,50 @@ tornar a fer el pas 4.
 |---|---|---|
 | Editor | `provaSincronitzacio()` | `Permis: si` i `Disparadors posats: 1` **només a l'app de direcció**; a la resta, `(no posat)` i `0` |
 | Editor | `veureAlies()` | la versió del codi |
+## Entrar amb Google
+
+Perquè només hi pugui entrar gent de l'escola. Té dues meitats i **cap de les
+dues es fa a l'Apps Script de cada mestra**: per això encendre-ho no obliga a
+molestar ningú.
+
+**La meitat del servidor: DUES PROPIETATS, I A LA BIBLIOTECA.** Al projecte
+d'Apps Script de la biblioteca (el compartit, no el pont de ningú) →
+Configuració del projecte → Propietats de l'script:
+
+| Propietat | Valor |
+|---|---|
+| `LOGIN_CLIENT_ID` | l'ID de client d'OAuth de l'app |
+| `LOGIN_DOMINI` | `escorialvic.cat` |
+
+Són les mateixes per a tothom —el domini és l'escola i el client és l'app—,
+o sigui que s'escriuen **un sol cop i valen per a les vint-i-set**. El
+`_propBiblioteca()` del `Code.gs` les llegeix d'allà a posta.
+
+**La meitat de l'app:** al `js/config.local.js` de cada mestra,
+`window.LOGIN_GOOGLE` (el client) i `window.LOGIN_DOMINI`. Hi arriben amb el
+sync i una publicació, sense tocar cap aparell.
+
+### ⚠ L'ORDRE IMPORTA, I EQUIVOCAR-SE DEIXA MESTRES FORA
+
+`LOGIN_DOMINI` a la biblioteca fa que el servidor **exigeixi** la credencial
+a tothom. Una app que encara no tingui el `window.LOGIN_GOOGLE` no n'envia
+cap, i per tant **es queda fora a l'instant**.
+
+1. Primer, el `window.LOGIN_GOOGLE` a **totes** les apps, sincronitzat i
+   **publicat**.
+2. Només llavors, `LOGIN_DOMINI` a la biblioteca.
+
+**Per provar-ho amb una sola mestra:** el `LOGIN_CLIENT_ID` a la biblioteca
+(sol no fa res) i el `LOGIN_DOMINI` **al seu pont**, que mana per sobre.
+Quan vagi bé, es treu d'allà i es posa a la biblioteca.
+
+**Per apagar-ho:** esborra `LOGIN_DOMINI` de la biblioteca i torna a ser com
+abans, a l'instant, sense desplegar res. I per deixar fora del login **una
+sola mestra** (si es queda encallada), posa-li `LOGIN_DOMINI = no` al seu
+pont.
+
+---
+
 | Navegador | la `/exec` amb `?v=1` | `VedrunApp — codi vNNN` |
 | Navegador | l'app → **Alumnes** | els alumnes, amb les dades |
 

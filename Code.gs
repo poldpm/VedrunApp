@@ -2368,8 +2368,45 @@ function _geminiKey() { return _prop('GEMINI_KEY'); }
    comporta exactament com abans. I per tornar enrere n'hi ha prou amb
    esborrar aquella propietat: ni tocar codi, ni desplegar res.
    ============================================================ */
-function _loginDomini()   { return (_prop('LOGIN_DOMINI') || '').trim(); }
-function _loginClientId() { return (_prop('LOGIN_CLIENT_ID') || '').trim(); }
+/* ⚠ AQUESTES DUES SÓN LES MATEIXES PER A TOTA L'ESCOLA, I PER TANT VAN A LA
+   BIBLIOTECA, NO AL PROJECTE DE CADA MESTRA.
+
+   El domini és el de l'escola i el client de Google és el de l'app: no hi ha
+   res de personal a cap de les dues. Si s'haguessin de posar projecte per
+   projecte, encendre el login voldria dir entrar als vint-i-set Apps Script
+   d'un en un —i molestar vint-i-set mestres—, que és justament el que tot
+   això vol estalviar. Posades a la biblioteca s'escriuen UN COP i hi són
+   per a tothom; i el dia que s'encengui per a tots, és un sol canvi.
+
+   ⚠ EL PERQUÈ DE `_PS_`: dins de la biblioteca,
+   `PropertiesService.getScriptProperties()` es reescriu per llegir les
+   propietats DE LA MESTRA (ho fa `eines/fes-biblioteca.js`, i ha de ser així
+   per al token i per al seu full). Aquí volem just el contrari, i per això
+   el servei es demana per un altre nom, que el reescriptor no toca.
+   `eines/comprova-biblioteca.js` ho vigila: si algun dia algú canvia el
+   reescriptor, la prova peta en comptes de deixar les set apps obertes.
+
+   LA DE LA MESTRA MANA PER SOBRE, i serveix per a dues coses:
+     · encendre-ho a UNA sola mestra mentre es prova (posant-hi el domini);
+     · apagar-ho a UNA sola mestra si algun dia es queda fora (posant-hi
+       `no`), sense haver-ho d'apagar per a tothom. */
+/* ⚠ Dins d'una funció i no a dalt de tot: així `PropertiesService` només es
+   demana quan es fa servir. Escrit com a variable de fitxer, els bancs de
+   proves que carreguen el Code.gs sense aquell servei petaven en carregar-lo
+   (15/10/2026), i petaven tres proves que no hi tenien res a veure. */
+function _PS_() { return PropertiesService; }
+function _propBiblioteca(clau) {
+  try { return (_PS_().getScriptProperties().getProperty(clau) || '').toString().trim(); }
+  catch (e) { return ''; }
+}
+function _loginDomini() {
+  var seu = (_prop('LOGIN_DOMINI') || '').trim();
+  if (seu.toLowerCase() === 'no') return '';          // apagat per a aquesta mestra
+  return seu || _propBiblioteca('LOGIN_DOMINI');
+}
+function _loginClientId() {
+  return (_prop('LOGIN_CLIENT_ID') || '').trim() || _propBiblioteca('LOGIN_CLIENT_ID');
+}
 
 /* Comprova la credencial amb Google i torna de qui és.
    { ok:true, email:'…' }  o  { ok:false, error:'…' } */

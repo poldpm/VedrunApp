@@ -1,8 +1,8 @@
 {
-  "versio": "v284",
+  "versio": "v285",
   "data": "2026-10-15",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Per dins: si una app ha de demanar que entris, ara TOTES les peticions al servidor s'esperen a saber qui ets. Abans n'hi havia dues que sortien pel seu compte abans d'hora."
+    "Per dins: la configuració d'entrar amb Google passa a viure en un sol lloc per a tota l'escola, en comptes d'haver-la de posar al projecte de cada mestra. No canvia res del que fas."
   ]
 }
