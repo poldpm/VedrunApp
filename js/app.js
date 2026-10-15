@@ -1129,7 +1129,140 @@ function closeAddObsModal(forcat) {
 /* ============================================================
    CONFIG / REGISTRE MODALS
    ============================================================ */
-function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); _avisaTokenDExemple(); _cfgPintaBackend(); _cfgPintaOrigenUrl(); }
+function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); _avisaTokenDExemple(); _cfgPintaBackend(); _cfgPintaOrigenUrl(); _cfgPintaJo(); _cfgPintaApp(); _cfgPintaGemini(); }
+
+/* ── QUI ETS ───────────────────────────────────────────────────────────
+   El primer que es veu en obrir Configuració. Abans el primer de tot era
+   l'adreça del servidor: el més tècnic de l'app i, des de la v286, una cosa
+   que ja no s'ha de tocar mai. Una mestra que obre això ve a mirar si té els
+   avisos posats o amb quin compte ha entrat, no a enganxar una URL. */
+function _cfgEsTutora() {
+  try { return !(typeof senseTutoria === 'function' && senseTutoria()); }
+  catch (e) { return true; }
+}
+function _cfgPintaJo() {
+  const el = document.getElementById('cfgJo');
+  if (!el) return;
+  const nom = (() => {
+    try { return [(_perfil && _perfil.nom) || '', (_perfil && _perfil.cognom) || ''].join(' ').trim(); }
+    catch (e) { return ''; }
+  })();
+  const rol = (() => {
+    try {
+      if (typeof esDireccio === 'function' && esDireccio()) return 'Equip directiu';
+      if (typeof esEspecialista === 'function' && esEspecialista()) return 'Especialista';
+      return 'Tutor/a';
+    } catch (e) { return ''; }
+  })();
+  const grup = (() => { try { return grupActual() || ''; } catch (e) { return ''; } })();
+  const correu = (() => { try { return (typeof loginQui === 'function') ? loginQui() : ''; } catch (e) { return ''; } })();
+
+  let html = '<div class="cfg-jo-dalt">' +
+    '<div class="student-avatar cfg-jo-avatar">' + escapeHtml(getInitials(nom || '?')) + '</div>' +
+    '<div class="cfg-jo-text">' +
+      '<div class="cfg-jo-nom">' + escapeHtml(nom || 'Encara no has dit com et dius') + '</div>' +
+      /* ⚠ A direcció i a les especialistes, el grup NO és el seu: és el que
+         tenen triat ara mateix. Posat just al costat del rol semblava que en
+         fossin tutores. */
+      '<div class="cfg-jo-sub">' + escapeHtml(rol) +
+        (grup ? (_cfgEsTutora() ? ' · ' + escapeHtml(grup)
+                                : ' · ara estàs a ' + escapeHtml(grup)) : '') + '</div>' +
+    '</div></div>';
+
+  if (correu) {
+    html += '<div class="cfg-jo-compte">' +
+      '<span>Has entrat amb <strong>' + escapeHtml(correu) + '</strong></span>' +
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="_cfgSurt()">Sortir</button>' +
+      '</div>';
+  }
+  html += '<div class="cfg-actions" style="margin-top:10px">' +
+    '<button class="btn btn-ghost btn-sm" onclick="closeConfig(); showPage(\'perfil\');">' +
+    'Obrir el meu perfil</button></div>';
+  el.innerHTML = html;
+}
+
+/* Sortir del compte. Només té sentit a les apps amb el login encès, i per
+   això el botó només es pinta quan n'hi ha un. Es pregunta: en un ordinador
+   compartit és el que es vol, però clicat sense voler deixa l'app tancada. */
+function _cfgSurt() {
+  if (!confirm('Vols sortir del teu compte en aquest aparell?\n\n' +
+               'El que tens escrit no es perd: viu al teu full de càlcul. ' +
+               'Per tornar a entrar només has de clicar el botó de Google.')) return;
+  try { if (typeof loginSurt === 'function') loginSurt(); } catch (e) {}
+  closeConfig();
+}
+
+/* ── L'APP ─────────────────────────────────────────────────────────────
+   Quina versió té i des d'on. Serveix per a ella (per saber si està al dia)
+   i per a en Pol quan li preguntin per telèfon què li passa. */
+function _cfgPintaApp() {
+  const el = document.getElementById('cfgDadesApp');
+  if (!el) return;
+  /* ⚠ `VERSIO_APP` viu dins del js/versio.js i NO és global: només en surt
+     per `window.versioApp`. Escrit a pèl, aquí hi hauria sortit un guionet
+     per sempre i ningú no se n'hauria adonat. */
+  const v = (window.versioApp && window.versioApp.actual) || '—';
+  let instal = false;
+  try { instal = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches; } catch (e) {}
+  el.innerHTML =
+    '<div class="cfg-dada"><span>Versió</span><strong>' + escapeHtml(v) + '</strong></div>' +
+    '<div class="cfg-dada"><span>Com l\'obres</span><strong>' +
+      (instal ? 'Instal·lada a l\'aparell' : 'Des del navegador') + '</strong></div>';
+}
+
+/* Mira si n'hi ha una de nova SENSE esperar l'avís automàtic, i ho diu
+   TAMBÉ quan ja està al dia: saber que no et falta res és la meitat de la
+   gràcia de tenir el botó. L'avís de sèrie només parla quan n'hi ha una de
+   nova, i per això aquí es mira el versio.json directament (que mai no se
+   serveix del cache: veure sw.js). */
+async function _cfgMiraVersio() {
+  const meva = (window.versioApp && window.versioApp.actual) || '';
+  try {
+    const r = await fetch('versio.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const info = await r.json();
+    if (info && info.versio && info.versio !== meva) {
+      showToast('N\'hi ha una de nova (' + info.versio + '). Ara te la proposa.', 'info');
+      try { if (window.versioApp && window.versioApp.comprova) window.versioApp.comprova(); } catch (e) {}
+    } else {
+      showToast('Ja tens l\'última (' + meva + '). No et falta res ✓', 'success');
+    }
+  } catch (e) {
+    showToast('Ara mateix no s\'ha pogut mirar. Tens la ' + meva + '.', 'error');
+  }
+}
+
+/* ── LA CLAU DE GEMINI D'AQUEST APARELL ────────────────────────────────
+   ⚠ Abans aquí hi havia una casella buida esperant. La clau de debò va a
+   les propietats del servidor —una per mestra, la posa en Pol en instal·lar—
+   i el que s'escrivia aquí es desava NOMÉS en aquell aparell: al mòbil no hi
+   era i s'esborrava amb les dades del navegador. Una casella buida en un
+   apartat que es diu «Configuració» convida a enganxar-hi la clau bona.
+
+   Ara la casella no hi és. Això només surt si aquest aparell ja en té una de
+   posada d'abans, per poder-la treure. */
+function _cfgPintaGemini() {
+  const bloc = document.getElementById('cfgGeminiBloc');
+  const txt  = document.getElementById('cfgGeminiText');
+  if (!bloc || !txt) return;
+  const k = (config && config.geminiKey && String(config.geminiKey).trim()) || '';
+  bloc.style.display = k ? '' : 'none';
+  if (!k) return;
+  txt.innerHTML = 'Aquest aparell té una clau pròpia posada (acaba en <code>' +
+    escapeHtml(k.slice(-4)) + '</code>) i la fa servir en comptes de la del servidor. ' +
+    'Només val aquí: al mòbil no hi és. Si la treus, tornarà a fer servir la del servidor, ' +
+    'que és la que toca.';
+}
+function _cfgTreuGemini() {
+  if (!confirm('Vols treure la clau de Gemini d\'aquest aparell?\n\n' +
+               'L\'app tornarà a fer servir la del servidor.')) return;
+  try {
+    delete config.geminiKey;
+    localStorage.setItem('vedruna_cfg', JSON.stringify(config));
+  } catch (e) {}
+  _cfgPintaGemini();
+  showToast('Treta ✓ Ara fa servir la del servidor', 'success');
+}
 
 /* D'on ha sortit l'adreça que hi ha a la casella. Si ve del fitxer de l'app i
    no l'ha enganxada ningú, val més dir-ho: si no, la mestra (o en Pol d'aquí
@@ -1367,6 +1500,7 @@ async function protegirFullsSheets() {
 }
 
 function saveConfig() {
+  const _cfgGeminiAbans = (config && config.geminiKey) || '';
   const url       = document.getElementById('cfgScriptUrl').value.trim();
   const geminiKey = document.getElementById('cfgGeminiKey')?.value.trim() || '';
   // Validació amb missatges específics
@@ -1425,7 +1559,14 @@ function saveConfig() {
     const _ids = localStorage.getItem('vedruna_docs_ids');
     if (_ids) config.docsIds = JSON.parse(_ids);
   } catch (e) {}
+  /* ⚠ `config` es torna a fer de zero unes línies més amunt, o sigui que
+     tot el que no es torni a posar aquí es perd en desar. La clau de Gemini
+     d'aquest aparell ja no té casella (va al servidor, no aquí), i sense
+     aquesta línia desar la Configuració l'hauria esborrada a qui en tingués
+     una — i el generador de comentaris li hauria deixat de funcionar sense
+     que res digués per què. */
   if (geminiKey) config.geminiKey = geminiKey;
+  else if (_cfgGeminiAbans) config.geminiKey = _cfgGeminiAbans;
   localStorage.setItem('vedruna_cfg', JSON.stringify(config));
   closeConfig();
   showToast('Connectant…', 'success');

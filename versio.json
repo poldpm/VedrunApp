@@ -1,9 +1,10 @@
 {
-  "versio": "v286",
+  "versio": "v287",
   "data": "2026-10-15",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "La connexió de l'app ja no es perd. Fins ara vivia només dins del navegador d'aquell aparell: si esborraves les dades del navegador o estrenaves mòbil, l'app es quedava en blanc i havies de demanar en Pol que te la tornés a connectar. Ara ve dins de l'app i la tens a tots els aparells sense fer res.",
-    "Arranjament: si el servidor contestava que no per un motiu que es pot arreglar sol, el que havies escrit i encara no havia arribat al full s'esborrava. Ara es queda apuntat i puja sol quan es pot."
+    "Configuració s'ha refet. Ara comença dient-te qui ets i quin grup tens, i continua amb els avisos del matí, el teu Google, les teves coses i la versió de l'app. Tot el que no s'ha de tocar queda plegat a baix de tot.",
+    "Ja no hi ha cap casella per enganxar adreces ni claus: l'app ve connectada de fàbrica. I el botó del peu ja no diu «Connectar», que feia pensar que no ho estiguessis.",
+    "Des de Configuració pots mirar si hi ha una versió nova sense esperar que l'app t'avisi — i també et diu quan ja tens l'última."
   ]
 }

@@ -6122,3 +6122,70 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px;
   color: #991B1B; font-size: 12.5px; line-height: 1.45; text-align: left;
 }
+
+/* ============================================================
+   CONFIGURACIÓ — l'apartat, no la pantalla d'instal·lació
+   ------------------------------------------------------------
+   Fins a la v287 això començava amb l'adreça del servidor i el botó
+   del peu deia «Connectar», com si l'app no ho estigués. Ara va per
+   blocs, de més a menys sovint: qui ets, els avisos, el teu Google,
+   les teves coses, l'app, i tot el que no s'ha de tocar plegat a
+   baix de tot.
+   ============================================================ */
+.modal-cfg { max-width: 560px; }
+
+/* Qui ets */
+.cfg-jo {
+  background: linear-gradient(135deg, #FBEAED, #F7DCE1);
+  border: 1px solid #EBC0C8; border-radius: var(--r-md);
+  padding: 14px; margin-bottom: 16px;
+}
+.cfg-jo-dalt { display: flex; align-items: center; gap: 12px; }
+.cfg-jo-avatar { width: 42px; height: 42px; font-size: 14px; flex-shrink: 0; }
+.cfg-jo-text { min-width: 0; }
+.cfg-jo-nom { font-size: 15px; font-weight: 700; color: #7A1E2E; line-height: 1.25; }
+.cfg-jo-sub { font-size: 12px; color: #9A4A5A; margin-top: 2px; }
+.cfg-jo-compte {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid #EBC0C8;
+  font-size: 12.5px; color: #7A1E2E;
+}
+.cfg-jo-compte strong { overflow-wrap: anywhere; }
+
+/* Cada bloc */
+.cfg-bloc { padding: 14px 0; border-top: 1px solid var(--border); }
+.cfg-bloc:first-of-type { border-top: none; padding-top: 0; }
+.cfg-bloc-cap {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: var(--text-main);
+  margin-bottom: 8px;
+}
+.cfg-bloc-cap svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--crimson); }
+.cfg-bloc-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin: 8px 0 0; }
+.cfg-bloc .cfg-actions { margin-top: 10px; }
+
+/* Les dades de l'app, en dues columnes */
+.cfg-dades { display: flex; flex-wrap: wrap; gap: 8px; }
+.cfg-dada {
+  flex: 1 1 150px;
+  background: var(--surface-alt); border-radius: 8px; padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.cfg-dada span   { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.cfg-dada strong { font-size: 13px; color: var(--text-main); font-weight: 600; }
+
+/* El calaix del que no s'ha de tocar */
+.cfg-avancat { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+.cfg-avancat > summary {
+  cursor: pointer; font-size: 12.5px; color: var(--text-muted);
+  font-weight: 600; list-style: none;
+}
+.cfg-avancat > summary::-webkit-details-marker { display: none; }
+.cfg-avancat > summary::before { content: '▸ '; }
+.cfg-avancat[open] > summary::before { content: '▾ '; }
+.cfg-avancat > summary:hover { color: var(--crimson); }
+/* L'enllaç al manual és un <a> però ha de semblar un botó com els del
+   costat: sense la ratlla de sota i amb el text al mig. */
+.cfg-actions a.btn { text-decoration: none; display: inline-flex; align-items: center; }
