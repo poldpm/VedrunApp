@@ -1643,6 +1643,19 @@ async function _appsScriptGetXarxa(params, _retry = true, _fons = false) {
 }
 
 async function _appsScriptGetFetch(params, _retry = true) {
+  /* Si cal entrar i encara no se sap qui és, s'espera aquí. I si al final no
+     s'ha pogut entrar, NO s'envia: es contesta el mateix que contestaria el
+     servidor, que l'app ja sap tractar (es queda a la cua i es torna a provar
+     quan entri). Enviar-la seria gastar una crida que el servidor rebutjarà
+     igualment. Veure `loginEspera()` a js/login.js: hi passen TOTES, també
+     les dels mòduls que es posen en marxa pel seu compte en carregar-se. */
+  if (typeof loginCal === 'function' && loginCal()) {
+    try { await loginEspera(); } catch (e) {}
+    if (typeof loginToken === 'function' && !loginToken()) {
+      return { ok: false, _loginError: true,
+               error: 'Cal entrar amb el compte de l\'escola.' };
+    }
+  }
   const url = new URL(config.scriptUrl);
   /* ⚠ UN VALOR BUIT ARRIBAVA AL SERVIDOR COM EL TEXT «null».
 
@@ -1809,6 +1822,19 @@ function _posaOpId(body) {
 }
 
 async function _appsScriptPostFetch(body, _retry = true) {
+  /* Si cal entrar i encara no se sap qui és, s'espera aquí. I si al final no
+     s'ha pogut entrar, NO s'envia: es contesta el mateix que contestaria el
+     servidor, que l'app ja sap tractar (es queda a la cua i es torna a provar
+     quan entri). Enviar-la seria gastar una crida que el servidor rebutjarà
+     igualment. Veure `loginEspera()` a js/login.js: hi passen TOTES, també
+     les dels mòduls que es posen en marxa pel seu compte en carregar-se. */
+  if (typeof loginCal === 'function' && loginCal()) {
+    try { await loginEspera(); } catch (e) {}
+    if (typeof loginToken === 'function' && !loginToken()) {
+      return { ok: false, _loginError: true,
+               error: 'Cal entrar amb el compte de l\'escola.' };
+    }
+  }
   if (_retry) _posaOpId(body);     // només al primer intent: el reintent el reaprofita
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), 45000);

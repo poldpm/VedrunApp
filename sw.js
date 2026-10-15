@@ -1,5 +1,5 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v282';
+const CACHE = 'vedruna-v284';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
   './js/espera.js', './js/pdfhorari.js', './js/millores.js', './js/rol.js', './js/config.local.js', './js/login.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/horariclaustre-dades.js', './js/horariclaustre.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js',
@@ -76,7 +76,15 @@ self.addEventListener('fetch', e => {
 
      Ara, per a aquest fitxer, primer la xarxa i el cache com a reserva: li
      arriba de seguida i sense connexió segueix funcionant igual. */
-  if (url.includes('/js/personal.js')) {
+  /* ⚠ I el `js/config.local.js`, pel mateix motiu i amb més conseqüències.
+
+     Allà hi ha l'adreça del servidor d'aquella mestra i, des de la v283, si
+     ha d'entrar amb Google. Són coses que es canvien SENSE pujar la versió
+     —són d'una app sola—, i si se servís la còpia guardada, el canvi es
+     quedaria esperant la pròxima versió de l'app. El dia que una mestra es
+     quedi sense connexió perquè li hem hagut de canviar l'adreça, no pot
+     dependre que hi hagi una versió nova. */
+  if (url.includes('/js/personal.js') || url.includes('/js/config.local.js')) {
     e.respondWith(
       fetch(e.request).then(res => {
         if (res && res.status === 200) {

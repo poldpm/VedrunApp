@@ -1,11 +1,8 @@
 {
-  "versio": "v282",
+  "versio": "v284",
   "data": "2026-10-15",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Direcció: hi ha una eina nova a Docents, «On és cada mestre». Hi escrius un nom i et diu quina classe està fent i a quin grup, o si té permanència i el pots anar a trobar. A sota hi ha la llista de qui té permanència en aquella hora. Comença per l'hora d'ara mateix, i també pots mirar una altra hora o un altre dia del calendari. Els horaris d'aquest curs ja venen amb l'app: no has de penjar res.",
-    "Quan omples el teu horari des del PDF de l'escola, una classe de dues hores amb el nom llarg ja no et surt partida: abans, a les 14:50 hi deia «Coneixement del» i a les 15:50, «medi».",
-    "Si al PDF el teu nom va enganxat al títol de la pàgina, l'app ja el troba igualment: abans aquella pàgina sortia com a «(sense nom)» i no t'hi sabies trobar.",
-    "Arranjament de seguretat: si el servidor contestava que no per un motiu que es pot arreglar sol, el que havies escrit i encara no havia arribat al full s'esborrava de la cua. Ara es queda apuntat i puja sol quan es pot."
+    "Per dins: si una app ha de demanar que entris, ara TOTES les peticions al servidor s'esperen a saber qui ets. Abans n'hi havia dues que sortien pel seu compte abans d'hora."
   ]
 }

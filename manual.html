@@ -171,6 +171,7 @@
     <div class="toc-cap-res" id="tocCapRes">Cap apartat no en parla.</div>
     <a href="#intro">1. Introducció</a>
     <a href="#primers">2. Primers passos</a>
+    <a href="#entrar" class="sub">Entrar a l'app</a>
     <a href="#config" class="sub">Connectar l'app</a>
     <a href="#config-llistes" class="sub">Les llistes i les fitxes s'omplen soles</a>
     <a href="#config-dubtes" class="sub">Alumnes amb dades que no acaben de sortir</a>
@@ -285,12 +286,30 @@
     <section id="primers">
       <h2>2. Primers passos</h2>
 
+      <h3 id="entrar">Entrar a l'app</h3>
+      <p>En obrir l'app et surt una pantalla que et demana <strong>entrar amb el teu compte de Google de l'escola</strong> (<strong>@escorialvic.cat</strong>). Clica el botó, tria el teu compte, i ja hi ets.</p>
+      <div class="callout tip">
+        <strong>Només t'ho demana un cop en aquest aparell.</strong> A partir d'aquí entra sola: obres l'app i ja hi ets, sense clicar res. Si un dia la fas servir al mòbil, t'ho demanarà un cop allà i mai més.
+      </div>
+      <ul>
+        <li>Hi has d'entrar amb el compte <strong>de l'escola</strong>. Si tries un Gmail personal, t'ho dirà i no et deixarà passar.</li>
+        <li>Si algun dia et torna a sortir la pantalla, és que has sortit del teu compte de Google en aquest navegador (o l'has obert en una finestra d'incògnit). Torna a clicar el botó i prou.</li>
+        <li><strong>El que tens escrit no es perd mai per això.</strong> Les notes, les observacions i el planning viuen al teu full de càlcul, no al navegador.</li>
+      </ul>
+      <div class="callout">
+        <strong>Per què s'ha posat.</strong> Perquè les dades dels nens no quedin obertes a qui trobi l'adreça de l'app: ara el servidor comprova que qui demana les dades sigui una persona de l'escola, i no només que tingui l'adreça.
+      </div>
+
       <h3 id="config">Connectar l'app</h3>
-      <p>L'app ha d'estar connectada amb el teu Google Sheets. Normalment ja te la deixaran connectada; només ho hauràs de fer tu si entres des d'un dispositiu nou. Clica la icona de <strong>Configuració</strong>, al peu del menú lateral, i:</p>
+      <div class="callout tip">
+        <strong>Això ja no ho has de fer.</strong> L'app ja ve connectada de fàbrica, a tots els teus aparells, i <strong>no es perd</strong> encara que esborris les dades del navegador. Aquest apartat queda per si algun dia en Pol t'ha de dir que hi canviïs res.
+      </div>
+      <p>Clica la icona de <strong>Configuració</strong>, al peu del menú lateral, i:</p>
       <ol class="step-list">
         <li>Enganxa la <strong>URL</strong> que et donin (acaba sempre en <code>/exec</code>).</li>
         <li>Clica <strong>Connectar</strong>.</li>
       </ol>
+      <p>Si hi has enganxat una adreça i te'n vols desfer, <strong>buida la casella i clica Connectar</strong>: torna a la que ve amb l'app.</p>
       <div class="callout">
         <strong>La resta és automàtic.</strong> En connectar per primera vegada, l'app crea sola les pestanyes que li calen, protegeix els fulls i ajusta les columnes. No has de clicar cap botó de manteniment.
       </div>
@@ -298,7 +317,7 @@
         <strong>Sota la URL hi diu quina versió porta el servidor</strong> («Servidor: v258 · correcte ✓»). Serveix per veure d'un cop d'ull si tot està al seu lloc. El número del servidor sol anar per darrere del de l'app, i això és normal: el servidor només canvia quan cal. Si algun dia hi diu <strong>«massa antic»</strong>, avisa en Pol; mentrestant, el que no funcioni ja t'ho dirà l'app.
       </div>
       <div class="callout">
-        <strong>On es guarda?</strong> La URL es desa només al teu dispositiu, així que la configuraràs un cop per cada dispositiu que facis servir. Les dades dels alumnes viuen sempre al Google Sheets, mai al dispositiu.
+        <strong>On es guarda?</strong> La connexió ve dins de l'app, o sigui que la tens a tots els aparells sense fer res. Les dades dels alumnes viuen sempre al Google Sheets, mai al dispositiu.
       </div>
       <p>Al peu del menú també hi tens l'enllaç <strong>Full de càlcul</strong>, que t'obre directament el teu Sheets per si mai hi vols veure les dades en cru.</p>
 

@@ -124,6 +124,8 @@ function _loginRebuda(resposta) {
   _loginDesa({ token: jwt, exp: cos.exp || Math.floor(Date.now() / 1000) + 3000,
                email: cos.email || '', nom: cos.name || '' });
   _loginTancaPorta();
+  /* Ja se sap qui és: el que esperava a `loginEspera()` pot sortir. */
+  _loginLlest = Promise.resolve(true);
   /* Ara ja es pot parlar amb el servidor: es torna a demanar tot. */
   try { if (typeof loadAll === 'function') loadAll(); } catch (e) {}
 }
@@ -174,6 +176,28 @@ function _loginPintaError(t) {
   el.style.display = '';
 }
 
+/* ⚠ NO TOTES LES CRIDES AL SERVIDOR SURTEN DE L'ARRENCADA.
+
+   Es va veure provant-ho de debò amb els interruptors posats (15/10/2026):
+   amb la porta d'entrada oberta i sense haver entrat ningú, l'app ja havia
+   demanat `loadActitudAspectes` i `loadComentEstil` al servidor. Són mòduls
+   que es posen en marxa sols en carregar-se, i la comprovació que havia
+   posat a l'arrencada no els tocava.
+
+   Perseguir-los un per un seria perdre: demà n'hi hauria un altre. Per això
+   qui espera és la CAPA DE PETICIONS, que és per on passa tothom. Mentre no
+   se sap qui és la mestra, les peticions esperen aquí; quan entra, surten
+   totes soles. Si no es pot entrar, es deixen passar igualment i el servidor
+   ja dirà que no: val més això que una app aturada per sempre.
+
+   No es pot encallar: entrar amb Google no fa cap crida al servidor, o sigui
+   que això no s'espera mai a si mateix. */
+let _loginLlest = null;
+function loginEspera() {
+  if (!loginCal() || loginToken()) return Promise.resolve(true);
+  return _loginLlest || Promise.resolve(false);
+}
+
 /* ---------- l'arrencada ---------- */
 /* Torna una promesa que es resol quan ja es pot parlar amb el servidor.
    Mai no llança: si no es pot entrar, es resol igualment i l'app s'obre tal
@@ -181,6 +205,7 @@ function _loginPintaError(t) {
    s'ha de poder llegir). */
 function loginArrenca() {
   if (!loginCal()) return Promise.resolve(true);
+  if (_loginLlest) return _loginLlest;      // ja s'hi està, no se'n fan dues
 
   /* Ja en tenim una de bona: endavant, i es renovarà quan toqui. */
   if (loginToken()) { _loginRenovaQuanCalgui(); return Promise.resolve(true); }
@@ -196,7 +221,7 @@ function loginArrenca() {
   try { _online = navigator.onLine !== false; } catch (e) {}
   if (!_online) return Promise.resolve(false);
 
-  return _loginCarregaGIS().then(() => new Promise(resolta => {
+  _loginLlest = _loginCarregaGIS().then(() => new Promise(resolta => {
     let _fet = false;
     const _acaba = ok => { if (!_fet) { _fet = true; resolta(ok); } };
     try {
@@ -230,6 +255,7 @@ function loginArrenca() {
       _acaba(false);
     }
   })).catch(() => { _loginObrePorta(); return false; });
+  return _loginLlest;
 }
 
 /* Es renova sola abans que caduqui, sense ensenyar res. Si no es pot, no
