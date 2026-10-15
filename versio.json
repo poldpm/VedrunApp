@@ -1,8 +1,9 @@
 {
-  "versio": "v285",
+  "versio": "v286",
   "data": "2026-10-15",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Per dins: la configuració d'entrar amb Google passa a viure en un sol lloc per a tota l'escola, en comptes d'haver-la de posar al projecte de cada mestra. No canvia res del que fas."
+    "La connexió de l'app ja no es perd. Fins ara vivia només dins del navegador d'aquell aparell: si esborraves les dades del navegador o estrenaves mòbil, l'app es quedava en blanc i havies de demanar en Pol que te la tornés a connectar. Ara ve dins de l'app i la tens a tots els aparells sense fer res.",
+    "Arranjament: si el servidor contestava que no per un motiu que es pot arreglar sol, el que havies escrit i encara no havia arribat al full s'esborrava. Ara es queda apuntat i puja sol quan es pot."
   ]
 }

@@ -47,7 +47,13 @@ fer-l'hi sense la seva contrasenya, i tampoc no cal: és un minut.
 1. [aistudio.google.com/apikey](https://aistudio.google.com/apikey), amb el
    **seu** compte.
 2. **Crea una clau d'API** → copia-la.
-3. Va al `GEMINI_KEY` del seu pont, com les altres tres.
+3. **Va al `GEMINI_KEY` del SEU PONT**, com les altres tres.
+
+⚠ **NO la posis a Configuració de l'app.** Allà hi ha una casella de Gemini,
+però el que s'hi escriu es desa **només en aquell aparell** i no viatja amb
+l'app: al mòbil no hi seria, i esborrar les dades del navegador se l'enduria.
+Aquella casella és una excepció per a casos rars, no el lloc on va. La bona
+és la del pont, que és la que llegeix el servidor.
 
 ⚠ **Fes-ho ABANS d'executar `configuraTot()`**, no després: la clau entra a
 les Script Properties des del pont, i omplir-la més tard vol dir tornar a
@@ -177,9 +183,18 @@ omplir el perfil i l'horari.
    passa-li **la seva `/exec`** del pas 7:
 
    ```bash
-   node eines/nova-filla.js "<Mestra>" --especialista --exec "<la seva /exec>" --prova
-   node eines/nova-filla.js "<Mestra>" --especialista --exec "<la seva /exec>"
+   node eines/nova-filla.js "<Mestra>" --especialista \
+        --exec  "<la seva /exec>" \
+        --login "290684261462-o07ktlf7ikrvmvv0pmbli28560dqqmj1.apps.googleusercontent.com" --prova
    ```
+
+   I un altre cop sense `--prova`. El `--login` és el mateix per a tothom
+   (totes les apps viuen al mateix origen de GitHub Pages).
+
+   ⚠ **El `--login` només s'hi posa si el `LOGIN_DOMINI` ja és a la
+   biblioteca.** Si no, la mestra entraria amb Google per no res i, el dia
+   que Google no li anés, es trobaria amb una porta que no protegeix res i
+   que no pot passar.
 
    El `--exec` l'escriu al seu `js/config.local.js`, que viatja amb el seu
    repositori i el sync no toca mai. **Això és el que fa que l'app neixi
