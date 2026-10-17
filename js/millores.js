@@ -100,7 +100,10 @@ const MILLORES = [
       'I una última targeta, «Tinc una idea!», per explicar el que et faria servei i que li arribi a en Pol.',
     ],
     data: '2026-10-17',
-    /* Com se sap si ja la té: l'interruptor del seu `js/personal.js`. */
+    /* Com se sap si ja la té: l'interruptor del seu `js/personal.js`. Des
+       del 17/10/2026 el porten totes les apps encès, o sigui que a la
+       llista hi surt amb un «Ja la tens»: hi és per poder llegir què fa,
+       no per demanar-la. */
     interruptor: 'EINES_PAGINA',
   },
 ];
