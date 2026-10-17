@@ -88,6 +88,20 @@ const MILLORES = [
        al menú. */
     interruptor: 'EINES_RUBAVAL',
   },
+  {
+    id: 'eines-targetes',
+    titol: 'Les eines, en targetes',
+    ras: 'El menú «Eines» deixa de ser un desplegable: s\'obre una pàgina amb una targeta per eina.',
+    mes: [
+      'Cliques «Eines» al menú de l\'esquerra i al mig de la pantalla hi surt una targeta per eina, amb el nom i una línia del que fa.',
+      'Cliques la targeta i s\'obre l\'eina, igual que abans.',
+      'Hi surten només les eines que tens tu: les que no fas servir no hi ocupen lloc.',
+      'Al mòbil van de dues en dues, per no haver de baixar mitja pantalla.',
+    ],
+    data: '2026-10-17',
+    /* Com se sap si ja la té: l'interruptor del seu `js/personal.js`. */
+    interruptor: 'EINES_PAGINA',
+  },
 ];
 
 /* A qui s'ofereix cada millora. Sense `rols`, a tothom.

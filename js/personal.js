@@ -1044,3 +1044,19 @@ window.AVIS_INICI = 'adeu-assistent';
    Veure `js/incidencies.js` i la recepta del `MILLORES.md`.
    ============================================================ */
 window.EINES_INCIDENCIES = true;
+
+/* ============================================================
+   LES EINES, EN TARGETES
+   ------------------------------------------------------------
+   El botó «Eines» del menú deixa de ser un desplegable i obre una
+   pàgina amb una targeta per eina.
+
+   El codi és al base de totes les apps des de la v289, però neix
+   APAGAT: canviar-li el menú a una mestra sense avisar-la és fer-li
+   buscar on han anat a parar les seves eines. Aquesta app el té encès
+   per provar-ho abans de passar-ho a la resta (en Pol, 17/10/2026:
+   «fes primer una prova amb la meva app»).
+
+   Veure la recepta del `MILLORES.md` (`eines-targetes`).
+   ============================================================ */
+window.EINES_PAGINA = true;

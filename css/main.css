@@ -6189,3 +6189,36 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* L'enllaç al manual és un <a> però ha de semblar un botó com els del
    costat: sense la ratlla de sota i amb el text al mig. */
 .cfg-actions a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* ============================================================
+   PÀGINA D'EINES (una targeta per eina)
+   ============================================================ */
+.eines-graella {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+.eina-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 18px 16px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  cursor: pointer; text-align: left; font-family: inherit;
+  transition: border-color var(--ease), box-shadow var(--ease);
+}
+.eina-card-icona {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--surface-alt); color: var(--crimson);
+}
+.eina-card-icona svg { width: 20px; height: 20px; }
+.eina-card-titol { font-size: 14.5px; font-weight: 700; color: var(--text-main); }
+.eina-card-desc  { font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
+.eina-card:hover { border-color: var(--crimson); box-shadow: 0 4px 16px rgba(123,38,56,0.09); }
+.eina-card:hover .eina-card-titol { color: var(--crimson); }
+.eines-buit { font-size: 13px; color: var(--text-muted); }
+
+/* Al mòbil, de dues en dues: amb una sola columna s'hi perd massa pantalla. */
+@media (max-width: 560px) {
+  .eines-graella { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .eina-card { padding: 14px 12px; }
+  .eina-card-desc { display: none; }
+}

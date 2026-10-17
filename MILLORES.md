@@ -277,3 +277,47 @@ Quan s'hagi d'oferir a més gent, es mou l'entrada a `js/millores.js` amb
 **Depèn de:** només pantalla. La mestra no ha de fer res: s'encén posant-li
 l'interruptor al seu `js/personal.js`. El `Code.gs` ja ho porta des de la v268,
 o sigui que no cal redesplegar res.
+
+## `eines-targetes` — Les eines, en targetes
+
+**Què fa:** el menú «Eines» deixa de desplegar-se i passa a obrir una pàgina
+amb una targeta per eina.
+
+**Fitxers:**
+- `index.html` — un `<a id="navEinesPagina">` que neix amagat (el botó del
+  menú) i la pàgina `#page-eines` amb la graella buida `#einesGraella`.
+- `js/app.js` — `einesPaginaHiEs()`, `einesAplicaInterficie()` (que es crida
+  a l'arrencada, després de les eines que s'encenen una a una),
+  `renderEines()`, la taula `EINES_DESC` i dues línies a `showPage()`: la
+  redirecció de `#eines` a l'inici quan l'interruptor és apagat, i la pintada.
+- `css/main.css` — `.eines-graella`, `.eina-card…`, `.eines-buit`.
+- `eines/comprova-eines.js` — el banc, dins de `prova-tot.js`.
+- `manual.html` — apartat «Les eines, en targetes (opcional)» i una fila a la
+  taula de «Personalitzar l'app».
+
+**Com funciona:** l'interruptor és `window.EINES_PAGINA = true` al
+`js/personal.js` de la mestra. `einesAplicaInterficie()` ensenya el botó nou i
+amaga el desplegable, o al revés. `renderEines()` **no té la llista d'eines
+escrita**: la llegeix dels botons del desplegable (`#einesItems`), que és on
+viu de debò, i en treu la icona, el rètol i la pàgina que obren. De
+`EINES_DESC` només en surt la línia del que fa cada eina.
+
+**Paranys:**
+- La llista no es podia escriure a mà: el dia que s'afegís una eina al menú, la
+  pàgina s'hauria quedat sense la seva targeta i no ho hauria dit ningú. Com
+  que surt dels botons, **les eines que la mestra no té no hi surten soles**:
+  el seu botó del menú ja està amagat (la distribució de l'aula a una
+  especialista, les rúbriques a qui no les ha demanades). Per això
+  `einesAplicaInterficie()` es crida DESPRÉS de `_rolAplicaInterficie()` i de
+  `RubAvalUI.aplicaInterficie()`.
+- Amagar el calaix `#einesItems` **no** amaga els botons de dins un per un:
+  el seu `style.display` es queda com estava, que és justament el que
+  `renderEines()` llegeix. Si algun dia s'amaguessin d'un en un, la pàgina es
+  quedaria buida.
+- `#eines` havia de redirigir a l'inici a qui no té l'interruptor, com ja fa
+  `#rubaval`: si no, l'adreça portava a una pàgina en blanc.
+- Al mòbil les targetes van de dues en dues i s'hi amaga el text: amb una sola
+  columna, arribar a l'última eina era mitja pantalla de baixar.
+
+**Depèn de:** només pantalla. La mestra no ha de fer res: s'encén posant-li
+l'interruptor al seu `js/personal.js`. No toca el `Code.gs`.
