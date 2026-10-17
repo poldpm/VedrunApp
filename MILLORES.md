@@ -295,27 +295,29 @@ amb una targeta per eina.
 - `manual.html` — apartat «Les eines, en targetes (opcional)» i una fila a la
   taula de «Personalitzar l'app».
 
-**Com funciona:** l'interruptor és `window.EINES_PAGINA = true` al
-`js/personal.js` de la mestra. `einesAplicaInterficie()` ensenya el botó nou i
-amaga el desplegable, o al revés. `renderEines()` **no té la llista d'eines
-escrita**: la llegeix dels botons del desplegable (`#einesItems`), que és on
-viu de debò, i en treu la icona, el rètol i la pàgina que obren. De
-`EINES_DESC` només en surt la línia del que fa cada eina.
+**⚠ AIXÒ JA NO ÉS UNA MILLORA DEL CATÀLEG.** Va néixer amb interruptor
+(`EINES_PAGINA`) i es va provar així; des de la **v296** és l'única manera de
+veure les eines i la tenen totes les mestres. En Pol, 17/10/2026: «no vull que
+sigui una possible actualització, posa-ho a tothom directament». L'entrada del
+`js/millores.js` i l'interruptor ja no hi són: això queda com a recepta de com
+està fet.
+
+**Com funciona:** `renderEines()` **no té la llista d'eines escrita**: la
+llegeix dels `<a>` de `#einesItems`, una llista **amagada** de l'index.html que
+és on viu de debò quines eines hi ha, i en treu la icona, el rètol i la pàgina
+que obren. De `EINES_DESC` només en surt la línia del que fa cada eina. Per
+afegir una eina, doncs, s'hi afegeix un `<a>` i la targeta hi surt sola.
 
 **Paranys:**
-- La llista no es podia escriure a mà: el dia que s'afegís una eina al menú, la
+- La llista no es podia escriure a mà: el dia que s'afegís una eina, la
   pàgina s'hauria quedat sense la seva targeta i no ho hauria dit ningú. Com
-  que surt dels botons, **les eines que la mestra no té no hi surten soles**:
-  el seu botó del menú ja està amagat (la distribució de l'aula a una
-  especialista, les rúbriques a qui no les ha demanades). Per això
-  `einesAplicaInterficie()` es crida DESPRÉS de `_rolAplicaInterficie()` i de
-  `RubAvalUI.aplicaInterficie()`.
-- Amagar el calaix `#einesItems` **no** amaga els botons de dins un per un:
-  el seu `style.display` es queda com estava, que és justament el que
-  `renderEines()` llegeix. Si algun dia s'amaguessin d'un en un, la pàgina es
-  quedaria buida.
-- `#eines` havia de redirigir a l'inici a qui no té l'interruptor, com ja fa
-  `#rubaval`: si no, l'adreça portava a una pàgina en blanc.
+  que surt dels `<a>` de `#einesItems`, **les eines que la mestra no té no hi
+  surten soles**: el seu botó ja està amagat (la distribució de l'aula a una
+  especialista, les rúbriques o les aules lliures a qui no les ha demanades).
+- ⚠ **`#einesItems` s'amaga amb `display:none` al CONTENIDOR, mai botó per
+  botó.** El `style.display` de cada `<a>` és justament el que `renderEines()`
+  llegeix per saber què té aquesta mestra: si algun dia s'amaguessin d'un en
+  un, la pàgina es quedaria buida.
 - Al mòbil les targetes van de dues en dues i s'hi amaga el text: amb una sola
   columna, arribar a l'última eina era mitja pantalla de baixar.
 

@@ -245,11 +245,6 @@ function showPage(pageId, _fromPop) {
       !(typeof RubAvalUI !== 'undefined' && RubAvalUI.hiEs && RubAvalUI.hiEs())) {
     pageId = 'home';
   }
-  /* La pàgina d'Eines només existeix per a qui l'ha demanada: a qui té el
-     desplegable de sempre, l'adreça #eines no l'ha de portar enlloc. */
-  if (pageId === 'eines' && !einesPaginaHiEs()) {
-    pageId = 'home';
-  }
   /* Aules lliures: una altra eina que només té qui l'ha demanada. */
   if (pageId === 'aules' &&
       !(typeof Aules !== 'undefined' && Aules.hiEs && Aules.hiEs())) {
@@ -452,32 +447,23 @@ function _initHistoryNav() {
 /* ============================================================
    SIDEBAR
    ============================================================ */
-function toggleNavSection(name) {
-  const items = document.getElementById(name + 'Items');
-  const toggle = document.getElementById(name + 'Toggle');
-  if (!items || !toggle) return;
-  const collapsed = items.classList.toggle('collapsed');
-  toggle.classList.toggle('collapsed', collapsed);
-  // Que els lectors de pantalla sapiguen si esta obert o tancat
-  toggle.setAttribute('aria-expanded', String(!collapsed));
-}
+/* El desplegable del menú va desaparèixer amb la pàgina d'Eines (v296) i
+   amb ell l'única secció que es plegava. Si algun dia n'hi torna a haver
+   una, la funció era aquesta: mira el git. */
 
 /* ============================================================
    LA PÀGINA D'EINES (una targeta per eina)
    ============================================================
-   Les eines poden sortir de dues maneres:
+   El botó «Eines» del menú obre una pàgina amb una targeta per eina. Fins
+   a la v295 hi havia un desplegable al menú i això era opcional; des de la
+   v296 és l'única manera, per a tothom i sense cap interruptor.
 
-   · el desplegable del menú, com sempre;
-   · o un sol botó «Eines» que obre una pàgina amb una targeta per eina.
-
-   La segona la tria qui la vulgui amb `window.EINES_PAGINA = true` al seu
-   js/personal.js. Mentre no ho posi, res no canvia.
-
-   ⚠ La llista de targetes NO és aquí escrita a mà: surt dels botons del
-   desplegable (#einesItems). Així una eina nova hi apareix sola, i les que
+   ⚠ La llista de targetes NO és aquí escrita a mà: surt dels botons que hi
+   ha a `#einesItems` de l'index.html, una llista amagada que és on viu de
+   debò quines eines hi ha. Així una eina nova hi apareix sola, i les que
    aquesta mestra no té (la distribució de l'aula a una especialista, les
-   rúbriques a qui no les ha demanades) no hi surten, perquè el seu botó del
-   menú ja està amagat. */
+   rúbriques o les aules lliures a qui no les ha demanades) no hi surten,
+   perquè el seu botó ja està amagat. */
 const EINES_DESC = {
   grups:      'Reparteix la classe en grups equilibrats amb les condicions que hi posis.',
   comentaris: 'Omple la rúbrica i et surt el comentari de l\'informe.',
@@ -487,24 +473,6 @@ const EINES_DESC = {
   rubaval:    'Els teus criteris, amb el pes que vulguis. La nota va al registre.',
   aules:      'Quines aules auxiliars s\u00f3n buides ara, i fins a quina hora.',
 };
-
-function einesPaginaHiEs() {
-  try { return window.EINES_PAGINA === true; } catch (e) { return false; }
-}
-
-/* Es crida en arrencar, quan js/personal.js ja hi és. */
-function einesAplicaInterficie() {
-  const hiEs = einesPaginaHiEs();
-  const boto   = document.getElementById('navEinesPagina');
-  const toggle = document.getElementById('einesToggle');
-  const items  = document.getElementById('einesItems');
-  if (boto)   boto.style.display   = hiEs ? '' : 'none';
-  if (toggle) toggle.style.display = hiEs ? 'none' : '';
-  /* ⚠ Amagar el calaix NO amaga els botons de dins per separat: el
-     `style.display` de cada botó es queda com estava, que és el que
-     `renderEines()` llegeix per saber quines eines té aquesta mestra. */
-  if (items)  items.style.display  = hiEs ? 'none' : '';
-}
 
 function renderEines() {
   const cont = document.getElementById('einesGraella');
@@ -5137,8 +5105,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // carrega l'últim de tots i per tant ja hi és quan s'arriba aquí).
   try { if (typeof RubAvalUI !== 'undefined') RubAvalUI.aplicaInterficie(); } catch (e) {}
   try { if (typeof Aules !== 'undefined') Aules.aplicaInterficie(); } catch (e) {}
-  // El botó d'Eines: desplegable de sempre o pàgina de targetes.
-  einesAplicaInterficie();
   updateHomeCounters(); // inicialitza data sidebar
   // Mostra el nom del perfil al menú des del cache local (immediat)
   try {

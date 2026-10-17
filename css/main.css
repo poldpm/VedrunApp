@@ -2996,26 +2996,9 @@ body {
 .fitxa-avis-drets { background: #EEF2FF; color: #3730A3; }
 .fitxa-avis-emvic { background: #ECFDF5; color: #065F46; }
 
-/* Secció desplegable del menú lateral (Eines) */
-.nav-section-toggle {
-  display: flex; align-items: center; justify-content: space-between;
-  cursor: pointer; user-select: none;
-}
-.nav-section-chevron { transition: transform 0.2s; flex-shrink: 0; opacity: 0.6; }
-.nav-section-toggle.collapsed .nav-section-chevron { transform: rotate(-90deg); }
-.nav-section-items {
-  overflow: hidden;
-  /* 200px eren just les cinc eines d ara: una de sisena quedava tallada i
-     inclicable. */
-  max-height: 420px;
-  transition: max-height 0.25s ease, opacity 0.2s, visibility 0.2s;
-  opacity: 1;
-  visibility: visible;
-}
-/* ⚠ Plegat ha de voler dir INVISIBLE de debò. Amb nomes max-height i opacity
-   els cinc enllacos seguien rebent el focus del tabulador estant amagats: amb
-   el teclat anaves a parar a pantalles que no es veien (auditoria 6/9/2026). */
-.nav-section-items.collapsed { max-height: 0; opacity: 0; visibility: hidden; }
+/* El menú lateral ja no té cap secció que es plegui: les eines van a la
+   seva pàgina (v296). El que queda de `#einesItems` és una llista amagada
+   amb `display:none`, que és d'on surten les targetes. */
 
 /* Manual d'ús + Configuració de costat al peu */
 .sidebar-footer-row { display: flex; gap: 6px; }
@@ -5631,11 +5614,6 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
   outline: 2px solid var(--crimson);
   outline-offset: 2px;
 }
-
-/* ⚠ L apartat EINES del menu tenia sostre per a cinc eines just justes: amb
-   una mes, la darrera quedava tallada i no s hi podia clicar. Ara s ajusta
-   al que hi hagi. */
-.nav-section-items:not(.collapsed) { max-height: none; }
 
 /* ⚠ Un post-it amb molt text creixia sense limit i s enduia el taulell.
    Ara te un sostre i el text de mes es llegeix obrint-lo.
