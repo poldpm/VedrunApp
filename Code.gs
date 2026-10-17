@@ -3060,7 +3060,7 @@ function handleRequest(e) {
       case 'savePersonal':         result = savePersonal(ss, body.studentId, body.dades); break;
       case 'demanaMillora':        result = demanaMillora(body.millora, body.titol, body.qui, body.nota); break;
       case 'enviaIdea':           result = enviaIdea(body.qui, body.idea); break;
-      case 'getAulesLliures':     result = getAulesLliures(body.refresca); break;
+      case 'getAulesLliures':     result = getAulesLliures((body && body.refresca) || (p && p.refresca)); break;
       case 'syncAlumnesARegistre': result = syncAlumnesARegistre(ss, body.alumnes, body.grup); break;
       case 'getRegistre':          result = getRegistre(ss, (body&&body.grup)||p.grup); break;
       case 'addRegistreItem':      result = addRegistreItem(ss, body.item, body.alumnes, body.grup); break;
@@ -6283,7 +6283,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v294';
+var BACKEND_VERSIO = 'v295';
 
 var MAX_CELA = 45000;
 

@@ -193,6 +193,14 @@
       return '<option value="' + i + '">' + d + '</option>';
     }).join('');
     var hores = _hores();
+    /* ⚠ Sense horari, el desplegable de les hores quedava BUIT i semblava
+       espatllat: la mestra l'obria, no hi havia res i no sabia per què.
+       (En Pol, 17/10/2026: «si vull triar un altre dia no em surten hores
+       per poder seleccionar».) Ara ho diu, i el per què surt al resultat. */
+    if (!hores.length) {
+      selHora.innerHTML = '<option value="">(encara no hi ha horari)</option>';
+      return;
+    }
     selHora.innerHTML = hores.map(function (h) {
       return '<option value="' + h.m + '">' + _esc(h.h) + '</option>';
     }).join('');
@@ -329,12 +337,15 @@
   function obrePagina() {
     var cont = byId('aulesResultat');
     quan('ara');
-    if (_dades && _dades.aules) { _pintaControls(); cerca(); }
-    else {
+    if (!(_dades && _dades.aules)) {
       var cau = _cacheLlegeix();
-      if (cau) { _dades = cau; _pintaControls(); cerca(); }
-      else if (cont) cont.innerHTML = '<div class="aules-avis">Llegint l\'horari de les aules…</div>';
+      if (cau) _dades = cau;
     }
+    /* Els desplegables es pinten SEMPRE, encara que no hi hagi horari: si
+       no, el de les hores quedava buit i semblava espatllat. */
+    _pintaControls();
+    if (_dades && _dades.aules) cerca();
+    else if (cont) cont.innerHTML = '<div class="aules-avis">Llegint l\'horari de les aules…</div>';
     // I, hi hagi o no hi hagi cache, es torna a llegir del servidor.
     carrega().then(function () {
       if (!byId('aulesResultat')) return;
