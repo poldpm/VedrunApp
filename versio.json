@@ -1,11 +1,10 @@
 {
-  "versio": "v293",
+  "versio": "v294",
   "data": "2026-10-17",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El botó «Eines» del menú ja no es desplega: el cliques i al mig de la pantalla hi surt una targeta per eina, amb el nom i una línia del que fa. Cliques la targeta i s'obre l'eina.",
-    "Hi surten només les eines que tens tu. Al mòbil van de dues en dues.",
-    "I una última targeta, «Tinc una idea!»: hi expliques el que et faria servei —una eina nova, o una cosa que t'aniria millor d'una altra manera— i li arriba a en Pol amb el teu nom. No cal que la idea estigui rodona.",
-    "Ho tens explicat al manual d'ús, a «Les eines, en targetes»."
+    "Eina nova a «Possibles actualitzacions»: «Aules lliures». Et diu quines aules auxiliars estan buides ara mateix —o al dia i l'hora que triïs— i fins a quina hora ho estaran.",
+    "Si no n'hi ha cap de lliure, et diu quina s'allibera abans i a quina hora.",
+    "Si et faria servei, demana-la a «Possibles actualitzacions», a l'Inici."
   ]
 }

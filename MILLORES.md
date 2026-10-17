@@ -357,3 +357,60 @@ perfil pot estar mal escrit; el de `Session.getActiveUser()` no menteix).
 
 **Depèn de:** també `Code.gs`. La mestra no ha de fer res; en Pol enganxa la
 biblioteca un sol cop i arriba a totes alhora.
+
+## `aules-lliures` — Aules lliures
+
+**Què fa:** diu quines aules auxiliars de l'escola estan buides ara (o al dia
+i l'hora que es triï) i fins a quina hora ho estaran.
+
+**Fitxers:**
+- `Code.gs` — l'acció `getAulesLliures` i, amb ella, `_aulesFullId()`,
+  `_aulesDelFull()` i les ajudes d'hores. Llegeix el full i prou.
+- `js/aules.js` — tot el que es veu: la pantalla, el càlcul de qui és lliure
+  i el cache al navegador. Neix apagat (`window.EINES_AULES`).
+- `index.html` — el botó del menú (`#navAules`, amagat de naixement) i la
+  pàgina `#page-aules`.
+- `css/main.css` — `.aules-*` i `.aula-lliure`.
+- `sw.js` — `js/aules.js` al cache de fora de línia.
+- `js/app.js` — la descripció de la targeta d'Eines, la redirecció de
+  `#aules` i la pintada en entrar-hi.
+- `eines/comprova-aules.js` — el banc (28 proves), dins de `prova-tot.js`.
+
+**On és el full:** a la propietat **`AULES_FULL` de la BIBLIOTECA**, amb
+l'identificador del full «Horari aules auxiliars» de l'escola. Es posa un sol
+cop i val per a totes les apps alhora, com el `LOGIN_DOMINI`. Una mestra en pot
+tenir un altre amb la mateixa propietat al seu projecte.
+
+⚠ **No va escrit al codi a posta.** Els repositoris de les apps són PÚBLICS i
+aquell full està obert a qui en tingui l'enllaç: escriure-hi l'identificador
+seria repartir-l'hi a tothom.
+
+**Com funciona:** el servidor llegeix el full sencer i el torna tal com està;
+qui decideix què és lliure és el navegador. Així, canviar l'hora a la pantalla
+és instantani i no fa cap altra volta al servidor —l'eina es fa servir de peu
+al passadís—, i l'horari queda guardat al navegador per si s'obre sense
+connexió.
+
+**Paranys:**
+- **Els blocs ajuntats.** Al full n'hi ha per tot arreu (una activitat de dues
+  hores seguides, l'ESBARJO que travessa la setmana). D'un bloc ajuntat, el
+  text només hi és a la casella de dalt a l'esquerra: la resta tornen BUIDES.
+  Sense escampar-lo amb `getMergedRanges()`, **una aula ocupada d'11:10 a
+  12:50 sortiria lliure a les 12:00** i la mestra hi aniria amb els nens. És el
+  parany més gros de tots, i el banc el prova.
+- **L'última fila és l'hora de tancar**, no una franja: és la que diu fins quan
+  dura l'última classe. Al full sempre hi és i sempre és buida.
+- **L'ESBARJO no és ningú dins de l'aula.** Al pati l'aula és buida: es marca
+  la franja com a pati, se'n buiden les caselles i a la pantalla es diu, perquè
+  «lliure a les 10:50» no enganyi.
+- **El «lliure fins»** ha d'arribar al final del tros lliure sencer, no al final
+  de la franja on s'ha buscat.
+- **No es puja el `BACKEND_MINIM`.** És una acció nova al `Code.gs`, però a qui
+  no tingui l'eina encesa el servidor d'abans li va perfectament: la franja
+  groga seria una alarma falsa. En comptes d'això, si el servidor contesta
+  «Accio desconeguda», l'eina ho tradueix a una frase que la mestra entengui.
+- Cada pestanya porta **les seves hores** (el gimnàs en té de diferents de les
+  aules): no hi ha cap llista d'hores escrita al codi, surten del full.
+
+**Depèn de:** també `Code.gs` **i una propietat nova**. En Pol enganxa la
+biblioteca un sol cop i hi posa `AULES_FULL`; la mestra no ha de fer res.

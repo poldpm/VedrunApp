@@ -250,6 +250,11 @@ function showPage(pageId, _fromPop) {
   if (pageId === 'eines' && !einesPaginaHiEs()) {
     pageId = 'home';
   }
+  /* Aules lliures: una altra eina que només té qui l'ha demanada. */
+  if (pageId === 'aules' &&
+      !(typeof Aules !== 'undefined' && Aules.hiEs && Aules.hiEs())) {
+    pageId = 'home';
+  }
   if (_fromPop && pageId !== _demanat) {
     try { history.replaceState({ page: pageId }, '', '#' + pageId); } catch (e) {}
   }
@@ -297,6 +302,7 @@ function showPage(pageId, _fromPop) {
      #rubaval no l'ha de portar a una pàgina buida. */
   if (pageId === 'rubaval') RubAvalUI.obrePagina();
   if (pageId === 'eines')        renderEines();
+  if (pageId === 'aules')        { if (typeof Aules !== 'undefined') Aules.obrePagina(); }
   if (pageId === 'grups')        initGrups();
   if (pageId === 'seients')      initSeients();
   if (pageId === 'postits')      initPostits();
@@ -479,6 +485,7 @@ const EINES_DESC = {
   reunions:   'Marca quan tens lliure, envia l\'enllaç i cada família tria la seva hora.',
   postits:    'Apunta idees ràpid. Es guarden soles.',
   rubaval:    'Els teus criteris, amb el pes que vulguis. La nota va al registre.',
+  aules:      'Quines aules auxiliars s\u00f3n buides ara, i fins a quina hora.',
 };
 
 function einesPaginaHiEs() {
@@ -5129,6 +5136,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Les eines que només té qui les ha demanades (js/personal.js, que es
   // carrega l'últim de tots i per tant ja hi és quan s'arriba aquí).
   try { if (typeof RubAvalUI !== 'undefined') RubAvalUI.aplicaInterficie(); } catch (e) {}
+  try { if (typeof Aules !== 'undefined') Aules.aplicaInterficie(); } catch (e) {}
   // El botó d'Eines: desplegable de sempre o pàgina de targetes.
   einesAplicaInterficie();
   updateHomeCounters(); // inicialitza data sidebar

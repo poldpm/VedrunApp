@@ -106,6 +106,20 @@ const MILLORES = [
        no per demanar-la. */
     interruptor: 'EINES_PAGINA',
   },
+  {
+    id: 'aules-lliures',
+    titol: 'Aules lliures',
+    ras: 'Et diu quines aules auxiliars estan buides ara mateix, i fins a quina hora.',
+    mes: [
+      'A Eines \u2192 Aules lliures tries \u00abAra mateix\u00bb o un altre dia i hora, cliques Cercar i et surten les aules buides.',
+      'De cada aula et diu fins a quina hora estar\u00e0 lliure, perqu\u00e8 sapigues si et d\u00f3na temps.',
+      'Si no n\'hi ha cap de lliure, et diu quina s\'allibera abans i a quina hora.',
+      'Mira l\'horari de les aules auxiliars que porta l\'escola. No \u00e9s una reserva: no apunta enlloc que hi vagis tu.',
+    ],
+    data: '2026-10-17',
+    /* Com se sap si ja la t\u00e9: l'interruptor del seu `js/personal.js`. */
+    interruptor: 'EINES_AULES',
+  },
 ];
 
 /* A qui s'ofereix cada millora. Sense `rols`, a tothom.

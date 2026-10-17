@@ -1060,3 +1060,21 @@ window.EINES_INCIDENCIES = true;
    Veure la recepta del `MILLORES.md` (`eines-targetes`).
    ============================================================ */
 window.EINES_PAGINA = true;
+
+/* ============================================================
+   AULES LLIURES
+   ------------------------------------------------------------
+   Eines → Aules lliures: quines aules auxiliars són buides ara
+   (o al dia i l'hora que es triï) i fins a quina hora ho estaran.
+
+   El codi és al base de totes les apps des de la v294, però neix
+   APAGAT: a la resta de mestres se'ls ofereix des de «Possibles
+   actualitzacions» i s'encén a qui la demani.
+
+   ⚠ Perquè funcioni, la biblioteca ha de tenir la propietat
+   `AULES_FULL` amb l'identificador del full «Horari aules
+   auxiliars». Es posa un sol cop i val per a totes.
+
+   Veure `js/aules.js` i la recepta del `MILLORES.md`.
+   ============================================================ */
+window.EINES_AULES = true;

@@ -3060,6 +3060,7 @@ function handleRequest(e) {
       case 'savePersonal':         result = savePersonal(ss, body.studentId, body.dades); break;
       case 'demanaMillora':        result = demanaMillora(body.millora, body.titol, body.qui, body.nota); break;
       case 'enviaIdea':           result = enviaIdea(body.qui, body.idea); break;
+      case 'getAulesLliures':     result = getAulesLliures(body.refresca); break;
       case 'syncAlumnesARegistre': result = syncAlumnesARegistre(ss, body.alumnes, body.grup); break;
       case 'getRegistre':          result = getRegistre(ss, (body&&body.grup)||p.grup); break;
       case 'addRegistreItem':      result = addRegistreItem(ss, body.item, body.alumnes, body.grup); break;
@@ -6282,7 +6283,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v290';
+var BACKEND_VERSIO = 'v294';
 
 var MAX_CELA = 45000;
 
@@ -12629,4 +12630,171 @@ function enviaIdea(qui, idea) {
     return { ok: false, error: 'No s\'ha pogut enviar el correu: ' + e.message };
   }
   return { ok: true, a: _milloraCorreu_(), qui: quiEs };
+}
+
+/* ============================================================
+   AULES AUXILIARS LLIURES
+   ------------------------------------------------------------
+   El full «Horari aules auxiliars» de l'escola té una pestanya per
+   aula i, a dins, la graella de la setmana: les hores a la columna de
+   l'esquerra i els cinc dies a dalt. Una casella amb text vol dir que
+   algu hi es; una casella buida, que l'aula es lliure.
+
+   Aqui NOMES es llegeix el full i es torna tal com esta. Qui diu
+   quines aules son lliures a una hora o a una altra es el navegador:
+   aixi, canviar l'hora a la pantalla no fa cap altra volta al
+   servidor i l'eina va igual de rapid amb connexio dolenta.
+
+   ⚠ ON ES EL FULL: a la propietat `AULES_FULL` de la BIBLIOTECA, no
+   escrita aqui. Aquest fitxer viatja dins el repositori PUBLIC de
+   cada app; aquell full de l'escola esta obert a qui en tingui
+   l'enllac, o sigui que escriure-hi l'identificador seria repartir-
+   l'hi a tothom. Es posa UN SOL COP a la biblioteca i val per a totes
+   les apps alhora, com el `LOGIN_DOMINI`.
+
+   Una mestra pot tenir-ne un altre amb la propietat `AULES_FULL` del
+   seu projecte (mateix nom, el seu mana).
+   ============================================================ */
+var AULES_CACHE_SEG = 1800;   // mitja hora: l'horari gairebe no canvia
+
+function _aulesFullId() {
+  var seu = (_prop('AULES_FULL') || '').toString().trim();
+  return seu || _propBiblioteca('AULES_FULL');
+}
+
+/* Text comparable: sense accents, sense majuscules i sense espais de mes. */
+function _aulesNet(x) {
+  return String(x == null ? '' : x)
+    .replace(/\s+/g, ' ').trim().toLowerCase()
+    .replace(/[àáâä]/g, 'a').replace(/[èéêë]/g, 'e').replace(/[ìíîï]/g, 'i')
+    .replace(/[òóôö]/g, 'o').replace(/[ùúûü]/g, 'u').replace(/ç/g, 'c');
+}
+
+/* "8:50" → { txt:'8:50', min:530 }. Res que no sigui una hora torna null. */
+function _aulesHora(x) {
+  var m = /^(\d{1,2})\s*[:.h]\s*(\d{2})/.exec(String(x == null ? '' : x).trim());
+  if (!m) return null;
+  var h = parseInt(m[1], 10), mi = parseInt(m[2], 10);
+  if (h > 23 || mi > 59) return null;
+  return { txt: h + ':' + (mi < 10 ? '0' + mi : mi), min: h * 60 + mi };
+}
+function _aulesTxtHora(min) {
+  var h = Math.floor(min / 60) % 24, mi = min % 60;
+  return h + ':' + (mi < 10 ? '0' + mi : mi);
+}
+
+/* Una pestanya del full → { nom, franges:[{h,m,fi,fiM,pati,ocup[5]}] }.
+   Torna null si aquella pestanya no te cap graella que es pugui llegir. */
+function _aulesDelFull(sh) {
+  var nf = sh.getLastRow(), nc = sh.getLastColumn();
+  if (nf < 3 || nc < 3) return null;
+
+  var rang = sh.getRange(1, 1, nf, nc);
+  var v = rang.getDisplayValues();
+
+  /* ⚠ ELS BLOCS AJUNTATS. Al full n'hi ha per tot arreu: una activitat
+     que ocupa dues hores seguides, l'ESBARJO que travessa la setmana...
+     D'un bloc ajuntat, el text nomes hi es a la casella de dalt a
+     l'esquerra; les altres tornen BUIDES. Sense escampar-lo, una aula
+     ocupada de 11:10 a 12:50 sortiria lliure a les 12:00. */
+  try {
+    rang.getMergedRanges().forEach(function (m) {
+      var f0 = m.getRow(), c0 = m.getColumn();
+      if (!v[f0 - 1]) return;
+      var text = v[f0 - 1][c0 - 1];
+      for (var f = f0; f < f0 + m.getNumRows(); f++) {
+        for (var c = c0; c < c0 + m.getNumColumns(); c++) {
+          if (v[f - 1] && c - 1 < v[f - 1].length) v[f - 1][c - 1] = text;
+        }
+      }
+    });
+  } catch (e) {}
+
+  // La fila dels dies: la que diu "Dilluns". Les hores son a la seva esquerra.
+  var fDies = -1, cDia = -1;
+  for (var f = 0; f < v.length && fDies === -1; f++) {
+    for (var c = 1; c < v[f].length; c++) {
+      if (_aulesNet(v[f][c]) === 'dilluns') { fDies = f; cDia = c; break; }
+    }
+  }
+  if (fDies === -1 || cDia + 4 >= v[fDies].length + 1) return null;
+
+  var franges = [];
+  for (var f2 = fDies + 1; f2 < v.length; f2++) {
+    var h = _aulesHora(v[f2][cDia - 1]);
+    if (!h) continue;
+    var ocup = [], pati = false;
+    for (var d = 0; d < 5; d++) {
+      var t = String(v[f2][cDia + d] == null ? '' : v[f2][cDia + d]).replace(/\s+/g, ' ').trim();
+      /* L'ESBARJO no es ningu dins de l'aula: al pati l'aula es buida.
+         Es marca la franja per poder-ho dir, i la casella es neteja. */
+      if (_aulesNet(t) === 'esbarjo' || _aulesNet(t) === 'pati') { pati = true; t = ''; }
+      ocup.push(t);
+    }
+    franges.push({ h: h.txt, m: h.min, pati: pati, ocup: ocup });
+  }
+  if (franges.length < 2) return null;
+
+  /* L'ULTIMA FILA ES L'HORA DE TANCAR, no una franja. Al full hi es
+     sempre i sempre es buida: serveix per saber fins quan dura l'ultima
+     classe. Si algun dia algu hi escriu res, es respecta com a franja i
+     se li dona una durada normal. */
+  var fi = franges[franges.length - 1];
+  var buida = true;
+  for (var k = 0; k < fi.ocup.length; k++) { if (fi.ocup[k]) { buida = false; break; } }
+  if (buida) franges.pop();
+  else fi = { h: _aulesTxtHora(fi.m + 55), m: fi.m + 55 };
+  if (!franges.length) return null;
+
+  for (var i = 0; i < franges.length; i++) {
+    var seg = franges[i + 1] || fi;
+    franges[i].fi = seg.h;
+    franges[i].fiM = seg.m;
+  }
+  return { nom: sh.getName(), franges: franges };
+}
+
+/* ⚠ `refresca` NO ES DECORATIU, i tampoc no hi es nomes per al boto de
+   «tornar a llegir l'horari». El generador del pont posa al projecte de
+   cada mestra totes les funcions SENSE ARGUMENTS, perque son les que
+   s'executen des de l'editor. Sense aquest argument, aquesta hi anava
+   tambe: el pont canviava i, per una eina que el navegador ja crida sol,
+   totes les mestres haurien de tornar a enganxar-lo. En Pol, 6/9/2026:
+   «NO PUC HAVER DE TOCAR CAP PONT UN COP JA L'HAGI INSTAL.LAT». */
+function getAulesLliures(refresca) {
+  var id = _aulesFullId();
+  if (!id) {
+    return { ok: false, error: 'L\'horari de les aules encara no esta connectat. Digues-ho a en Pol.' };
+  }
+  var cache = null, clau = 'aules_' + id.slice(-16);
+  try {
+    cache = CacheService.getScriptCache();
+    var guardat = refresca ? null : cache.get(clau);
+    if (guardat) return JSON.parse(guardat);
+  } catch (e) { cache = null; }
+
+  var ss;
+  try { ss = SpreadsheetApp.openById(id); }
+  catch (e) {
+    return { ok: false, error: 'No es pot obrir el full de les aules. Potser no te\'l tenen compartit.' };
+  }
+
+  var aules = [];
+  ss.getSheets().forEach(function (sh) {
+    try { if (sh.isSheetHidden()) return; } catch (e) {}
+    var a = null;
+    try { a = _aulesDelFull(sh); } catch (e) { a = null; }
+    if (a) aules.push(a);
+  });
+  if (!aules.length) {
+    return { ok: false, error: 'El full de les aules no te cap horari que es pugui llegir.' };
+  }
+
+  var r = {
+    ok: true,
+    aules: aules,
+    quan: Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Madrid', 'yyyy-MM-dd HH:mm'),
+  };
+  try { if (cache) cache.put(clau, JSON.stringify(r), AULES_CACHE_SEG); } catch (e) {}
+  return r;
 }
