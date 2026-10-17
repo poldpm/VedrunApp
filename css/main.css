@@ -6216,6 +6216,15 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .eina-card:hover .eina-card-titol { color: var(--crimson); }
 .eines-buit { font-size: 13px; color: var(--text-muted); }
 
+/* «Tinc una idea!»: l'última targeta, que no és una eina. Es pinta més
+   fluixa —sense fons i amb la vora de ratlletes— perquè es vegi d'una
+   ullada que allà no hi ha res per obrir, sinó una cosa per demanar. */
+.eina-card-idea { background: none; border-style: dashed; }
+.eina-card-idea .eina-card-icona { background: none; border: 1px dashed var(--border); color: var(--text-muted); }
+.eina-card-idea .eina-card-titol { color: var(--text-sub); font-weight: 600; }
+.eina-card-idea:hover { background: var(--surface); border-style: solid; }
+.eina-card-idea:hover .eina-card-icona { border-color: var(--crimson); color: var(--crimson); }
+
 /* Al mòbil, de dues en dues: amb una sola columna s'hi perd massa pantalla. */
 @media (max-width: 560px) {
   .eines-graella { grid-template-columns: 1fr 1fr; gap: 10px; }

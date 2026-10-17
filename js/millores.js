@@ -97,6 +97,7 @@ const MILLORES = [
       'Cliques la targeta i s\'obre l\'eina, igual que abans.',
       'Hi surten només les eines que tens tu: les que no fas servir no hi ocupen lloc.',
       'Al mòbil van de dues en dues, per no haver de baixar mitja pantalla.',
+      'I una última targeta, «Tinc una idea!», per explicar el que et faria servei i que li arribi a en Pol.',
     ],
     data: '2026-10-17',
     /* Com se sap si ja la té: l'interruptor del seu `js/personal.js`. */

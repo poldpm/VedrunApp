@@ -321,3 +321,39 @@ viu de debò, i en treu la icona, el rètol i la pàgina que obren. De
 
 **Depèn de:** només pantalla. La mestra no ha de fer res: s'encén posant-li
 l'interruptor al seu `js/personal.js`. No toca el `Code.gs`.
+
+### `eines-targetes` · l'afegit del 17/10/2026 — «Tinc una idea!»
+
+**Què fa:** l'última targeta de la pàgina d'Eines no obre cap eina: obre una
+finestra on la mestra explica el que li faria servei, i li arriba un correu a
+en Pol (com el «Jo la vull!» de les possibles actualitzacions).
+
+**Fitxers:**
+- `index.html` — la finestra `#ideaOverlay` amb el camp `#ideaText`.
+- `js/app.js` — la targeta al final de `renderEines()` (sempre, encara que no
+  hi hagi cap eina) i `obreIdea()` / `tancaIdea()` / `ideaEnvia()`.
+- `css/main.css` — `.eina-card-idea`: sense fons i amb la vora de ratlletes.
+- `Code.gs` — l'acció `enviaIdea` i la funció del mateix nom, al costat del
+  `demanaMillora` i amb el mateix `_milloraCorreu_()`.
+- `js/versio.js` — `BACKEND_MINIM` puja a v290 (veure Paranys).
+
+**Com funciona:** el navegador envia `{action:'enviaIdea', qui, idea}` i el
+servidor li engega un correu a en Pol amb l'assumpte «Tinc una idea! (Nom
+Cognom)», el text sencer i el compte de Google de debò de qui l'envia (el del
+perfil pot estar mal escrit; el de `Session.getActiveUser()` no menteix).
+
+**Paranys:**
+- **No es marca enlloc com a «demanada».** No surt de cap llista: se'n poden
+  enviar tantes com vulgui, i una idea que no es pogués repetir seria una
+  trampa.
+- Si el correu **no** surt, la finestra **no es tanca** i el que ha escrit s'hi
+  queda. Tancar-la diria que en Pol ho sap quan no ho sabria ningú, i a sobre
+  li hauria fet perdre el text.
+- És una **acció nova al `Code.gs`**: amb el servidor d'abans, el botó no pot
+  funcionar. Per això `BACKEND_MINIM` puja a v290 i surt la franja groga fins
+  que la biblioteca està al dia. S'enganxa **un sol cop** i val per a totes.
+- El correu es **talla als 4.000 caràcters**: un correu no és on abocar-hi un
+  document sencer.
+
+**Depèn de:** també `Code.gs`. La mestra no ha de fer res; en Pol enganxa la
+biblioteca un sol cop i arriba a totes alhora.

@@ -519,8 +519,71 @@ function renderEines() {
             '<span class="eina-card-desc">' + escapeHtml(desc) + '</span>' +
             '</button>';
   });
-  cont.innerHTML = html ||
-    '<p class="eines-buit">Ara mateix no tens cap eina activada.</p>';
+  if (!html) html = '<p class="eines-buit">Ara mateix no tens cap eina activada.</p>';
+  /* I l'última, sempre: la que no és una eina sinó una manera de demanar-ne
+     una. Es pinta a posta més fluixa que les altres —vora de ratlletes, sense
+     fons— perquè no sembli una eina més i no competeixi amb les que de debò
+     fan alguna cosa. */
+  html += '<button type="button" class="eina-card eina-card-idea" onclick="obreIdea()">' +
+          '<span class="eina-card-icona">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>' +
+          '</span>' +
+          '<span class="eina-card-titol">Tinc una idea!</span>' +
+          '<span class="eina-card-desc">Explica\'ns què et faria servei i li arribarà a en Pol.</span>' +
+          '</button>';
+  cont.innerHTML = html;
+}
+
+/* ============================================================
+   «TINC UNA IDEA!»
+   ------------------------------------------------------------
+   La targeta fluixa del final de la pàgina d'Eines. La mestra hi
+   explica el que li faria servei —una eina nova, o una cosa que li
+   aniria millor d'una altra manera— i a en Pol li arriba un correu,
+   igual que quan demana una actualització de la llista.
+
+   ⚠ Aquí no hi ha cap llista de la qual triar: per això no es marca
+   enlloc com a «demanada». Se'n poden enviar tantes com vulgui. */
+function obreIdea() {
+  const t = document.getElementById('ideaText');
+  if (t) t.value = '';
+  document.getElementById('ideaOverlay').classList.add('open');
+  setTimeout(() => { if (t) t.focus(); }, 60);
+}
+function tancaIdea() {
+  document.getElementById('ideaOverlay').classList.remove('open');
+}
+
+async function ideaEnvia() {
+  if (typeof _unSolCop === 'function') return _unSolCop('ideaEnvia', _ideaEnviaFer);
+  return _ideaEnviaFer();
+}
+async function _ideaEnviaFer() {
+  const camp = document.getElementById('ideaText');
+  const idea = ((camp && camp.value) || '').trim();
+  if (!idea) {
+    showToast('Explica-la una mica i te l\'envio', 'error');
+    if (camp) camp.focus();
+    return;
+  }
+  if (!config.scriptUrl) {
+    showToast('Cal estar connectat per enviar-la', 'error');
+    return;
+  }
+  /* Nom I COGNOM: al claustre hi ha mestres que es diuen igual. */
+  const p = (typeof _perfil !== 'undefined' && _perfil) ? _perfil : {};
+  const qui = [(p.nom || '').trim(), (p.cognom || '').trim()]
+    .filter(x => x).join(' ');
+  try {
+    const r = await appsScriptPost({ action: 'enviaIdea', qui: qui, idea: idea });
+    if (!r || !r.ok) throw new Error((r && r.error) || 'no s\'ha pogut enviar');
+    tancaIdea();
+    showToast('Enviada ✓ En Pol ja la té', 'success');
+  } catch (e) {
+    /* No es tanca la finestra: el que ha escrit s'hi queda i ho pot tornar
+       a provar sense haver-ho de reescriure. */
+    showToast('No s\'ha pogut enviar: ' + ((typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') || 'prova-ho més tard'), 'error');
+  }
 }
 
 function toggleSidebar() {

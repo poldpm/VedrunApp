@@ -1,10 +1,11 @@
 {
-  "versio": "v289",
+  "versio": "v290",
   "data": "2026-10-17",
   "titol": "Novetats d aquesta versió",
   "canvis": [
     "Les eines es poden veure en targetes: cliques «Eines» al menú i al mig de la pantalla hi surt una targeta per eina, amb el nom i una línia del que fa. Cliques la targeta i s'obre l'eina.",
     "Hi surten només les eines que tens tu. Al mòbil van de dues en dues.",
-    "De moment és opcional: si et sembla més còmode que el menú que es desplega, demana-ho a «Possibles actualitzacions», a l'Inici."
+    "I una última targeta, «Tinc una idea!»: hi expliques el que et faria servei —una eina nova, o una cosa que t'aniria millor d'una altra manera— i li arriba a en Pol amb el teu nom.",
+    "De moment tot plegat és opcional: si et sembla més còmode que el menú desplegable, demana-ho a «Possibles actualitzacions», a l'Inici."
   ]
 }
