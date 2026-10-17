@@ -152,6 +152,17 @@ body {
   margin-bottom: 1px;
 }
 .nav-item:hover  { background: rgba(255,255,255,0.07); color: #fff; }
+/* El botó d'Eines va just sota les assignatures i, sense res al mig,
+   semblava una assignatura més (en Pol, 17/10/2026). La ratlla i l'aire el
+   treuen de la llista: és el que hi ha DESPRÉS de les assignatures. */
+/* ⚠ La ratlla va en un ::before i no en un `border-top` de l'element: amb
+   la vora a sobre, el requadre del ratolí i el de l'apartat obert es
+   quedaven amb les cantonades de dalt quadrades. */
+.nav-item-eines { margin-top: 17px; position: relative; }
+.nav-item-eines::before {
+  content: ''; position: absolute; left: 10px; right: 10px; top: -9px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+}
 .nav-item.active { background: var(--crimson); color: #fff; font-weight: 500; }
 .nav-item svg    { width: 16px; height: 16px; flex-shrink: 0; }
 

@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v290">
+  <link rel="stylesheet" href="css/main.css?v=v291">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -116,8 +116,11 @@
            que obre una pàgina amb una targeta per eina. Ho tria
            `window.EINES_PAGINA = true` al js/personal.js de cada mestra, i
            ho aplica `einesAplicaInterficie()` en arrencar. Neix amagat. -->
-      <a class="nav-item" id="navEinesPagina" style="display:none;margin-top:10px" href="#" onclick="showPage('eines'); return false;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      <a class="nav-item nav-item-eines" id="navEinesPagina" style="display:none" href="#" onclick="showPage('eines'); return false;">
+        <!-- Una caixa d'eines. ⚠ NO la clau anglesa: és la mateixa icona que
+             l'assignatura «Tallers» (veure `_assigIcon`), i just a sota de les
+             assignatures semblava una assignatura més (en Pol, 17/10/2026). -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 9V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v3"/><path d="M3 14h18"/></svg>
         Eines
       </a>
       <div class="nav-section-label nav-section-toggle collapsed" style="margin-top:10px;" onclick="toggleNavSection('eines')" id="einesToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="einesItems">
@@ -2495,42 +2498,42 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v290"></script>
-  <script defer src="js/pdfhorari.js?v=v290"></script>
-  <script defer src="js/millores.js?v=v290"></script>
-  <script defer src="js/rol.js?v=v290"></script>
-  <script defer src="js/config.local.js?v=v290"></script>
+  <script defer src="js/espera.js?v=v291"></script>
+  <script defer src="js/pdfhorari.js?v=v291"></script>
+  <script defer src="js/millores.js?v=v291"></script>
+  <script defer src="js/rol.js?v=v291"></script>
+  <script defer src="js/config.local.js?v=v291"></script>
   <!-- Entrar amb Google. Va DESPRÉS del config.local.js (d'allà en treu si
        aquesta app el té encès) i ABANS de l'app, que el crida en arrencar.
        A qui no el tingui encès, aquest fitxer no fa res de res. -->
-  <script defer src="js/login.js?v=v290"></script>
-  <script defer src="js/app.js?v=v290"></script>
-  <script defer src="js/notes.js?v=v290"></script>
-  <script defer src="js/seients.js?v=v290"></script>
-  <script defer src="js/perfil.js?v=v290"></script>
-  <script defer src="js/grupview.js?v=v290"></script>
-  <script defer src="js/postits.js?v=v290"></script>
-  <script defer src="js/horari.js?v=v290"></script>
-  <script defer src="js/gwrite.js?v=v290"></script>
-  <script defer src="js/rubriques.js?v=v290"></script>
-  <script defer src="js/rubaval.js?v=v290"></script>
-  <script defer src="js/rubaval-ui.js?v=v290"></script>
-  <script defer src="js/docents.js?v=v290"></script>
-  <script defer src="js/coordinacio.js?v=v290"></script>
-  <script defer src="js/regdocents.js?v=v290"></script>
-  <script defer src="js/segentrevistes.js?v=v290"></script>
-  <script defer src="js/horariclaustre-dades.js?v=v290"></script>
-  <script defer src="js/horariclaustre.js?v=v290"></script>
-  <script defer src="js/entrevistes.js?v=v290"></script>
-  <script defer src="js/incidencies.js?v=v290"></script>
-  <script defer src="js/notescomp.js?v=v290"></script>
-  <script defer src="js/reunions.js?v=v290"></script>
-  <script defer src="js/versio.js?v=v290"></script>
+  <script defer src="js/login.js?v=v291"></script>
+  <script defer src="js/app.js?v=v291"></script>
+  <script defer src="js/notes.js?v=v291"></script>
+  <script defer src="js/seients.js?v=v291"></script>
+  <script defer src="js/perfil.js?v=v291"></script>
+  <script defer src="js/grupview.js?v=v291"></script>
+  <script defer src="js/postits.js?v=v291"></script>
+  <script defer src="js/horari.js?v=v291"></script>
+  <script defer src="js/gwrite.js?v=v291"></script>
+  <script defer src="js/rubriques.js?v=v291"></script>
+  <script defer src="js/rubaval.js?v=v291"></script>
+  <script defer src="js/rubaval-ui.js?v=v291"></script>
+  <script defer src="js/docents.js?v=v291"></script>
+  <script defer src="js/coordinacio.js?v=v291"></script>
+  <script defer src="js/regdocents.js?v=v291"></script>
+  <script defer src="js/segentrevistes.js?v=v291"></script>
+  <script defer src="js/horariclaustre-dades.js?v=v291"></script>
+  <script defer src="js/horariclaustre.js?v=v291"></script>
+  <script defer src="js/entrevistes.js?v=v291"></script>
+  <script defer src="js/incidencies.js?v=v291"></script>
+  <script defer src="js/notescomp.js?v=v291"></script>
+  <script defer src="js/reunions.js?v=v291"></script>
+  <script defer src="js/versio.js?v=v291"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v290"></script>
+  <script defer src="js/personal.js?v=v291"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
