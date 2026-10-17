@@ -1862,6 +1862,13 @@ body {
 .plan-cell-pati  { background: var(--surface-tint) !important; min-height: 30px; cursor: pointer; }
 .plan-cell-pati:hover { background: #f0f0f0 !important; }
 
+/* Un event extra que dura més d'una hora: una sola casella per tot el tram,
+   amb el rètol escrit un sol cop i centrat verticalment. (En Pol, 17/10/2026:
+   vuit caselles dient «SORTIDA / Colònies» «fa mal d'ulls».) */
+.plan-cell-unit { vertical-align: middle; }
+.plan-cell-unit .plan-cell-event-name { font-size: 17px; }
+.plan-cell-unit .plan-cell-mena { letter-spacing: 0.1em; }
+
 /* Especials */
 .plan-cell-festa {
   background: #E5E7EB; cursor: pointer;

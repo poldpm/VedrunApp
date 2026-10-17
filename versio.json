@@ -1,9 +1,9 @@
 {
-  "versio": "v297",
+  "versio": "v298",
   "data": "2026-10-17",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A «Aules lliures», l'hora ara l'escrius tu: pots mirar les 12:30 o les 16:20, encara que no hi comenci cap classe.",
-    "Sota el camp hi tens les hores de classe per clicar-hi i no haver-les d'escriure."
+    "Al planning setmanal, quan poses el mateix a diverses franges seguides —unes colònies de dos dies, una sortida de tot el matí— les caselles queden unides en una de sola i el rètol hi surt un sol cop, no repetit a cada hora.",
+    "Clicant-la obres la primera hora del tram, que és des d'on es canvia."
   ]
 }

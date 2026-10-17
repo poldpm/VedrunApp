@@ -5860,6 +5860,56 @@ function planCalEvents(diaId, franja) {
   });
 }
 
+/* ============================================================
+   ELS TROSSOS D'UN MATEIX EVENT EXTRA
+   ------------------------------------------------------------
+   En Pol, 17/10/2026, amb unes colònies de dos dies a la pantalla: «fes
+   que les caselles quedin unides amb l'escrit un sol cop, i no repetit a
+   cada una. fa mal d'ulls». Tenia tota la raó: vuit caselles dient
+   «SORTIDA / Colònies» una sota l'altra no diuen vuit coses, en diuen una.
+
+   Això troba els trams seguits que són EL MATEIX event extra (sortida,
+   especial o festa amb el mateix rètol) i diu quantes files ha d'ocupar
+   cada tram. La unió es fa amb un `rowspan`, com ja es feia amb els dies
+   de festa i amb les tardes no lectives.
+
+   Torna { f1: 3, f2: 0, f3: 0, … }: un número més gran que 1 vol dir
+   «aquí comença un tram de tantes files», i un 0 vol dir «aquesta ja la
+   tapa la de dalt». El que no hi surt es pinta com sempre. */
+function _planEsExtra(d) {
+  return !!d && (d.tipus === 'sortida' || d.tipus === 'especial' || d.tipus === 'festa');
+}
+function _planMateixExtra(a, b) {
+  return _planEsExtra(b) && b.tipus === a.tipus &&
+         (b.event || '') === (a.event || '') &&
+         (b.eventSub || '') === (a.eventSub || '');
+}
+function _planTrossos(diaId, cal) {
+  const out = {};
+  /* ⚠ Els dies de festa i les tardes no lectives JA es pinten amb el seu
+     propi `rowspan` més avall. Si d'aquí en sortís un altre que els
+     trepitgés, la fila quedaria amb una casella de més i la taula es
+     desmuntaria. Per això el dia de festa no es mira, i a la tarda no
+     lectiva els trams s'aturen abans de les hores de tarda. */
+  if (cal && cal.festa) return out;
+  const franges = (cal && cal.tarda)
+    ? PLAN_FRANGES.filter(f => f.id !== 'f7' && f.id !== 'f8')
+    : PLAN_FRANGES;
+  let i = 0;
+  while (i < franges.length) {
+    const d = planCellLoad(diaId, franges[i].id);
+    if (!_planEsExtra(d)) { i++; continue; }
+    let j = i + 1;
+    while (j < franges.length && _planMateixExtra(d, planCellLoad(diaId, franges[j].id))) j++;
+    if (j - i > 1) {
+      out[franges[i].id] = j - i;
+      for (let k = i + 1; k < j; k++) out[franges[k].id] = 0;
+    }
+    i = j;
+  }
+  return out;
+}
+
 /* --- Render --- */
 // Classifica un dia del planning segons el calendari escolar:
 //  { festa } → dia sencer no lectiu (festiu/vacances/local/lliure)
@@ -5914,7 +5964,7 @@ function renderPlanning() {
   const today = new Date();
   const toStr = d => d.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
 
-  const festes = {}, tardes = {}; // diaId → event (o null)
+  const festes = {}, tardes = {}, trossos = {}; // diaId → event (o null) / trams units
   let html = '<thead><tr><th class="plan-th-hora"></th>';
   PLAN_DIES.forEach((dia, i) => {
     const dateD = new Date(dl); dateD.setDate(dl.getDate() + i);
@@ -5924,6 +5974,7 @@ function renderPlanning() {
     const cal = _planDiaCal(dia.id);
     festes[dia.id] = cal.festa;
     tardes[dia.id] = cal.tarda;
+    trossos[dia.id] = _planTrossos(dia.id, cal);
     // Aniversaris automàtics d'aquest dia (alumnes del grup de tutoria)
     let _aniv = [];
     if (typeof aniversarisDelDia === 'function') _aniv = aniversarisDelDia(dateD);
@@ -5975,10 +6026,29 @@ function renderPlanning() {
         if (franja.id === 'f7') html += `<td class="plan-td-festa" rowspan="2"><div class="plan-festa-tag plan-festa-tag-sm">Tarda no lectiva</div></td>`;
         return; // f8: cobert pel rowspan
       }
+      // Casella tapada per un tram unit que comença més amunt.
+      const _span = trossos[dia.id][franja.id];
+      if (_span === 0) return;
+
       const data = planCellLoad(dia.id, franja.id);
       const key  = planCellKey(dia.id, franja.id);
-      const calEvs = planCalEvents(dia.id, franja);
-      html += renderPlanCell(data, key, isPati, calEvs);
+      /* ⚠ D'un tram unit, els events del calendari de les franges de sota
+         no es veurien enlloc: aquí es recullen tots els del tram, sense
+         repetir-ne cap. */
+      let calEvs = planCalEvents(dia.id, franja);
+      if (_span > 1) {
+        const vistos = {};
+        calEvs = [];
+        for (let k = fi; k < fi + _span && k < PLAN_FRANGES.length; k++) {
+          planCalEvents(dia.id, PLAN_FRANGES[k]).forEach(ev => {
+            const clau = (ev.hora || '') + '|' + (ev.titol || '');
+            if (vistos[clau]) return;
+            vistos[clau] = true;
+            calEvs.push(ev);
+          });
+        }
+      }
+      html += renderPlanCell(data, key, isPati, calEvs, _span);
     });
     html += '</tr>';
   });
@@ -5986,7 +6056,12 @@ function renderPlanning() {
   document.getElementById('planTable').innerHTML = html;
 }
 
-function renderPlanCell(data, key, isPati, calEvs) {
+function renderPlanCell(data, key, isPati, calEvs, span) {
+  /* Un tram de més d'una hora es pinta en UNA casella que les ocupa totes,
+     amb el rètol escrit un sol cop. Clicar-la obre la primera hora del
+     tram, que és la que s'hi ha pintat. */
+  const _span = (span > 1) ? ' rowspan="' + span + '"' : '';
+  const _unit = (span > 1) ? ' plan-cell-unit' : '';
   // Bloc d'events del calendari (alerta visual, no editable des d'aquí)
   let calHtml = '';
   if (calEvs && calEvs.length) {
@@ -6011,14 +6086,14 @@ function renderPlanCell(data, key, isPati, calEvs) {
   }
 
   if (data.tipus === 'festa') {
-    return `<td class="plan-cell plan-cell-festa" onclick="openPlanCell('${_idJs(key)}')">
+    return `<td class="plan-cell plan-cell-festa${_unit}"${_span} onclick="openPlanCell('${_idJs(key)}')">
       ${calHtml}
       <div class="plan-cell-event-name">${escapeHtml(data.event || 'FESTA')}</div>
       ${data.eventSub ? `<div class="plan-cell-event-sub">${escapeHtml(data.eventSub)}</div>` : ''}
     </td>`;
   }
   if (data.tipus === 'especial') {
-    return `<td class="plan-cell plan-cell-especial" onclick="openPlanCell('${_idJs(key)}')">
+    return `<td class="plan-cell plan-cell-especial${_unit}"${_span} onclick="openPlanCell('${_idJs(key)}')">
       ${calHtml}
       <div class="plan-cell-mena">Especial</div>
       <div class="plan-cell-event-name">${escapeHtml(data.event || '')}</div>
@@ -6026,7 +6101,7 @@ function renderPlanCell(data, key, isPati, calEvs) {
     </td>`;
   }
   if (data.tipus === 'sortida') {
-    return `<td class="plan-cell plan-cell-sortida" onclick="openPlanCell('${_idJs(key)}')">
+    return `<td class="plan-cell plan-cell-sortida${_unit}"${_span} onclick="openPlanCell('${_idJs(key)}')">
       ${calHtml}
       <div class="plan-cell-mena">Sortida</div>
       <div class="plan-cell-event-name">${escapeHtml(data.event || '')}</div>
