@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v296">
+  <link rel="stylesheet" href="css/main.css?v=v297">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -1067,10 +1067,14 @@ Català, Matemàtiques, Anglès, Medi, Català
             <label class="aules-camp">Dia
               <select id="aulesDia"></select>
             </label>
+            <!-- L'hora s'escriu: pot interessar-ne una que no sigui l'inici
+                 de cap classe (en Pol, 17/10/2026). Els botonets de sota
+                 són les hores de classe, per no haver-les d'escriure. -->
             <label class="aules-camp">Hora
-              <select id="aulesHora"></select>
+              <input type="time" id="aulesHora" step="300" onkeydown="if(event.key==='Enter'){event.preventDefault();aulesCerca();}">
             </label>
           </div>
+          <div class="aules-rapides" id="aulesRapides" style="display:none"></div>
           <button class="btn btn-primary" type="button" id="aulesBuscar" onclick="aulesCerca()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
             Cercar
@@ -2537,43 +2541,43 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v296"></script>
-  <script defer src="js/pdfhorari.js?v=v296"></script>
-  <script defer src="js/millores.js?v=v296"></script>
-  <script defer src="js/rol.js?v=v296"></script>
-  <script defer src="js/config.local.js?v=v296"></script>
+  <script defer src="js/espera.js?v=v297"></script>
+  <script defer src="js/pdfhorari.js?v=v297"></script>
+  <script defer src="js/millores.js?v=v297"></script>
+  <script defer src="js/rol.js?v=v297"></script>
+  <script defer src="js/config.local.js?v=v297"></script>
   <!-- Entrar amb Google. Va DESPRÉS del config.local.js (d'allà en treu si
        aquesta app el té encès) i ABANS de l'app, que el crida en arrencar.
        A qui no el tingui encès, aquest fitxer no fa res de res. -->
-  <script defer src="js/login.js?v=v296"></script>
-  <script defer src="js/app.js?v=v296"></script>
-  <script defer src="js/notes.js?v=v296"></script>
-  <script defer src="js/seients.js?v=v296"></script>
-  <script defer src="js/perfil.js?v=v296"></script>
-  <script defer src="js/grupview.js?v=v296"></script>
-  <script defer src="js/postits.js?v=v296"></script>
-  <script defer src="js/horari.js?v=v296"></script>
-  <script defer src="js/gwrite.js?v=v296"></script>
-  <script defer src="js/rubriques.js?v=v296"></script>
-  <script defer src="js/rubaval.js?v=v296"></script>
-  <script defer src="js/rubaval-ui.js?v=v296"></script>
-  <script defer src="js/docents.js?v=v296"></script>
-  <script defer src="js/coordinacio.js?v=v296"></script>
-  <script defer src="js/regdocents.js?v=v296"></script>
-  <script defer src="js/segentrevistes.js?v=v296"></script>
-  <script defer src="js/horariclaustre-dades.js?v=v296"></script>
-  <script defer src="js/horariclaustre.js?v=v296"></script>
-  <script defer src="js/entrevistes.js?v=v296"></script>
-  <script defer src="js/incidencies.js?v=v296"></script>
-  <script defer src="js/aules.js?v=v296"></script>
-  <script defer src="js/notescomp.js?v=v296"></script>
-  <script defer src="js/reunions.js?v=v296"></script>
-  <script defer src="js/versio.js?v=v296"></script>
+  <script defer src="js/login.js?v=v297"></script>
+  <script defer src="js/app.js?v=v297"></script>
+  <script defer src="js/notes.js?v=v297"></script>
+  <script defer src="js/seients.js?v=v297"></script>
+  <script defer src="js/perfil.js?v=v297"></script>
+  <script defer src="js/grupview.js?v=v297"></script>
+  <script defer src="js/postits.js?v=v297"></script>
+  <script defer src="js/horari.js?v=v297"></script>
+  <script defer src="js/gwrite.js?v=v297"></script>
+  <script defer src="js/rubriques.js?v=v297"></script>
+  <script defer src="js/rubaval.js?v=v297"></script>
+  <script defer src="js/rubaval-ui.js?v=v297"></script>
+  <script defer src="js/docents.js?v=v297"></script>
+  <script defer src="js/coordinacio.js?v=v297"></script>
+  <script defer src="js/regdocents.js?v=v297"></script>
+  <script defer src="js/segentrevistes.js?v=v297"></script>
+  <script defer src="js/horariclaustre-dades.js?v=v297"></script>
+  <script defer src="js/horariclaustre.js?v=v297"></script>
+  <script defer src="js/entrevistes.js?v=v297"></script>
+  <script defer src="js/incidencies.js?v=v297"></script>
+  <script defer src="js/aules.js?v=v297"></script>
+  <script defer src="js/notescomp.js?v=v297"></script>
+  <script defer src="js/reunions.js?v=v297"></script>
+  <script defer src="js/versio.js?v=v297"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v296"></script>
+  <script defer src="js/personal.js?v=v297"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

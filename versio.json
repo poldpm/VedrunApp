@@ -1,11 +1,9 @@
 {
-  "versio": "v296",
+  "versio": "v297",
   "data": "2026-10-17",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El botó «Eines» del menú ja no es desplega: el cliques i al mig de la pantalla hi surt una targeta per eina, amb el nom i una línia del que fa. Cliques la targeta i s'obre l'eina.",
-    "Hi surten només les eines que tens tu. Al mòbil van de dues en dues.",
-    "I una última targeta, «Tinc una idea!»: hi expliques el que et faria servei i li arriba a en Pol amb el teu nom. No cal que la idea estigui rodona.",
-    "Ho tens explicat al manual d'ús, a «Les eines, en targetes»."
+    "A «Aules lliures», l'hora ara l'escrius tu: pots mirar les 12:30 o les 16:20, encara que no hi comenci cap classe.",
+    "Sota el camp hi tens les hores de classe per clicar-hi i no haver-les d'escriure."
   ]
 }

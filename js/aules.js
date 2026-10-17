@@ -62,6 +62,11 @@
     var h = Math.floor(min / 60) % 24, m = min % 60;
     return h + ':' + (m < 10 ? '0' + m : m);
   }
+  /* El camp d'hora del navegador vol sempre dos dígits: «08:50», no «8:50». */
+  function _hhmm(min) {
+    var h = Math.floor(min / 60) % 24, m = min % 60;
+    return (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
+  }
 
   /* ---- L'horari: del navegador primer, del servidor després ---- */
   function _cacheLlegeix() {
@@ -148,6 +153,15 @@
     return fora;
   }
 
+  /* «11:10» → 670. Res que no sigui una hora torna null. */
+  function _minuts(txt) {
+    var m = /^\s*(\d{1,2})\s*[:.]\s*(\d{2})\s*$/.exec(String(txt == null ? '' : txt));
+    if (!m) return null;
+    var h = parseInt(m[1], 10), mi = parseInt(m[2], 10);
+    if (h > 23 || mi > 59) return null;
+    return h * 60 + mi;
+  }
+
   /* ---- El cor de l'eina ----
      Per a un dia i un minut, quines aules són lliures i fins quan.
      Torna { dins:bool, pati:bool, lliures:[{nom,finsM,fins}], ocupades:n,
@@ -187,35 +201,47 @@
 
   /* ---- La pantalla ---- */
   function _pintaControls() {
-    var selDia = byId('aulesDia'), selHora = byId('aulesHora');
-    if (!selDia || !selHora) return;
+    var selDia = byId('aulesDia'), camp = byId('aulesHora'), rapides = byId('aulesRapides');
+    if (!selDia || !camp) return;
     selDia.innerHTML = DIES.map(function (d, i) {
       return '<option value="' + i + '">' + d + '</option>';
     }).join('');
+
+    /* Les hores de classe, per no haver-les d'escriure. No són l'única
+       manera de triar-ne una: al camp s'hi pot posar qualsevol hora, que
+       és justament per a les que no comencen cap classe (un buit a les
+       12:30, l'estona d'abans de sortir...). */
     var hores = _hores();
-    /* ⚠ Sense horari, el desplegable de les hores quedava BUIT i semblava
-       espatllat: la mestra l'obria, no hi havia res i no sabia per què.
-       (En Pol, 17/10/2026: «si vull triar un altre dia no em surten hores
-       per poder seleccionar».) Ara ho diu, i el per què surt al resultat. */
-    if (!hores.length) {
-      selHora.innerHTML = '<option value="">(encara no hi ha horari)</option>';
-      return;
+    if (rapides) {
+      /* ⚠ Sense horari, aquí no hi havia res i sembla espatllat: val més
+         dir-ho. El per què surt al resultat. */
+      rapides.innerHTML = hores.length
+        ? '<span class="aules-rapides-txt">Hores de classe:</span> ' + hores.map(function (h) {
+            return '<button type="button" class="aules-rapida" onclick="aulesHoraRapida(\'' +
+                   _hhmm(h.m) + '\')">' + _esc(h.h) + '</button>';
+          }).join('')
+        : '<span class="aules-rapides-txt">(encara no hi ha horari)</span>';
     }
-    selHora.innerHTML = hores.map(function (h) {
-      return '<option value="' + h.m + '">' + _esc(h.h) + '</option>';
-    }).join('');
+
     // De sèrie, el dia d'avui (o dilluns en cap de setmana) i l'hora d'ara.
     var ara = new Date(), d = ara.getDay();
     selDia.value = String(d >= 1 && d <= 5 ? d - 1 : 0);
-    var min = ara.getHours() * 60 + ara.getMinutes(), tria = hores.length ? hores[0].m : 0;
-    hores.forEach(function (h) { if (h.m <= min) tria = h.m; });
-    selHora.value = String(tria);
+    if (!camp.value) camp.value = _hhmm(ara.getHours() * 60 + ara.getMinutes());
+  }
+
+  /* Un botonet de les hores de classe: omple el camp i busca. */
+  function horaRapida(hhmm) {
+    var camp = byId('aulesHora');
+    if (camp) camp.value = hhmm;
+    cerca();
   }
 
   function quan(mode) {
     _mode = (mode === 'tria') ? 'tria' : 'ara';
     var tria = byId('aulesTria');
     if (tria) tria.style.display = (_mode === 'tria') ? '' : 'none';
+    var rapides = byId('aulesRapides');
+    if (rapides) rapides.style.display = (_mode === 'tria') ? '' : 'none';
     [['aulesTabAra', 'ara'], ['aulesTabTria', 'tria']].forEach(function (p) {
       var b = byId(p[0]);
       if (b) {
@@ -253,8 +279,15 @@
       minut = ara.getHours() * 60 + ara.getMinutes();
     } else {
       dia = parseInt((byId('aulesDia') || {}).value, 10);
-      minut = parseInt((byId('aulesHora') || {}).value, 10);
-      if (isNaN(dia) || isNaN(minut)) return;
+      minut = _minuts((byId('aulesHora') || {}).value);
+      if (isNaN(dia)) return;
+      /* L'hora l'escriu ella: pot quedar buida o a mitges. Dir-ho val més
+         que fer veure que s'ha buscat i no ensenyar res. */
+      if (minut === null) {
+        cont.innerHTML = '<div class="aules-avis">Posa-hi una hora (per exemple, <strong>11:10</strong>) ' +
+          'o clica una de les hores de classe.</div>';
+        return;
+      }
     }
 
     var r = mira(dia, minut);
@@ -367,6 +400,7 @@
   window.aulesQuan = quan;
   window.aulesCerca = cerca;
   window.aulesRellegeix = rellegeix;
+  window.aulesHoraRapida = horaRapida;
 
   window.Aules = {
     hiEs: _hiEs,

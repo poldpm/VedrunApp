@@ -393,6 +393,12 @@ qui decideix què és lliure és el navegador. Així, canviar l'hora a la pantal
 al passadís—, i l'horari queda guardat al navegador per si s'obre sense
 connexió.
 
+**L'hora (v297):** s'escriu en un `input type="time"`, no es tria d'una
+llista. En Pol, 17/10/2026: «potser interessen altres hores que no estan dins
+del llistat» —una estona d'entremig a les 12:30, per exemple—. Les hores de
+classe queden com a botonets de drecera sota el camp. El camp pot venir buit o
+a mitges: llavors es diu, en comptes de fer veure que s'ha buscat.
+
 **Paranys:**
 - **Els blocs ajuntats.** Al full n'hi ha per tot arreu (una activitat de dues
   hores seguides, l'ESBARJO que travessa la setmana). D'un bloc ajuntat, el
