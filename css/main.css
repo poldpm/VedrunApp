@@ -2429,7 +2429,22 @@ body {
 /* Setmana */
 .home-setmana { margin-top: 12px; }
 .home-setmana-grid {
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid;
+  /* ⚠ `minmax(0, 1fr)` I NO `1fr` A SEQUES (en Pol, 18/10/2026: «només es
+     veu el dilluns i el dimarts»).
+
+     Un `1fr` no es deixa encongir per sota del seu contingut, i els rètols
+     dels events no es parteixen (`white-space: nowrap`). Amb un event de
+     nom llarg —«Colònies Primer Cicle a Can Miqueló»— aquella columna
+     demanava 216px, i al mòbil la graella se n'anava a 784px dins d'una
+     targeta de 352: el dijous i el divendres quedaven FORA, i com que la
+     targeta talla el que sobra, no hi havia ni manera de moure-ho amb el
+     dit. A l'ordinador no es notava tant, però les cinc columnes tampoc no
+     eren iguals: 216, 216, 204, 119, 119.
+
+     Amb `minmax(0, …)` les columnes sempre són cinc i iguals, i el rètol
+     que no hi cap s'acaba amb punts suspensius, que ja ho preveia. */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   padding: 12px; gap: 8px;
 }
 .home-setm-dia {
@@ -2445,6 +2460,21 @@ body {
 .home-setm-pill-extra { background: #FEF9C3; color: #92400E; }
 .home-setm-pill-alerta { background: #FEE2E2; color: #991B1B; }
 .home-setm-normal { font-size: 10px; color: var(--text-muted); }
+
+/* Al mòbil, un dia per fila. Cinc columnes en un telèfon surten a 60px
+   cadascuna: hi cap el número del dia i prou, i el que hi tens apuntat no
+   es pot llegir. En fila es llegeix tot sense haver de moure res. */
+@media (max-width: 560px) {
+  .home-setmana-grid { grid-template-columns: 1fr; gap: 6px; padding: 10px; }
+  .home-setm-dia {
+    min-height: 0; padding: 8px 10px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .home-setm-nom, .home-setm-num { margin: 0; flex-shrink: 0; }
+  .home-setm-num { font-size: 15px; }
+  .home-setm-pills { flex: 1; min-width: 0; }
+  .home-setm-pill, .home-setm-normal { font-size: 11px; }
+}
 
 /* Accés ràpid */
 .home-section-label {

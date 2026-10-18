@@ -1,9 +1,10 @@
 {
-  "versio": "v298",
-  "data": "2026-10-17",
+  "versio": "v299",
+  "data": "2026-10-18",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al planning setmanal, quan poses el mateix a diverses franges seguides —unes colònies de dos dies, una sortida de tot el matí— les caselles queden unides en una de sola i el rètol hi surt un sol cop, no repetit a cada hora.",
-    "Clicant-la obres la primera hora del tram, que és des d'on es canvia."
+    "Arreglat: al mòbil, a «Com pinta la setmana» de l'Inici només s'hi veien el dilluns i el dimarts quan hi havia un event de nom llarg. Ara els cinc dies hi són, un per fila, i es llegeixen sencers.",
+    "A l'ordinador les cinc columnes tornen a ser iguals, i el que no hi cap s'acaba amb punts suspensius.",
+    "I si una sortida ocupa tot el dia, hi surt un sol cop en comptes de repetir-se a cada hora."
   ]
 }

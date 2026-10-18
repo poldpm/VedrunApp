@@ -8560,17 +8560,22 @@ function _renderHomeSetmana() {
     // Contingut del planning
     let pills = '';
     let hasExtra = false;
+    /* ⚠ El MATEIX rètol, un sol cop. Unes colònies ocupen les vuit franges
+       del dia i aquí sortien vuit vegades seguides, totes dient el mateix:
+       és el mateix mal d'ulls que les caselles repetides del planning. */
+    const _vistos = {};
+    const _pill = (clau, html) => { if (_vistos[clau]) return; _vistos[clau] = true; pills += html; };
     PLAN_FRANGES.forEach(f => {
       const data = JSON.parse(localStorage.getItem('plan_' + wKey + '_' + diaId + '_' + f.id) || 'null');
       if (!data) return;
       if (data.tipus === 'festa') {
-        pills += `<span class="home-setm-pill" style="background:#E5E7EB;color:#374151">FESTA</span>`; hasExtra=true; return;
+        _pill('festa', `<span class="home-setm-pill" style="background:#E5E7EB;color:#374151">FESTA</span>`); hasExtra=true; return;
       }
       if ((data.tipus==='especial'||data.tipus==='sortida') && data.event) {
-        pills += `<span class="home-setm-pill home-setm-pill-extra">⚠ ${escapeHtml(data.event)}</span>`; hasExtra=true; return;
+        _pill('ev:' + data.event, `<span class="home-setm-pill home-setm-pill-extra">⚠ ${escapeHtml(data.event)}</span>`); hasExtra=true; return;
       }
       if (data.alerta) {
-        pills += `<span class="home-setm-pill home-setm-pill-alerta">⚠ ${escapeHtml(data.alerta)}</span>`; hasExtra=true;
+        _pill('al:' + data.alerta, `<span class="home-setm-pill home-setm-pill-alerta">⚠ ${escapeHtml(data.alerta)}</span>`); hasExtra=true;
       }
     });
 
@@ -8579,14 +8584,14 @@ function _renderHomeSetmana() {
     const evs  = allEventsForDate(dStr);
     evs.slice(0,2).forEach(e => {
       const cat = e.fromGCal ? { color: e.calColor || '#4285F4' } : (cal2CatById ? cal2CatById(e.catId) : {color:'#8B5CF6'});
-      pills += `<span class="home-setm-pill" style="background:${cat.color}20;color:${cat.color}">${escapeHtml(e.titol)}</span>`;
+      _pill('cal:' + (e.titol || ''), `<span class="home-setm-pill" style="background:${cat.color}20;color:${cat.color}">${escapeHtml(e.titol)}</span>`);
     });
 
     // Tasques del dia (ja carregades fora del loop)
     const tasqDia = _homeTasksCache ? _homeTasksCache.filter(t=>!t.feta&&t.data===dStr) : [];
     tasqDia.forEach(t => {
       const cat = TQ_CATS?.[t.cat]||{color:'#6B7280'};
-      pills += `<span class="home-setm-pill" style="background:${cat.color}20;color:${cat.color}">✓ ${escapeHtml(t.titol)}</span>`;
+      _pill('tq:' + (t.titol || ''), `<span class="home-setm-pill" style="background:${cat.color}20;color:${cat.color}">✓ ${escapeHtml(t.titol)}</span>`);
     });
 
     html += `<div class="home-setm-dia${isAvui?' home-setm-avui':''}">
