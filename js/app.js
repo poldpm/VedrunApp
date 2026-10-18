@@ -2272,6 +2272,20 @@ async function loadAll() {
        cas de cada dia: l'app oberta des d'ahir— i, si no es pot, s'ensenya
        el botó d'entrar. No es tracta com un error de connexió, perquè no ho
        és i l'avís confondria. */
+    /* ⚠ AQUESTA VA PRIMERA, I NO ÉS CAP CAPRITX D'ORDRE.
+
+       La resposta de «aquesta app no és teva» també porta `_loginError`
+       —l'ha de portar, perquè una app endarrerida sàpiga que és cosa de
+       l'entrada i no de la xarxa—. Si es mirés primer la de baix, es
+       demanaria una credencial nova, Google tornaria la mateixa (que és
+       bona) i l'app ho tornaria a demanar tot: voltes i voltes. Va
+       passar el 18/10/2026. */
+    if (boot && boot._loginAltri) {
+      try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(boot.error); } catch (e) {}
+      _arrencadaFora(true);
+      return;
+    }
+
     if (boot && boot._loginError) {
       try { if (typeof loginCaducat === 'function') loginCaducat(); } catch (e) {}
       _arrencadaFora(true);
@@ -2547,6 +2561,14 @@ function _finalitzaRefresc(resposta) {
     /* La credencial de Google ha caducat amb l'app oberta. Es renova en
        silenci i NO es diu «sense connexió», que seria mentida i la faria
        mirar el wifi quan el wifi va bé. */
+    /* Primer la de «no és teva» (veure l'arrencada: la porta `_loginError`
+       també, i mirar-les a l'inrevés faria donar voltes). Aquí no es diu
+       «Tornant a entrar…», que seria mentida: no s'hi tornarà. */
+    if (resposta && resposta._loginAltri) {
+      try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(resposta.error); } catch (e) {}
+      updateSync('error', 'Aquesta app no és teva');
+      return;
+    }
     if (resposta && resposta._loginError) {
       try { if (typeof loginCaducat === 'function') loginCaducat(); } catch (e) {}
       updateSync('error', 'Tornant a entrar…');
@@ -4721,8 +4743,9 @@ function _esTornaraAProvar(r) {
   if (r._authError) return true;             // l'avís de clau ja surt sol
   /* El servidor diu que aquesta app no és de qui hi ha entrat. Demanar-li
      la credencial un altre cop no arreglaria res —tornaria a ser la
-     mateixa—: se li diu i se li deixa triar un altre compte. El que hi
-     hagi a la cua no es llença: es queda apuntat. */
+     mateixa, i és bona—: es diu i s'acaba aquí. El que hi hagi a la cua
+     no es llença, es queda apuntat, i no se'n torna a enviar cap: des
+     d'ara les peticions es queden esperant (veure `loginEspera()`). */
   if (r._loginAltri) {
     try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(r.error); } catch (e) {}
     return true;

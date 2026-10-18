@@ -45,6 +45,9 @@ const _LOGIN_GIS  = 'https://accounts.google.com/gsi/client';
 let _loginDades = null;      // { token, exp, email, nom }
 let _loginCarregant = null;  // promesa de la càrrega del codi de Google
 let _loginDemanant = false;
+/* El servidor ha dit que aquesta app és d'una altra mestra. Un cop posat,
+   no es treu: veure `loginNoEsTeva()` aquí sota. */
+let _loginEsAltri = false;
 
 /* ---------- el que tenim desat ---------- */
 /* Es desa al navegador perquè no s'hagi de tornar a demanar a cada recàrrega.
@@ -109,6 +112,10 @@ function _loginCarregaGIS() {
 
 /* Què es fa quan Google ens dona la credencial. */
 function _loginRebuda(resposta) {
+  /* Si ja s'ha dit que aquesta app no és seva, una credencial nova no
+     canvia res: el compte és bo, l'app no. Si s'acceptés, es tornaria a
+     demanar tot i començaria el bucle. */
+  if (_loginEsAltri) return;
   const jwt = resposta && resposta.credential;
   if (!jwt) return;
   const cos = _loginObre(jwt) || {};
@@ -154,6 +161,7 @@ function _loginPorta() {
   return el;
 }
 function _loginObrePorta() {
+  if (_loginEsAltri) return;      // no hi ha res a entrar: l'app no es seva
   const el = _loginPorta();
   el.classList.add('open');
   _loginCarregaGIS().then(() => {
@@ -194,6 +202,10 @@ function _loginPintaError(t) {
    que això no s'espera mai a si mateix. */
 let _loginLlest = null;
 function loginEspera() {
+  /* L'app no es seva: les peticions es queden aqui i no en surt cap mes.
+     Es el que trenca el bucle: sense crides al servidor no hi ha cap
+     resposta que torni a engegar l'entrada. */
+  if (_loginEsAltri) return new Promise(() => {});
   if (!loginCal() || loginToken()) return Promise.resolve(true);
   return _loginLlest || Promise.resolve(false);
 }
@@ -204,7 +216,7 @@ function loginEspera() {
    com es pugui (sense connexió, per exemple, el que ja hi ha al navegador
    s'ha de poder llegir). */
 function loginArrenca() {
-  if (!loginCal()) return Promise.resolve(true);
+  if (!loginCal() || _loginEsAltri) return Promise.resolve(false);
   if (_loginLlest) return _loginLlest;      // ja s'hi està, no se'n fan dues
 
   /* Ja en tenim una de bona: endavant, i es renovarà quan toqui. */
@@ -268,7 +280,7 @@ function _loginRenovaQuanCalgui() {
   setTimeout(() => loginRenova(), Math.max(10000, Math.min(falta, 30 * 60 * 1000)));
 }
 function loginRenova() {
-  if (!loginCal() || _loginDemanant) return Promise.resolve(false);
+  if (!loginCal() || _loginDemanant || _loginEsAltri) return Promise.resolve(false);
   _loginDemanant = true;
   return _loginCarregaGIS().then(() => new Promise(resolta => {
     try {
@@ -291,23 +303,68 @@ function loginRenova() {
    era oberta, o la mestra ha sortit del seu compte). Es prova de renovar en
    silenci i, si no pot, s'ensenya el botó. */
 function loginCaducat() {
-  if (!loginCal()) return;
+  if (!loginCal() || _loginEsAltri) return;
   _loginDesa(null);
   loginRenova().then(ok => { if (!ok) _loginObrePorta(); });
 }
 
-/* Aquesta app és d'una altra mestra.
+/* ---------- aquesta app és d'una altra mestra ----------
 
-   No es torna a demanar la credencial sola: seria la mateixa i el
-   servidor tornaria a dir que no, i la pantalla es quedaria donant voltes.
-   S'obre la porta amb el missatge i es desactiva l'entrada automàtica,
-   perquè pugui triar un altre compte si s'ha equivocat d'adreça. */
+   ⚠ AIXÒ S'ATURA DEL TOT, I NO ÉS CAP EXAGERACIÓ: és l'única manera que
+   no doni voltes.
+
+   El primer intent sí que en donava (18/10/2026, trobat en Pol a la
+   primera prova): es demanava una credencial nova, Google tornava la
+   mateixa —és l'única que hi ha, i és bona—, l'app es pensava que ja
+   podia i ho tornava a demanar tot. «Sincronitzant…», fora, i torna-hi.
+
+   El canvi de compte no arregla res, perquè el compte no és el problema:
+   l'app ho és. Per tant no s'ofereix cap botó d'entrar. Es diu què passa
+   i s'acaba aquí.
+
+   ⚠ I NO S'ESBORRA LA CREDENCIAL. Les sis apps viuen al mateix lloc
+   (`poldpm.github.io`), o sigui que comparteixen el que el navegador
+   desa: esborrar-la aquí la trauria també de la seva pròpia app, i
+   l'endemà es trobaria el botó d'entrar sense entendre per què. */
+function loginAltri() { return _loginEsAltri; }
+
 function loginNoEsTeva(missatge) {
-  if (!loginCal()) return;
-  _loginDesa(null);
-  try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (e) {}
-  _loginObrePorta();
-  _loginPintaError(missatge || 'Aquesta app no és teva. Obre la teva.');
+  if (!loginCal() || _loginEsAltri) return;
+  _loginEsAltri = true;
+  _loginPintaAltri(missatge);
+}
+
+function _loginPintaAltri(missatge) {
+  let el = document.getElementById('loginAltri');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loginAltri';
+    el.className = 'login-porta';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    document.body.appendChild(el);
+  }
+  const qui = loginQui();
+  el.innerHTML =
+    '<div class="login-caixa">' +
+      '<img class="login-logo" src="img/logo-horitzontal.png" alt="Vedruna Escorial Vic">' +
+      '<h1 class="login-titol">Aquesta app no és teva</h1>' +
+      '<p class="login-text">' +
+        _loginEsc(missatge || 'Cada mestra té la seva app, amb els seus grups i els seus alumnes.') +
+      '</p>' +
+      '<p class="login-peu">' +
+        (qui ? 'Hi has entrat amb <strong>' + _loginEsc(qui) + '</strong>. ' : '') +
+        'Obre l\'enllaç de la teva app i ja hi seràs a dins.' +
+      '</p>' +
+    '</div>';
+  el.classList.add('open');
+  /* La porta d'entrada, si estava oberta, sobra: no hi ha res a fer-hi. */
+  _loginTancaPorta();
+}
+
+function _loginEsc(t) {
+  return String(t == null ? '' : t)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /* Sortir. No hi ha cap botó a l'app que ho faci —ningú no ho ha demanat—,
