@@ -1063,3 +1063,24 @@ window.EINES_INCIDENCIES = true;
    Veure `js/aules.js` i la recepta del `MILLORES.md`.
    ============================================================ */
 window.EINES_AULES = true;
+
+/* ============================================================
+   L'AJUDA A ESCRIURE ELS COMENTARIS: DE MOMENT, NOMÉS AQUÍ
+   ------------------------------------------------------------
+   La clau de Claude és una i la paga en Pol. Abans de donar-la a
+   vint-i-cinc mestres cal saber què costa de debò un comentari, i
+   això no s'endevina: es compta de les crides que es fan.
+
+   `IA_CLAUDE` fa que el generador de comentaris passi per Claude.
+   Si el sostre del mes s'omple o la crida falla, cau sol al Gemini
+   de sempre i no es nota res.
+
+   `IA_COST` posa, al peu del comentari generat, els tokens d'aquella
+   crida i el que portem gastat del mes. És per mesurar: quan ja se
+   sàpiga el preu, es pot treure.
+
+   Al servidor fa falta la propietat `CLAUDE_KEY`. El sostre del mes
+   és `CLAUDE_MAX_MES` (15 $ de sèrie) i el model, `CLAUDE_MODEL`.
+   ============================================================ */
+window.IA_CLAUDE = true;
+window.IA_COST   = true;

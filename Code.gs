@@ -3151,6 +3151,8 @@ function handleRequest(e) {
       case 'loadHorariAssigs':       result = loadHorariAssigs(ss); break;
       case 'aplicarHorariPlanning':  result = aplicarHorariPlanning(ss, body.horari, body.weekIds, body.fora, body.mode); break;
       case 'gemini':                 result = geminiGenerate(body && body.prompt, body && body.contents); break;
+      case 'claude':                 result = claudeGenerate(body && body.prompt, body && body.opcions); break;
+      case 'getIaGast':              result = getIaGast(ss); break;
       case 'saveProfile':            result = saveProfile(ss, body.profile); break;
       case 'loadProfile':            result = loadProfile(ss); break;
       case 'setupGrups':             result = setupGrups(getGrupsSpreadsheet(ss) || ss); break;
@@ -6492,7 +6494,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v304';
+var BACKEND_VERSIO = 'v305';
 
 var MAX_CELA = 45000;
 
@@ -6750,6 +6752,178 @@ function geminiGenerate(prompt, contents) {
     } catch(e) { lastErr = e.message; }
   }
   return { ok:false, error: lastErr || 'Error desconegut', isBusy: saturat };
+}
+
+/* ============================================================
+   L'AJUDA A ESCRIURE, AMB CLAUDE
+   ------------------------------------------------------------
+   El mateix que ja es feia amb Gemini: el navegador envia el text i
+   AQUÍ es fa la crida, perquè la clau no surti mai del servidor.
+
+   ⚠ TRES COSES QUE NO SÓN CAPRITX.
+
+   1. UN SOSTRE PER MESTRA I MES. La clau és una i la paga en Pol. Sense
+      sostre, una mestra que es quedi clicant «generar» —o un error que
+      reintenti sol— se la pot fondre per a totes les altres, i això
+      passaria justament la setmana dels informes, que és quan fa més mal.
+      Quan s'arriba al sostre no es talla res: es torna `_sostre` i el
+      navegador fa servir el Gemini de sempre. Ningú no es queda aturat.
+
+   2. ES PORTA EL COMPTE. Cada crida apunta els tokens i el que han
+      costat. Sense això no se sap què s'està gastant fins que arriba el
+      rebut, i llavors ja és tard.
+
+   3. EL MODEL I EL SOSTRE ES PODEN CANVIAR SENSE TOCAR CODI, amb les
+      propietats `CLAUDE_MODEL` i `CLAUDE_MAX_MES`. Provar si un model
+      més barat ja fa el pes no ha de demanar tornar a enganxar res.
+
+   La clau va a `CLAUDE_KEY`. Si és al projecte de la mestra, és seva; si
+   és a la biblioteca, val per a totes alhora (com el `LOGIN_DOMINI`).
+   Primer de tot, només a l'app d'en Pol.
+   ============================================================ */
+var CLAUDE_MODEL_DEF = 'claude-sonnet-5-5';
+/* Dòlars per MILIÓ de tokens. Si Anthropic els canvia, es canvien aquí (o
+   a la propietat `CLAUDE_PREUS`, «entrada,sortida», per no haver d'enganxar
+   la biblioteca només per això). */
+var CLAUDE_PREU_DEF  = { entrada: 2.0, sortida: 10.0 };
+var CLAUDE_MAX_MES   = 15;        // dòlars per mestra i mes
+var CLAUDE_URL       = 'https://api.anthropic.com/v1/messages';
+var CLAUDE_VERSIO    = '2023-06-01';
+
+function _claudeKey() {
+  return (_prop('CLAUDE_KEY') || '').trim() || _propBiblioteca('CLAUDE_KEY');
+}
+function _claudeModel_() {
+  return (_prop('CLAUDE_MODEL') || '').trim() || _propBiblioteca('CLAUDE_MODEL') || CLAUDE_MODEL_DEF;
+}
+function _claudePreus_() {
+  var cru = (_prop('CLAUDE_PREUS') || '').trim() || _propBiblioteca('CLAUDE_PREUS');
+  var p = String(cru).split(',');
+  var e = parseFloat(p[0]), s = parseFloat(p[1]);
+  if (!isNaN(e) && !isNaN(s) && e >= 0 && s >= 0) return { entrada: e, sortida: s };
+  return CLAUDE_PREU_DEF;
+}
+function _claudeSostre_() {
+  var v = parseFloat((_prop('CLAUDE_MAX_MES') || '').trim());
+  return (!isNaN(v) && v >= 0) ? v : CLAUDE_MAX_MES;
+}
+function _claudeMes_() {
+  try {
+    return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Madrid', 'yyyy-MM');
+  } catch (e) { return '0000-00'; }
+}
+/* El compte del mes. Canviar de mes el torna a zero sol: així no cal
+   recordar-se'n ni tocar res l'1 de cada mes. */
+function _claudeGast_() {
+  var mes = _claudeMes_(), d = null;
+  try { d = JSON.parse(_prop('CLAUDE_GAST') || 'null'); } catch (e) { d = null; }
+  if (!d || d.mes !== mes) d = { mes: mes, dolars: 0, crides: 0, entrada: 0, sortida: 0 };
+  return d;
+}
+function _claudeApunta_(entrada, sortida) {
+  try {
+    var preus = _claudePreus_();
+    var d = _claudeGast_();
+    d.crides  += 1;
+    d.entrada += entrada;
+    d.sortida += sortida;
+    d.dolars  += (entrada / 1e6) * preus.entrada + (sortida / 1e6) * preus.sortida;
+    d.dolars   = Math.round(d.dolars * 1e6) / 1e6;
+    PropertiesService.getScriptProperties().setProperty('CLAUDE_GAST', JSON.stringify(d));
+    return d;
+  } catch (e) { return null; }
+}
+
+/* Quant s'ha gastat aquest mes. El navegador ho ensenya a qui ho tingui encès.
+   ⚠ Porta `ss` encara que no el faci servir, i NO és per descuit: una funció
+   sense cap argument acaba al pont de cada mestra, i llavors totes l'haurien
+   de tornar a enganxar. Veure `eines/fes-biblioteca.js`. */
+function getIaGast(ss) {
+  var d = _claudeGast_();
+  return { ok:true, mes: d.mes, dolars: d.dolars, crides: d.crides,
+           entrada: d.entrada, sortida: d.sortida,
+           sostre: _claudeSostre_(), model: _claudeModel_(), teClau: !!_claudeKey() };
+}
+
+/* El text d'una resposta: el primer bloc de text que hi hagi.
+   ⚠ `content` és una LLISTA de blocs i el primer no sempre és el text
+   (hi pot haver blocs de raonament al davant). Agafar `content[0].text`
+   a cegues tornaria buit sense dir per què. */
+function _claudeText_(dades) {
+  var c = (dades && dades.content) || [];
+  for (var i = 0; i < c.length; i++) {
+    if (c[i] && c[i].type === 'text' && c[i].text && String(c[i].text).trim()) {
+      return String(c[i].text).trim();
+    }
+  }
+  return '';
+}
+
+function claudeGenerate(prompt, opcions) {
+  var key = _claudeKey();
+  if (!key) return { ok:false, error:'No hi ha clau de Claude configurada al servidor' };
+  if (!prompt || !String(prompt).trim()) return { ok:false, error:'Prompt buit' };
+
+  var sostre = _claudeSostre_();
+  var gast   = _claudeGast_();
+  if (sostre > 0 && gast.dolars >= sostre) {
+    return { ok:false, _sostre:true, gast: gast.dolars, sostre: sostre,
+             error: 'Aquest mes ja s\'ha fet servir tot el que hi ha reservat per a l\'ajuda a escriure.' };
+  }
+
+  var o = opcions || {};
+  var cos = {
+    model: o.model || _claudeModel_(),
+    max_tokens: o.maxTokens || 2000,
+    messages: [{ role: 'user', content: String(prompt) }],
+    output_config: { effort: o.esforc || 'low' },
+  };
+
+  /* Tres intents com a molt. Es reintenta NOMÉS el que té sentit tornar a
+     provar (massa peticions alhora, o el servidor que fa figa); un error
+     del que enviem tornaria igual i només faria esperar la mestra. */
+  var ultim = '';
+  for (var i = 0; i < 3; i++) {
+    try {
+      var resp = UrlFetchApp.fetch(CLAUDE_URL, {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { 'x-api-key': key, 'anthropic-version': CLAUDE_VERSIO },
+        payload: JSON.stringify(cos),
+        muteHttpExceptions: true,
+      });
+      var codi  = resp.getResponseCode();
+      var dades = {};
+      try { dades = JSON.parse(resp.getContentText() || '{}'); } catch (e) { dades = {}; }
+
+      if (codi === 200) {
+        var us  = dades.usage || {};
+        var ent = Number(us.input_tokens || 0);
+        var sor = Number(us.output_tokens || 0);
+        var ara = _claudeApunta_(ent, sor);
+
+        /* El model pot declinar una petició. Arriba amb codi 200, o sigui
+           que si no es mirés es veuria com una resposta buida. */
+        if (dades.stop_reason === 'refusal') {
+          return { ok:false, _refus:true,
+                   error:'L\'ajuda a escriure no ha volgut redactar això. Fes servir l\'esborrany.' };
+        }
+        var text = _claudeText_(dades);
+        if (!text) { ultim = 'Resposta buida'; break; }
+        return { ok:true, text: text, model: cos.model,
+                 us: { entrada: ent, sortida: sor,
+                       dolars: ara ? ara.dolars : null, crides: ara ? ara.crides : null } };
+      }
+
+      ultim = (dades && dades.error && dades.error.message) || ('HTTP ' + codi);
+      if (codi === 429 || codi === 529 || codi >= 500) {
+        if (i < 2) { Utilities.sleep(1200 * (i + 1)); continue; }
+        return { ok:false, error: ultim, isBusy:true };
+      }
+      break;                                  // 400, 401, 403: tornar-hi no arreglaria res
+    } catch (e) { ultim = e.message; break; }
+  }
+  return { ok:false, error: ultim || 'Error desconegut' };
 }
 
 function loadSeients(ss, grup) {

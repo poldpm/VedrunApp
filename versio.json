@@ -1,8 +1,8 @@
 {
-  "versio": "v304",
+  "versio": "v305",
   "data": "2026-10-18",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Les observacions que ja tenies escrites surten ara a la columna «Observacions» del full de càlcul. No has de tornar a escriure'n cap: hi apareixen soles la primera vegada que obris l'app."
+    "Manteniment intern de l'app. No canvia res del que fas ni de com ho fas."
   ]
 }

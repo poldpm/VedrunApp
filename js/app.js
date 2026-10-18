@@ -1767,6 +1767,54 @@ function _getGeminiKey() {
 // Detecta si l'error de Gemini es "model saturat" (Google respon en angles:
 // "high demand", "overloaded", "UNAVAILABLE", HTTP 503). Es temporal: reintentant
 // sol funcionar, per aixo es tracta diferent d'un error de debo.
+/* ============================================================
+   QUI ESCRIU L'ESBORRANY DEL COMENTARI
+   ------------------------------------------------------------
+   Hi ha dues ajudes: la de sempre (Gemini, amb la clau de cada mestra) i
+   la de Claude, que va amb una sola clau que paga en Pol. Qui en faci
+   servir quina ho diu `IA_CLAUDE` al seu `js/personal.js`, que no se
+   sincronitza: ara mateix només l'app d'en Pol, per veure què costa de
+   debò abans de donar-ho a ningú més.
+
+   ⚠ SI CLAUDE NO POT, ES FA SERVIR GEMINI I LA MESTRA NO S'ASSABENTA DE
+   RES. Passa en dos casos: el sostre del mes s'ha omplert, o la crida ha
+   fallat. Tots dos cauen justament la setmana dels informes, que és quan
+   una mestra no es pot quedar plantada davant d'una pantalla que no
+   escriu. Val més un comentari fet amb l'altra ajuda que no pas cap.
+   ============================================================ */
+function _iaQuina() {
+  try { return (window.IA_CLAUDE === true) ? 'claude' : 'gemini'; } catch (e) { return 'gemini'; }
+}
+
+/* L'última crida, per a qui tingui el comptador encès (window.IA_COST). */
+let _iaUltimUs = null;
+
+async function _claudeGenerate(prompt) {
+  const r = await appsScriptPost({ action: 'claude', prompt });
+  if (!r || r.ok === false) {
+    const err = new Error((r && r.error) || 'Error de l\'ajuda a escriure');
+    err.esSostre = !!(r && r._sostre);
+    err.isBusy   = !!(r && r.isBusy);
+    throw err;
+  }
+  _iaUltimUs = r.us || null;
+  return r.text;
+}
+
+async function _iaGenerate(prompt) {
+  if (_iaQuina() === 'claude') {
+    try {
+      return await _claudeGenerate(prompt);
+    } catch (e) {
+      /* El sostre i una errada es tracten igual: provar-ho amb l'altra.
+         Només es deixa passar si TAMBÉ falla la de sempre. */
+      try { console.warn('Claude no ha pogut, es prova amb Gemini:', e.message); } catch (x) {}
+      _iaUltimUs = null;
+    }
+  }
+  return await _geminiGenerate(prompt);
+}
+
 function _geminiEsSaturat(msg) {
   return /high demand|overload|unavailable|try again later|503/i.test(String(msg || ''));
 }
@@ -10004,9 +10052,22 @@ function _comentTeCanvis() {
 }
 
 function _mostrarComentari(text, rubrica, alumne, ambIA) {
-  const consell = ambIA
-    ? '✅ Redactat per Gemini. Revisa-ho i edita si cal.'
+  let consell = ambIA
+    ? '✅ Redactat amb l\'ajuda a escriure. Revisa-ho i edita si cal.'
     : '💡 Esborrany sense IA. Configura la clau Gemini a Configuració per redactar automàticament.';
+  /* El preu de l'última crida, per a qui ho tingui encès al seu
+     `js/personal.js` (ara mateix, només en Pol). És l'única manera de
+     saber què costa de debò abans de donar-ho a vint-i-cinc mestres:
+     comptar-ho de les crides que es fan, no estimar-ho. */
+  try {
+    if (window.IA_COST && ambIA && _iaUltimUs) {
+      const u = _iaUltimUs;
+      const cent = (typeof u.dolars === 'number')
+        ? ' · aquest mes ' + (u.dolars * 100).toFixed(0) + ' cèntims en ' + u.crides + ' comentaris'
+        : '';
+      consell += '  [' + u.entrada + ' + ' + u.sortida + ' tokens' + cent + ']';
+    }
+  } catch (e) {}
   const overlay = document.getElementById('comentResultOverlay');
   /* El títol diu de quin TRIMESTRE és: abans no ho deia enlloc i el text
      parlava d'«aquest trimestre» sense que ningú sabés quin (auditoria
@@ -10263,14 +10324,14 @@ async function generarComentari() {
 
   // Mostra spinner al modal mentre la IA redacta
   document.getElementById('comentResultTitle').textContent = 'Generant…';
-  document.getElementById('comentTextBox').innerHTML = '<div class="coment-loading"><div class="coment-spinner"></div>Gemini està redactant el comentari…</div>';
+  document.getElementById('comentTextBox').innerHTML = '<div class="coment-loading"><div class="coment-spinner"></div>S\'està redactant el comentari…</div>';
   document.getElementById('comentResultConsell').textContent = '';
   document.getElementById('comentResultOverlay').classList.add('open');
 
   const prompt = _comentPrompt(rubrica, alumne, esborrany);
 
   const _callGemini = async () => {
-    return await _geminiGenerate(prompt);
+    return await _iaGenerate(prompt);
   };
 
   try {
