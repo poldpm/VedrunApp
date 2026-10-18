@@ -184,8 +184,19 @@ En una sessió remota les carpetes `C:/Escorial/...` no existeixen:
   l'avís de versió nova mentirà: `sw.js` (`const CACHE = 'vedruna-vNN'`),
   `js/versio.js` (`VERSIO_APP`) i `versio.json` (`versio` + la llista de
   `canvis`, escrits en llenguatge de mestre).
-- **A cada canvi de `Code.gs`: cal desplegar una NOVA versió** al Apps Script.
-  Si el canvi NO toca `Code.gs`, no li diguis que redesplegui: no cal.
+- ⚠ **UN CANVI AL `Code.gs` NO DEMANA DESPLEGAR RES.** Des que el codi viu a
+  la BIBLIOTECA (4/9/2026), en Pol l'enganxa, la desa, i arriba a totes les
+  mestres sola. **No li diguis mai que «desplegui una versió nova»**: és
+  d'abans, quan el codi vivia dins del projecte de cada mestra, i fer-l'hi
+  fer és fer-li perdre el temps. Ja consta a `INSTALLACIO.md` que el
+  6/9/2026 se li va dir vuit vegades seguides; el 18/10/2026 hi vam tornar,
+  a cada enganxada. El que SÍ que s'ha de dir, quan calgui, és la propietat
+  nova o el `appsscript.json`.
+- ⚠ **NO DIGUIS «he comprovat la biblioteca que has enganxat».** No la pots
+  veure: el que proves és el fitxer que li has donat tu, no el que hi ha al
+  seu Apps Script. Digues això, que és el que has fet de debò. Per saber
+  quina hi corre de veritat hi ha **Configuració → «Servidor: vNNN»** de la
+  seva app: aquell número ve del servidor i no menteix.
 - **`BACKEND_MINIM` (a `js/versio.js`) NO es puja a cada versió.** És la versió
   més vella del `Code.gs` amb què l'app encara funciona, i és el que decideix
   si surt la franja groga de «servidor endarrerit». Puja-la **només** quan
