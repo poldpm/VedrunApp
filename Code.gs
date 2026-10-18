@@ -3178,6 +3178,7 @@ function handleRequest(e) {
       case 'getDesdobGrup':          result = getDesdobGrup(ss, (body&&body.curs) || p.curs, (body&&body.assignatura) || p.assignatura, (body&&body.grup) || p.grup); break;
       case 'getGrupObs':             result = getGrupObs(ss, (body&&body.grup) || p.grup); break;
       case 'saveGrupObs':            result = saveGrupObs(ss, body.grup, body.rowId, body.materia, body.text, body.base, body.afegit, body.nomAlumne); break;
+      case 'obsAlFullLot':           result = obsAlFullLot(ss, body.grup, body.items); break;
 
       // Tasques
       case 'saveTasques':            result = saveTasques(ss, body.data, body.base); break;
@@ -4185,6 +4186,71 @@ function _obsAlFullDeNotes_(ss, grup, clauMateria, nomAlumne, text) {
     else cel.clearContent();
   } catch (e) { /* una còpia que falla no pot tombar una desada que ha anat bé */ }
 }
+/* ⚠ LES OBSERVACIONS D'ABANS NO ES REESCRIUEN A MÀ.
+
+   La columna «Observacions» de la pestanya de notes no l'omplia ningú fins
+   a la v303, i la còpia només es fa en DESAR. O sigui que tot el que una
+   mestra ja tenia escrit abans no hi sortiria mai, i ningú no pot demanar
+   a una mestra que torni a escriure un trimestre d'apunts.
+
+   Això ho repassa de cop: l'app diu què té i on va, i aquí només s'escriu
+   al full. NO ES TOCA el que hi ha desat —les observacions viuen a part i
+   les comparteix tot el claustre—, o sigui que repassar-ho no pot fer mal
+   ni que dues mestres ho facin alhora. Es pot repetir tantes vegades com
+   calgui i no canvia res més.
+
+   Va per pestanyes i no d'una en una: llegir la llista de noms un cop per
+   pestanya en comptes d'un cop per observació és la diferència entre mig
+   minut i un minut i mig d'espera. */
+function obsAlFullLot(ss, grup, items) {
+  if (!ss || !items || !items.length) return { ok:true, escrites:0 };
+
+  // Per pestanyes: { nomPestanya: [ {nom, text}, … ] }
+  var perFull = {};
+  items.forEach(function (it) {
+    if (!it || !it.nom || !it.clau) return;
+    var m = /^(\d+)_(.+)$/.exec(String(it.clau));
+    if (!m) return;
+    var trim = parseInt(m[1], 10);
+    var nomBase = _materiaNomBase(m[2]);
+    if (!trim || !nomBase) return;
+    var tab = _notesTabName(trim, nomBase, grup);
+    if (!ss.getSheetByName(tab)) tab = trim + 'T_' + nomBase;
+    if (!perFull[tab]) perFull[tab] = [];
+    perFull[tab].push({ nom: it.nom, text: String(it.text == null ? '' : it.text).trim() });
+  });
+
+  var escrites = 0;
+  Object.keys(perFull).forEach(function (tab) {
+    var sh = ss.getSheetByName(tab);
+    if (!sh) return;                     // no es fabrica cap pestanya: veure _obsAlFullDeNotes_
+    var lr = sh.getLastRow();
+    if (lr < DATA_ROW) return;
+    var oc = findOrCreateObsColumn(sh);
+    if (!(oc >= 1)) return;
+
+    // La llista de noms i la columna d'observacions, un sol cop cadascuna.
+    var noms = sh.getRange(DATA_ROW, 1, lr - DATA_ROW + 1, 1).getValues();
+    var ara  = sh.getRange(DATA_ROW, oc, lr - DATA_ROW + 1, 1).getValues();
+    var fila = {};
+    noms.forEach(function (f, i) {
+      var n = _normNomComp_(f[0]);
+      if (n && fila[n] === undefined) fila[n] = i;      // índex dins del bloc
+    });
+
+    perFull[tab].forEach(function (it) {
+      var i = fila[_normNomComp_(it.nom)];
+      if (i === undefined) return;                      // el nom no hi és: no s'escriu
+      if (String(ara[i][0] || '').trim() === it.text) return;   // ja hi diu això
+      if (!it.text) return;        // ⚠ repassar no esborra mai res del full
+      sh.getRange(DATA_ROW + i, oc).setValue(it.text).setWrap(true);
+      ara[i][0] = it.text;
+      escrites++;
+    });
+  });
+  return { ok:true, escrites: escrites };
+}
+
 function setAlumnes(ss, alumnes) {
   /* ⚠ MOVIA ELS NOMS I DEIXAVA LES DADES QUIETES.
 
@@ -6426,7 +6492,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v303';
+var BACKEND_VERSIO = 'v304';
 
 var MAX_CELA = 45000;
 

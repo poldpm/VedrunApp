@@ -3754,6 +3754,51 @@ async function _replaceObservacioFer(studentId, materia, trimestre) {
     }
   }
 }
+/* ⚠ UN SOL COP, I SENSE QUE LA MESTRA HO NOTI.
+
+   Fins a la v303 la columna «Observacions» de la pestanya de notes no
+   l'omplia ningú (la Imma, 18/10/2026: «no apareixen al full de càlcul»).
+   Ara s'hi copien en desar-les, però el que ja hi havia escrit no hi
+   sortiria mai, i demanar-li a una mestra que reescrigui un trimestre
+   d'apunts no és una resposta.
+
+   Això ho passa al full un cop per grup i per aparell. NO toca res del
+   que hi ha desat: només escriu al full, i només a les caselles que
+   encara no ho diuen. Si falla, no es diu res i es tornarà a provar: no
+   és res que la mestra hagi d'arreglar ni esperar.
+
+   Va al final de la càrrega i sense `await`: la mestra no ha d'esperar-se
+   a que això acabi per començar a treballar. */
+const _OBS_REPAS = 'vedruna_obs_full_v304_';
+function _obsRepassaFull() {
+  if (!config.scriptUrl) return;
+  const grup = (typeof _grupDeTreball === 'function' && _grupDeTreball()) ||
+               (typeof _tutoriaGrup !== 'undefined' && _tutoriaGrup) || '';
+  if (!grup) return;                       // sense grup, el full ja s'omplia
+  let fet = null;
+  try { fet = localStorage.getItem(_OBS_REPAS + grup); } catch (e) { return; }
+  if (fet) return;
+
+  const items = [];
+  students.forEach(s => {
+    const obs = observacions[s.id];
+    if (!obs || !s.nom) return;
+    Object.keys(obs).forEach(clau => {
+      const text = String(obs[clau] || '').trim();
+      if (text) items.push({ nom: s.nom, clau, text });
+    });
+  });
+  /* Sense res a repassar, es dona per fet igualment: si no, es tornaria a
+     mirar a cada càrrega per sempre. */
+  if (!items.length) {
+    try { localStorage.setItem(_OBS_REPAS + grup, '0'); } catch (e) {}
+    return;
+  }
+  appsScriptPost({ action: 'obsAlFullLot', grup, items })
+    .then(r => { if (r && r.ok) { try { localStorage.setItem(_OBS_REPAS + grup, '1'); } catch (e) {} } })
+    .catch(() => {});
+}
+
 /* `senseDemanar` = ja s'ha preguntat abans. Ho fa servir el moure d'una
    observació d'un nen a un altre: allà la pregunta ja s'ha fet i tornar-la a
    fer seria demanar dues vegades el mateix. */
@@ -9498,6 +9543,11 @@ function _applyBootstrap(boot) {
   } else if (boot.observacions) {
     observacions = boot.observacions;
   }
+
+  /* Les observacions d'abans de la v303 no són a la columna «Observacions»
+     del full: la còpia només es fa en desar. Es repassen un sol cop, aquí,
+     perquè cap mestra no hagi de tornar a escriure el que ja té escrit. */
+  try { _obsRepassaFull(); } catch (e) {}
 
   // 4) Planning/tasques/calendari/assoliments/actitud
   _processAppData(boot);

@@ -1,11 +1,8 @@
 {
-  "versio": "v303",
+  "versio": "v304",
   "data": "2026-10-18",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: en desar una observació sortia un error i no es desava.",
-    "Les observacions ara surten també a la columna «Observacions» del full de càlcul, a la fila del nen.",
-    "Arreglat: el quadre d'Actitud no desava les puntuacions que hi posaves.",
-    "Arreglat: a la fitxa de l'alumne, els botons d'avisar la família i d'esborrar un avís no feien res."
+    "Les observacions que ja tenies escrites surten ara a la columna «Observacions» del full de càlcul. No has de tornar a escriure'n cap: hi apareixen soles la primera vegada que obris l'app."
   ]
 }
