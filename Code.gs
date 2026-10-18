@@ -2408,20 +2408,20 @@ function _loginClientId() {
   return (_prop('LOGIN_CLIENT_ID') || '').trim() || _propBiblioteca('LOGIN_CLIENT_ID');
 }
 
-/* ── DE QUI ES AQUESTA APP ─────────────────────────────────────────────
-   Cada app es d'una mestra i nomes hi entra ella: les dades dels seus
-   alumnes no son de ningu mes.
+/* ── DE QUI ÉS AQUESTA APP ─────────────────────────────────────────────
+   Cada app és d'una mestra i només hi entra ella: les dades dels seus
+   alumnes no són de ningú més.
 
-   De qui es l'app no s'ha de configurar enlloc. El codi s'executa amb el
-   compte de la mestra —es el que la va implementar—, o sigui que el
+   De qui és l'app no s'ha de configurar enlloc. El codi s'executa amb el
+   compte de la mestra —és el que la va implementar—, o sigui que el
    servidor ja ho sap sol, i es compara amb el compte de qui truca, que ve
    comprovat de `_loginComprova`.
 
-   Si algun dia hi ha d'entrar algu mes, `LOGIN_ALTRES` a les propietats
+   Si algun dia hi ha d'entrar algú més, `LOGIN_ALTRES` a les propietats
    del seu projecte (una llista de correus separats per comes). Buit de
-   serie.
+   sèrie.
 
-   ⚠ Si no es pot saber de qui es l'app, es deixa passar: val mes això que
+   ⚠ Si no es pot saber de qui és l'app, es deixa passar: val més això que
    deixar una mestra tancada fora de casa seva per una errada de Google. */
 function _loginAmo() {
   try { return String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase(); }
@@ -3022,11 +3022,11 @@ function handleRequest(e) {
           .createTextOutput(JSON.stringify({ ok:false, error:_qui.error, _loginError:true }))
           .setMimeType(ContentService.MimeType.JSON);
       }
-      /* I que sigui de qui es l'app (veure `_loginPotEntrar`). */
+      /* I que sigui de qui és l'app (veure `_loginPotEntrar`). */
       if (!_loginPotEntrar(_qui.email)) {
         return ContentService
           .createTextOutput(JSON.stringify({ ok:false, _loginError:true, _loginAltri:true,
-            error: 'Aquesta app no es teva. Obre la teva.' }))
+            error: 'Aquesta app no és teva. Obre la teva.' }))
           .setMimeType(ContentService.MimeType.JSON);
       }
     }

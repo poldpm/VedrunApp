@@ -2281,7 +2281,7 @@ async function loadAll() {
        bona) i l'app ho tornaria a demanar tot: voltes i voltes. Va
        passar el 18/10/2026. */
     if (boot && boot._loginAltri) {
-      try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(boot.error); } catch (e) {}
+      try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(); } catch (e) {}
       _arrencadaFora(true);
       return;
     }
@@ -2565,7 +2565,7 @@ function _finalitzaRefresc(resposta) {
        també, i mirar-les a l'inrevés faria donar voltes). Aquí no es diu
        «Tornant a entrar…», que seria mentida: no s'hi tornarà. */
     if (resposta && resposta._loginAltri) {
-      try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(resposta.error); } catch (e) {}
+      try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(); } catch (e) {}
       updateSync('error', 'Aquesta app no és teva');
       return;
     }
@@ -4747,7 +4747,7 @@ function _esTornaraAProvar(r) {
      no es llença, es queda apuntat, i no se'n torna a enviar cap: des
      d'ara les peticions es queden esperant (veure `loginEspera()`). */
   if (r._loginAltri) {
-    try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(r.error); } catch (e) {}
+    try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(); } catch (e) {}
     return true;
   }
   if (r._loginError) {

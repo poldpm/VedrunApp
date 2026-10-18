@@ -161,7 +161,7 @@ function _loginPorta() {
   return el;
 }
 function _loginObrePorta() {
-  if (_loginEsAltri) return;      // no hi ha res a entrar: l'app no es seva
+  if (_loginEsAltri) return;      // no hi ha res a entrar: l'app no és seva
   const el = _loginPorta();
   el.classList.add('open');
   _loginCarregaGIS().then(() => {
@@ -202,8 +202,8 @@ function _loginPintaError(t) {
    que això no s'espera mai a si mateix. */
 let _loginLlest = null;
 function loginEspera() {
-  /* L'app no es seva: les peticions es queden aqui i no en surt cap mes.
-     Es el que trenca el bucle: sense crides al servidor no hi ha cap
+  /* L'app no és seva: les peticions es queden aquí i no en surt cap més.
+     És el que trenca el bucle: sense crides al servidor no hi ha cap
      resposta que torni a engegar l'entrada. */
   if (_loginEsAltri) return new Promise(() => {});
   if (!loginCal() || loginToken()) return Promise.resolve(true);
@@ -328,13 +328,21 @@ function loginCaducat() {
    l'endemà es trobaria el botó d'entrar sense entendre per què. */
 function loginAltri() { return _loginEsAltri; }
 
-function loginNoEsTeva(missatge) {
+/* ⚠ NO S'HI ENSENYA EL TEXT QUE DIU EL SERVIDOR, I ÉS A POSTA.
+
+   El `Code.gs` viu dins l'Apps Script, i canviar-hi una paraula vol dir
+   tornar-lo a enganxar i desplegar-lo. Una frase que llegeix una mestra
+   no pot dependre d'això: ha de poder-se arreglar com qualsevol altra
+   de l'app. (En Pol, 18/10/2026, va veure-hi un «es» sense accent que
+   venia d'allà.) El servidor només diu QUÈ passa; el COM es diu és
+   aquí. */
+function loginNoEsTeva() {
   if (!loginCal() || _loginEsAltri) return;
   _loginEsAltri = true;
-  _loginPintaAltri(missatge);
+  _loginPintaAltri();
 }
 
-function _loginPintaAltri(missatge) {
+function _loginPintaAltri() {
   let el = document.getElementById('loginAltri');
   if (!el) {
     el = document.createElement('div');
@@ -350,7 +358,7 @@ function _loginPintaAltri(missatge) {
       '<img class="login-logo" src="img/logo-horitzontal.png" alt="Vedruna Escorial Vic">' +
       '<h1 class="login-titol">Aquesta app no és teva</h1>' +
       '<p class="login-text">' +
-        _loginEsc(missatge || 'Cada mestra té la seva app, amb els seus grups i els seus alumnes.') +
+        'Cada mestra té la seva app, amb els seus grups i els seus alumnes.' +
       '</p>' +
       '<p class="login-peu">' +
         (qui ? 'Hi has entrat amb <strong>' + _loginEsc(qui) + '</strong>. ' : '') +
