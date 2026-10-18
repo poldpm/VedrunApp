@@ -441,3 +441,13 @@ calgui, no esborra res i et torna a dir què falta.
 | No es connecta | La URL ha d'acabar en `/exec` i cal haver desplegat una versió |
 | No hi ha alumnes | Comprova el `GRUPS_ID` i que aquest compte tingui accés al full Grups |
 | Canvis que no es veuen | `Ctrl+Shift+R`, o l'avís de versió nova → "Actualitzar ara" |
+
+## Qui pot entrar a cada app
+
+Cada app és d'una mestra i només hi entra ella: el servidor compara el
+compte de qui truca amb el compte amb què s'executa l'app, que és el seu.
+**No s'ha de configurar res**: surt sol de la implementació.
+
+Si algun dia hi ha d'entrar algú més, `LOGIN_ALTRES` a les Script
+Properties del seu projecte, amb els correus separats per comes. De sèrie
+no hi és.

@@ -296,6 +296,20 @@ function loginCaducat() {
   loginRenova().then(ok => { if (!ok) _loginObrePorta(); });
 }
 
+/* Aquesta app és d'una altra mestra.
+
+   No es torna a demanar la credencial sola: seria la mateixa i el
+   servidor tornaria a dir que no, i la pantalla es quedaria donant voltes.
+   S'obre la porta amb el missatge i es desactiva l'entrada automàtica,
+   perquè pugui triar un altre compte si s'ha equivocat d'adreça. */
+function loginNoEsTeva(missatge) {
+  if (!loginCal()) return;
+  _loginDesa(null);
+  try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (e) {}
+  _loginObrePorta();
+  _loginPintaError(missatge || 'Aquesta app no és teva. Obre la teva.');
+}
+
 /* Sortir. No hi ha cap botó a l'app que ho faci —ningú no ho ha demanat—,
    però existeix per si un dia dues mestres comparteixen un ordinador. */
 function loginSurt() {

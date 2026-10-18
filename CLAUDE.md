@@ -14,7 +14,9 @@ has de tenir SEMPRE presents.
    l'app el té. **No te'n refiïs mai per a res.**
    **Qui protegeix de debò, des del 15/10/2026, és el login.** El servidor
    comprova que qui truca s'hagi identificat amb un compte de Google del
-   domini de l'escola, i si no, no contesta. S'encén amb la propietat
+   domini de l'escola **i que sigui la mestra de qui és l'app**, i si no,
+   no contesta. Les dues coses: el domini sol no n'hi ha prou, perquè una
+   app té les dades dels alumnes d'una mestra i no són de ningú més. S'encén amb la propietat
    `LOGIN_DOMINI` de **la biblioteca** —una, per a totes alhora— i es pot
    apagar esborrant-la. El detall és al comentari del `handleRequest` i a
    `INSTALLACIO.md`.

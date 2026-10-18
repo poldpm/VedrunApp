@@ -1,10 +1,8 @@
 {
-  "versio": "v299",
+  "versio": "v300",
   "data": "2026-10-18",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: al mòbil, a «Com pinta la setmana» de l'Inici només s'hi veien el dilluns i el dimarts quan hi havia un event de nom llarg. Ara els cinc dies hi són, un per fila, i es llegeixen sencers.",
-    "A l'ordinador les cinc columnes tornen a ser iguals, i el que no hi cap s'acaba amb punts suspensius.",
-    "I si una sortida ocupa tot el dia, hi surt un sol cop en comptes de repetir-se a cada hora."
+    "Manteniment intern de l'app. No canvia res del que fas ni de com ho fas."
   ]
 }

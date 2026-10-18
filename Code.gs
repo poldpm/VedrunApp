@@ -2408,6 +2408,39 @@ function _loginClientId() {
   return (_prop('LOGIN_CLIENT_ID') || '').trim() || _propBiblioteca('LOGIN_CLIENT_ID');
 }
 
+/* ── DE QUI ES AQUESTA APP ─────────────────────────────────────────────
+   Cada app es d'una mestra i nomes hi entra ella: les dades dels seus
+   alumnes no son de ningu mes.
+
+   De qui es l'app no s'ha de configurar enlloc. El codi s'executa amb el
+   compte de la mestra —es el que la va implementar—, o sigui que el
+   servidor ja ho sap sol, i es compara amb el compte de qui truca, que ve
+   comprovat de `_loginComprova`.
+
+   Si algun dia hi ha d'entrar algu mes, `LOGIN_ALTRES` a les propietats
+   del seu projecte (una llista de correus separats per comes). Buit de
+   serie.
+
+   ⚠ Si no es pot saber de qui es l'app, es deixa passar: val mes això que
+   deixar una mestra tancada fora de casa seva per una errada de Google. */
+function _loginAmo() {
+  try { return String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase(); }
+  catch (e) { return ''; }
+}
+function _loginAltres() {
+  return (_prop('LOGIN_ALTRES') || '').toLowerCase()
+    .split(/[,;\s]+/)
+    .filter(function (x) { return x.indexOf('@') !== -1; });
+}
+function _loginPotEntrar(correu) {
+  var c = String(correu || '').trim().toLowerCase();
+  if (!c) return false;
+  var amo = _loginAmo();
+  if (!amo) return true;
+  if (c === amo) return true;
+  return _loginAltres().indexOf(c) !== -1;
+}
+
 /* Comprova la credencial amb Google i torna de qui és.
    { ok:true, email:'…' }  o  { ok:false, error:'…' } */
 function _loginComprova(idToken, domini, clientId) {
@@ -2987,6 +3020,13 @@ function handleRequest(e) {
       if (!_qui.ok) {
         return ContentService
           .createTextOutput(JSON.stringify({ ok:false, error:_qui.error, _loginError:true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      /* I que sigui de qui es l'app (veure `_loginPotEntrar`). */
+      if (!_loginPotEntrar(_qui.email)) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ ok:false, _loginError:true, _loginAltri:true,
+            error: 'Aquesta app no es teva. Obre la teva.' }))
           .setMimeType(ContentService.MimeType.JSON);
       }
     }
@@ -6283,7 +6323,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v295';
+var BACKEND_VERSIO = 'v300';
 
 var MAX_CELA = 45000;
 

@@ -4719,6 +4719,14 @@ function _casellesTreu(enviades) {
 function _esTornaraAProvar(r) {
   if (!r) return false;
   if (r._authError) return true;             // l'avís de clau ja surt sol
+  /* El servidor diu que aquesta app no és de qui hi ha entrat. Demanar-li
+     la credencial un altre cop no arreglaria res —tornaria a ser la
+     mateixa—: se li diu i se li deixa triar un altre compte. El que hi
+     hagi a la cua no es llença: es queda apuntat. */
+  if (r._loginAltri) {
+    try { if (typeof loginNoEsTeva === 'function') loginNoEsTeva(r.error); } catch (e) {}
+    return true;
+  }
   if (r._loginError) {
     /* Es demana una credencial nova de seguida: si no, el reintent tornaria
        a trobar-se el mateix i la cua no s'acabaria de buidar mai. */
