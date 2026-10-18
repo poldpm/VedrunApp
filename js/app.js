@@ -1788,6 +1788,15 @@ function _iaQuina() {
 
 /* L'última crida, per a qui tingui el comptador encès (window.IA_COST). */
 let _iaUltimUs = null;
+/* ⚠ I PER QUÈ NO HA POGUT, SI NO HA POGUT.
+
+   La primera versió es guardava el motiu per a ella sola: queia al Gemini
+   i no deixava cap rastre. Per a una mestra enmig dels informes això és
+   just el que ha de passar; per a qui ho està MESURANT, no: en Pol va
+   generar el primer comentari (18/10/2026) i no hi havia manera de saber
+   si l'havia escrit Claude, si faltava la clau o si el servidor no hi
+   arribava. Amb `IA_COST` encès, el motiu es diu. */
+let _iaUltimError = null;
 
 async function _claudeGenerate(prompt) {
   const r = await appsScriptPost({ action: 'claude', prompt });
@@ -1802,13 +1811,17 @@ async function _claudeGenerate(prompt) {
 }
 
 async function _iaGenerate(prompt) {
+  _iaUltimUs = null;
+  _iaUltimError = null;
   if (_iaQuina() === 'claude') {
     try {
       return await _claudeGenerate(prompt);
     } catch (e) {
       /* El sostre i una errada es tracten igual: provar-ho amb l'altra.
          Només es deixa passar si TAMBÉ falla la de sempre. */
-      try { console.warn('Claude no ha pogut, es prova amb Gemini:', e.message); } catch (x) {}
+      _iaUltimError = (e && e.message) ? String(e.message) : 'no se sap per què';
+      if (e && e.esSostre) _iaUltimError = 'sostre del mes ple';
+      try { console.warn('Claude no ha pogut, es prova amb Gemini:', _iaUltimError); } catch (x) {}
       _iaUltimUs = null;
     }
   }
@@ -10066,6 +10079,10 @@ function _mostrarComentari(text, rubrica, alumne, ambIA) {
         ? ' · aquest mes ' + (u.dolars * 100).toFixed(0) + ' cèntims en ' + u.crides + ' comentaris'
         : '';
       consell += '  [' + u.entrada + ' + ' + u.sortida + ' tokens' + cent + ']';
+    } else if (window.IA_COST && ambIA && _iaUltimError) {
+      /* Ho ha escrit el Gemini perquè l'altra no ha pogut. Qui mesura ha de
+         saber-ho, i sobretot ha de saber PER QUÈ. */
+      consell += '  [Claude no ha pogut: ' + _iaUltimError + ' — ho ha escrit el Gemini]';
     }
   } catch (e) {}
   const overlay = document.getElementById('comentResultOverlay');
