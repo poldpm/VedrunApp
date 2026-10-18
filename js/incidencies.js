@@ -293,7 +293,11 @@
                  '<div class="inc-item-cap">' +
                    '<span class="inc-data">' + escapeHtml(_dataText(it.data)) + '</span>' +
                    '<button class="inc-mini inc-mini-x" type="button" title="Esborrar del registre"' +
-                     ' onclick="incEsborra(' + Number(studentId) + ',\'' + _idJs(it.id) + '\')">×</button>' +
+                     /* ⚠ L'identificador de l'alumne és un CODI, no un número.
+                        `Number(codi)` donava `NaN` i el botó esborrava... res,
+                        o el que toqués. Mateixa arrel que l'error de les
+                        observacions del 18/10/2026. */
+                     ' onclick="incEsborra(\'' + _idJs(studentId) + '\',\'' + _idJs(it.id) + '\')">×</button>' +
                  '</div>' +
                  (it.text ? '<div class="inc-text">' + escapeHtml(it.text) + '</div>' : '') +
                '</li>';
@@ -303,7 +307,7 @@
     }
 
     html += '<button class="btn btn-secondary btn-sm inc-afegir" type="button"' +
-            ' onclick="incObre(' + Number(studentId) + ')">+ Avisar la família</button>';
+            ' onclick="incObre(\'' + _idJs(studentId) + '\')">+ Avisar la família</button>';
     cont.innerHTML = html;
   }
 

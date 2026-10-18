@@ -1337,7 +1337,12 @@ function closeActitudPanel() {
 }
 
 function onActitudInput(inp) {
-  const sid = parseInt(inp.dataset.sid);
+  /* ⚠ CAP `parseInt`: l'identificador de l'alumne és un codi (`a7fq3mn2xk`),
+     no un número de fila. `parseInt` en treia `NaN`, i llavors TOTS els
+     alumnes compartien la mateixa casella: el que s'escrivia a un sortia a
+     tots, i al servidor hi arribava `NaN`. Mateix origen que l'error que va
+     veure la Imma el 18/10/2026 a les observacions. */
+  const sid = String(inp.dataset.sid || '');
   const asp = inp.dataset.asp;
   const val = parseFloat(inp.value);
   /* ⚠ EL PANEL D ACTITUD ACCEPTAVA NUMEROS QUE NO SON NOTES.
@@ -1376,7 +1381,7 @@ function saveActitud() {
   const { materia, trimestre } = notesContext;
   // Recull tots els inputs i guarda
   document.querySelectorAll('.actitud-input').forEach(inp => {
-    const sid = parseInt(inp.dataset.sid);
+    const sid = String(inp.dataset.sid || '');   // ⚠ és un codi, no un número
     const asp = inp.dataset.asp;
     let val = parseFloat(inp.value);
     const dades = getActitud(materia, trimestre, sid);

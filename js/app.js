@@ -3529,7 +3529,15 @@ async function saveObservacio() {
   return _unSolCop('saveObservacio', _saveObservacioFer, document.getElementById('saveObsBtn'));
 }
 async function _saveObservacioFer() {
-  const studentId = parseInt(document.getElementById('obsAlumne').value);
+  /* ⚠ AQUÍ NO HI POT HAVER CAP `parseInt`, I ÉS D'ON VENIA TOT.
+
+     Cada alumne té un codi propi (`a7fq3mn2xk`), no un número de fila.
+     `parseInt` d'un codi és `NaN`, i amb `NaN` no es trobava ni l'alumne
+     (o sigui que el seu nom viatjava buit) ni el seu grup: l'observació
+     anava a parar al camí de darrere, que demanava al full la fila `NaN`.
+     La Imma, 18/10/2026: «La fila inicial de l'interval és massa petita».
+     És el mateix que ja es va arreglar al registre i a les notes. */
+  const studentId = String(document.getElementById('obsAlumne').value || '');
   const materia   = document.getElementById('obsMateria').value;
   /* Sense assignatura l'observació es desava amb una clau coixa («1_») i
      després sortia sense etiqueta. Val més dir-ho que desar-la a mig fer. */
@@ -3580,7 +3588,7 @@ async function _saveObservacioFer() {
            servidor pot sumar-hi el nostre en comptes de trepitjar-li el seu
            (segona auditoria, 8/9/2026). */
         r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key,
-                                   text: nouText, base: cur, afegit: text });
+                                   text: nouText, base: cur, afegit: text, nomAlumne: _nomAl });
       } else {
         r = await appsScriptPost({ action:'saveObservacio', studentId, materia, trimestre, text, nomAlumne: _nomAl });
       }
@@ -3717,7 +3725,7 @@ async function _replaceObservacioFer(studentId, materia, trimestre) {
       const _nomAl = (students.find(x => String(x.id) === String(studentId)) || {}).nom || '';
       const rowId = (personal[studentId] && personal[studentId].rowId) || studentId;
       let r;
-      if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text });
+      if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text, nomAlumne: _nomAl });
       else r = await appsScriptPost({action:'saveObservacio',studentId,materia,trimestre:String(trimestre),text,replace:true,nomAlumne:_nomAl});
       if(!r.ok) throw new Error(r.error);
       showToast('Observació actualitzada','success');
@@ -3782,7 +3790,7 @@ async function deleteObservacioMateria(studentId, materia, trimestre, senseDeman
          casella del nen que ara ocupa aquella posició. */
       const _nomAl = (students.find(x => String(x.id) === String(studentId)) || {}).nom || '';
       let r;
-      if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text: '' });
+      if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text: '', nomAlumne: _nomAl });
       else r = await appsScriptPost({action:'deleteObservacio',studentId,materia,trimestre:String(trimestre),nomAlumne:_nomAl});
       if (r && r.ok === false) throw new Error(r.error || 'no s\'ha pogut esborrar');
     } catch(e){

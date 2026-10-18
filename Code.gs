@@ -3107,8 +3107,8 @@ function handleRequest(e) {
       case 'deleteRegistreItem':   result = deleteRegistreItem(ss, body.itemId, body.grup); break;
       case 'updateRegistreCell':   result = updateRegistreCell(ss, body.itemId, body.studentId, body.value, body.grup, body.nomAlumne); break;
       case 'getObservacions':      result = getObservacions(ss); break;
-      case 'saveObservacio':       result = saveObservacio(ss, body.studentId, body.materia, body.trimestre, body.text, body.replace||false, body.nomAlumne); break;
-      case 'deleteObservacio':     result = deleteObservacio(ss, body.studentId, body.materia, body.trimestre, body.nomAlumne); break;
+      case 'saveObservacio':       result = saveObservacio(ss, body.studentId, body.materia, body.trimestre, body.text, body.replace||false, body.nomAlumne, body.grup); break;
+      case 'deleteObservacio':     result = deleteObservacio(ss, body.studentId, body.materia, body.trimestre, body.nomAlumne, body.grup); break;
       case 'getNotes':             result = getNotes(ss, body&&body.materia||p.materia, body&&body.trimestre||p.trimestre, body&&body.grup||p.grup); break;
       case 'loadEntrevistes':    result = loadEntrevistes(ss, (body&&body.grup)||p.grup); break;
       case 'saveEntrevista':     result = saveEntrevista(ss, body.grup, body.rowId, body.entrevista); break;
@@ -3134,7 +3134,7 @@ function handleRequest(e) {
       case 'qaTempsNotes':         result = qaTempsNotes(ss, (body&&body.materia)||p.materia, (body&&body.trimestre)||p.trimestre, (body&&body.grup)||p.grup); break;
       case 'updateNota':           result = updateNota(ss, body.materia, body.trimestre, body.itemId, body.studentId, body.punts, body.grup, body.nom); break;
       case 'setNoEntregat':        result = setNoEntregat(ss, body.materia, body.trimestre, body.itemId, body.studentId, body.valor, body.grup, body.nom); break;
-      case 'updateActitud':         result = updateActitud(ss, body.materia, body.trimestre, body.studentId, body.mitja, body.nomAlumne); break;
+      case 'updateActitud':         result = updateActitud(ss, body.materia, body.trimestre, body.studentId, body.mitja, body.nomAlumne, body.grup); break;
       case 'updateActitudBatch':    result = updateActitudBatch(ss, body.materia, body.trimestre, body.mitjanes, body.grup, body.noms); break;
       case 'syncAssoliments':        result = syncAssoliments(ss, body.trimestre, body.data); break;
 
@@ -3177,7 +3177,7 @@ function handleRequest(e) {
       case 'getDesdobGrups':         result = getDesdobGrups(ss, (body&&body.curs) || p.curs, (body&&body.assignatura) || p.assignatura); break;
       case 'getDesdobGrup':          result = getDesdobGrup(ss, (body&&body.curs) || p.curs, (body&&body.assignatura) || p.assignatura, (body&&body.grup) || p.grup); break;
       case 'getGrupObs':             result = getGrupObs(ss, (body&&body.grup) || p.grup); break;
-      case 'saveGrupObs':            result = saveGrupObs(ss, body.grup, body.rowId, body.materia, body.text, body.base, body.afegit); break;
+      case 'saveGrupObs':            result = saveGrupObs(ss, body.grup, body.rowId, body.materia, body.text, body.base, body.afegit, body.nomAlumne); break;
 
       // Tasques
       case 'saveTasques':            result = saveTasques(ss, body.data, body.base); break;
@@ -4108,7 +4108,7 @@ function _appDataPrefix_(ss, nom, prefix) {
    algú hi ha escrit pel mig: llavors s'afegeix el tros nou al que hi ha ARA
    en comptes de substituir-ho tot, i es respon `fusionat:true` perquè el
    navegador ho pugui dir. Sense `base` (apps velles) es fa com abans. */
-function saveGrupObs(ss, grup, rowId, materia, text, base, afegit) {
+function saveGrupObs(ss, grup, rowId, materia, text, base, afegit, nomAlumne) {
   var gss = getGrupsSpreadsheet(ss) || ss;
   var clau = _obsClau_(grup, rowId);
   var d = {};
@@ -4140,7 +4140,50 @@ function saveGrupObs(ss, grup, rowId, materia, text, base, afegit) {
   /* Buida vol dir buida, no "mira el farcell vell": si s'esborra l'última
      observació d'un nen, la cel·la hi queda com a constància que no en té. */
   sheetSetJSON(gss, '_AppData', clau, Object.keys(d).length ? JSON.stringify(d) : '{}');
+  _obsAlFullDeNotes_(ss, grup, materia, nomAlumne, d[materia] || '');
   return { ok:true, fusionat: fusionat, text: (d[materia] || '') };
+}
+
+/* ⚠ L'OBSERVACIÓ NO ARRIBAVA MAI A LA COLUMNA «OBSERVACIONS» DEL FULL.
+
+   La Imma, 18/10/2026: «si he posat alguna observació a les notes entrades,
+   no apareixen al full de càlcul». I tenia raó. Les observacions d'una
+   assignatura amb grup es desen com a dades, a part, perquè les pugui veure
+   tot el claustre i perquè dues mestres alhora no es trepitgin. La columna
+   «Observacions» de la pestanya de notes, en canvi, la crea l'app i no
+   l'omplia ningú: quedava sempre buida.
+
+   Dues mestres poden escriure alhora, o sigui que les dades manen i això és
+   NOMÉS UNA CÒPIA per a qui obre el full. Si alguna cosa no quadra —no hi ha
+   pestanya, el nom no hi és— no es fa res i no es diu res: l'observació ja
+   està desada i no es pot espatllar una desada bona per una còpia.
+
+   ⚠ No es fabrica cap pestanya: si la mestra encara no té notes d'aquella
+   assignatura, crear-li-la només per una observació seria deixar-li una
+   pestanya buida que no ha demanat. */
+function _obsAlFullDeNotes_(ss, grup, clauMateria, nomAlumne, text) {
+  try {
+    if (!ss || !nomAlumne) return;
+    var m = /^(\d+)_(.+)$/.exec(String(clauMateria || ''));
+    if (!m) return;
+    var trim = parseInt(m[1], 10);
+    var nomBase = _materiaNomBase(m[2]);
+    if (!trim || !nomBase) return;
+
+    var sh = ss.getSheetByName(_notesTabName(trim, nomBase, grup))
+          || ss.getSheetByName(trim + 'T_' + nomBase);
+    if (!sh) return;
+
+    var fila = _trobaFilaAlumne(sh, nomAlumne);
+    if (fila === -1) return;
+
+    var oc = findOrCreateObsColumn(sh);
+    if (!(oc >= 1)) return;
+
+    var cel = sh.getRange(fila, oc);
+    if (text && text.toString().trim()) cel.setValue(text.toString().trim()).setWrap(true);
+    else cel.clearContent();
+  } catch (e) { /* una còpia que falla no pot tombar una desada que ha anat bé */ }
 }
 function setAlumnes(ss, alumnes) {
   /* ⚠ MOVIA ELS NOMS I DEIXAVA LES DADES QUIETES.
@@ -4433,7 +4476,13 @@ function updateRegistreCell(ss, itemId, studentId, value, grup, nomAlumne) {
        navegador ha dit un nom i el full no el té, val més dir-ho que escriure
        a la fila d'un altre nen: la mestra ho ha de poder saber. */
     if (nomAlumne) return { ok:false, error:'No he trobat "' + nomAlumne + '" al full de registres d\'aquest grup. No s\'ha desat res.', _noTrobat:true };
-    fila = parseInt(studentId) + 2;
+    /* Només si l'identificador és de debò una fila de les d'abans dels codis
+       (veure `_filaVellaDeSid_`). Amb un codi, `parseInt` donava `NaN`. */
+    if (!/^\d+$/.test(String(studentId == null ? '' : studentId).trim())) {
+      return { ok:false, _noTrobat:true,
+               error:'No he pogut saber a quina fila va això. No s\'ha desat res.' };
+    }
+    fila = parseInt(studentId, 10) + 2;
   }
   /* ⚠ UN «=» AL DAVANT CONVERTIA EL TEXT EN FÓRMULA.
 
@@ -4496,9 +4545,38 @@ function getObservacions(ss) {
 
    Ara: es busca la fila PEL NOM (si el navegador el diu) i tot el
    llegir-afegir-escriure va dins d'un pany. */
-function saveObservacio(ss, sid, materia, trimestre, text, replace, nomAlumne) {
+/* ⚠ UN IDENTIFICADOR NO ÉS UN NÚMERO DE FILA, I DES DE FA TEMPS NO S'HI
+   ASSEMBLA NI DE LLUNY.
+
+   La Imma, 18/10/2026: «NO s'ha desat l'observació: La fila inicial de
+   l'interval és massa petita». El missatge és de Google, i vol dir que se
+   li havia demanat la fila `NaN`. D'on sortia: d'aquí es calculava la fila
+   com `sid*2 + DATA_ROW`, que servia quan l'identificador ERA la posició a
+   la llista. Ara cada alumne té un codi (`a7fq3mn2xk`), i `parseInt` d'un
+   codi és `NaN`.
+
+   Aquesta funció torna la fila NOMÉS quan l'identificador és de debò una
+   fila de les d'abans. Si no, torna -1 i qui la crida ha de plegar: val
+   més no desar res i dir-ho que escriure a la fila que toqui per atzar.
+   Que és el que passava abans de l'auditoria del 8/9/2026 i el que aquí
+   quedava per arreglar. */
+function _filaVellaDeSid_(sid) {
+  var k = String(sid == null ? '' : sid).trim();
+  if (!/^\d+$/.test(k)) return -1;          // és un codi, no una fila
+  var f = parseInt(k, 10) * 2 + DATA_ROW;
+  return f >= DATA_ROW ? f : -1;
+}
+
+function saveObservacio(ss, sid, materia, trimestre, text, replace, nomAlumne, grup) {
   var nomBase = _materiaNomBase(materia); if (!nomBase) return { ok:false, error:'Materia desconeguda' };
-  var sh = getOrCreateMateriaSheet(ss, trimestre+'T_'+nomBase);
+  /* La pestanya és la de les SEVES notes: qui fa l'assignatura a diversos
+     grups en té una per grup (`1T_Matemàtiques_5è A`). Sense el grup es
+     fabricava una pestanya nova i buida i l'observació quedava en un full
+     que la mestra no obre mai (la Imma, 18/10/2026). */
+  var tab = _notesTabName(trimestre, nomBase, grup);
+  var sh = ss.getSheetByName(tab)
+        || ss.getSheetByName(trimestre+'T_'+nomBase)      // pestanyes d'abans del grup
+        || getOrCreateMateriaSheet(ss, tab);
   var oc = findOrCreateObsColumn(sh);
 
   var rowObs = -1;
@@ -4518,11 +4596,16 @@ function saveObservacio(ss, sid, materia, trimestre, text, replace, nomAlumne) {
        té cap nom (acabada de crear), no hi ha res a confondre: es fa com abans. */
     if (rowObs === -1 && hiHaNoms) {
       return { ok:false, _noTrobat:true,
-               error:'No he trobat "' + nomAlumne + '" a la pestanya ' + trimestre + 'T_' + nomBase +
+               error:'No he trobat "' + nomAlumne + '" a la pestanya ' + sh.getName() +
                      '. No s\'ha desat res: mira que la llista d\'alumnes estigui al dia.' };
     }
   }
-  if (rowObs === -1) rowObs = parseInt(sid)*2 + DATA_ROW;   // pestanya nova, o app vella
+  if (rowObs === -1) rowObs = _filaVellaDeSid_(sid);        // pestanya nova, o app vella
+  if (rowObs === -1) {
+    return { ok:false, _noTrobat:true,
+             error:'No he pogut saber a quina fila de ' + sh.getName() + ' va aquesta ' +
+                   'observació. No s\'ha desat res.' };
+  }
 
   var lock = LockService.getScriptLock();
   var teLock = false;
@@ -4548,9 +4631,11 @@ function saveObservacio(ss, sid, materia, trimestre, text, replace, nomAlumne) {
    És el mateix patró que ja s'havia arreglat a `updateRegistreCell`, a
    `updateNota` i a `saveObservacio`: aquí, que és la versió DESTRUCTIVA de la
    mateixa funcionalitat, no s'hi havia portat. */
-function deleteObservacio(ss, sid, materia, trimestre, nomAlumne) {
+function deleteObservacio(ss, sid, materia, trimestre, nomAlumne, grup) {
   var nomBase = _materiaNomBase(materia); if (!nomBase) return { ok:true };
-  var sh = ss.getSheetByName(trimestre+'T_'+nomBase); if (!sh) return { ok:true };
+  var sh = ss.getSheetByName(_notesTabName(trimestre, nomBase, grup))
+        || ss.getSheetByName(trimestre+'T_'+nomBase);
+  if (!sh) return { ok:true };
   var oc = findObsColumn(sh); if (oc===-1) return { ok:true };
 
   var fila = -1, hiHaNoms = false;
@@ -4567,11 +4652,15 @@ function deleteObservacio(ss, sid, materia, trimestre, nomAlumne) {
        deixar-ho estar que buidar la casella d'un altre nen. */
     if (fila === -1 && hiHaNoms) {
       return { ok:false, _noTrobat:true,
-               error:'No he trobat "' + nomAlumne + '" a la pestanya ' + trimestre + 'T_' + nomBase +
+               error:'No he trobat "' + nomAlumne + '" a la pestanya ' + sh.getName() +
                      '. No s\'ha esborrat res.' };
     }
   }
-  if (fila === -1) fila = parseInt(sid)*2 + DATA_ROW;   // pestanya nova, o app vella
+  if (fila === -1) fila = _filaVellaDeSid_(sid);       // pestanya nova, o app vella
+  /* Sense saber la fila no s'esborra res: buidar la casella que toqués per
+     atzar seria esborrar l'observació d'un altre nen. */
+  if (fila === -1) return { ok:false, _noTrobat:true,
+    error:'No he pogut saber quina observació s\'havia d\'esborrar. No s\'ha tocat res.' };
   sh.getRange(fila, oc).clearContent();
   return { ok:true, fila:fila };
 }
@@ -5024,7 +5113,9 @@ function updateNota(ss, materia, trimestre, itemId, studentId, punts, grup, nom)
     try { sh.getRange(novaFila,1,2,1).merge(); } catch(e){}
     rowP = novaFila;
   }
-  if (rowP === -1) { var si=parseInt(studentId); rowP = si*2+DATA_ROW; }
+  if (rowP === -1) rowP = _filaVellaDeSid_(studentId);
+  if (rowP === -1) return { ok:false, _noTrobat:true,
+    error:'No he pogut saber a quina fila va aquesta nota. No s\'ha desat res.' };
   var rowN = rowP+1;
   var maxP=parseFloat((metas[col-1]||'10|1|0').split('|')[0]); // ja llegit a dalt (evita un getNote extra)
 
@@ -5379,7 +5470,9 @@ function setNoEntregat(ss, materia, trimestre, itemId, studentId, valor, grup, n
   if (rowP === -1 && _teLlistaDeNoms_(sh)) {
     return { ok:false, error:'No trobo ' + (nom || 'l\'alumne') + ' a la llista d\'aquest full' };
   }
-  if (rowP === -1) { var si=parseInt(studentId); rowP = si*2+DATA_ROW; }
+  if (rowP === -1) rowP = _filaVellaDeSid_(studentId);
+  if (rowP === -1) return { ok:false, _noTrobat:true,
+    error:'No he pogut saber a quina fila va això. No s\'ha desat res.' };
   var rowN = rowP+1;
   if(valor){
     sh.getRange(rowP,col).setValue('NE').setFontColor('#991B1B').setFontWeight('bold')
@@ -6023,10 +6116,11 @@ function _teLlistaDeNoms_(sh) {
   return false;
 }
 
-function updateActitud(ss, materia, trimestre, studentId, mitja, nomAlumne) {
+function updateActitud(ss, materia, trimestre, studentId, mitja, nomAlumne, grup) {
   var nomBase = _materiaNomBase(materia);
   if (!nomBase) return { ok:false, error:'Materia desconeguda' };
-  var sh = ss.getSheetByName(trimestre+'T_'+nomBase);
+  var sh = ss.getSheetByName(_notesTabName(trimestre, nomBase, grup))
+        || ss.getSheetByName(trimestre+'T_'+nomBase);
   if (!sh) return { ok:true }; // pestanya no creada encara, OK
 
   var lc   = sh.getLastColumn();
@@ -6068,7 +6162,13 @@ function updateActitud(ss, materia, trimestre, studentId, mitja, nomAlumne) {
       return { ok:false, _noTrobat:true,
                error:'No he trobat "' + nomAlumne + '" a la pestanya de notes. No s\'ha desat l\'actitud.' };
     }
-    rowP = parseInt(studentId)*2 + DATA_ROW;   // pestanya nova, o app vella
+    rowP = _filaVellaDeSid_(studentId);        // pestanya nova, o app vella
+  }
+  /* Sense fila no s'escriu: una actitud a la fila d'un altre nen li canvia
+     la nota, i ningú no se n'assabenta. */
+  if (rowP === -1) {
+    return { ok:false, _noTrobat:true,
+             error:'No he pogut saber a quina fila va aquesta actitud. No s\'ha desat res.' };
   }
   var rowN = rowP+1;
   var mitjaVal = (mitja===null||mitja===undefined||mitja==='') ? '' : parseFloat(mitja);
@@ -6149,7 +6249,10 @@ function updateActitudBatch(ss, materia, trimestre, mitjanes, grup, noms) {
     var rowP = _trobaFilaAlumne(sh, noms[sid]);
     if (rowP === -1) {
       if (noms[sid] && teLlista) { saltats.push(noms[sid]); return; }
-      rowP = parseInt(sid)*2 + DATA_ROW;
+      rowP = _filaVellaDeSid_(sid);
+      /* Sense fila, aquest alumne se salta: val més que falti la seva
+         actitud que no pas posar-la a l'expedient d'un altre. */
+      if (rowP === -1) { saltats.push(noms[sid] || sid); return; }
     }
     var rowN = rowP+1;
     var mitjaVal = parseFloat(mitjanes[sid]);
@@ -6323,7 +6426,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v300';
+var BACKEND_VERSIO = 'v303';
 
 var MAX_CELA = 45000;
 
