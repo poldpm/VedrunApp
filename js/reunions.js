@@ -737,6 +737,19 @@ async function _desaReuReprogramaFer() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = etiq; }
   }
+  /* Que ja les tingués totes no és cap errada: és el cas de qui torna a
+     reprogramar els mateixos dies. Es diu i prou, i si de passada s'han
+     tret repetides o passades, també. */
+  if (r && r.ok === false && r.jaHiEren && !r.xoquen) {
+    tancaReuReprograma();
+    await initReunions();
+    const neteja = [];
+    if (r.repetides) neteja.push(r.repetides + ' de repetides');
+    if (r.tretes)    neteja.push(r.tretes + ' de passades');
+    showToast('Aquests dies i aquestes hores ja els tenies.' +
+              (neteja.length ? ' S\'han tret ' + neteja.join(' i ') + '.' : ''), 'info');
+    return;
+  }
   if (!r || r.ok === false) throw new Error((r && r.error) || 'No s\'ha pogut reprogramar');
 
   tancaReuReprograma();
@@ -745,7 +758,8 @@ async function _desaReuReprogramaFer() {
   /* Es diu tot el que ha passat, també el que s'ha tret: una mestra que
      obre la graella i hi troba menys hores que abans ha de saber per què. */
   const parts = [r.afegides + (r.afegides === 1 ? ' hora nova' : ' hores noves')];
-  if (r.tretes)   parts.push(r.tretes + (r.tretes === 1 ? ' de passada treta' : ' de passades tretes'));
+  if (r.tretes)    parts.push(r.tretes + (r.tretes === 1 ? ' de passada treta' : ' de passades tretes'));
+  if (r.repetides) parts.push(r.repetides + (r.repetides === 1 ? ' de repetida treta' : ' de repetides tretes'));
   if (r.jaHiEren) parts.push(r.jaHiEren + ' que ja hi eren');
   if (r.xoquen)   parts.push(r.xoquen + ' que xoquen amb el teu calendari');
   showToast(parts.join(' · '), 'success');

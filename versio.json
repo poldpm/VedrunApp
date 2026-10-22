@@ -1,8 +1,9 @@
 {
-  "versio": "v311",
+  "versio": "v312",
   "data": "2026-10-22",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat de debò: una convocatòria amb hores per venir ja no pot dir «ja ha passat». S'adoba sola en obrir l'app, sense fer res."
+    "Arreglat: en afegir hores a una convocatòria de reunions, les que ja hi eren es tornaven a crear i sortien duplicades.",
+    "Reprogramar treu les hores repetides que hagin quedat. Les que ja tenien algú no es toquen."
   ]
 }

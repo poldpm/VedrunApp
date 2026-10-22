@@ -1395,7 +1395,24 @@ function reunionsAfegeixHores(ss, calId, estones) {
     var hi = [];
     if (n >= 2) {
       sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues().forEach(function (r) {
-        if (String(r[0]) === String(calId)) hi.push({ data: String(r[2]), i: _reuMinuts_(String(r[3])), f: _reuMinuts_(String(r[4])) });
+        /* ⚠ AIXÒ COMPARAVA UNA DATA AMB UN TEXT, I NO COINCIDIA MAI.
+
+           En Pol, 22/10/2026: «ara em surten les hores duplicades». El
+           full torna la data com a DATA i l'hora com a hora, no com a
+           "2026-10-28" i "08:00". Amb `String(...)` en sortia «Wed Oct 28
+           2026 00:00:00 GMT+0100…», que no s'assembla a cap data que
+           arribi del navegador, i `_reuMinuts_` d'una hora així dona
+           `NaN` —i qualsevol comparació amb NaN és falsa—. Resultat: la
+           comprovació de «aquesta hora ja la tenies» no deia que sí MAI, i
+           cada vegada que s'afegien hores es tornaven a crear totes.
+
+           Hi era des que existeix «+ Afegir hores»; amb reprogramar, que
+           en posa un centenar de cop, s'ha vist de seguida. */
+        if (String(r[0]) === String(calId)) {
+          hi.push({ data: _reuTxtData_(r[2]),
+                    i: _reuMinuts_(_reuTxtHora_(r[3])),
+                    f: _reuMinuts_(_reuTxtHora_(r[4])) });
+        }
       });
     }
 
@@ -1421,7 +1438,9 @@ function reunionsAfegeixHores(ss, calId, estones) {
     });
 
     if (!noves.length) {
-      return { ok: false, error: jaHiEren || xoquen
+      /* Els comptes també quan no s'hi afegeix res: qui ho crida ha de
+         poder distingir «ja les tenia totes» d'una errada de debò. */
+      return { ok: false, jaHiEren: jaHiEren, xoquen: xoquen, error: jaHiEren || xoquen
         ? 'Cap hora nova: ' + (jaHiEren ? jaHiEren + ' ja les tenies al calendari de reunions' : '') +
           (jaHiEren && xoquen ? ' i ' : '') + (xoquen ? xoquen + ' xoquen amb el teu Google Calendar' : '') + '.'
         : 'Amb aquesta estona i una durada de ' + cal.durada + ' minuts no hi cap cap reunió.' };
@@ -1472,7 +1491,7 @@ function reunionsReprograma(ss, calId, dades) {
   var d = dades || {};
   var lock = LockService.getScriptLock();
   try { lock.waitLock(25000); } catch (e) { return { ok: false, error: 'Torna-ho a provar en un moment' }; }
-  var tretes = 0;
+  var tretes = 0, repetides = 0;
   try {
     var f = _reuCalFila_(ss, calId);
     if (!f) return { ok: false, error: 'Aquest calendari no hi és' };
@@ -1490,17 +1509,27 @@ function reunionsReprograma(ss, calId, dades) {
     if (n >= 2) {
       var v = sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
       var avui = _reuAvuiTxt_();
+      /* Les que s'han duplicat mentre la comprovació estava espatllada.
+         Es recorre de baix cap a dalt, o sigui que la que es queda és la
+         PRIMERA de totes: la de sempre, amb el seu identificador. */
+      var vistes = {};
+      for (var j = 0; j < v.length; j++) {
+        if (String(v[j][0]) !== String(calId)) continue;
+        if (String(v[j][5]) === 'ocupat') continue;
+        var cl = _reuTxtData_(v[j][2]) + ' ' + _reuTxtHora_(v[j][3]) + '-' + _reuTxtHora_(v[j][4]);
+        if (vistes[cl] === undefined) vistes[cl] = j;      // la primera es queda
+      }
       for (var i = v.length - 1; i >= 0; i--) {
         if (String(v[i][0]) !== String(calId)) continue;
         if (String(v[i][5]) === 'ocupat') continue;        // qui va venir no es toca
         /* ⚠ La data que torna el full pot ser un objecte Date, no pas
            "2026-06-10". Comparant-la en cru, "Wed Jun 10 2025…" mai no és
            més petita que "2026-10-22" i no s'hauria tret mai res. */
-        if (_reuTxtData_(v[i][2]) >= avui) continue;       // encara no ha passat
-        sh.deleteRow(i + 2);
-        tretes++;
+        if (_reuTxtData_(v[i][2]) < avui) { sh.deleteRow(i + 2); tretes++; continue; }
+        var cl2 = _reuTxtData_(v[i][2]) + ' ' + _reuTxtHora_(v[i][3]) + '-' + _reuTxtHora_(v[i][4]);
+        if (vistes[cl2] !== i) { sh.deleteRow(i + 2); repetides++; }
       }
-      if (tretes) SpreadsheetApp.flush();
+      if (tretes || repetides) SpreadsheetApp.flush();
     }
   } finally { lock.releaseLock(); }
 
@@ -1517,7 +1546,7 @@ function reunionsReprograma(ss, calId, dades) {
        Oferir-ho seria una casella que no fa res. */
     evitarOcupats: true,
   });
-  if (g.error) return { ok: false, error: g.error, tretes: tretes };
+  if (g.error) return { ok: false, error: g.error, tretes: tretes, repetides: repetides };
 
   /* ⚠ I NO S'HI POSEN HORES QUE JA HAN PASSAT. Posar-ne faria una
      convocatòria que sembla viva i que cap família no pot reservar: la
@@ -1531,7 +1560,7 @@ function reunionsReprograma(ss, calId, dades) {
     estones.push({ data: fr.data, inici: fr.inici, fi: fr.fi });
   });
   if (!estones.length) {
-    return { ok: false, tretes: tretes, passades: passades,
+    return { ok: false, tretes: tretes, repetides: repetides, passades: passades,
              error: passades
                ? 'Aquest tram de dates ja ha passat: cap família no hi podria reservar res. Tria dies d\'avui endavant.'
                : 'Amb aquests dies i aquestes hores no surt cap reunió nova.' };
@@ -1543,7 +1572,8 @@ function reunionsReprograma(ss, calId, dades) {
        dates de la fila s'han de quedar bé: si no, la targeta seguiria dient
        «ja ha passat» i no hi hauria manera de treure-la d'aquí. */
     try { _reuDatesAlDia_(ss, calId); SpreadsheetApp.flush(); } catch (e) {}
-    return { ok: false, tretes: tretes, error: (r && r.error) || 'No s\'han pogut afegir les hores' };
+    return { ok: false, tretes: tretes, repetides: repetides,
+             error: (r && r.error) || 'No s\'han pogut afegir les hores' };
   }
   /* Les hores de cada setmana que acaba de fer servir es queden desades:
      la propera vegada que se li acabi el termini, només haurà de dir els
@@ -1557,7 +1587,7 @@ function reunionsReprograma(ss, calId, dades) {
   } catch (e) {}
 
   return { ok: true, afegides: r.afegides, jaHiEren: r.jaHiEren, xoquen: r.xoquen,
-           tretes: tretes, avisTall: g.avisTall || '' };
+           tretes: tretes, repetides: repetides, avisTall: g.avisTall || '' };
 }
 
 /* Avui, en text, amb la zona horària del projecte. */
@@ -6845,7 +6875,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v311';
+var BACKEND_VERSIO = 'v312';
 
 var MAX_CELA = 45000;
 
