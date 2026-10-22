@@ -1,10 +1,10 @@
 {
-  "versio": "v309",
+  "versio": "v310",
   "data": "2026-10-22",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Una convocatòria de reunions que ja ha passat es pot reprogramar: li poses dies nous i el mateix enllaç torna a funcionar, sense tornar a escriure el títol ni enviar-ne cap de nou.",
-    "Les hores que ofereixes cada setmana queden desades: quan se t'acabi el termini, només has de dir els dies nous. A les convocatòries que ja tenies, surten les que ja oferies.",
-    "Les hores lliures que ja han passat es treuen soles en reprogramar. Les que ja tenien algú no es toquen."
+    "Arreglat: després de reprogramar una convocatòria, seguia dient «ja ha passat» i no et deixava veure l'enllaç.",
+    "Convocar reunions va molt més ràpid: abans preguntava al teu Google Calendar una vegada per cada quart d'hora.",
+    "Mentre hi posa les hores t'ho diu, en comptes de deixar la finestra quieta."
   ]
 }

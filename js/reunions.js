@@ -717,10 +717,26 @@ async function _desaReuReprogramaFer() {
      tampoc no l'ofereix). Una casella que es pinta i no fa res és just el
      que aquesta app no vol: la mestra la clica, no passa res, i deixa de
      fiar-se'n. Es diu al requadre, que és el que de debò passa. */
-  const r = await appsScriptPost({
-    action: 'reunionsReprograma', calId: c.id,
-    dades: { desDe, finsA, perDia: _reuPerDia },
-  });
+  /* ⚠ MENTRE TREBALLA, S'HA DE VEURE QUE TREBALLA.
+
+     En Pol, 22/10/2026: «no desapareixia el popup de les hores i fins que
+     no he refrescat no han sortit les hores noves». La finestra es quedava
+     igual que abans de clicar, sense dir res, i amb cent hores a fer no es
+     distingeix de penjada. Es bloqueja el botó i es diu què està passant;
+     si va malament, es torna a deixar com estava per poder-ho reintentar. */
+  const btn = document.getElementById('reuRepDesa');
+  const etiq = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Posant-hi les hores…'; }
+
+  let r;
+  try {
+    r = await appsScriptPost({
+      action: 'reunionsReprograma', calId: c.id,
+      dades: { desDe, finsA, perDia: _reuPerDia },
+    });
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = etiq; }
+  }
   if (!r || r.ok === false) throw new Error((r && r.error) || 'No s\'ha pogut reprogramar');
 
   tancaReuReprograma();
@@ -776,7 +792,7 @@ function _reuMuntaReprograma() {
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="tancaReuReprograma()">Cancel·lar</button>
-        <button class="btn btn-primary" onclick="desaReuReprograma()">Posar-hi aquests dies</button>
+        <button class="btn btn-primary" id="reuRepDesa" onclick="desaReuReprograma()">Posar-hi aquests dies</button>
       </div>
     </div>`;
   document.body.appendChild(ov);

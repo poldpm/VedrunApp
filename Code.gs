@@ -1059,6 +1059,57 @@ function _reuHora_(minuts) {
 
 /* Xoca amb res que la mestra ja tingui al calendari?
    Torna el títol del que xoca, o null si està lliure. */
+/* ⚠ UNA SOLA PREGUNTA AL GOOGLE CALENDAR, NO UNA PER HORA.
+
+   En Pol, 22/10/2026, reprogramant una convocatòria de 144 hores: «ha
+   tardat molt a fer-ho». I és clar: `_reuXoca_` pregunta al calendari
+   CADA vegada que la criden, i la criden una vegada per cada tros de 15
+   minuts. 144 hores = 144 viatges a Google, un darrere l'altre.
+
+   Això se'n baixa tots els actes del tram de dates de cop i després els
+   mira a la memòria. Val per a un reprogramar sencer i per a afegir
+   hores, que és on es feia pesat.
+
+   Si no es pot parlar amb el calendari, es torna `null` i qui ho faci
+   servir cau a `_reuXoca_` d'una en una: val més lent que no pas oferir
+   una hora a sobre d'una altra cosa. */
+function _reuXocaLot_(desDe, finsA) {
+  try {
+    var ini = _reuData_(desDe, '00:00');
+    var fi  = _reuData_(finsA, '23:59');
+    var items = [], pagina = null, voltes = 0;
+    do {
+      var r = Calendar.Events.list('primary', {
+        timeMin: _reuISO_(ini), timeMax: _reuISO_(fi),
+        singleEvents: true, maxResults: 2500, pageToken: pagina || undefined,
+      });
+      items = items.concat(r.items || []);
+      pagina = r.nextPageToken;
+    } while (pagina && ++voltes < 10);
+
+    var ocupats = [];
+    items.forEach(function (it) {
+      if (!it || it.status === 'cancelled') return;
+      if (it.transparency === 'transparent') return;        // marcat com a "lliure"
+      if (it.start && it.start.date) return;                // de tot el dia: no bloqueja una hora
+      var jo = (it.attendees || []).filter(function (a) { return a.self; })[0];
+      if (jo && jo.responseStatus === 'declined') return;   // ella hi ha dit que no hi va
+      var d0 = it.start && it.start.dateTime, d1 = it.end && it.end.dateTime;
+      if (!d0 || !d1) return;
+      ocupats.push({ i: new Date(d0).getTime(), f: new Date(d1).getTime(),
+                     nom: it.summary || 'una cosa que ja tens' });
+    });
+
+    return function (data, hIni, hFi) {
+      var a = _reuData_(data, hIni).getTime(), b = _reuData_(data, hFi).getTime();
+      for (var k = 0; k < ocupats.length; k++) {
+        if (a < ocupats[k].f && ocupats[k].i < b) return ocupats[k].nom;
+      }
+      return null;
+    };
+  } catch (e) { return null; }
+}
+
 function _reuXoca_(data, inici, fi) {
   try {
     var r = Calendar.Events.list('primary', {
@@ -1133,6 +1184,19 @@ function _reuGenera_(d) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(des) || !/^\d{4}-\d{2}-\d{2}$/.test(fins)) return { franges: [], error: 'Dates mal posades' };
   if (fins < des) { var tmp = des; des = fins; fins = tmp; }
 
+  /* ⚠ EL CALENDARI, UNA VEGADA PER A TOT EL TRAM.
+
+     Aquí hi havia una pregunta a Google per CADA tros de quinze minuts.
+     Convocar tres setmanes són un parell de centenars de viatges, un
+     darrere l'altre: és el que feia que en Pol veiés «treballant en segon
+     pla» i no s'acabés mai (22/10/2026). Això val per a crear-ne una de
+     nova, per a la previsualització i per a reprogramar.
+
+     Si no es pot baixar de cop, es torna a preguntar d'una en una: lent,
+     però mai no s'ofereix una hora a sobre d'una altra cosa. */
+  var miraLot = mirarCalendari ? _reuXocaLot_(des, fins) : null;
+  var xocaAmb = miraLot || function (d, i, f) { return _reuXoca_(d, i, f); };
+
   var p = des.split('-');
   var dia = new Date(+p[0], +p[1] - 1, +p[2]);
   var q = fins.split('-');
@@ -1163,7 +1227,7 @@ function _reuGenera_(d) {
           if (out.length >= REU_MAX_FRANGES) { talladaPerHores = true; break; }
           var tt = trossos[k];
           if (exclou[data + ' ' + tt.inici]) continue;   // treta a mà per la mestra
-          var xoc = mirarCalendari ? _reuXoca_(data, tt.inici, tt.fi) : null;
+          var xoc = mirarCalendari ? xocaAmb(data, tt.inici, tt.fi) : null;
           if (xoc) avisos++;
           out.push({ data: data, inici: tt.inici, fi: tt.fi, xoc: xoc || '' });
         }
@@ -1335,6 +1399,12 @@ function reunionsAfegeixHores(ss, calId, estones) {
       });
     }
 
+    /* El tram que es mira al Google Calendar: d'aquí ve la rapidesa. */
+    var totesD = estones.map(function (e) { return String(e.data || ''); })
+      .filter(function (x) { return /^\d{4}-\d{2}-\d{2}$/.test(x); }).sort();
+    var mira = totesD.length ? _reuXocaLot_(totesD[0], totesD[totesD.length - 1]) : null;
+    var xocaAmb = mira || function (d, i, f) { return _reuXoca_(d, i, f); };
+
     var noves = [], seg = Date.now() % 100000, jaHiEren = 0, xoquen = 0;
     estones.forEach(function (e) {
       var data = String(e.data || '');
@@ -1344,7 +1414,7 @@ function reunionsAfegeixHores(ss, calId, estones) {
         for (var k = 0; k < hi.length; k++) {
           if (hi[k].data === data && m0 < hi[k].f && hi[k].i < m1) { jaHiEren++; return; }
         }
-        if (_reuXoca_(data, t.inici, t.fi)) { xoquen++; return; }
+        if (xocaAmb(data, t.inici, t.fi)) { xoquen++; return; }
         hi.push({ data: data, i: m0, f: m1 });
         noves.push([calId, calId + '-x' + (seg++), data, t.inici, t.fi, 'lliure', '', '', '', '', '']);
       });
@@ -1357,6 +1427,18 @@ function reunionsAfegeixHores(ss, calId, estones) {
         : 'Amb aquesta estona i una durada de ' + cal.durada + ' minuts no hi cap cap reunió.' };
     }
     sh.getRange(sh.getLastRow() + 1, 1, noves.length, REU_CAP_HORES.length).setValues(noves);
+
+    /* ⚠ I LES DATES DE LA CONVOCATÒRIA, AL DIA.
+
+       En Pol, 22/10/2026: hi va posar dies d'octubre i novembre i la
+       targeta seguia dient «JA HA PASSAT» i amagant-li l'enllaç. El
+       `finsA` de la fila es quedava al 9/10 —les hores noves s'escrivien
+       i ningú no el tornava a calcular— i `acabat` es mira amb ell. O
+       sigui que reprogramar semblava no fer res.
+
+       Es tornen a calcular de les hores que hi ha de debò: així també
+       queden bé si se n'ha tret alguna. */
+    _reuDatesAlDia_(ss, calId);
     SpreadsheetApp.flush();
     return { ok: true, afegides: noves.length, jaHiEren: jaHiEren, xoquen: xoquen };
   } finally { lock.releaseLock(); }
@@ -1482,6 +1564,28 @@ function _reuAvuiTxt_() {
     var d = new Date();
     return d.getFullYear() + '-' + _reuPad_(d.getMonth() + 1) + '-' + _reuPad_(d.getDate());
   }
+}
+
+/* El primer i l'últim dia que té hores, tal com són ara. Es mira sempre
+   del full i no del que hi hagués escrit abans: si s'han afegit dies o
+   se n'han tret, el que mana són les hores. */
+function _reuDatesAlDia_(ss, calId) {
+  try {
+    var sh = _reuHores_(ss), n = sh.getLastRow();
+    var min = '', max = '';
+    if (n >= 2) {
+      sh.getRange(2, 1, n - 1, 5).getValues().forEach(function (r) {
+        if (String(r[0]) !== String(calId)) return;
+        var d = _reuTxtData_(r[2]);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+        if (!min || d < min) min = d;
+        if (!max || d > max) max = d;
+      });
+    }
+    var f = _reuCalFila_(ss, calId);
+    if (!f) return;
+    _reuCals_(ss).getRange(f.fila, 11, 1, 2).setValues([[min, max]]);
+  } catch (e) {}
 }
 
 /* El missatge que veu qui reserva quan ja ha triat l'hora.
@@ -6710,7 +6814,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v309';
+var BACKEND_VERSIO = 'v310';
 
 var MAX_CELA = 45000;
 
