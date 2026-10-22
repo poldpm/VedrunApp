@@ -966,7 +966,13 @@ var REU_CALS  = 'Reunions';
 var REU_HORES = 'Reunions_Hores';
 var REU_MAX_FRANGES = 500;   // barrera de seguretat
 
-var REU_CAP_CALS  = ['id','titol','descripcio','durada','buffer','lloc','actiu','creat','avisar','maxPersona','desDe','finsA','missatge'];
+/* ⚠ L'ÚLTIMA, `hores`, SÓN LES HORES DE CADA SETMANA, EN JSON.
+   En Pol, 22/10/2026: «les hores que he marcat com a disponibles han de
+   continuar guardades, el que no vull és haver d'anar entrant les hores
+   cada vegada que se m'acaba el plaç». Fins ara només es feien servir per
+   generar les franges i es llençaven; reprogramar volia tornar a marcar
+   dilluns de 17 a 18, dimecres de 17 a 18… cada cop. */
+var REU_CAP_CALS  = ['id','titol','descripcio','durada','buffer','lloc','actiu','creat','avisar','maxPersona','desDe','finsA','missatge','hores'];
 var REU_CAP_HORES = ['calId','slotId','data','inici','fi','estat','nom','email','gEventId','reservat','error'];
 
 /* ── Dates i hores: text, sempre ─────────────────────────────────────────
@@ -1004,6 +1010,20 @@ function _reuFull_(ss, nom, capcalera) {
     try {
       sh.getRange(1, 1, 1, capcalera.length)
         .setBackground('#7A1E2E').setFontColor('#FFFFFF').setFontWeight('bold');
+    } catch (e) {}
+  } else {
+    /* El full ja hi era d'abans i potser li falten columnes noves. S'hi
+       posen els títols que falten; les files velles les tindran buides,
+       que és el que toca. Sense això, una mestra de fa temps es trobaria
+       la columna sense nom i ningú no sabria què hi ha. */
+    try {
+      var lc = sh.getLastColumn();
+      if (lc < capcalera.length) {
+        sh.getRange(1, lc + 1, 1, capcalera.length - lc)
+          .setValues([capcalera.slice(lc)])
+          .setBackground('#7A1E2E').setFontColor('#FFFFFF').setFontWeight('bold');
+        try { sh.getRange(1, lc + 1, sh.getMaxRows(), capcalera.length - lc).setNumberFormat('@'); } catch (e) {}
+      }
     } catch (e) {}
   }
   return sh;
@@ -1256,7 +1276,8 @@ function _reuCreaFer_(ss, d) {
                  'si', ara, (d.avisar === false ? 'no' : 'si'),
                  parseInt(d.maxPersona, 10) || 0,
                  bones[0].data, bones[bones.length - 1].data,
-                 String(d.missatge || '').slice(0, 600)]);
+                 String(d.missatge || '').slice(0, 600),
+                 _reuPerDiaText_(perDia)]);
   shH.getRange(shH.getLastRow() + 1, 1, files.length, REU_CAP_HORES.length).setValues(files);
   SpreadsheetApp.flush();
 
@@ -1408,7 +1429,11 @@ function reunionsReprograma(ss, calId, dades) {
     perDia: perDia,
     desDe: d.desDe, finsA: d.finsA,
     durada: cal.durada, buffer: cal.buffer,
-    evitarOcupats: d.evitarOcupats !== false,
+    /* ⚠ SEMPRE. No es deixa triar, perquè no es podria complir: qui acaba
+       escrivint les hores és `reunionsAfegeixHores`, i aquella mira el
+       Google Calendar sempre, digui el que digui el que arribi d'aquí.
+       Oferir-ho seria una casella que no fa res. */
+    evitarOcupats: true,
   });
   if (g.error) return { ok: false, error: g.error, tretes: tretes };
 
@@ -1434,6 +1459,17 @@ function reunionsReprograma(ss, calId, dades) {
   if (!r || r.ok !== true) {
     return { ok: false, tretes: tretes, error: (r && r.error) || 'No s\'han pogut afegir les hores' };
   }
+  /* Les hores de cada setmana que acaba de fer servir es queden desades:
+     la propera vegada que se li acabi el termini, només haurà de dir els
+     dies nous (en Pol, 22/10/2026). */
+  try {
+    var f2 = _reuCalFila_(ss, calId);
+    if (f2) {
+      _reuCals_(ss).getRange(f2.fila, REU_CAP_CALS.length).setValue(_reuPerDiaText_(perDia));
+      SpreadsheetApp.flush();
+    }
+  } catch (e) {}
+
   return { ok: true, afegides: r.afegides, jaHiEren: r.jaHiEren, xoquen: r.xoquen,
            tretes: tretes, avisTall: g.avisTall || '' };
 }
@@ -1481,7 +1517,69 @@ function _reuCalObj_(f) {
            actiu: String(f[6]) !== 'no', creat: String(f[7]),
            avisar: String(f[8]) !== 'no', maxPersona: +f[9] || 0,
            desDe: _reuTxtData_(f[10]), finsA: _reuTxtData_(f[11]),
-           missatge: String(f[12] || '') };
+           missatge: String(f[12] || ''),
+           perDia: _reuPerDiaLlegeix_(f[13]) };
+}
+
+/* Les hores de cada setmana, tal com es van desar. Si no hi ha res o està
+   malmès, no es llença res: es torna buit i qui ho faci servir ja ho
+   resoldrà (veure `_reuPerDiaDeLesHores_`). */
+function _reuPerDiaLlegeix_(v) {
+  try {
+    var o = JSON.parse(String(v || '') || '{}');
+    return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {};
+  } catch (e) { return {}; }
+}
+function _reuPerDiaText_(perDia) {
+  try {
+    var net = {};
+    Object.keys(perDia || {}).forEach(function (k) {
+      var trams = (perDia[k] || []).filter(function (t) { return t && t.inici && t.fi; })
+        .map(function (t) { return { inici: String(t.inici), fi: String(t.fi) }; });
+      if (trams.length) net[String(k)] = trams;
+    });
+    return Object.keys(net).length ? JSON.stringify(net) : '';
+  } catch (e) { return ''; }
+}
+
+/* ⚠ PER A LES CONVOCATÒRIES D'ABANS, QUE NO EN TENEN DE DESADES.
+   Es dedueixen de les hores que ja té: per a cada dia de la setmana, els
+   trossos seguits es tornen a ajuntar en una estona. Així una mestra que
+   ja en tingués de fetes tampoc no ha de tornar a marcar res.
+
+   Es miren les hores SEGUIDES i no només la primera i l'última del dia:
+   qui ofereix de 9 a 10 i de 17 a 18 no ha de trobar-se, en reprogramar,
+   que també ofereix tot el migdia. */
+function _reuPerDiaDeLesHores_(files, durada, buffer) {
+  var pas = (parseInt(durada, 10) || 15) + (parseInt(buffer, 10) || 0);
+  var perDow = {};
+  files.forEach(function (h) {
+    var data = _reuTxtData_(h[2]), ini = _reuTxtHora_(h[3]), fi = _reuTxtHora_(h[4]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || !ini || !fi) return;
+    var p = data.split('-');
+    var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    var dow = d.getDay() === 0 ? 7 : d.getDay();
+    (perDow[dow] = perDow[dow] || []).push({ i: _reuMinuts_(ini), f: _reuMinuts_(fi) });
+  });
+  var out = {};
+  Object.keys(perDow).forEach(function (dow) {
+    var l = perDow[dow].filter(function (x) { return !isNaN(x.i) && !isNaN(x.f); })
+      .sort(function (a, b) { return a.i - b.i; });
+    var trams = [];
+    l.forEach(function (x) {
+      var ultim = trams[trams.length - 1];
+      // el mateix tros repetit (dues setmanes) no obre cap estona nova
+      if (ultim && x.i >= ultim.i && x.f <= ultim.f) return;
+      if (ultim && x.i <= ultim.f + pas - (parseInt(durada, 10) || 15)) { ultim.f = Math.max(ultim.f, x.f); return; }
+      trams.push({ i: x.i, f: x.f });
+    });
+    if (trams.length) {
+      out[String(dow)] = trams.map(function (t) {
+        return { inici: _reuHora_(t.i), fi: _reuHora_(t.f) };
+      });
+    }
+  });
+  return out;
 }
 
 function reunionsLlista(ss) {
@@ -1520,8 +1618,18 @@ function reunionsLlista(ss) {
     }
   });
 
+  /* Les hores de cada setmana de cada convocatòria, per poder reprogramar
+     sense tornar-les a marcar. Les d'abans no en tenen de desades: es
+     dedueixen de les hores que ja tenen. */
+  var totesPerCal = {};
+  hores.forEach(function (h) { (totesPerCal[String(h[0])] = totesPerCal[String(h[0])] || []).push(h); });
+
   var out = cals.map(function (f) {
     var c = _reuCalObj_(f);
+    if (!c.perDia || !Object.keys(c.perDia).length) {
+      c.perDia = _reuPerDiaDeLesHores_(totesPerCal[c.id] || [], c.durada, c.buffer);
+      c.perDiaDeduit = Object.keys(c.perDia).length > 0;
+    }
     var e = perCal[c.id] || { lliures: 0, ocupades: 0, reserves: [], passades: 0, horesLliures: [] };
     c.lliures = e.lliures; c.ocupades = e.ocupades; c.passades = e.passades;
     c.horesLliures = (e.horesLliures || []).sort(function (a, b) {
@@ -6602,7 +6710,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v308';
+var BACKEND_VERSIO = 'v309';
 
 var MAX_CELA = 45000;
 

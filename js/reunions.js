@@ -643,17 +643,32 @@ function obreReuReprograma(calId) {
   const c = _reuCals.find(x => x.id === calId);
   if (!c) return;
   _reuRepCal = c;
-  /* Es comença en blanc i no amb les hores d'abans: no les tenim desades,
-     i endevinar-les d'allò que hi ha hauria fet que a vegades encertés i a
-     vegades no, que és pitjor que preguntar-ho. */
+  /* ⚠ LES HORES DE CADA SETMANA JA HI SÓN POSADES.
+
+     En Pol, 22/10/2026: «les hores que he marcat com a disponibles han de
+     continuar guardades, el que no vull és haver d'anar entrant les hores
+     cada vegada que se m'acaba el plaç». Les convocatòries noves les porten
+     desades; les d'abans, el servidor les dedueix de les hores que ja
+     tenen. Es poden canviar igualment: és un punt de partida, no una
+     cadena. */
   _reuDiesCont = 'reuRepDies';
-  _reuPerDia = {};
+  _reuPerDia = JSON.parse(JSON.stringify(c.perDia || {}));
 
   let ov = document.getElementById('reuRepOverlay');
   if (!ov) ov = _reuMuntaReprograma();
 
   document.getElementById('reuRepSub').textContent =
     c.titol + ' · reunions de ' + c.durada + ' min';
+
+  const avis = document.getElementById('reuRepAvisHores');
+  if (avis) {
+    const teHores = Object.keys(_reuPerDia).some(k => (_reuPerDia[k] || []).length);
+    avis.textContent = !teHores
+      ? 'Marca els dies de la setmana i les hores que oferiràs.'
+      : (c.perDiaDeduit
+          ? 'Són les hores que ja oferies en aquesta convocatòria. Si no et van bé, canvia-les.'
+          : 'Són les hores que vas marcar. Si no et van bé, canvia-les.');
+  }
 
   const p = n => (n < 10 ? '0' : '') + n;
   const txt = d => d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
@@ -662,7 +677,6 @@ function obreReuReprograma(calId) {
   const fi = new Date(dl); fi.setDate(dl.getDate() + 11);
   document.getElementById('reuRepDesDe').value = txt(dl);
   document.getElementById('reuRepFinsA').value = txt(fi);
-  document.getElementById('reuRepEvitar').checked = true;
 
   _reuPintaDies();
   ov.classList.add('open');
@@ -695,10 +709,17 @@ async function _desaReuReprogramaFer() {
   Object.keys(_reuPerDia).forEach(k => { if ((_reuPerDia[k] || []).length) teCap = true; });
   if (!teCap) { showToast('Marca com a mínim un dia de la setmana i les seves hores', 'error'); return; }
 
+  /* ⚠ AQUÍ NO HI HA LA CASELLA DE «no oferir hores que xoquin», I ÉS A POSTA.
+
+     Hi era, i era mentida: en afegir hores a una convocatòria que ja
+     existeix, el servidor mira SEMPRE el Google Calendar i no s'ho salta
+     digui el que digui el navegador (igual que a «+ Afegir hores», que
+     tampoc no l'ofereix). Una casella que es pinta i no fa res és just el
+     que aquesta app no vol: la mestra la clica, no passa res, i deixa de
+     fiar-se'n. Es diu al requadre, que és el que de debò passa. */
   const r = await appsScriptPost({
     action: 'reunionsReprograma', calId: c.id,
-    dades: { desDe, finsA, perDia: _reuPerDia,
-             evitarOcupats: document.getElementById('reuRepEvitar').checked },
+    dades: { desDe, finsA, perDia: _reuPerDia },
   });
   if (!r || r.ok === false) throw new Error((r && r.error) || 'No s\'ha pogut reprogramar');
 
@@ -742,13 +763,11 @@ function _reuMuntaReprograma() {
         </div>
         <div class="modal-field">
           <div class="modal-label">Quines hores tens lliures cada setmana</div>
+          <div class="modal-hint" id="reuRepAvisHores" style="margin-bottom:8px"></div>
           <div id="reuRepDies"></div>
         </div>
-        <label class="modal-check">
-          <input type="checkbox" id="reuRepEvitar" checked>
-          <span>No oferir hores que xoquin amb el meu Google Calendar</span>
-        </label>
         <div class="callout-mini">
+          Les hores que xoquin amb el teu Google Calendar, o amb hores que ja hi havia, no s'afegiran.
           El títol, la durada, el lloc i el missatge de confirmació es queden com estan,
           i <strong>l'enllaç que les famílies ja tenen torna a funcionar</strong>: no n'has d'enviar cap de nou.
           Les hores lliures que ja han passat es treuen, perquè ningú no les pot reservar.

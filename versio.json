@@ -1,10 +1,10 @@
 {
-  "versio": "v308",
+  "versio": "v309",
   "data": "2026-10-22",
   "titol": "Novetats d aquesta versió",
   "canvis": [
     "Una convocatòria de reunions que ja ha passat es pot reprogramar: li poses dies nous i el mateix enllaç torna a funcionar, sense tornar a escriure el títol ni enviar-ne cap de nou.",
-    "També pots allargar una convocatòria que encara és viva.",
+    "Les hores que ofereixes cada setmana queden desades: quan se t'acabi el termini, només has de dir els dies nous. A les convocatòries que ja tenies, surten les que ja oferies.",
     "Les hores lliures que ja han passat es treuen soles en reprogramar. Les que ja tenien algú no es toquen."
   ]
 }
