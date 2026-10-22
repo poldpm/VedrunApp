@@ -1,10 +1,8 @@
 {
-  "versio": "v310",
+  "versio": "v311",
   "data": "2026-10-22",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: després de reprogramar una convocatòria, seguia dient «ja ha passat» i no et deixava veure l'enllaç.",
-    "Convocar reunions va molt més ràpid: abans preguntava al teu Google Calendar una vegada per cada quart d'hora.",
-    "Mentre hi posa les hores t'ho diu, en comptes de deixar la finestra quieta."
+    "Arreglat de debò: una convocatòria amb hores per venir ja no pot dir «ja ha passat». S'adoba sola en obrir l'app, sense fer res."
   ]
 }

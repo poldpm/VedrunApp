@@ -1539,6 +1539,10 @@ function reunionsReprograma(ss, calId, dades) {
 
   var r = reunionsAfegeixHores(ss, calId, estones);
   if (!r || r.ok !== true) {
+    /* Encara que no hi hagi cap hora nova —perquè ja les tenia totes—, les
+       dates de la fila s'han de quedar bé: si no, la targeta seguiria dient
+       «ja ha passat» i no hi hauria manera de treure-la d'aquí. */
+    try { _reuDatesAlDia_(ss, calId); SpreadsheetApp.flush(); } catch (e) {}
     return { ok: false, tretes: tretes, error: (r && r.error) || 'No s\'han pogut afegir les hores' };
   }
   /* Les hores de cada setmana que acaba de fer servir es queden desades:
@@ -1730,6 +1734,33 @@ function reunionsLlista(ss) {
 
   var out = cals.map(function (f) {
     var c = _reuCalObj_(f);
+
+    /* ⚠ EL PRIMER I L'ÚLTIM DIA ES MIREN DE LES HORES, NO DE LA FILA.
+
+       En Pol, 22/10/2026, amb la v310 ja posada: «segueix sortint-me amb
+       ja ha passat». I tenia raó. La fila guarda aquests dos dies, i
+       només es tornaven a calcular en AFEGIR hores; la seva convocatòria
+       ja tenia les d'octubre i novembre d'abans, o sigui que reprogramar
+       no n'afegia cap de nova i la reparació no s'arribava a executar mai.
+
+       Ara el que mana són les hores que hi ha de debò. Així s'adoba sola
+       a la primera càrrega, sense que ningú hagi de tornar a fer res, i
+       una fila endarrerida no pot tornar a deixar una convocatòria morta
+       tenint hores lliures al davant. La fila es continua escrivint
+       (veure `_reuDatesAlDia_`) perquè no quedi dient una cosa que no és. */
+    var sevesH = totesPerCal[c.id] || [];
+    if (sevesH.length) {
+      var min = '', max = '';
+      sevesH.forEach(function (h) {
+        var d = _reuTxtData_(h[2]);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+        if (!min || d < min) min = d;
+        if (!max || d > max) max = d;
+      });
+      if (min) c.desDe = min;
+      if (max) c.finsA = max;
+    }
+
     if (!c.perDia || !Object.keys(c.perDia).length) {
       c.perDia = _reuPerDiaDeLesHores_(totesPerCal[c.id] || [], c.durada, c.buffer);
       c.perDiaDeduit = Object.keys(c.perDia).length > 0;
@@ -6814,7 +6845,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v310';
+var BACKEND_VERSIO = 'v311';
 
 var MAX_CELA = 45000;
 
