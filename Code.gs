@@ -1341,6 +1341,113 @@ function reunionsAfegeixHores(ss, calId, estones) {
   } finally { lock.releaseLock(); }
 }
 
+/* ============================================================
+   REPROGRAMAR UNA CONVOCATÒRIA
+   ------------------------------------------------------------
+   En Pol, 22/10/2026: «que si ja ha passat, pugui editar-la per afegir
+   més dies, o canviar de quin dia a quin dia».
+
+   Fins ara, una convocatòria amb totes les hores passades era un carreró
+   sense sortida: la targeta deia «Ja ha passat», s'hi amagaven tots els
+   botons i l'únic que quedava era esborrar-la i tornar a escriure-ho tot
+   —títol, durada, lloc, missatge de confirmació—. I amb ella es perdia
+   el rastre de qui hi havia vingut.
+
+   Ara s'hi afegeix un tram nou de dates amb les mateixes hores de cada
+   setmana, i la convocatòria reviu: el `finsA` torna a ser futur, o sigui
+   que deixa d'estar acabada i l'enllaç torna a servir. El títol, la
+   durada, el lloc i el missatge es queden tal com estaven.
+
+   ⚠ I LES HORES LLIURES QUE JA HAN PASSAT, FORA. En Pol: «si el dia ja ha
+   passat, ja no hi han de ser... no puc viatjar en el temps». Són hores
+   que ningú no pot reservar i que només fan soroll a la graella.
+
+   ⚠ LES QUE JA TENIEN ALGÚ, NO ES TOQUEN MAI, hagin passat o no: són el
+   rastre de qui va venir, i és l'únic lloc on consta.
+   ============================================================ */
+function reunionsReprograma(ss, calId, dades) {
+  var d = dades || {};
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(25000); } catch (e) { return { ok: false, error: 'Torna-ho a provar en un moment' }; }
+  var tretes = 0;
+  try {
+    var f = _reuCalFila_(ss, calId);
+    if (!f) return { ok: false, error: 'Aquest calendari no hi és' };
+    var cal = _reuCalObj_(f.v);
+
+    var perDia = d.perDia || {};
+    var teCap = false;
+    Object.keys(perDia).forEach(function (k) { if ((perDia[k] || []).length) teCap = true; });
+    if (!teCap) return { ok: false, error: 'Digues a quines hores tens lliure com a mínim un dia' };
+
+    /* Les hores lliures que ja han passat, fora. Es van esborrant de baix
+       cap a dalt: fent-ho del dret, cada fila esborrada mouria les de sota
+       i se'n saltaria una de cada dues. */
+    var sh = _reuHores_(ss), n = sh.getLastRow();
+    if (n >= 2) {
+      var v = sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
+      var avui = _reuAvuiTxt_();
+      for (var i = v.length - 1; i >= 0; i--) {
+        if (String(v[i][0]) !== String(calId)) continue;
+        if (String(v[i][5]) === 'ocupat') continue;        // qui va venir no es toca
+        /* ⚠ La data que torna el full pot ser un objecte Date, no pas
+           "2026-06-10". Comparant-la en cru, "Wed Jun 10 2025…" mai no és
+           més petita que "2026-10-22" i no s'hauria tret mai res. */
+        if (_reuTxtData_(v[i][2]) >= avui) continue;       // encara no ha passat
+        sh.deleteRow(i + 2);
+        tretes++;
+      }
+      if (tretes) SpreadsheetApp.flush();
+    }
+  } finally { lock.releaseLock(); }
+
+  /* El tram nou. Es fa servir el mateix generador que en crear-la, amb la
+     durada i el descans que ja té: així les hores surten igual que les
+     d'abans i no se'n barregen de mides diferents. */
+  var g = _reuGenera_({
+    perDia: perDia,
+    desDe: d.desDe, finsA: d.finsA,
+    durada: cal.durada, buffer: cal.buffer,
+    evitarOcupats: d.evitarOcupats !== false,
+  });
+  if (g.error) return { ok: false, error: g.error, tretes: tretes };
+
+  /* ⚠ I NO S'HI POSEN HORES QUE JA HAN PASSAT. Posar-ne faria una
+     convocatòria que sembla viva i que cap família no pot reservar: la
+     pàgina pública les descarta. És el mateix que ja guarda el crear-ne
+     una de nova, que aquí faltava. */
+  var avuiTxt = _reuAvuiTxt_();
+  var estones = [], passades = 0;
+  g.franges.forEach(function (fr) {
+    if (fr.xoc) return;                                   // xoca amb el seu Google Calendar
+    if (fr.data < avuiTxt) { passades++; return; }
+    estones.push({ data: fr.data, inici: fr.inici, fi: fr.fi });
+  });
+  if (!estones.length) {
+    return { ok: false, tretes: tretes, passades: passades,
+             error: passades
+               ? 'Aquest tram de dates ja ha passat: cap família no hi podria reservar res. Tria dies d\'avui endavant.'
+               : 'Amb aquests dies i aquestes hores no surt cap reunió nova.' };
+  }
+
+  var r = reunionsAfegeixHores(ss, calId, estones);
+  if (!r || r.ok !== true) {
+    return { ok: false, tretes: tretes, error: (r && r.error) || 'No s\'han pogut afegir les hores' };
+  }
+  return { ok: true, afegides: r.afegides, jaHiEren: r.jaHiEren, xoquen: r.xoquen,
+           tretes: tretes, avisTall: g.avisTall || '' };
+}
+
+/* Avui, en text, amb la zona horària del projecte. */
+function _reuAvuiTxt_() {
+  try {
+    return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Madrid', 'yyyy-MM-dd');
+  } catch (e) {
+    var d = new Date();
+    return d.getFullYear() + '-' + _reuPad_(d.getMonth() + 1) + '-' + _reuPad_(d.getDate());
+  }
+}
+
 /* El missatge que veu qui reserva quan ja ha triat l'hora.
    Buit = el de sempre ("Ho hem apuntat…"). */
 function reunionsMissatge(ss, calId, text) {
@@ -3093,6 +3200,7 @@ function handleRequest(e) {
       case 'reunionsReintenta':   result = reunionsReintenta(ss, (body&&body.calId)||p.calId, (body&&body.slotId)||p.slotId); break;
       case 'reunionsActiva':      result = reunionsActiva(ss, (body&&body.calId)||p.calId, !!(body&&body.actiu)); break;
       case 'reunionsEsborra':     result = reunionsEsborra(ss, (body&&body.calId)||p.calId); break;
+      case 'reunionsReprograma':  result = reunionsReprograma(ss, (body&&body.calId)||p.calId, (body&&body.dades)||{}); break;
       case 'bootstrap':            result = bootstrap(ss, parseWeekIds((body&&body.weekIds)||p.weekIds)); break;
       case 'setAlumnes':           result = setAlumnes(ss, body.alumnes); break;
       case 'getPersonal':          result = getPersonal(ss, (body&&body.studentId)||p.studentId); break;
@@ -6494,7 +6602,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v305';
+var BACKEND_VERSIO = 'v308';
 
 var MAX_CELA = 45000;
 

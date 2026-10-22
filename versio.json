@@ -1,8 +1,10 @@
 {
-  "versio": "v307",
+  "versio": "v308",
   "data": "2026-10-22",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Manteniment intern de l'app. No canvia res del que fas ni de com ho fas."
+    "Una convocatòria de reunions que ja ha passat es pot reprogramar: li poses dies nous i el mateix enllaç torna a funcionar, sense tornar a escriure el títol ni enviar-ne cap de nou.",
+    "També pots allargar una convocatòria que encara és viva.",
+    "Les hores lliures que ja han passat es treuen soles en reprogramar. Les que ja tenien algú no es toquen."
   ]
 }

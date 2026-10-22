@@ -166,6 +166,10 @@ function _renderReunions() {
       </div>
       <p class="modal-hint">Envia aquest enllaç a les famílies. Qui hi entri veurà només les hores que et queden lliures.</p>`}
 
+      ${c.acabat ? `<p class="modal-hint">Totes les hores d'aquesta convocatòria ja han passat, i per això l'enllaç
+        no serveix. <strong>Reprogramar-la</strong> li posa dies nous i el mateix enllaç torna a funcionar: no n'has
+        d'enviar cap de nou ni tornar a escriure el títol, el lloc ni el missatge.</p>` : ''}
+
       ${((c.horesLliures || []).length || reserves.length) ? `
       <div class="reu-reserves">
         <div class="reu-reserves-tit">Les hores d'aquest calendari</div>
@@ -193,7 +197,10 @@ function _renderReunions() {
       </div>` : (c.acabat ? '' : '<p class="modal-hint">Encara no hi ha cap hora reservada.</p>')}
 
       <div class="reu-card-acc">
-        ${c.acabat ? '' : `<button class="btn btn-secondary btn-sm" onclick="obreReuAfegir('${_idJs(c.id)}')">+ Afegir hores</button>`}
+        ${c.acabat
+          ? `<button class="btn btn-primary btn-sm" onclick="obreReuReprograma('${_idJs(c.id)}')">Reprogramar</button>`
+          : `<button class="btn btn-secondary btn-sm" onclick="obreReuAfegir('${_idJs(c.id)}')">+ Afegir hores</button>
+             <button class="btn btn-ghost btn-sm" onclick="obreReuReprograma('${_idJs(c.id)}')">Reprogramar</button>`}
         ${c.acabat ? '' : `<button class="btn btn-ghost btn-sm" onclick="obreReuMissatge('${_idJs(c.id)}')">Missatge de confirmació${c.missatge ? ' ✓' : ''}</button>`}
         ${c.acabat ? '' : `<button class="btn btn-ghost btn-sm" onclick="reuActiva('${_idJs(c.id)}', ${tancat ? 'true' : 'false'})">${tancat ? 'Tornar a obrir' : 'Tancar reserves'}</button>`}
         <button class="btn btn-ghost btn-sm reu-del" onclick="reuEsborra('${_idJs(c.id)}')">Esborrar</button>
@@ -615,6 +622,149 @@ function _reuMuntaAfegir() {
 }
 
 /* ============================================================
+   REPROGRAMAR: DONAR-LI DIES NOUS
+   ------------------------------------------------------------
+   En Pol, 22/10/2026: «que si ja ha passat, pugui editar-la per afegir
+   més dies, o canviar de quin dia a quin dia».
+
+   Una convocatòria amb totes les hores passades era un carreró sense
+   sortida: la targeta deia «Ja ha passat», s'hi amagaven tots els botons
+   i només quedava esborrar-la i tornar a escriure-ho tot. Amb ella es
+   perdia, a més, el rastre de qui hi havia vingut.
+
+   Això li posa un tram de dates nou amb les mateixes hores de cada
+   setmana. El títol, la durada, el lloc i el missatge de confirmació es
+   queden com estaven, i la convocatòria torna a estar viva: l'enllaç
+   que les famílies ja tenen torna a funcionar, sense enviar-ne cap de nou.
+   ============================================================ */
+let _reuRepCal = null;
+
+function obreReuReprograma(calId) {
+  const c = _reuCals.find(x => x.id === calId);
+  if (!c) return;
+  _reuRepCal = c;
+  /* Es comença en blanc i no amb les hores d'abans: no les tenim desades,
+     i endevinar-les d'allò que hi ha hauria fet que a vegades encertés i a
+     vegades no, que és pitjor que preguntar-ho. */
+  _reuDiesCont = 'reuRepDies';
+  _reuPerDia = {};
+
+  let ov = document.getElementById('reuRepOverlay');
+  if (!ov) ov = _reuMuntaReprograma();
+
+  document.getElementById('reuRepSub').textContent =
+    c.titol + ' · reunions de ' + c.durada + ' min';
+
+  const p = n => (n < 10 ? '0' : '') + n;
+  const txt = d => d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  const avui = new Date();
+  const dl = new Date(avui); dl.setDate(avui.getDate() + ((8 - (avui.getDay() || 7)) % 7 || 7));
+  const fi = new Date(dl); fi.setDate(dl.getDate() + 11);
+  document.getElementById('reuRepDesDe').value = txt(dl);
+  document.getElementById('reuRepFinsA').value = txt(fi);
+  document.getElementById('reuRepEvitar').checked = true;
+
+  _reuPintaDies();
+  ov.classList.add('open');
+  setTimeout(() => document.getElementById('reuRepDesDe').focus(), 80);
+}
+
+function tancaReuReprograma() {
+  const ov = document.getElementById('reuRepOverlay');
+  if (ov) ov.classList.remove('open');
+  /* La graella torna a la finestra de crear-ne una de nova: si no, obrir
+     «Nou calendari» pintaria els dies dins d'una finestra tancada i la
+     mestra no veuria res. */
+  _reuDiesCont = 'reuDiesSetmana';
+}
+
+async function desaReuReprograma(...args) {
+  return _reuAccio('posar-hi els dies nous', () => _desaReuReprogramaFer(...args));
+}
+
+async function _desaReuReprogramaFer() {
+  const c = _reuRepCal;
+  if (!c) return;
+  const desDe = document.getElementById('reuRepDesDe').value;
+  const finsA = document.getElementById('reuRepFinsA').value;
+  if (!desDe || !finsA) { showToast('Digues de quin dia a quin dia', 'error'); return; }
+  if (finsA < desDe) { showToast('El dia de final ha de ser després del de començar', 'error'); return; }
+  if (finsA < _reuAvui()) { showToast('Aquest tram és tot al passat: no s\'hi pot reservar res', 'error'); return; }
+
+  let teCap = false;
+  Object.keys(_reuPerDia).forEach(k => { if ((_reuPerDia[k] || []).length) teCap = true; });
+  if (!teCap) { showToast('Marca com a mínim un dia de la setmana i les seves hores', 'error'); return; }
+
+  const r = await appsScriptPost({
+    action: 'reunionsReprograma', calId: c.id,
+    dades: { desDe, finsA, perDia: _reuPerDia,
+             evitarOcupats: document.getElementById('reuRepEvitar').checked },
+  });
+  if (!r || r.ok === false) throw new Error((r && r.error) || 'No s\'ha pogut reprogramar');
+
+  tancaReuReprograma();
+  await initReunions();
+
+  /* Es diu tot el que ha passat, també el que s'ha tret: una mestra que
+     obre la graella i hi troba menys hores que abans ha de saber per què. */
+  const parts = [r.afegides + (r.afegides === 1 ? ' hora nova' : ' hores noves')];
+  if (r.tretes)   parts.push(r.tretes + (r.tretes === 1 ? ' de passada treta' : ' de passades tretes'));
+  if (r.jaHiEren) parts.push(r.jaHiEren + ' que ja hi eren');
+  if (r.xoquen)   parts.push(r.xoquen + ' que xoquen amb el teu calendari');
+  showToast(parts.join(' · '), 'success');
+  if (r.avisTall) showToast(r.avisTall, 'error');
+}
+
+function _reuMuntaReprograma() {
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay';
+  ov.id = 'reuRepOverlay';
+  ov.addEventListener('mousedown', e => { if (e.target === ov) tancaReuReprograma(); });
+  ov.innerHTML = `
+    <div class="modal" style="max-width:620px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-header-title">Reprogramar</div>
+          <div class="modal-header-sub" id="reuRepSub"></div>
+        </div>
+        <button class="modal-close" onclick="tancaReuReprograma()" aria-label="Tancar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <div class="modal-label">De quin dia a quin dia</div>
+          <div class="reu-tram-dates">
+            <input class="modal-input" id="reuRepDesDe" type="date" aria-label="Des del dia">
+            <span class="reu-fins">fins al</span>
+            <input class="modal-input" id="reuRepFinsA" type="date" aria-label="Fins al dia">
+          </div>
+        </div>
+        <div class="modal-field">
+          <div class="modal-label">Quines hores tens lliures cada setmana</div>
+          <div id="reuRepDies"></div>
+        </div>
+        <label class="modal-check">
+          <input type="checkbox" id="reuRepEvitar" checked>
+          <span>No oferir hores que xoquin amb el meu Google Calendar</span>
+        </label>
+        <div class="callout-mini">
+          El títol, la durada, el lloc i el missatge de confirmació es queden com estan,
+          i <strong>l'enllaç que les famílies ja tenen torna a funcionar</strong>: no n'has d'enviar cap de nou.
+          Les hores lliures que ja han passat es treuen, perquè ningú no les pot reservar.
+          Les que ja tenien algú no es toquen.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="tancaReuReprograma()">Cancel·lar</button>
+        <button class="btn btn-primary" onclick="desaReuReprograma()">Posar-hi aquests dies</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  return ov;
+}
+
+/* ============================================================
    EL MISSATGE QUE VEU QUI RESERVA
    ------------------------------------------------------------
    Si es deixa buit, la pàgina pública hi posa el de sempre.
@@ -722,6 +872,7 @@ let _reuPreview = [];     // el que ha dit el servidor que sortirà
 let _reuPas = 1;
 
 function obreReuNou() {
+  _reuDiesCont = 'reuDiesSetmana';
   _reuPerDia = {}; _reuExclou = {}; _reuPreview = []; _reuPas = 1;
   let ov = document.getElementById('reuNouOverlay');
   if (!ov) ov = _reuMuntaModal();
@@ -769,8 +920,17 @@ function _reuVesAPas(n) {
 }
 
 /* ---------- PAS 1: quines hores tens cada dia ---------- */
+/* ⚠ LA GRAELLA DE DIES, UNA SOLA, PER A DUES FINESTRES.
+
+   La fan servir «Nou calendari» i «Reprogramar». Fer-ne una còpia per a
+   la segona hauria volgut dir arreglar dos cops cada cosa que hi passés,
+   i en aquesta graella ja hi ha coses apreses (trams encavalcats, copiar
+   als altres dies). Es comparteix, i cada finestra diu on s'ha de pintar
+   quan s'obre: no són mai totes dues alhora. */
+let _reuDiesCont = 'reuDiesSetmana';
+
 function _reuPintaDies() {
-  const c = document.getElementById('reuDiesSetmana');
+  const c = document.getElementById(_reuDiesCont);
   if (!c) return;
   c.innerHTML = _REU_DOW.map(d => {
     const trams = _reuPerDia[d.n] || [];
