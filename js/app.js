@@ -10075,8 +10075,13 @@ function _mostrarComentari(text, rubrica, alumne, ambIA) {
   try {
     if (window.IA_COST && ambIA && _iaUltimUs) {
       const u = _iaUltimUs;
+      /* ⚠ Amb cèntims sencers, el primer comentari deia «0 cèntims» i no
+         es podia mesurar res: costa menys de mig cèntim. Amb dos decimals
+         es veu des del primer, i la mitjana és el número que de debò
+         serveix per decidir si això aguanta vint-i-cinc mestres. */
       const cent = (typeof u.dolars === 'number')
-        ? ' · aquest mes ' + (u.dolars * 100).toFixed(0) + ' cèntims en ' + u.crides + ' comentaris'
+        ? ' · aquest mes ' + (u.dolars * 100).toFixed(2) + ' cèntims en ' + u.crides +
+          ' comentaris (' + (u.dolars * 100 / Math.max(1, u.crides)).toFixed(2) + ' cada un)'
         : '';
       consell += '  [' + u.entrada + ' + ' + u.sortida + ' tokens' + cent + ']';
     } else if (window.IA_COST && ambIA && _iaUltimError) {
