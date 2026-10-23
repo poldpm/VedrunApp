@@ -1,9 +1,10 @@
 {
-  "versio": "v312",
-  "data": "2026-10-22",
+  "versio": "v313",
+  "data": "2026-10-23",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Arreglat: en afegir hores a una convocatòria de reunions, les que ja hi eren es tornaven a crear i sortien duplicades.",
-    "Reprogramar treu les hores repetides que hagin quedat. Les que ja tenien algú no es toquen."
+    "Arreglat: si escrivies una observació a un alumne d'un grup del qual no ets tutor/a, es desava dins d'un altre grup i després no la tornaves a veure. Ara va al grup de l'alumne, i les que havien quedat en un grup que no era el seu tornen al seu lloc soles: no has de tornar a escriure res.",
+    "En afegir una observació, el desplegable d'assignatures ofereix les del grup que tens a la pantalla. Les teves hi continuen sent totes.",
+    "Les observacions d'una assignatura ja surten a la columna «Observacions» de la pestanya de notes del teu full."
   ]
 }

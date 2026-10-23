@@ -3562,6 +3562,7 @@ function handleRequest(e) {
       case 'getGrupObs':             result = getGrupObs(ss, (body&&body.grup) || p.grup); break;
       case 'saveGrupObs':            result = saveGrupObs(ss, body.grup, body.rowId, body.materia, body.text, body.base, body.afegit, body.nomAlumne); break;
       case 'obsAlFullLot':           result = obsAlFullLot(ss, body.grup, body.items); break;
+      case 'obsArreglaGrups':        result = obsArreglaGrups(ss, !!(body && body.enSec)); break;
 
       // Tasques
       case 'saveTasques':            result = saveTasques(ss, body.data, body.base); break;
@@ -4494,6 +4495,33 @@ function _appDataPrefix_(ss, nom, prefix) {
    navegador ho pugui dir. Sense `base` (apps velles) es fa com abans. */
 function saveGrupObs(ss, grup, rowId, materia, text, base, afegit, nomAlumne) {
   var gss = getGrupsSpreadsheet(ss) || ss;
+
+  /* ⚠ UNA OBSERVACIÓ DESADA EN UN GRUP QUE NO ÉS EL DEL NEN ES PERDIA EN
+     SILENCI, I AIXÒ ÉS EL QUE VA PASSAR TRES VEGADES.
+
+     Les observacions viuen dins del farcell del grup. Si el navegador
+     s'equivoca de grup, aquí es desava igualment i es contestava «ok»: ningú
+     no ho veia. La mestra la veia desada —perquè ho estava— i en recarregar
+     el grup bo no hi havia res. La directora ho va reportar tres vegades
+     abans que es trobés (22/10/2026), i cada arranjament anterior va tapar
+     una altra peça del camí, no aquesta.
+
+     Això és la xarxa: si el nen no surt a la llista d'aquell grup, NO es
+     desa i es diu per què. Només es mira quan se'n pot estar segur —la
+     pestanya del grup hi és, té codis d'alumne, i el que ens arriba és un
+     codi i no un número de fila dels d'abans—, perquè no es pugui bloquejar
+     una desada bona. Veure `_obsGrupDeLAlumne` (js/app.js), que és qui
+     decideix el grup i ara l'encerta. */
+  var _mapa = _grupMapaUids_(gss, grup);
+  var _codi = String(rowId == null ? '' : rowId).trim();
+  if (_codi && !/^\d+$/.test(_codi) &&
+      Object.keys(_mapa.perUid).length && !_mapa.perUid[_codi]) {
+    return { ok:false, error:'Aquest alumne no surt a la llista de "' + grup +
+      '" del full de l\'escola, i una observació desada en un grup que no és el seu ' +
+      'no la tornaria a trobar ningú. NO s\'ha desat. Torna a carregar el grup i, ' +
+      'si continua, digues-ho en Pol.' };
+  }
+
   var clau = _obsClau_(grup, rowId);
   var d = {};
   var v = sheetGetJSON(gss, '_AppData', clau);
@@ -4551,7 +4579,13 @@ function _obsAlFullDeNotes_(ss, grup, clauMateria, nomAlumne, text) {
     var m = /^(\d+)_(.+)$/.exec(String(clauMateria || ''));
     if (!m) return;
     var trim = parseInt(m[1], 10);
-    var nomBase = _materiaNomBase(m[2]);
+    /* ⚠ La clau de l'assignatura porta el grup darrere («musica__5ea») des
+       que una mestra pot fer la mateixa assignatura a tres línies. Aquí no es
+       treia, i es buscava una pestanya de notes que es digués
+       «1T_Musica__5ea_5è A»: no existeix mai, o sigui que la còpia a la
+       columna «Observacions» no s'ha fet MAI per a cap assignatura de grup.
+       És el que la Imma deia el 18/10/2026 i que es va donar per arreglat. */
+    var nomBase = _materiaNomBase(String(m[2]).split('__')[0]);
     if (!trim || !nomBase) return;
 
     var sh = ss.getSheetByName(_notesTabName(trim, nomBase, grup))
@@ -4585,6 +4619,119 @@ function _obsAlFullDeNotes_(ss, grup, clauMateria, nomAlumne, text) {
    Va per pestanyes i no d'una en una: llegir la llista de noms un cop per
    pestanya en comptes d'un cop per observació és la diferència entre mig
    minut i un minut i mig d'espera. */
+/* ============================================================
+   LES OBSERVACIONS QUE HAVIEN ANAT A PARAR A UN ALTRE GRUP
+   ------------------------------------------------------------
+   Fins a la v313, qui no és tutora de cap grup —la direcció— podia desar
+   una observació al farcell del grup de L'ASSIGNATURA que triava en comptes
+   del grup del nen (veure `_obsGrupDeLAlumne`, js/app.js, i la xarxa de
+   `saveGrupObs`). Allà hi són, senceres, però ningú no les hi va a buscar:
+   qui obre un grup demana el seu farcell.
+
+   Això les torna al seu lloc. No se li pot demanar a una mestra que torni a
+   escriure un trimestre d'apunts.
+
+   Com ho sap: una observació desada com a «obs_<GRUP>#<codi>» amb un codi
+   que al full de l'escola és d'un ALTRE grup no pot ser bona. El codi de
+   l'alumne és permanent i únic, o sigui que no hi ha dubte de qui és.
+
+   Regles d'or, perquè una reparació no pugui fer mal:
+     · no s'esborra mai cap text: si al destí ja hi ha alguna cosa d'aquella
+       assignatura, el que es troba s'hi SUMA (i si ja hi és, no s'hi torna
+       a posar: s'ha de poder passar dues vegades sense duplicar res);
+     · la clau de l'assignatura es reescriu amb el grup bo, perquè surti amb
+       el nom de sempre i no amb un rètol d'un altre grup;
+     · l'origen es deixa buit («{}»), perquè la propera passada no el torni
+       a trobar;
+     · amb `enSec` només diu què faria.
+   ============================================================ */
+function _grupSufix_(grup) {
+  var s = String(grup || '').toLowerCase();
+  var de = 'àáäâèéëêìíïîòóöôùúüûç', a = 'aaaaeeeeiiiioooouuuuc';
+  var fora = '';
+  for (var i = 0; i < s.length; i++) {
+    var p = de.indexOf(s.charAt(i));
+    var c = p === -1 ? s.charAt(i) : a.charAt(p);
+    if (/[a-z0-9]/.test(c)) fora += c;
+  }
+  return fora;
+}
+
+function obsArreglaGrups(ss, enSec) {
+  var gss = getGrupsSpreadsheet(ss) || ss;
+  var sh = gss.getSheetByName('_AppData');
+  if (!sh) return { ok:true, moguts:0, detall:[] };
+  var lr = sh.getLastRow();
+  if (lr === 0) return { ok:true, moguts:0, detall:[] };
+
+  // Una sola lectura del calaix sencer.
+  var files = sh.getRange(1, 1, lr, 2).getValues();
+
+  /* Quins grups hi ha, i de quin grup és cada codi d'alumne. */
+  var deQuinGrup = {};
+  gss.getSheets().forEach(function (s) {
+    var n = s.getName();
+    if (!/^(1r|2n|3r|4t|5è|6è) [A-C]$/.test(n)) return;
+    var m = _grupMapaUids_(gss, n);
+    Object.keys(m.perUid).forEach(function (u) { deQuinGrup[u] = n; });
+  });
+  if (!Object.keys(deQuinGrup).length) return { ok:true, moguts:0, detall:[] };
+
+  /* El que hi ha desat ara, per poder-hi sumar sense tornar a llegir. */
+  var ara = {};
+  files.forEach(function (f) {
+    var k = String(f[0] == null ? '' : f[0]);
+    if (k.indexOf('obs_') === 0) ara[k] = String(f[1] == null ? '' : f[1]);
+  });
+
+  var moguts = 0, detall = [], dest = {}, buidar = [];
+  Object.keys(ara).forEach(function (k) {
+    var tall = k.indexOf('#');
+    if (tall === -1) return;                       // farcell vell de tot el grup
+    var grupEra = k.slice(4, tall);
+    var codi = k.slice(tall + 1).trim();
+    if (!codi || /^\d+$/.test(codi)) return;       // número de fila dels d'abans
+    var grupBo = deQuinGrup[codi];
+    if (!grupBo || grupBo === grupEra) return;     // o no el coneixem, o ja hi és bé
+
+    var d = {};
+    try { d = JSON.parse(ara[k] || '{}') || {}; } catch (e) { d = {}; }
+    if (!Object.keys(d).length) return;
+
+    var clauDesti = _obsClau_(grupBo, codi);
+    var t = dest[clauDesti];
+    if (t === undefined) {
+      try { t = JSON.parse(ara[clauDesti] || '{}') || {}; } catch (e) { t = {}; }
+    }
+    var sufixBo = '__' + _grupSufix_(grupBo);
+    Object.keys(d).forEach(function (mat) {
+      var txt = String(d[mat] == null ? '' : d[mat]).trim();
+      if (!txt) return;
+      // «1_musica__3ra» → «1_musica__5ea»: el nom de l'assignatura, al grup bo.
+      var mm = /^(\d+)_(.+)$/.exec(String(mat));
+      var matBo = mm ? (mm[1] + '_' + String(mm[2]).split('__')[0] + sufixBo) : mat;
+      var hiHa = String(t[matBo] == null ? '' : t[matBo]).trim();
+      if (!hiHa) t[matBo] = txt;
+      else if (hiHa.indexOf(txt) === -1) t[matBo] = hiHa + ' · ' + txt;
+      moguts++;
+      detall.push({ codi: codi, de: grupEra, a: grupBo, materia: mat, materiaBona: matBo });
+    });
+    dest[clauDesti] = t;
+    buidar.push(k);
+  });
+
+  if (!enSec && moguts) {
+    /* Primer el destí i després buidar l'origen: si s'aturés pel mig, el
+       pitjor que pot passar és que una observació surti a dos llocs, no que
+       es perdi. */
+    Object.keys(dest).forEach(function (c) {
+      sheetSetJSON(gss, '_AppData', c, Object.keys(dest[c]).length ? JSON.stringify(dest[c]) : '{}');
+    });
+    buidar.forEach(function (c) { sheetSetJSON(gss, '_AppData', c, '{}'); });
+  }
+  return { ok:true, moguts: moguts, enSec: !!enSec, detall: detall.slice(0, 50) };
+}
+
 function obsAlFullLot(ss, grup, items) {
   if (!ss || !items || !items.length) return { ok:true, escrites:0 };
 
@@ -6875,7 +7022,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v312';
+var BACKEND_VERSIO = 'v313';
 
 var MAX_CELA = 45000;
 

@@ -940,6 +940,15 @@ function _aplicaTutoriaAlumnes(alumnes, buitDeDebo, forca) {
       // la pantalla no hi sortia res i semblava que el full estigués buit.
       trastorns: a.trastorns, acollida: a.acollida, drets: a.drets, emvic: a.emvic,
       dataNaix: a.dataNaix, rowId: a.rowId,
+      /* ⚠ DE QUIN GRUP ÉS AQUEST NEN.
+         Sense això, una observació no sabia a quin grup anava i es decidia a
+         partir de L'ASSIGNATURA triada, que porta enganxat el grup on la
+         mestra la fa. A direcció, que mira grups que no són seus, l'apunt
+         d'un nen de 5è A acabava a la cel·la de 3r A: el servidor contestava
+         «desada» —i ho estava, en un altre grup— i en tornar a obrir l'app no
+         hi havia res. La directora ho va reportar tres vegades (22/10/2026).
+         La llista que s'aplica aquí és sempre la del grup de treball. */
+      grupOrigen: a.grupOrigen || (typeof _grupDeTreball === 'function' ? _grupDeTreball() : null) || null,
     };
   });
   _saveMainToCache();
@@ -1483,11 +1492,66 @@ function _perfilEntradesAmbGrup() {
   });
 }
 
+/* El grup dels nens que hi ha ARA a la pantalla.
+
+   És l'única cosa que no pot mentir: el grup de treball pot ser un (el que
+   la direcció té triat a Alumnes) i els nens de la pantalla uns altres (els
+   d'una assignatura que acaba d'obrir de l'horari). */
+function _obsGrupAlaPantalla() {
+  const sts = (typeof students !== 'undefined' && students) ? students : [];
+  for (let i = 0; i < sts.length; i++) {
+    const g = (typeof personal !== 'undefined' && personal[sts[i].id]) ? personal[sts[i].id].grupOrigen : null;
+    if (g) return g;
+  }
+  return (typeof _grupDeTreball === 'function') ? _grupDeTreball() : null;
+}
+
+/* ⚠ QUI NO ÉS TUTORA NO PODIA TRIAR CAP ASSIGNATURA DEL GRUP QUE MIRAVA.
+
+   El desplegable d'una observació ofereix les assignatures del PERFIL, i a
+   qui no és tutora li porten el grup enganxat: «Música · 3r A». La direcció
+   mira els 18 grups de primària, o sigui que per a un nen de 5è A l'única
+   cosa que podia triar era una assignatura d'un ALTRE grup. L'etiqueta deia
+   una cosa que no era, i el grup de l'assignatura se'n duia l'observació
+   (era la causa del que la directora reportava: veure `_obsGrupDeLAlumne`).
+
+   Això hi AFEGEIX les assignatures del grup que té a la pantalla, al davant.
+   No treu res: les seves hi continuen sent totes, amb la mateixa clau, que
+   és el que fa que el que ja hi ha desat es continuï veient igual. La clau
+   de les noves es fa com la faria la tutora d'aquell grup, perquè les
+   observacions de totes dues acabin al mateix lloc i amb el mateix nom. */
+function _obsEntradesDelGrup(grup) {
+  if (!grup || !/^(1r|2n|3r|4t|5è|6è) [A-C]$/.test(String(grup))) return [];
+  const sufix = '__' + _normNomSimple(grup).replace(/[^a-z0-9]/g, '');
+  const noms = [];
+  const vist = {};
+  const posa = nom => {
+    const n = _normNomSimple(nom);
+    if (!n || vist[n]) return;
+    vist[n] = true;
+    noms.push(nom);
+  };
+  ((_perfil && _perfil.classes && _perfil.classes[grup]) || []).forEach(posa);
+  if (typeof MATERIA_KEYS !== 'undefined' && typeof MATERIES !== 'undefined') {
+    MATERIA_KEYS.forEach(k => { if (k !== 'general' && MATERIES[k]) posa(MATERIES[k]); });
+  }
+  return noms.map(nom => ({
+    nom, grup, key: _assigKey(nom) + sufix, label: nom,
+    altres: false, curs: null, rotatori: false,
+  }));
+}
+
 // Actualitza el <select> d'Observacions amb assignatura+grup del perfil
 function _perfilRenderObsSelector() {
   const sel = document.getElementById('obsMateria');
   if (!sel) return;
-  const entrades = _perfilEntradesAmbGrup();
+  let entrades = _perfilEntradesAmbGrup();
+  if (typeof senseTutoria === 'function' && senseTutoria()) {
+    const delGrup = _obsEntradesDelGrup(_obsGrupAlaPantalla());
+    const ja = {};
+    delGrup.forEach(e => { ja[e.key] = true; });
+    entrades = delGrup.concat(entrades.filter(e => !ja[e.key]));
+  }
   if (!entrades.length) return; // sense perfil, deixa les opcions per defecte
 
   const prev = sel.value;

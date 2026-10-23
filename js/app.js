@@ -3043,7 +3043,7 @@ async function renderFitxa(studentId) {
         ${grup.map(({ mat, text }) => {
           const c = MATERIA_COLORS[mat] || MATERIA_COLORS.general;
           return `<div class="fitxa-obs-item">
-            <span class="obs-materia-badge" style="background:${c.bg};color:${c.text};flex-shrink:0">${MATERIES[mat]||mat}</span>
+            <span class="obs-materia-badge" style="background:${c.bg};color:${c.text};flex-shrink:0">${_matLabel(mat)}</span>
             <span class="fitxa-obs-text">${escapeHtml(text)}</span>
           </div>`;
         }).join('')}
@@ -3148,7 +3148,7 @@ async function loadFitxaNotes(studentId, container) {
   }
   if (!_showList.length) {
     _showList = (Array.isArray(mats) && mats.length) ? mats.slice()
-      : Object.keys(resum || {}).map(k => ({ key: k, nom: (typeof MATERIES !== 'undefined' && MATERIES[k]) || k }));
+      : Object.keys(resum || {}).map(k => ({ key: k, nom: _matLabel(k) }));
   }
   // La Carpeta Viatgera, només a qui la tingui encesa (veure `carpetaEncesa`).
   if (!carpetaEncesa()) _showList = _showList.filter(x => !esClauCarpeta(x.key));
@@ -3312,7 +3312,7 @@ function loadFitxaAssoliments(studentId, container) {
       </tr></thead>
       <tbody>
         ${rows.map(r => `<tr>
-          <td>${escapeHtml(r.nom || MATERIES[r.mat] || r.mat)}</td>
+          <td>${escapeHtml(r.nom || _matLabel(r.mat))}</td>
           ${r.pcts.map(p => `<td style="text-align:center">${pctBadge(p)}</td>`).join('')}
         </tr>`).join('')}
       </tbody>
@@ -3570,7 +3570,7 @@ function renderObsDrawerContent(studentId) {
       div.className = 'obs-entry';
       div.innerHTML = `
         <div class="obs-entry-header">
-          <span class="obs-materia-badge" style="background:${c.bg};color:${c.text}">${MATERIES[mat]||mat}</span>
+          <span class="obs-materia-badge" style="background:${c.bg};color:${c.text}">${_matLabel(mat)}</span>
           <button class="obs-entry-edit" aria-label="Editar aquesta observació" title="Editar" onclick="editObservacio(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           <button class="obs-entry-delete" aria-label="Esborrar aquesta observació" title="Esborrar" onclick="deleteObservacioMateria(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
@@ -3586,6 +3586,60 @@ function renderObsDrawerContent(studentId) {
 /* ============================================================
    OBSERVACIONS — Save / Edit / Delete
    ============================================================ */
+/* ============================================================
+   DE QUIN GRUP ÉS UNA OBSERVACIÓ
+   ------------------------------------------------------------
+   Una observació es desa dins del farcell del GRUP («obs_5è A#…»):
+   si s'encerta el grup, es perd de vista, perquè qui la va a
+   buscar demana el grup que està mirant i allà no hi ha res.
+
+   ⚠ LA DIRECTORA HO VA REPORTAR TRES VEGADES (fins al 22/10/2026).
+
+   Deia: afegeixo una observació des de la pestanya de l'alumne,
+   trio l'assignatura, la desa i la veig; tanco l'app, la torno a
+   obrir i no hi ha res —ni aquella ni cap altra d'aquell nen.
+   I tenia raó les tres vegades. El grup es decidia a partir de
+   L'ASSIGNATURA triada, i al desplegable les assignatures porten
+   enganxat el grup on la mestra les fa («Música · 3r A»). Ella,
+   que no és tutora de cap grup i mira els 18 de primària, triava
+   una assignatura seva per a un nen de 5è A i l'apunt anava a
+   parar al farcell de 3r A. Desat, sí, però on no el busca ningú.
+
+   L'ordre d'ara diu el que havia de dir des del principi: **manda
+   el grup del NEN**. L'assignatura només serveix si del nen no en
+   sabem el grup (una especialista que encara no n'ha triat cap).
+
+   Qui hi posa el grup del nen: `_aplicaTutoriaAlumnes` i
+   `_refreshGrupStudents` (js/perfil.js) i `_entraA`, aquí sota.
+   ============================================================ */
+function _obsGrupDeLAlumne(studentId, materia) {
+  const delNen = personal[studentId] && personal[studentId].grupOrigen;
+  if (delNen) return delNen;
+  const deTreball = (typeof _grupDeTreball === 'function') ? _grupDeTreball() : null;
+  if (deTreball) return deTreball;
+  const deLAssignatura = (typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[materia] : null;
+  if (deLAssignatura) return deLAssignatura;
+  return (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+}
+
+/* El rètol d'una assignatura d'una observació.
+
+   ⚠ Les claus porten el grup darrere («musica__5ea») perquè una mestra que
+   fa Música a tres línies les pugui distingir. Però el farcell d'un grup té
+   les observacions de TOT el claustre, i del rètol d'una assignatura que la
+   mestra que mira no fa, `MATERIES` no en sap res: a la pantalla hi sortia
+   el nom per dins, «musica__5ea», com a etiqueta de l'observació d'una
+   companya. Ara, si la clau sencera no es coneix, es prova la part del
+   davant, que és la que tothom comparteix. */
+function _matLabel(mat) {
+  const k = String(mat || '');
+  if (typeof MATERIES !== 'undefined' && MATERIES[k]) return MATERIES[k];
+  if (typeof _assigNomMap !== 'undefined' && _assigNomMap[k]) return _assigNomMap[k];
+  const base = k.split('__')[0];
+  if (typeof MATERIES !== 'undefined' && MATERIES[base]) return MATERIES[base];
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : k;
+}
+
 async function saveObservacio() {
   return _unSolCop('saveObservacio', _saveObservacioFer, document.getElementById('saveObsBtn'));
 }
@@ -3621,22 +3675,8 @@ async function _saveObservacioFer() {
     try {
       // Les observacions es desen al full "Grups" compartit (les veu tot el claustre).
       // Necessitem el rowId de l'alumne i el grup de l'assignatura.
-      /* ⚠ De quin grup és aquesta observació. Trobat a l'auditoria del
-         6/9/2026: a DIRECCIÓ cap de les vies d'abans no servia —els alumnes
-         que carrega no porten `grupOrigen`, el mapa d'assignatures és buit i
-         no hi ha grup de tutoria— i queia al camí de sota, que desa al full
-         PRIVAT de direcció. La pantalla deia «Observació guardada» i «Les veu
-         tot el claustre», i el text no arribava enlloc.
-         `_grupDeTreball()` ja sap contestar-ho per als tres rols; s'hi posa
-         abans del darrer recurs, sense tocar l'ordre que ja funcionava per a
-         tutores i especialistes. */
-      const grup = (personal[studentId] && personal[studentId].grupOrigen)
-        ? personal[studentId].grupOrigen
-        : ((typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
-            ? _assigGrupMap[materia]
-            : ((typeof _grupDeTreball === 'function' && _grupDeTreball())
-                ? _grupDeTreball()
-                : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null)));
+      // De quin grup és aquesta observació: veure `_obsGrupDeLAlumne`.
+      const grup = _obsGrupDeLAlumne(studentId, materia);
       /* El nom del nen viatja amb l'observacio: al full la fila la mana el
          NOM, no el numero, perque el full es reordena sol (auditoria 6/9/2026). */
       const _nomAl = (students.find(x => String(x.id) === String(studentId)) || {}).nom || '';
@@ -3765,22 +3805,8 @@ async function _replaceObservacioFer(studentId, materia, trimestre) {
   resetSaveObsBtn(); closeAddObsModal(true); refreshObsViews(studentId);
   if (config.scriptUrl) {
     try {
-      /* ⚠ De quin grup és aquesta observació. Trobat a l'auditoria del
-         6/9/2026: a DIRECCIÓ cap de les vies d'abans no servia —els alumnes
-         que carrega no porten `grupOrigen`, el mapa d'assignatures és buit i
-         no hi ha grup de tutoria— i queia al camí de sota, que desa al full
-         PRIVAT de direcció. La pantalla deia «Observació guardada» i «Les veu
-         tot el claustre», i el text no arribava enlloc.
-         `_grupDeTreball()` ja sap contestar-ho per als tres rols; s'hi posa
-         abans del darrer recurs, sense tocar l'ordre que ja funcionava per a
-         tutores i especialistes. */
-      const grup = (personal[studentId] && personal[studentId].grupOrigen)
-        ? personal[studentId].grupOrigen
-        : ((typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
-            ? _assigGrupMap[materia]
-            : ((typeof _grupDeTreball === 'function' && _grupDeTreball())
-                ? _grupDeTreball()
-                : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null)));
+      // De quin grup és aquesta observació: veure `_obsGrupDeLAlumne`.
+      const grup = _obsGrupDeLAlumne(studentId, materia);
       /* El nom del nen viatja amb l'observacio: al full la fila la mana el
          NOM, no el numero, perque el full es reordena sol (auditoria 6/9/2026). */
       const _nomAl = (students.find(x => String(x.id) === String(studentId)) || {}).nom || '';
@@ -3860,12 +3886,62 @@ function _obsRepassaFull() {
     .catch(() => {});
 }
 
+/* ⚠ TORNAR AL SEU GRUP LES OBSERVACIONS QUE N'HAVIEN SORTIT.
+
+   Fins a la v313, qui no és tutora de cap grup podia desar una observació al
+   farcell del grup de l'ASSIGNATURA triada en comptes del del nen: hi era,
+   sencera, però al grup del nen no sortia (veure `_obsGrupDeLAlumne`). Això
+   ho posa al seu lloc, un sol cop, en segon pla i sense dir res: el que ha
+   de notar la mestra és que les seves observacions hi tornen a ser, no una
+   feina de manteniment.
+
+   Es passa a totes les apps, no només a la de direcció: una tutora que hagi
+   triat una assignatura d'un altre grup hi pot haver caigut igual. Quan no
+   hi ha res per moure no toca res, i passar-ho dues vegades no duplica res
+   (ho garanteix `obsArreglaGrups` al Code.gs). */
+const _OBS_GRUPS_FIX = 'vedruna_obs_grups_v313';
+function _obsArreglaGrups() {
+  if (!config.scriptUrl) return;
+  let fet = null;
+  try { fet = localStorage.getItem(_OBS_GRUPS_FIX); } catch (e) { return; }
+  if (fet) return;
+  appsScriptPost({ action: 'obsArreglaGrups' })
+    .then(r => {
+      if (!r || !r.ok) return;
+      try { localStorage.setItem(_OBS_GRUPS_FIX, '1'); } catch (e) {}
+      /* Si n'ha mogut alguna, el que hi ha a la pantalla és d'abans del
+         trasllat: es torna a demanar el grup perquè surtin ara mateix i no
+         l'endemà. */
+      if (r.moguts && typeof _obsRecarregaGrup === 'function') _obsRecarregaGrup();
+    })
+    .catch(() => {});
+}
+
+/* Torna a demanar les observacions del grup que es té a la pantalla. */
+async function _obsRecarregaGrup() {
+  const grup = (typeof _obsGrupAlaPantalla === 'function') ? _obsGrupAlaPantalla() : null;
+  if (!grup || !config.scriptUrl) return;
+  const ro = await appsScriptGet({ action: 'getGrupObs', grup });
+  if (!ro || !ro.ok || !ro.obs) return;
+  const rowIdToId = {};
+  students.forEach(st => {
+    const rid = (personal[st.id] && personal[st.id].rowId) !== undefined
+      ? personal[st.id].rowId : st.rowId;
+    if (rid !== undefined && rid !== null && rid !== '') rowIdToId[String(rid)] = st.id;
+  });
+  Object.keys(ro.obs).forEach(rowId => {
+    const id = rowIdToId[String(rowId)];
+    if (id !== undefined) observacions[id] = ro.obs[rowId];
+  });
+  if (typeof _paintAllViews === 'function') _paintAllViews();
+}
+
 /* `senseDemanar` = ja s'ha preguntat abans. Ho fa servir el moure d'una
    observació d'un nen a un altre: allà la pregunta ja s'ha fet i tornar-la a
    fer seria demanar dues vegades el mateix. */
 async function deleteObservacioMateria(studentId, materia, trimestre, senseDemanar) {
   if (!senseDemanar &&
-      !confirm('Esborrar les observacions de '+(MATERIES[materia]||materia)+' ('+TRIM_LABELS[String(trimestre)]+') per aquest alumne?')) return;
+      !confirm('Esborrar les observacions de '+_matLabel(materia)+' ('+TRIM_LABELS[String(trimestre)]+') per aquest alumne?')) return;
   const key = trimestre+'_'+materia;
   /* El que hi havia: si l esborrat no arriba al full, s hi torna a posar
      (segona auditoria, 8/9/2026 — veure el `catch` de sota). */
@@ -3874,22 +3950,8 @@ async function deleteObservacioMateria(studentId, materia, trimestre, senseDeman
   refreshObsViews(studentId);
   if (config.scriptUrl) {
     try {
-      /* ⚠ De quin grup és aquesta observació. Trobat a l'auditoria del
-         6/9/2026: a DIRECCIÓ cap de les vies d'abans no servia —els alumnes
-         que carrega no porten `grupOrigen`, el mapa d'assignatures és buit i
-         no hi ha grup de tutoria— i queia al camí de sota, que desa al full
-         PRIVAT de direcció. La pantalla deia «Observació guardada» i «Les veu
-         tot el claustre», i el text no arribava enlloc.
-         `_grupDeTreball()` ja sap contestar-ho per als tres rols; s'hi posa
-         abans del darrer recurs, sense tocar l'ordre que ja funcionava per a
-         tutores i especialistes. */
-      const grup = (personal[studentId] && personal[studentId].grupOrigen)
-        ? personal[studentId].grupOrigen
-        : ((typeof _assigGrupMap !== 'undefined' && _assigGrupMap[materia])
-            ? _assigGrupMap[materia]
-            : ((typeof _grupDeTreball === 'function' && _grupDeTreball())
-                ? _grupDeTreball()
-                : ((typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null)));
+      // De quin grup és aquesta observació: veure `_obsGrupDeLAlumne`.
+      const grup = _obsGrupDeLAlumne(studentId, materia);
       const rowId = (personal[studentId] && personal[studentId].rowId) || studentId;
       /* El nom viatja també en ESBORRAR: al full la fila la mana el nom, no
          el número (segona auditoria, 8/9/2026). Sense això s'esborrava la
@@ -9609,6 +9671,7 @@ function _applyBootstrap(boot) {
      del full: la còpia només es fa en desar. Es repassen un sol cop, aquí,
      perquè cap mestra no hagi de tornar a escriure el que ja té escrit. */
   try { _obsRepassaFull(); } catch (e) {}
+  try { _obsArreglaGrups(); } catch (e) {}
 
   // 4) Planning/tasques/calendari/assoliments/actitud
   _processAppData(boot);
