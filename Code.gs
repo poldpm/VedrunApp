@@ -4579,17 +4579,25 @@ function _obsAlFullDeNotes_(ss, grup, clauMateria, nomAlumne, text) {
     var m = /^(\d+)_(.+)$/.exec(String(clauMateria || ''));
     if (!m) return;
     var trim = parseInt(m[1], 10);
-    /* ⚠ La clau de l'assignatura porta el grup darrere («musica__5ea») des
-       que una mestra pot fer la mateixa assignatura a tres línies. Aquí no es
-       treia, i es buscava una pestanya de notes que es digués
-       «1T_Musica__5ea_5è A»: no existeix mai, o sigui que la còpia a la
-       columna «Observacions» no s'ha fet MAI per a cap assignatura de grup.
-       És el que la Imma deia el 18/10/2026 i que es va donar per arreglat. */
-    var nomBase = _materiaNomBase(String(m[2]).split('__')[0]);
-    if (!trim || !nomBase) return;
+    /* ⚠ COM ES DIU LA PESTANYA DE NOTES: NO T'HO INVENTIS.
 
-    var sh = ss.getSheetByName(_notesTabName(trim, nomBase, grup))
-          || ss.getSheetByName(trim + 'T_' + nomBase);
+       El nom el mana `_notesTabName` amb el que li dona `_materiaNomBase`, i
+       la clau de l'assignatura porta el grup darrere des que una mestra pot
+       fer la mateixa a tres línies. O sigui que la pestanya de debò es diu
+       «1T_Musica__5ea_5è A» —la clau SENCERA, capitalitzada, i el grup al
+       final—, no «1T_Música_5è A». Ho diu també el comentari de
+       `updateActitudBatch`, que ve d'aquest mateix error (6/9/2026).
+
+       Les dues últimes són per a qui encara tingui pestanyes d'abans que la
+       clau portés el grup. */
+    var nomClau = _materiaNomBase(String(m[2]));
+    var nomNet  = _materiaNomBase(String(m[2]).split('__')[0]);
+    if (!trim || !nomClau) return;
+
+    var sh = ss.getSheetByName(_notesTabName(trim, nomClau, grup))
+          || ss.getSheetByName(trim + 'T_' + nomClau)
+          || ss.getSheetByName(_notesTabName(trim, nomNet, grup))
+          || ss.getSheetByName(trim + 'T_' + nomNet);
     if (!sh) return;
 
     var fila = _trobaFilaAlumne(sh, nomAlumne);
@@ -7022,7 +7030,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v313';
+var BACKEND_VERSIO = 'v314';
 
 var MAX_CELA = 45000;
 

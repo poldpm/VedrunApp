@@ -8877,9 +8877,28 @@ function assimValKeyVella(sid, objId) { return `assim_${_assimMateria}_${_assimT
 function _assimSid(s) {
   if (s && s.rowId !== undefined && s.rowId !== null && s.rowId !== '') return s.rowId;
   if (typeof s === 'object' && s) return s.id;
-  // Si ens passen un id directe, mira si té rowId a personal o students
-  const st = students.find(x => x.id === s);
-  if (st && st.rowId !== undefined) return st.rowId;
+  /* ⚠ AQUEST `===` ERA EL QUE FEIA QUE LES NOTES D'ACTITUD NO ES DESESSIN.
+
+     Reportat per la directora el 23/10/2026: «ella posa les notes i no li
+     surten». I passava a tothom.
+
+     `s.id` és un NÚMERO (la posició a la llista) i el que ve d'una casella de
+     la pantalla és TEXT («0»), perquè surt d'un atribut del DOM. Amb `===`,
+     `0 === '0'` és fals: no trobava l'alumne i tornava el text tal qual. O
+     sigui que el panell d'actitud DESAVA per posició i la graella i el full
+     LLEGIEN pel codi de l'alumne. Dues claus diferents.
+
+     El primer cop no es notava —la clau del codi encara no existia i es
+     migrava la de la posició—, però a partir de la primera arrencada
+     següent, amb la clau del codi ja plena del que hi ha al servidor, tot el
+     que la mestra hi escrivia es desava en un lloc que ningú no llegeix: la
+     pantalla seguia ensenyant el número d'abans i el full també. Deia
+     «Actitud guardada» cada vegada.
+
+     Comparat com a text, l'alumne es troba sempre i totes dues bandes fan
+     servir el codi permanent. Veure `_actitudKey` (js/notes.js). */
+  const st = students.find(x => String(x.id) === String(s));
+  if (st && st.rowId !== undefined && st.rowId !== null && st.rowId !== '') return st.rowId;
   return s;
 }
 function assimValGet(sid, objId) {
