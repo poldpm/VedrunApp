@@ -148,16 +148,32 @@ function publicaNotesSiCal() {
 /* ============================================================
    LES NOTES DELS ALTRES, A LA FITXA DE L'ALUMNE
    ============================================================ */
-let _notesCompCache = null, _notesCompTs = 0;
+/* ⚠ UNA CÒPIA PER GRUP, NO UNA DE SOLA.
+
+   Hi havia un sol calaix per a tot (`_notesCompCache`) i la clau del grup no
+   hi comptava. A un tutor això no es notava mai —sempre demana el seu grup—,
+   però des que la direcció també ho veu, canviant de grup a Alumnes dins dels
+   dos minuts hauria vist a la fitxa d'un nen de 5è A les assignatures del
+   grup d'abans. Notes d'un grup a la fitxa d'un nen d'un altre. */
+const _notesCompCache = {};   // { grup: { assigs, ts } }
 
 async function carregaNotesCompartides(grup, forca) {
   if (!grup || !config.scriptUrl) return [];
-  if (!forca && _notesCompCache && Date.now() - _notesCompTs < 120000) return _notesCompCache;
+  const g = String(grup);
+  const tenim = _notesCompCache[g];
+  if (!forca && tenim && Date.now() - tenim.ts < 120000) return tenim.assigs;
   try {
-    const r = await appsScriptGet({ action: 'getNotesCompartides', grup: grup, _fons: true });
-    if (r && r.ok) { _notesCompCache = r.assignatures || []; _notesCompTs = Date.now(); }
-    return _notesCompCache || [];
-  } catch (e) { return _notesCompCache || []; }
+    const r = await appsScriptGet({ action: 'getNotesCompartides', grup: g, _fons: true });
+    /* ⚠ Una resposta BUIDA no es guarda. Guardar-la volia dir que, si es
+       demanava el grup abans que l'altra mestra hagués publicat res (o en un
+       mal moment del servidor), durant dos minuts la fitxa seguia dient que
+       no hi ha res sense tornar-ho a preguntar. Tornar-ho a demanar és barat;
+       ensenyar un buit que no és veritat, no. */
+    const rebut = (r && r.ok && r.assignatures) ? r.assignatures : null;
+    if (rebut && rebut.length) _notesCompCache[g] = { assigs: rebut, ts: Date.now() };
+    else if (r && r.ok) return rebut || [];
+  } catch (e) { /* es queda el que hi havia */ }
+  return (_notesCompCache[g] && _notesCompCache[g].assigs) || [];
 }
 
 /* Les assignatures que NO fa el tutor, per posar-les sota les seves.

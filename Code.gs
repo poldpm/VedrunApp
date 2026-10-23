@@ -270,8 +270,15 @@ function publicaNotesResum(ss, grup, matKey, nomAssig, nomMestra) {
     });
   }
 
+  /* ⚠ EL NOM, EL DE LA PANTALLA, NO EL DE LA PESTANYA.
+
+     Aquí hi havia `nomBase`, que surt de la clau de l'assignatura i porta el
+     grup enganxat: al tutor, a «Altres assignatures», hi sortia
+     «Musica__5ea» com a nom d'assignatura. I només quan ESTAVA compartida:
+     quan no ho estava, la mateixa funció hi desava el nom net, o sigui que el
+     rètol canviava segons si es compartia o no. */
   sheetSetJSON(gss, '_AppData', clau, JSON.stringify({
-    nom: nomBase, mestra: String(nomMestra || ''),
+    nom: String(nomAssig || nomBase), mestra: String(nomMestra || ''),
     compartit: true, actualitzat: ara, alumnes: alumnes
   }));
   return { ok: true, compartit: true, alumnes: Object.keys(alumnes).length,
@@ -290,18 +297,58 @@ function _esTutorDe_(ss, grup) {
   } catch (e) { return false; }
 }
 
-/* LLEGIR-LES (NOMÉS EL TUTOR). Torna una entrada per assignatura
-   publicada d'aquell grup, amb les notes si estan compartides.
+/* ============================================================
+   QUI FA SERVIR AQUESTA APP, ÉS DE DIRECCIÓ?
+   ------------------------------------------------------------
+   En Pol, 23/10/2026: «fes que direcció també ho vegi». La
+   directora, obrint la fitxa d'un nen de 5è A, només hi veia les
+   assignatures que ella fa.
 
-   ⚠ Veure les notes de les altres mestres és un privilegi DEL TUTOR.
-   Una especialista no ha de poder veure les notes de les assignatures
-   que no fa ella, ni demanant-ho directament. Al frontend ja no té per
-   on demanar-ho (obre les fitxes per un camí a part que només carrega
-   les seves assignatures), però la decisió es pren AQUÍ, que és l'únic
-   lloc on no depèn de com estigui feta la pantalla. */
+   ⚠ NO ES POT PREGUNTAR AL NAVEGADOR. L'app sap el seu rol
+   (`js/rol.js`), però si la pregunta es fes allà, qualsevol còpia
+   de l'app podria dir que és de direcció i llegir les notes de
+   les companyes. I justament el que protegeix aquestes notes és
+   que cada mestra decideix si les comparteix. Per això es decideix
+   aquí, com ja es feia amb el tutor.
+
+   Ho sabem de dues maneres, cap de les dues passa pel navegador:
+
+     · `Session.getEffectiveUser()` és el compte de QUI ÉS l'app
+       (el projecte és seu), i es compara amb la llista de la
+       BIBLIOTECA: una propietat `DIRECCIO_CORREUS` amb els
+       correus de direcció, separats per comes. Una, per a totes
+       les apps alhora, com el `LOGIN_DOMINI`.
+     · O, si es prefereix app per app, la propietat `ROL` del seu
+       projecte amb el valor `direccio`.
+
+   Sense cap de les dues, això torna fals i tot queda com abans:
+   direcció no veu res de les altres mestres. És el que toca, que
+   el per defecte sigui el que no ensenya res.
+   ============================================================ */
+function _esDireccio_() {
+  try {
+    if ((_prop('ROL') || '').toString().trim().toLowerCase() === 'direccio') return true;
+    var llista = (_propBiblioteca('DIRECCIO_CORREUS') || '').toLowerCase()
+      .split(/[,;\s]+/)
+      .filter(function (x) { return x.indexOf('@') !== -1; });
+    if (!llista.length) return false;
+    var amo = _loginAmo();
+    return !!amo && llista.indexOf(amo) !== -1;
+  } catch (e) { return false; }
+}
+
+/* LLEGIR-LES (EL TUTOR DEL GRUP I DIRECCIÓ). Torna una entrada per
+   assignatura publicada d'aquell grup, amb les notes si estan compartides.
+
+   ⚠ Veure les notes de les altres mestres és un privilegi del TUTOR del grup
+   i de DIRECCIÓ. Una especialista no ha de poder veure les notes de les
+   assignatures que no fa ella, ni demanant-ho directament. Al frontend ja no
+   té per on demanar-ho (obre les fitxes per un camí a part que només carrega
+   les seves assignatures), però la decisió es pren AQUÍ, que és l'únic lloc
+   on no depèn de com estigui feta la pantalla. */
 function getNotesCompartides(ss, grup) {
   if (!grup) return { ok: true, assignatures: [] };
-  if (!_esTutorDe_(ss, grup)) {
+  if (!_esTutorDe_(ss, grup) && !_esDireccio_()) {
     return { ok: true, assignatures: [], noEsTutor: true };
   }
   var gss = getGrupsSpreadsheet(ss);
@@ -316,7 +363,11 @@ function getNotesCompartides(ss, grup) {
     try { v = JSON.parse(tot[k]); } catch (e) { return; }
     if (!v) return;
     out.push({
-      key: matKey, nom: v.nom || matKey, mestra: v.mestra || '',
+      /* El nom, net del sufix del grup: el que ja hi hagi publicat d'abans
+         el porta enganxat («Musica__5ea») i no s'ha de tornar a publicar res
+         per veure-ho bé. */
+      key: matKey, nom: String(v.nom || matKey).split('__')[0] || matKey,
+      mestra: v.mestra || '',
       compartit: !!v.compartit, actualitzat: v.actualitzat || '',
       // Les claus desades poden ser files (com sempre) o codis (ja migrat):
       // es tradueixen a la que el navegador espera ara.
@@ -7030,7 +7081,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v314';
+var BACKEND_VERSIO = 'v317';
 
 var MAX_CELA = 45000;
 

@@ -3142,9 +3142,20 @@ async function loadFitxaNotes(studentId, container) {
   let _showList = (typeof _perfil !== 'undefined' && _perfil.classes && _perfil.classes[tutorGrup])
     ? _perfil.classes[tutorGrup].map(nom => ({ key: _kn(nom), nom }))
     : [];
+  /* ⚠ «Musica__3ra» no és un nom d'assignatura.
+     El nom surt de com es diu la pestanya de notes, i la clau de
+     l'assignatura hi porta el grup enganxat. A un tutor no se li nota —el
+     servidor li treu el sufix del grup—, però a direcció, que no té tutoria,
+     el resum arriba amb la clau sencera i a la fitxa hi sortia «Musica__3ra»
+     com a nom d'assignatura. */
+  const _nomNet = n => {
+    const base = String(n || '').split('__')[0].trim();
+    const k = _kn(base);
+    return (typeof MATERIES !== 'undefined' && MATERIES[k]) ? MATERIES[k] : (base || String(n || ''));
+  };
   if (Array.isArray(mats)) {
     const _have = new Set(_showList.map(x => x.key));
-    mats.forEach(m => { if (!_have.has(m.key)) { _showList.push({ key: m.key, nom: m.nom }); _have.add(m.key); } });
+    mats.forEach(m => { if (!_have.has(m.key)) { _showList.push({ key: m.key, nom: _nomNet(m.nom) }); _have.add(m.key); } });
   }
   if (!_showList.length) {
     _showList = (Array.isArray(mats) && mats.length) ? mats.slice()
@@ -3222,14 +3233,29 @@ async function loadFitxaNotes(studentId, container) {
     </table>
     <div id="fitxaNotesAltres" data-alumne="${studentId}"></div>`;
 
-  /* Privilegi del tutor: les assignatures que li fan ALTRES mestres.
-     Cada mestra decideix si comparteix les seves notes; si no, aquí hi
-     surt "Notes no compartides". Va a part i en segon pla, perquè les
-     seves notes no s'endarrereixin esperant el full compartit. */
-  if (tutorGrup && typeof carregaNotesCompartides === 'function') {
+  /* Les assignatures que li fan ALTRES mestres. Cada mestra decideix si
+     comparteix les seves notes; si no, aquí hi surt "Notes no compartides".
+     Va a part i en segon pla, perquè les seves notes no s'endarrereixin
+     esperant el full compartit.
+
+     ⚠ QUI HO POT VEURE: el tutor del grup i la DIRECCIÓ.
+
+     Era només del tutor, i la directora, obrint la fitxa d'un nen de 5è A,
+     només hi veia les assignatures que ella fa (en Pol, 23/10/2026: «fes que
+     direcció també ho vegi»). Una especialista NO: les fitxes, per a ella,
+     són de només lectura i d'un grup que no és seu.
+
+     El grup no pot ser el de tutoria, perquè a direcció no n'hi ha cap: és el
+     grup del NEN que té obert. Ho resol `_obsGrupDeLAlumne`, que ja és qui ho
+     decideix per a les observacions —un sol lloc, i no dos que puguin acabar
+     dient grups diferents. */
+  const _dirHoVeu = (typeof esDireccio === 'function') && esDireccio();
+  const _grupFitxa = tutorGrup ||
+    (_dirHoVeu && typeof _obsGrupDeLAlumne === 'function' ? _obsGrupDeLAlumne(studentId, null) : null);
+  if (_grupFitxa && typeof carregaNotesCompartides === 'function') {
     const _rowId = (personal[studentId] && personal[studentId].rowId) || null;
     if (_rowId) {
-      carregaNotesCompartides(tutorGrup).then(assigs => {
+      carregaNotesCompartides(_grupFitxa).then(assigs => {
         const cont = document.getElementById('fitxaNotesAltres');
         if (!cont) return;   // ha canviat de pantalla mentrestant
         // ⚠ CARRERA: passant fitxes de pressa, la resposta d'un alumne pot

@@ -1,9 +1,10 @@
 {
-  "versio": "v316",
+  "versio": "v317",
   "data": "2026-10-23",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al planning, cada franja pot tenir més d'un enllaç. Cadascun amb el seu nom —«Programació», «Fitxa de la sessió», «Vídeo»— i tots surten a la casella, un al costat de l'altre.",
-    "Els enllaços que ja tenies hi continuen sent, igual que abans: no has de tornar a posar-ne cap."
+    "A la fitxa d'un alumne, la direcció també hi veu el bloc «Altres assignatures» amb les notes que hi han posat les altres mestres (les que elles hagin compartit). Abans només hi veia les assignatures que fa ella.",
+    "Quan comparteixes les notes d'una assignatura amb el tutor/a, ara també les veu la direcció. La casella segueix venint desmarcada: si no la marques, ningú no veu cap nota teva.",
+    "Arreglat: a «Altres assignatures», el nom de l'assignatura sortia amb el codi del grup enganxat («Musica__5ea»)."
   ]
 }
