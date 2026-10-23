@@ -1338,10 +1338,30 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  overflow: hidden;
+  /* ⚠ Aquí hi deia overflow:hidden, i és el que impedia que la capçalera
+     s'enganxés: qualsevol overflow que no sigui visible converteix l'element
+     en el contenidor de scroll de tot el que hi ha a dins, i com que no té
+     alçada, el «sticky» de la capçalera no s'activava mai. El mateix que ja
+     va passar als Registres (auditoria 6/9/2026). El retallat de les
+     cantonades el fa ara el fill que sí que fa scroll. */
+  overflow: visible;
 }
+
+/* ⚠ EL NOM DE L'ACTIVITAT NO POT MARXAR MAI DE LA PANTALLA.
+
+   En Pol, 23/10/2026: a la graella de notes el nom de l'alumne ja es queda
+   quiet a l'esquerra, però amb una classe llarga el nom de l'activitat
+   —«Prova d'unitats», «Dictat 3»— se n'anava cap amunt en baixar, i a mitja
+   classe la mestra posava notes a una columna sense saber de quina prova era.
+
+   La graella fa scroll ELLA, en els dos sentits, i amb una alçada màxima:
+   sense un contenidor amb alçada, «sticky» no té respecte a què quedar-se
+   quiet. És el mateix que ja fan els Registres. */
 .notes-scroll {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: min(70vh, 620px);
+  border-radius: var(--r-lg);
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ---- TAULA ---- */
@@ -1352,25 +1372,32 @@ body {
   table-layout: auto;
 }
 
-/* Capçaleres */
+/* Capçaleres. Cal fons opac: si no, les notes que passen per sota es veuen
+   a través del nom de l'activitat. */
 .notes-table thead th {
   background: var(--surface-alt);
   border-bottom: 2px solid var(--border);
   border-right: 1px solid var(--border);
   padding: 0;
   white-space: nowrap;
+  position: sticky; top: 0; z-index: 2;
 }
 .notes-table thead th:last-child { border-right: none; }
 
-/* Columna nom */
-.notes-th-name {
+/* Columna nom.
+   ⚠ Amb el selector sencer, no `.notes-th-name` sol: `.notes-table thead th`
+   és més específica i li guanyava el z-index, i la cantonada quedava sota les
+   capçaleres de les activitats (vist amb `comprova-quiet.js`, 23/10/2026). */
+.notes-table thead th.notes-th-name {
   padding: 14px 20px;
   text-align: left;
   font-size: 11px; font-weight: 600;
   color: var(--text-sub);
   letter-spacing: 0.05em; text-transform: uppercase;
   min-width: 180px;
-  position: sticky; left: 0; z-index: 3;
+  /* La cantonada de dalt a l'esquerra: s'enganxa en tots dos sentits i ha de
+     quedar per damunt de la capçalera (2) i de la columna de noms (1). */
+  position: sticky; left: 0; top: 0; z-index: 4;
   background: var(--surface-alt);
 }
 
@@ -1379,7 +1406,10 @@ body {
   min-width: 140px;
   text-align: center;
   padding: 10px 28px 10px 12px; /* espai dret per la creu */
-  position: relative;
+  /* Aquí hi deia `position: relative`, per la creu d'esborrar que va
+     absoluta a dins. Ja no cal: `thead th` és «sticky», que també és
+     posicionat, i la creu s'hi ancora igual. Deixar-l'hi seria una línia
+     morta que fa pensar que la capçalera no s'enganxa. */
 }
 .notes-th-item-nom {
   font-size: 13px; font-weight: 700;
