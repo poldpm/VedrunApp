@@ -1940,11 +1940,30 @@ body {
   font-size: 11.5px; font-weight: 700; color: #991B1B;
   margin-bottom: 4px; text-align: center;
 }
+/* Els enllaços d'una casella: més d'un, i que s'ajuntin en comptes de fer la
+   casella alta com una torre. */
+.plan-cell-links {
+  display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 3px;
+}
 .plan-cell-link {
   display: inline-block; font-size: 11px; color: #166534;
-  font-weight: 600; text-decoration: none; margin-top: 3px;
+  font-weight: 600; text-decoration: none;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .plan-cell-link:hover { text-decoration: underline; }
+
+/* Una fila del quadre: nom, adreça i la creueta de treure'l. Igual que les
+   files dels aspectes d'actitud. */
+.plan-link-fila { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.plan-link-fila .plan-link-nom { flex: 0 0 34%; min-width: 0; }
+.plan-link-fila .plan-link-url { flex: 1; min-width: 0; }
+@media (max-width: 560px) {
+  /* Al mòbil, el nom a sobre de l'adreça: de costat no hi caben ni l'un ni
+     l'altra i no es llegeix el que s'escriu. */
+  .plan-link-fila { flex-wrap: wrap; }
+  .plan-link-fila .plan-link-nom { flex: 1 1 100%; }
+  .plan-link-fila .plan-link-url { flex: 1 1 calc(100% - 40px); }
+}
 
 /* Modal planning */
 .plan-cell-type-row {

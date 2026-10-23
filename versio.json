@@ -1,9 +1,9 @@
 {
-  "versio": "v315",
+  "versio": "v316",
   "data": "2026-10-23",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A la graella de notes, la fila de dalt amb el nom de cada prova es queda quieta quan baixes per la classe, igual que ja hi quedava la columna dels noms quan vas cap a la dreta. Així saps sempre de quina activitat estàs posant la nota.",
-    "La graella de notes es desplaça ella en comptes de fer créixer la pàgina."
+    "Al planning, cada franja pot tenir més d'un enllaç. Cadascun amb el seu nom —«Programació», «Fitxa de la sessió», «Vídeo»— i tots surten a la casella, un al costat de l'altre.",
+    "Els enllaços que ja tenies hi continuen sent, igual que abans: no has de tornar a posar-ne cap."
   ]
 }

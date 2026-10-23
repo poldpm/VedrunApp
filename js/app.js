@@ -6322,7 +6322,19 @@ function renderPlanCell(data, key, isPati, calEvs, span) {
   if (data.alerta) inner += `<div class="plan-cell-alerta">⚠ ${escapeHtml(data.alerta)}</div>`;
   if (data.assig)  inner += `<div class="plan-cell-assig">${escapeHtml(data.assig)}</div>`;
   if (data.sub)    inner += `<div class="plan-cell-sub">${escapeHtml(data.sub)}</div>`;
-  if (data.link)   inner += `<a class="plan-cell-link" href="${_enllacSegur(data.link)}" target="_blank" onclick="event.stopPropagation()">📄 Programació</a>`;
+  const _enll = _planEnllacos(data);
+  if (_enll.length) {
+    /* ⚠ L'`<a>` en UNA sola línia, amb l'adreça i el handler junts.
+
+       Aturar la propagació i prou és el patró del botó mort del 2/9/2026, i
+       `comprova-controls.js` el busca: només el perdona si veu un `href` a la
+       MATEIXA línia, que és el que distingeix un enllaç de debò d'un control
+       buit. Partint la línia en dues, l'eina marcava aquest enllaç com a mort
+       (i tenia raó de queixar-se: no podia saber-ho). */
+    inner += '<div class="plan-cell-links">' + _enll.map((l, i) =>
+      `<a class="plan-cell-link" href="${_enllacSegur(l.url)}" target="_blank" rel="noopener" title="${escapeHtml(l.url)}" onclick="event.stopPropagation()">📄 ${escapeHtml(_planEnllacNom(l, i, _enll.length))}</a>`
+    ).join('') + '</div>';
+  }
   const comentClass = data.coment ? 'plan-cell-coment-dot has-coment' : 'plan-cell-coment-dot';
   const comentColor  = data.coment ? '#7A1E2E' : '#9CA3AF';
   inner += `<div class="${comentClass}" onclick="event.stopPropagation();openPlanCellComent('${_idJs(key)}')" title="${data.coment ? escapeHtml(data.coment) : 'Afegir comentari de sessió'}">
@@ -6339,6 +6351,113 @@ function renderPlanCell(data, key, isPati, calEvs, span) {
 }
 
 /* --- Modal cel·la --- */
+/* ============================================================
+   ELS ENLLAÇOS D'UNA CASELLA DEL PLANNING
+   ------------------------------------------------------------
+   En Pol, 23/10/2026: «que s'hi puguin posar més d'un enllaç».
+   Abans n'hi cabia UN (el camp `link`): qui volia tenir a mà la
+   programació i, a més, el document de la sessió o un vídeo,
+   n'havia de triar un i l'altre el buscava cada vegada.
+
+   ⚠ LES CASELLES QUE JA HI SÓN NO ES TOQUEN. Les d'abans porten
+   l'enllaç al camp `link` i n'hi ha un curs sencer escrites, al
+   navegador i al full de cada mestra. Això les llegeix igual:
+   `link` és, simplement, el primer de la llista. I en desar es
+   continua escrivint —amb el primer enllaç— perquè una còpia
+   antiga de l'app (una mestra que encara no s'hagi actualitzat)
+   segueixi ensenyant-ne un en comptes de cap.
+   ============================================================ */
+function _planEnllacos(data) {
+  const fora = [];
+  const vist = {};
+  const posa = (url, nom) => {
+    const u = String(url || '').trim();
+    if (!u || vist[u]) return;
+    vist[u] = true;
+    fora.push({ url: u, nom: String(nom || '').trim() });
+  };
+  if (data && Array.isArray(data.links)) data.links.forEach(l => posa(l && l.url, l && l.nom));
+  if (data) posa(data.link, '');       // la casella d'abans, amb un sol enllaç
+  return fora;
+}
+
+/* El rètol del xip. Si la mestra li ha posat nom, el seu; si no, «Programació»
+   quan n'hi ha un de sol (és el que deia abans) i numerats quan n'hi ha més,
+   perquè dos xips iguals no diuen quin és quin. */
+function _planEnllacNom(l, i, quants) {
+  if (l.nom) return l.nom;
+  return quants > 1 ? 'Enllaç ' + (i + 1) : 'Programació';
+}
+
+/* Pinta EXACTAMENT les files que se li donen; si no n'hi ha cap, una de
+   buida, perquè una casella nova es pugui omplir sense clicar res.
+
+   ⚠ Abans hi afegia sempre una fila buida al final, i això feia que el botó
+   «Afegir un enllaç» no fes res de visible quan ja hi havia la buida: s'hi
+   clicava i la pantalla es quedava igual. Un control que es pinta i no fa res
+   és pitjor que no tenir-lo. Ho va enxampar `comprova-plan-enllacos.js`
+   prement-lo de debò, que és per això que el banc el prem. */
+function _planLinksPinta(llista) {
+  const cont = document.getElementById('planCellLinks');
+  if (!cont) return;
+  const files = (llista && llista.length) ? llista.slice() : [{ url: '', nom: '' }];
+  cont.innerHTML = files.map(l => `
+    <div class="plan-link-fila">
+      <input class="modal-input plan-link-nom" type="text" value="${escapeHtml(l.nom || '')}"
+             placeholder="Nom (ex: Programació)" aria-label="Nom de l'enllaç">
+      <input class="modal-input plan-link-url" type="url" value="${escapeHtml(l.url || '')}"
+             placeholder="https://drive.google.com/…" aria-label="Adreça de l'enllaç">
+      <button class="rub-obj-del" type="button" onclick="planLinkTreu(this)"
+              title="Treure aquest enllaç" aria-label="Treure aquest enllaç">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+function planLinkAfegeix() {
+  /* Les files TAL COM ESTAN, també les mig escrites: si aquí es filtressin
+     les buides, clicar «Afegir» s'enduria el que la mestra tingués a mitges. */
+  _planLinksPinta(_planLinksFiles().concat([{ url: '', nom: '' }]));
+  /* El focus a l'adreça de la fila nova: si no, la mestra clica «Afegir», no
+     veu que el cursor no hi és i escriu a l'aire. */
+  const files = document.querySelectorAll('#planCellLinks .plan-link-url');
+  const ultim = files[files.length - 1];
+  if (ultim) ultim.focus();
+}
+
+function planLinkTreu(btn) {
+  const fila = btn && btn.closest ? btn.closest('.plan-link-fila') : null;
+  if (!fila) return;
+  fila.remove();
+  /* Si no en queda cap, es deixa una fila buida: un quadre sense cap casella
+     no deixaria tornar-hi a posar res sense clicar «Afegir». */
+  if (!document.querySelectorAll('#planCellLinks .plan-link-fila').length) _planLinksPinta([]);
+}
+
+/* El que hi ha ARA a les files, tal com està (per repintar sense perdre res). */
+function _planLinksFiles() {
+  const fora = [];
+  document.querySelectorAll('#planCellLinks .plan-link-fila').forEach(fila => {
+    fora.push({
+      url: String((fila.querySelector('.plan-link-url') || {}).value || '').trim(),
+      nom: String((fila.querySelector('.plan-link-nom') || {}).value || '').trim(),
+    });
+  });
+  return fora;
+}
+
+/* I el que de debò es desa: sense les buides i sense repetits. */
+function _planLinksLlegeix() {
+  const fora = [];
+  const vist = {};
+  _planLinksFiles().forEach(l => {
+    if (!l.url || vist[l.url]) return;
+    vist[l.url] = true;
+    fora.push({ url: l.url, nom: l.nom });
+  });
+  return fora;
+}
+
 function openPlanCellComent(key) {
   _planEditKey = key;
   const data = JSON.parse(localStorage.getItem(key) || 'null') || {};
@@ -6399,7 +6518,7 @@ function openPlanCell(key) {
   document.getElementById('planCellAssig').value    = data?.assig    || '';
   document.getElementById('planCellSub2').value     = data?.sub      || '';
   document.getElementById('planCellAlerta').value   = data?.alerta   || '';
-  document.getElementById('planCellLink').value     = data?.link     || '';
+  _planLinksPinta(_planEnllacos(data));
   document.getElementById('planCellEvent').value    = data?.event    || '';
   document.getElementById('planCellEventSub').value = data?.eventSub || '';
   document.getElementById('planCellComent').value = data?.coment || '';
@@ -6477,9 +6596,11 @@ function savePlanCell() {
       assig:  document.getElementById('planCellAssig').value.trim(),
       sub:    document.getElementById('planCellSub2').value.trim(),
       alerta: document.getElementById('planCellAlerta').value.trim(),
-      link:   document.getElementById('planCellLink').value.trim(),
       coment,
     };
+    /* Els enllaços, i el primer també al camp d'abans: veure `_planEnllacos`. */
+    data.links = _planLinksLlegeix();
+    data.link  = data.links.length ? data.links[0].url : '';
     /* ⚠ EL SUBTÍTOL I L'ENLLAÇ QUE ES PERDIEN.
 
        Trobat a l'auditoria del 6/9/2026. Aquí es mirava si hi havia
@@ -6488,7 +6609,7 @@ function savePlanCell() {
        només l'enllaç del document de la sessió (sense escriure-hi
        l'assignatura, que ja se sap pel seu horari) clicava Desar i la
        casella es quedava buida, sense dir res. */
-    const teAlguna = data.assig || data.alerta || data.coment || data.sub || data.link;
+    const teAlguna = data.assig || data.alerta || data.coment || data.sub || data.links.length;
     if (!teAlguna) { localStorage.removeItem(_planEditKey); }
     else localStorage.setItem(_planEditKey, JSON.stringify(data));
   } else {
@@ -8560,7 +8681,7 @@ function _renderHomeAvui() {
       html += `<div class="home-franja">
         <span class="home-franja-hora">${f.hora}</span>
         <span class="home-franja-pill" style="background:${bg};color:${fc}">⚠ ${escapeHtml(data.event||'')}</span>
-        ${data.link?`<a class="home-franja-link" href="${_enllacSegur(data.link)}" target="_blank">📄</a>`:''}
+        ${_planEnllacos(data).map(l=>`<a class="home-franja-link" href="${_enllacSegur(l.url)}" target="_blank" rel="noopener" title="${escapeHtml(l.nom || l.url)}">📄</a>`).join('')}
       </div>`;
       teContingut = true; return;
     }
@@ -8582,7 +8703,7 @@ function _renderHomeAvui() {
           <span class="home-franja-pill" style="background:${col.bg};color:${col.color}">${escapeHtml(data.assig||'')}</span>
           ${data.sub?`<span class="home-franja-sub">${escapeHtml(_planSubUnaLinia(data.sub))}</span>`:''}
         </div>
-        ${data.link?`<a class="home-franja-link" href="${_enllacSegur(data.link)}" target="_blank">📄</a>`:''}
+        ${_planEnllacos(data).map(l=>`<a class="home-franja-link" href="${_enllacSegur(l.url)}" target="_blank" rel="noopener" title="${escapeHtml(l.nom || l.url)}">📄</a>`).join('')}
       </div>`;
       teContingut = true;
     }
