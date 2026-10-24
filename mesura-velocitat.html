@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quant triga de debò</title>
+<!-- ============================================================
+     PÀGINA DE MESURA — NO FORMA PART DE L'APP
+     ------------------------------------------------------------
+     Serveix per respondre UNA pregunta amb números i no amb
+     opinions: si les dades fossin en una base de dades de debò
+     (Supabase) en lloc del full de càlcul, l'app aniria més
+     ràpida des de l'escola?
+
+     Per què una pàgina i no una prova des de l'ordinador d'en
+     Pol: el que importa no és què triga des d'un servidor, sinó
+     què triga des del portàtil d'una mestra, amb la xarxa de
+     l'escola. Això només es pot mesurar des d'allà.
+
+     ⚠ NO ESTÀ DINS DEL `sw.js` a posta: així no es queda mai
+     guardada al navegador i sempre es mesura de debò.
+
+     ⚠ AQUÍ NO HI HA CAP CLAU DE SUPABASE. Aquest fitxer és dins
+     d'un repositori públic. La clau arriba per l'enllaç (darrere
+     el #, que no viatja enlloc) o la pots enganxar a mà, i es
+     queda només en aquest navegador.
+
+     El token de l'app i l'adreça del servidor sí que hi són,
+     perquè ja són en aquest mateix repositori públic des del
+     primer dia: el que protegeix les dades és el login, no ells.
+     ============================================================ -->
+<style>
+  /* Una taula de números i poca cosa més: els mateixos colors de
+     l'app perquè es vegi que és de la mateixa casa. */
+  :root {
+    --granat:      #7B2638;
+    --granat-fosc: #4A1520;
+    --carmesi:     #C01E4B;
+    --fons:        #F7F4F5;
+    --fons-tou:    #FBF8F9;
+    --paper:       #FFFFFF;
+    --tinta:       #1A1014;
+    --tinta-tou:   #6B5560;
+    --vora:        #E8DFE3;
+    --verd:        #1C7A4E;
+    --groc:        #8A6410;
+    --r: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fons); color: var(--tinta);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .full { max-width: 980px; margin: 0 auto; padding: 24px 20px 60px; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; color: var(--granat-fosc); }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; color: var(--granat); }
+  p { margin: 0 0 12px; }
+  .sots { color: var(--tinta-tou); margin-bottom: 26px; }
+  .caixa {
+    background: var(--paper); border: 1px solid var(--vora);
+    border-radius: var(--r); padding: 18px 20px; margin-bottom: 16px;
+  }
+  .passos { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 720px) { .passos { grid-template-columns: 1fr; } }
+  label { display: block; font-size: .85rem; color: var(--tinta-tou); margin: 10px 0 4px; }
+  input[type=text] {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--vora);
+    border-radius: 8px; font: inherit; font-size: .9rem; background: var(--fons-tou);
+  }
+  input[type=text]:focus { outline: 2px solid var(--carmesi); outline-offset: 1px; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border: 0;
+    border-radius: 10px; padding: 12px 22px;
+    background: var(--granat); color: #fff;
+  }
+  button:hover:not(:disabled) { background: var(--granat-fosc); }
+  button:disabled { opacity: .5; cursor: default; }
+  .gran { display: block; width: 100%; font-size: 1.05rem; padding: 16px; margin: 6px 0 20px; }
+  .estat { font-size: .9rem; margin-top: 10px; }
+  .ok   { color: var(--verd); font-weight: 600; }
+  .mal  { color: var(--carmesi); font-weight: 600; }
+  .esperant { color: var(--groc); font-weight: 600; }
+  .taula-fora { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 620px; }
+  th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--vora); }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--tinta-tou); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.grup-titol td {
+    background: var(--fons-tou); font-weight: 700; color: var(--granat);
+    font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; border-bottom: 0;
+  }
+  .barra { height: 9px; border-radius: 5px; background: var(--granat); min-width: 2px; }
+  .barra.sb { background: var(--verd); }
+  .cel-barra { width: 34%; }
+  .avis {
+    border-left: 4px solid var(--groc); background: #FFF9EC;
+    padding: 12px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: .92rem;
+  }
+  .veredicte {
+    border-left: 4px solid var(--verd); background: #F1F8F4;
+    padding: 14px 16px; border-radius: 0 8px 8px 0; margin: 18px 0; font-size: .97rem;
+  }
+  .veredicte.cap { border-left-color: var(--groc); background: #FFF9EC; }
+  .nota { font-size: .85rem; color: var(--tinta-tou); }
+  code { background: var(--fons-tou); padding: 1px 5px; border-radius: 4px; font-size: .88em; }
+  #progres { font-size: .9rem; color: var(--tinta-tou); min-height: 1.4em; }
+</style>
+</head>
+<body>
+<div class="full">
+
+  <h1>Quant triga de debò</h1>
+  <p class="sots">
+    Fa la mateixa pregunta —«dona'm els alumnes d'aquest grup»— al servidor
+    d'ara (full de càlcul) i a una base de dades de prova, unes quantes
+    vegades cadascuna, i ensenya què triga cada una <strong>des d'aquest
+    ordinador i amb aquesta xarxa</strong>. Obre-la des de l'escola.
+  </p>
+
+  <div class="passos">
+    <div class="caixa">
+      <h2>1. Entra amb el teu compte</h2>
+      <p class="nota">
+        El servidor no contesta a qui no s'hagi identificat. És el mateix
+        botó que surt a l'app.
+      </p>
+      <div id="botoGoogle"></div>
+      <div class="estat" id="estatLogin">Carregant el botó de Google…</div>
+    </div>
+
+    <div class="caixa">
+      <h2>2. La base de dades de prova</h2>
+      <p class="nota">
+        Si has obert l'enllaç que t'ha donat en Pol, això ja ve omplert.
+        Si no, enganxa-ho aquí.
+      </p>
+      <label for="sbUrl">Adreça</label>
+      <input type="text" id="sbUrl" placeholder="https://…supabase.co" autocomplete="off" spellcheck="false">
+      <label for="sbClau">Clau pública (anon)</label>
+      <input type="text" id="sbClau" placeholder="eyJ…" autocomplete="off" spellcheck="false">
+      <div class="estat" id="estatSb"></div>
+    </div>
+  </div>
+
+  <button class="gran" id="bMesura" disabled>Mesura-ho</button>
+  <div id="progres"></div>
+
+  <div id="resultats" hidden>
+    <div class="caixa">
+      <h2>Els números</h2>
+      <div class="taula-fora">
+        <table>
+          <thead>
+            <tr>
+              <th>Què s'ha demanat</th>
+              <th class="num">Alumnes</th>
+              <th class="num">KB</th>
+              <th class="num">Mitjana</th>
+              <th class="num">Pitjor</th>
+              <th class="cel-barra"></th>
+            </tr>
+          </thead>
+          <tbody id="cos"></tbody>
+        </table>
+      </div>
+      <p class="nota" id="peu"></p>
+    </div>
+    <div id="veredicte"></div>
+  </div>
+
+  <div class="caixa">
+    <h2>Què mesura i què no</h2>
+    <p class="nota">
+      <strong>Sí:</strong> el temps complet, d'aquest navegador fins a les
+      dades i tornada. És el que nota la mestra.
+    </p>
+    <p class="nota">
+      <strong>No:</strong> el temps de pintar la pantalla, que no canvia.
+      Tampoc no diu res de les dades de debò: la base de dades de prova té
+      450 alumnes <strong>inventats</strong>, amb la mateixa forma i el
+      mateix pes que els de l'escola, i cap nen de debò no hi és.
+    </p>
+    <p class="nota">
+      Les dades que es demanen al servidor d'ara són les teves de debò, les
+      mateixes que l'app et porta cada vegada que l'obres. No s'hi canvia
+      res: només es llegeix.
+    </p>
+  </div>
+
+</div>
+
+<script src="js/config.local.js"></script>
+<script>
+/* ============================================================
+   LA FEINA
+   ============================================================ */
+
+const VOLTES = 6;          // comptades
+const ESCALFADA = 1;       // la primera no compta: paga obrir la connexió
+
+/* Va aquí dalt i no al seu apartat a posta: `mira()` el consulta, i qui
+   crida `mira()` primer és el codi de la clau, que és més amunt que el del
+   login. Declarat allà baix, la pàgina petava abans de pintar el botó
+   d'entrar («Cannot access 'idToken' before initialization») i no es podia
+   mesurar res. */
+let idToken = '';
+
+/* ---------- la clau de Supabase ---------- */
+/* Ve per l'enllaç (#adreça|clau) o a mà. El # no s'envia a cap servidor:
+   es queda al navegador. I es recorda, perquè la segona vegada no s'hagi
+   de tornar a enganxar. */
+const elUrl = document.getElementById('sbUrl');
+const elClau = document.getElementById('sbClau');
+const estatSb = document.getElementById('estatSb');
+
+(function llegeixClau() {
+  let url = '', clau = '';
+  const h = (location.hash || '').replace(/^#/, '');
+  if (h.includes('|')) {
+    const t = h.split('|');
+    url = decodeURIComponent(t[0] || '').trim();
+    clau = decodeURIComponent(t[1] || '').trim();
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  }
+  if (!url || !clau) {
+    try {
+      url = url || localStorage.getItem('mesura_sb_url') || '';
+      clau = clau || localStorage.getItem('mesura_sb_clau') || '';
+    } catch (e) {}
+  }
+  elUrl.value = url; elClau.value = clau;
+  desaClau();
+})();
+
+function desaClau() {
+  const u = elUrl.value.trim().replace(/\/+$/, ''), c = elClau.value.trim();
+  try {
+    if (u) localStorage.setItem('mesura_sb_url', u);
+    if (c) localStorage.setItem('mesura_sb_clau', c);
+  } catch (e) {}
+  estatSb.className = 'estat ' + (u && c ? 'ok' : 'esperant');
+  estatSb.textContent = u && c
+    ? '✓ a punt'
+    : 'Sense això es mesurarà només el servidor d\'ara.';
+  mira();
+}
+elUrl.addEventListener('input', desaClau);
+elClau.addEventListener('input', desaClau);
+
+/* ---------- entrar amb Google ---------- */
+/* El mateix compte i el mateix client que fa servir l'app: el servidor
+   comprova que qui truca sigui de l'escola i sigui de qui és l'app. */
+const estatLogin = document.getElementById('estatLogin');
+
+function rebut(r) {
+  if (!r || !r.credential) return;
+  idToken = r.credential;
+  let qui = '';
+  try { qui = JSON.parse(atob(r.credential.split('.')[1])).email || ''; } catch (e) {}
+  estatLogin.className = 'estat ok';
+  estatLogin.textContent = '✓ ' + (qui || 'has entrat');
+  mira();
+}
+
+(function carregaGoogle() {
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.async = true;
+  s.onload = () => {
+    try {
+      google.accounts.id.initialize({
+        client_id: window.LOGIN_GOOGLE,
+        callback: rebut,
+        auto_select: true,
+        cancel_on_tap_outside: false,
+        hd: window.LOGIN_DOMINI || undefined,
+        itp_support: true,
+      });
+      google.accounts.id.renderButton(document.getElementById('botoGoogle'),
+        { theme: 'outline', size: 'large', text: 'signin_with', locale: 'ca' });
+      google.accounts.id.prompt(() => {});
+      estatLogin.className = 'estat esperant';
+      estatLogin.textContent = 'Clica el botó (o espera, que a vegades entra sol).';
+    } catch (e) {
+      estatLogin.className = 'estat mal';
+      estatLogin.textContent = 'Google no ha carregat: ' + e.message;
+    }
+  };
+  s.onerror = () => {
+    estatLogin.className = 'estat mal';
+    estatLogin.textContent = 'No s\'ha pogut carregar el botó de Google.';
+  };
+  document.head.appendChild(s);
+})();
+
+function mira() {
+  document.getElementById('bMesura').disabled = !idToken;
+}
+
+/* ---------- demanar al servidor d'ara ---------- */
+/* Exactament com ho fa l'app: GET, amb el token i amb qui truca a
+   l'adreça (veure `_appsScriptGetFetch` de js/app.js). El `_t` és perquè
+   cap resposta no vingui del calaix del navegador. */
+async function alServidor(params) {
+  const url = new URL(window.APP_SCRIPT_URL);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === null || v === undefined || v === '') return;
+    url.searchParams.set(k, v);
+  });
+  url.searchParams.set('token', window.APP_TOKEN);
+  url.searchParams.set('idToken', idToken);
+  url.searchParams.set('_t', String(Math.random()).slice(2));
+  const t0 = performance.now();
+  const r = await fetch(url.toString(), { cache: 'no-store' });
+  const txt = await r.text();
+  return { ms: performance.now() - t0, bytes: txt.length, txt, codi: r.status };
+}
+
+/* ---------- demanar a la base de dades ---------- */
+async function aSupabase(ruta) {
+  const base = elUrl.value.trim().replace(/\/+$/, '');
+  const clau = elClau.value.trim();
+  const t0 = performance.now();
+  const r = await fetch(base + ruta, {
+    cache: 'no-store',
+    headers: { 'apikey': clau, 'Authorization': 'Bearer ' + clau },
+  });
+  const txt = await r.text();
+  return { ms: performance.now() - t0, bytes: txt.length, txt, codi: r.status };
+}
+
+/* ---------- comptar alumnes de la resposta ---------- */
+function quantsAlumnes(txt, mena) {
+  try {
+    const j = JSON.parse(txt);
+    if (mena === 'sb') return Array.isArray(j) ? j.length : (j ? 1 : 0);
+    if (Array.isArray(j.alumnes)) return j.alumnes.length;
+    if (Array.isArray(j.students)) return j.students.length;
+    if (j.grup && Array.isArray(j.grup.alumnes)) return j.grup.alumnes.length;
+    if (Array.isArray(j.rows)) return j.rows.length;
+    return '';
+  } catch (e) { return ''; }
+}
+
+function mediana(v) {
+  const o = v.slice().sort((a, b) => a - b);
+  const m = Math.floor(o.length / 2);
+  return o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2;
+}
+
+/* ============================================================
+   LA MESURA
+   ============================================================ */
+const progres = document.getElementById('progres');
+const cos = document.getElementById('cos');
+
+document.getElementById('bMesura').addEventListener('click', async () => {
+  const boto = document.getElementById('bMesura');
+  boto.disabled = true;
+  cos.innerHTML = '';
+  document.getElementById('veredicte').innerHTML = '';
+  document.getElementById('resultats').hidden = false;
+
+  /* Primer, el teu grup: la prova del full compartit l'ha de demanar de
+     debò, i cada mestra en té un de diferent. Ve del mateix lloc d'on el
+     treu l'app. */
+  progres.textContent = 'Mirant quin és el teu grup…';
+  let grup = '';
+  try {
+    const r = await alServidor({ action: 'loadProfile' });
+    const j = JSON.parse(r.txt);
+    if (j && j.ok === false) {
+      progres.innerHTML = '<span class="mal">El servidor no contesta: ' +
+        (j.error || 'motiu desconegut') + '</span>';
+      boto.disabled = false;
+      return;
+    }
+    const p = (j && j.profile) || {};
+    if (p.tutorCurs && p.tutorLinia) grup = p.tutorCurs + ' ' + p.tutorLinia;
+  } catch (e) {
+    progres.innerHTML = '<span class="mal">No s\'ha pogut parlar amb el servidor: ' +
+      e.message + '</span>';
+    boto.disabled = false;
+    return;
+  }
+
+  const teSb = !!(elUrl.value.trim() && elClau.value.trim());
+  const grupSb = '5è A';          // el grup de la base de dades de prova
+
+  const proves = [
+    { mena: 'as', grup: 'EL SERVIDOR D\'ARA (el teu full de càlcul)',
+      nom: 'El teu perfil (la crida més curta que hi ha)',
+      fes: () => alServidor({ action: 'loadProfile' }) },
+  ];
+  if (grup) {
+    proves.push({ mena: 'as', nom: 'Els alumnes de ' + grup + ' (del full compartit)',
+      clau: 'grup-ara', fes: () => alServidor({ action: 'getGrupAlumnes', grup }) });
+  }
+  proves.push({ mena: 'as', nom: 'Obrir l\'app sencera (tot de cop)',
+    fes: () => alServidor({ action: 'bootstrap' }) });
+
+  if (teSb) {
+    proves.push({ mena: 'sb', grup: 'UNA BASE DE DADES (450 alumnes inventats)',
+      nom: 'Els alumnes d\'un grup, amb tot', clau: 'grup-sb',
+      fes: () => aSupabase('/rest/v1/alumnes?grup=eq.' + encodeURIComponent(grupSb) + '&select=*') });
+    proves.push({ mena: 'sb', nom: 'Els alumnes d\'un grup, només el que es veu a la llista',
+      fes: () => aSupabase('/rest/v1/alumnes?grup=eq.' + encodeURIComponent(grupSb) +
+                           '&select=uid,nom,cognom,genere,fila') });
+    proves.push({ mena: 'sb', nom: 'Els 18 grups de cop (tota l\'escola)',
+      fes: () => aSupabase('/rest/v1/alumnes?select=*') });
+  }
+
+  /* Es van alternant: una volta de cada, i la següent volta. Si la xarxa
+     fa un badall, el paguen totes igual i la comparació segueix valent. */
+  const dades = proves.map(() => ({ temps: [], bytes: 0, alumnes: '', codi: 0, error: '' }));
+  const total = (VOLTES + ESCALFADA) * proves.length;
+  let fetes = 0;
+
+  for (let volta = 0; volta < VOLTES + ESCALFADA; volta++) {
+    for (let i = 0; i < proves.length; i++) {
+      progres.textContent = 'Mesurant… ' + (++fetes) + ' de ' + total +
+        (volta < ESCALFADA ? '  (escalfant)' : '  (volta ' + (volta - ESCALFADA + 1) + ' de ' + VOLTES + ')');
+      try {
+        const r = await proves[i].fes();
+        if (volta >= ESCALFADA) dades[i].temps.push(r.ms);
+        dades[i].bytes = r.bytes;
+        dades[i].codi = r.codi;
+        dades[i].alumnes = quantsAlumnes(r.txt, proves[i].mena);
+      } catch (e) {
+        dades[i].error = e.message;
+      }
+    }
+  }
+
+  /* ---------- pintar-ho ---------- */
+  const tots = dades.filter(d => d.temps.length).map(d => mediana(d.temps));
+  const pitjorDeTots = tots.length ? Math.max(...tots) : 1;
+  const med = {};
+
+  let titolPosat = '';
+  proves.forEach((p, i) => {
+    const d = dades[i];
+    if (p.grup && p.grup !== titolPosat) {
+      titolPosat = p.grup;
+      const tr = document.createElement('tr');
+      tr.className = 'grup-titol';
+      tr.innerHTML = '<td colspan="6">' + p.grup + '</td>';
+      cos.appendChild(tr);
+    }
+    const tr = document.createElement('tr');
+    if (!d.temps.length) {
+      tr.innerHTML = '<td>' + p.nom + '</td><td colspan="5" class="mal">' +
+        (d.error || 'no ha contestat') + '</td>';
+      cos.appendChild(tr);
+      return;
+    }
+    const m = mediana(d.temps);
+    if (p.clau) med[p.clau] = m;
+    const ample = Math.max(2, Math.round(m / pitjorDeTots * 100));
+    tr.innerHTML =
+      '<td>' + p.nom + '</td>' +
+      '<td class="num">' + (d.alumnes === '' ? '—' : d.alumnes) + '</td>' +
+      '<td class="num">' + (d.bytes / 1024).toFixed(1) + '</td>' +
+      '<td class="num"><strong>' + Math.round(m) + ' ms</strong></td>' +
+      '<td class="num">' + Math.round(Math.max(...d.temps)) + ' ms</td>' +
+      '<td><div class="barra' + (p.mena === 'sb' ? ' sb' : '') + '" style="width:' + ample + '%"></div></td>';
+    cos.appendChild(tr);
+  });
+
+  document.getElementById('peu').textContent =
+    'Mitjana de ' + VOLTES + ' voltes. La primera de cada prova, que paga obrir la ' +
+    'connexió, no hi entra. «Pitjor» és la volta més lenta de les ' + VOLTES + '.';
+
+  /* ---------- què vol dir ---------- */
+  const v = document.getElementById('veredicte');
+  if (med['grup-ara'] && med['grup-sb']) {
+    const a = Math.round(med['grup-ara']), b = Math.round(med['grup-sb']);
+    const cops = (a / b).toFixed(1);
+    const guany = a - b;
+    if (guany > 150) {
+      v.innerHTML = '<div class="veredicte"><strong>La mateixa pregunta: ' + a +
+        ' ms ara, ' + b + ' ms amb la base de dades.</strong> ' + cops +
+        ' vegades més ràpid, ' + guany + ' ms menys cada vegada. L\'app fa ' +
+        'desenes de crides com aquesta cada dia: aquí és on es nota.</div>';
+    } else if (guany > 0) {
+      v.innerHTML = '<div class="veredicte cap"><strong>' + a + ' ms ara, ' + b +
+        ' ms amb la base de dades: ' + guany + ' ms de diferència.</strong> ' +
+        'Es guanya, però poc: des d\'aquesta xarxa el que es paga és arribar ' +
+        'fins al servidor, i això no el canvia. Val més provar-ho un altre dia ' +
+        'i a una altra hora abans de decidir res.</div>';
+    } else {
+      v.innerHTML = '<div class="veredicte cap"><strong>Aquí no es guanya res: ' +
+        a + ' ms ara i ' + b + ' ms amb la base de dades.</strong> ' +
+        'Amb aquests números, canviar-ho no val la pena.</div>';
+    }
+  } else if (!teSb) {
+    v.innerHTML = '<div class="veredicte cap">Només s\'ha mesurat el servidor ' +
+      'd\'ara. Per comparar-ho cal l\'adreça i la clau de la base de dades de prova.</div>';
+  }
+
+  progres.textContent = 'Fet.';
+  boto.disabled = false;
+});
+</script>
+</body>
+</html>
