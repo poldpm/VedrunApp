@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v317">
+  <link rel="stylesheet" href="css/main.css?v=v318">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -2271,11 +2271,14 @@ Català, Matemàtiques, Anglès, Medi, Català
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
             Avisos al matí
           </div>
-          <p class="cfg-bloc-text">Un avís al navegador amb el que tens per avui. Si no l'actives, no te'n surt cap.</p>
-          <div class="cfg-actions">
-            <button class="btn btn-ghost btn-sm" id="notifToggleBtn" onclick="requestNotifPermission()">Activar</button>
-            <button class="btn btn-ghost btn-sm" onclick="testNotification()">Provar-ho ara</button>
-          </div>
+          <!-- ⚠ ATURAT A POSTA (27/10/2026). Hi havia un botó d'activar i un
+               de provar, i l'avís arribava quan volia el navegador: en Pol en
+               va rebre un «Bon dia» a les quatre de la tarda. Mentre no es
+               pugui enviar a l'hora que toca, aquí no hi ha d'haver cap botó
+               que prometi una cosa que no passarà. El perquè sencer és al
+               `checkAndNotify()` del sw.js. -->
+          <p class="cfg-bloc-text"><strong>De moment està aturat.</strong> L'avís l'enviava el navegador quan ell volia, i podia arribar a mitja tarda dient «bon dia» i recordant coses que ja havien passat. Val més cap avís que un avís a deshora.</p>
+          <p class="cfg-bloc-text">Tornarà quan es pugui enviar sempre a la mateixa hora. No has de fer res: quan torni, et sortirà sol.</p>
         </div>
 
         <!-- ─── EL MEU GOOGLE ──────────────────────────────────── -->
@@ -2542,43 +2545,43 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v317"></script>
-  <script defer src="js/pdfhorari.js?v=v317"></script>
-  <script defer src="js/millores.js?v=v317"></script>
-  <script defer src="js/rol.js?v=v317"></script>
-  <script defer src="js/config.local.js?v=v317"></script>
+  <script defer src="js/espera.js?v=v318"></script>
+  <script defer src="js/pdfhorari.js?v=v318"></script>
+  <script defer src="js/millores.js?v=v318"></script>
+  <script defer src="js/rol.js?v=v318"></script>
+  <script defer src="js/config.local.js?v=v318"></script>
   <!-- Entrar amb Google. Va DESPRÉS del config.local.js (d'allà en treu si
        aquesta app el té encès) i ABANS de l'app, que el crida en arrencar.
        A qui no el tingui encès, aquest fitxer no fa res de res. -->
-  <script defer src="js/login.js?v=v317"></script>
-  <script defer src="js/app.js?v=v317"></script>
-  <script defer src="js/notes.js?v=v317"></script>
-  <script defer src="js/seients.js?v=v317"></script>
-  <script defer src="js/perfil.js?v=v317"></script>
-  <script defer src="js/grupview.js?v=v317"></script>
-  <script defer src="js/postits.js?v=v317"></script>
-  <script defer src="js/horari.js?v=v317"></script>
-  <script defer src="js/gwrite.js?v=v317"></script>
-  <script defer src="js/rubriques.js?v=v317"></script>
-  <script defer src="js/rubaval.js?v=v317"></script>
-  <script defer src="js/rubaval-ui.js?v=v317"></script>
-  <script defer src="js/docents.js?v=v317"></script>
-  <script defer src="js/coordinacio.js?v=v317"></script>
-  <script defer src="js/regdocents.js?v=v317"></script>
-  <script defer src="js/segentrevistes.js?v=v317"></script>
-  <script defer src="js/horariclaustre-dades.js?v=v317"></script>
-  <script defer src="js/horariclaustre.js?v=v317"></script>
-  <script defer src="js/entrevistes.js?v=v317"></script>
-  <script defer src="js/incidencies.js?v=v317"></script>
-  <script defer src="js/aules.js?v=v317"></script>
-  <script defer src="js/notescomp.js?v=v317"></script>
-  <script defer src="js/reunions.js?v=v317"></script>
-  <script defer src="js/versio.js?v=v317"></script>
+  <script defer src="js/login.js?v=v318"></script>
+  <script defer src="js/app.js?v=v318"></script>
+  <script defer src="js/notes.js?v=v318"></script>
+  <script defer src="js/seients.js?v=v318"></script>
+  <script defer src="js/perfil.js?v=v318"></script>
+  <script defer src="js/grupview.js?v=v318"></script>
+  <script defer src="js/postits.js?v=v318"></script>
+  <script defer src="js/horari.js?v=v318"></script>
+  <script defer src="js/gwrite.js?v=v318"></script>
+  <script defer src="js/rubriques.js?v=v318"></script>
+  <script defer src="js/rubaval.js?v=v318"></script>
+  <script defer src="js/rubaval-ui.js?v=v318"></script>
+  <script defer src="js/docents.js?v=v318"></script>
+  <script defer src="js/coordinacio.js?v=v318"></script>
+  <script defer src="js/regdocents.js?v=v318"></script>
+  <script defer src="js/segentrevistes.js?v=v318"></script>
+  <script defer src="js/horariclaustre-dades.js?v=v318"></script>
+  <script defer src="js/horariclaustre.js?v=v318"></script>
+  <script defer src="js/entrevistes.js?v=v318"></script>
+  <script defer src="js/incidencies.js?v=v318"></script>
+  <script defer src="js/aules.js?v=v318"></script>
+  <script defer src="js/notescomp.js?v=v318"></script>
+  <script defer src="js/reunions.js?v=v318"></script>
+  <script defer src="js/versio.js?v=v318"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v317"></script>
+  <script defer src="js/personal.js?v=v318"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">

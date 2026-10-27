@@ -3,7 +3,13 @@
 node_modules/
 *.log
 
-.claude/
+# El .claude/ és d'aquest ordinador... MENYS el hook que avisa quan una
+# conversa treballa des d'una còpia endarrerida: aquell ha d'arribar a
+# totes les converses, o no serveix de res (veure eines/_aldia.js).
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
 
 # clasp: l eina que puja el Code.gs a l Apps Script
 node_modules/

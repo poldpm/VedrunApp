@@ -1,5 +1,5 @@
 /* Service Worker — cache PWA + notificacions a les 7h */
-const CACHE = 'vedruna-v317';
+const CACHE = 'vedruna-v318';
 const ASSETS = [
   './', './index.html', './manual.html', './css/main.css',
   './js/espera.js', './js/pdfhorari.js', './js/millores.js', './js/rol.js', './js/config.local.js', './js/login.js', './js/app.js', './js/notes.js', './js/seients.js', './js/perfil.js', './js/grupview.js', './js/postits.js', './js/horari.js', './js/gwrite.js', './js/rubriques.js', './js/docents.js', './js/coordinacio.js', './js/regdocents.js', './js/segentrevistes.js', './js/horariclaustre-dades.js', './js/horariclaustre.js', './js/entrevistes.js', './js/notescomp.js', './js/reunions.js', './js/versio.js',
@@ -130,7 +130,11 @@ self.addEventListener('fetch', e => {
 /* ── Notificacions: missatges des de l'app ── */
 self.addEventListener('message', e => {
   if (e.data?.type === 'SCHEDULE_NOTIF') {
-    scheduleNotif(e.data.payload);
+    /* Amb l'avís del matí aturat (veure `checkAndNotify`), l'app ja no
+       envia aquest missatge. Si arriba d'una pestanya que encara té el
+       codi vell a sobre, no s'hi posa cap alarma: si no, aquella mestra
+       seguiria rebent l'avís a deshora fins que es recarregués. */
+    scheduleNotif(null);
     /* I, sobretot, es desa on el service worker ho pugui llegir quan
        reviu: el temporitzador de sota se'l menja el navegador. */
     const p = e.data.payload || {};
@@ -149,6 +153,7 @@ function cancelNotif() {
 
 function scheduleNotif(payload) {
   cancelNotif();
+  if (!payload) return;                  // aturat: veure `checkAndNotify`
   const now   = Date.now();
   const delay = payload.fireAt - now;
   if (delay < 0) return; // ja ha passat
@@ -223,7 +228,29 @@ self.addEventListener('periodicsync', e => {
   if (e.tag === 'daily-notif') e.waitUntil(checkAndNotify());
 });
 
+/* ⚠ L'AVÍS DEL MATÍ ESTÀ ATURAT A POSTA (27/10/2026).
+
+   En Pol va rebre un «Bon dia! Tens 2 coses avui» **a les quatre de la
+   tarda**, amb una cosa que ja havia passat feia dues hores.
+
+   No era un error de comptes: aquí es mirava només que les dades fossin
+   d'avui i que no s'hagués dit ja. **L'hora no es mirava enlloc** —i
+   tampoc no serviria de gaire, perquè qui decideix quan desperta l'app
+   és el Chrome, no nosaltres. Li demanem «desperta'm un cop cada dotze
+   hores» i tria ell el moment.
+
+   No hi ha cap manera, al navegador, de demanar una hora exacta: l'API
+   que ho feia (`showTrigger`) es va quedar en proves i no ha sortit mai.
+   O sigui que qualsevol pedaç aquí seria amagar-ho, no arreglar-ho.
+
+   Es reprèn quan l'avís el pugui enviar un servidor a l'hora que toca.
+   Llavors, tornar-ho a engegar és treure aquest `return` i tornar a
+   registrar el `periodicSync` a `_registraSyncDiari()` del js/app.js.
+   La resta del camí es queda tal com està, provat i a punt. */
 async function checkAndNotify() {
+  return;                               // aturat: veure el comentari de sobre
+
+  /* eslint-disable no-unreachable */
   const store = await notifLlegeix();
   if (!store) return;
   const { avui, items, jaDit } = store;
@@ -231,7 +258,9 @@ async function checkAndNotify() {
   if (jaDit) return;                    // ja s'ha dit avui
   if (!items || !items.length) return;
   const body = items.slice(0, 3).map(i => '• ' + i).join('\n') + (items.length > 3 ? `\n… i ${items.length - 3} més` : '');
-  fireNotif({ title: `Bon dia! Tens ${items.length} cosa${items.length > 1 ? 's' : ''} avui`, body });
+  /* ⚠ «cosas» no és català: el plural de «cosa» és «coses». Sortia així
+     perquè la essa s'enganxava a «cosa» amb un `+ 's'`. */
+  fireNotif({ title: `Bon dia! Tens ${items.length} ${items.length > 1 ? 'coses' : 'cosa'} avui`, body });
   await notifDesa({ avui, items, jaDit: true });
 }
 

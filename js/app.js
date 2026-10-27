@@ -9879,6 +9879,15 @@ async function initNotifications() {
     _swReg = await navigator.serviceWorker.ready;
   } catch(e) { return; }
 
+  /* ⚠ AIXÒ HA DE PASSAR ENCARA QUE NO HI HAGI PERMÍS NI RES A PROGRAMAR.
+
+     Amb l'avís del matí aturat, el que queda per fer és DESREGISTRAR el
+     que ja estigui registrat al mòbil de cada mestra. Si es deixés dins
+     del camí de sota —que surt abans si no hi ha permís—, els aparells
+     que el tenien posat el conservarien per sempre. Veure
+     `_registraSyncDiari()`. */
+  try { await _registraSyncDiari(); } catch (e) {}
+
   const perm = Notification.permission;
   if (perm === 'denied') return;
   if (perm === 'default') {
@@ -10018,8 +10027,19 @@ function _collectTodayItems() {
   return { avuiStr, items };
 }
 
-/* Programa la notificació per les 7:00 del matí (del dia actual o del dia vinent) */
+/* Programa la notificació per les 7:00 del matí (del dia actual o del dia vinent)
+
+   ⚠ ATURAT A POSTA (27/10/2026). El motiu sencer és al `checkAndNotify()`
+   del sw.js: l'avís arribava quan volia el Chrome —a en Pol li va sortir
+   un «Bon dia» a les quatre de la tarda— i al navegador no hi ha manera
+   de demanar una hora. Es reprèn quan l'enviï un servidor.
+
+   Es queda tot el càlcul fet i provat: per tornar-ho a engegar, treure
+   aquest `return` i el de `_registraSyncDiari()`. */
 function _scheduleDaily() {
+  return;
+
+  /* eslint-disable no-unreachable */
   if (!_swReg || Notification.permission !== 'granted') return;
 
   const { avuiStr, items } = _collectTodayItems();
@@ -10038,7 +10058,7 @@ function _scheduleDaily() {
   const n = items.length;
   const payload = {
     fireAt: fire7.getTime(),
-    title:  n > 0 ? `Bon dia! Tens ${n} cosa${n > 1 ? 's' : ''} avui` : 'Bon dia!',
+    title:  n > 0 ? `Bon dia! Tens ${n} ${n > 1 ? 'coses' : 'cosa'} avui` : 'Bon dia!',
     body:   items.slice(0, 4).map(i => '• ' + i).join('\n') + (n > 4 ? `\n… i ${n - 4} més` : ''),
     items,
   };
@@ -10058,6 +10078,20 @@ function _scheduleDaily() {
    punt. I només si l app està instal·lada. És el que hi ha; el que no es
    pot fer és prometre una hora exacta. */
 async function _registraSyncDiari() {
+  /* ⚠ ATURAT: mentre l'avís del matí estigui parat, no es registra res i,
+     a més, es treu el que ja hi hagi. Sense això, els mòbils de les
+     mestres que ja el tenien registrat seguirien despertant l'app cada
+     dia per no res —i, amb una versió vella del service worker encara a
+     sobre, seguirien rebent el «Bon dia» a deshora. */
+  try {
+    if (_swReg && _swReg.periodicSync) {
+      const tags = await _swReg.periodicSync.getTags();
+      if (tags.indexOf('daily-notif') !== -1) await _swReg.periodicSync.unregister('daily-notif');
+    }
+  } catch (e) {}
+  return false;
+
+  /* eslint-disable no-unreachable */
   try {
     if (!_swReg || !_swReg.periodicSync) return false;
     if (navigator.permissions && navigator.permissions.query) {
@@ -10080,7 +10114,7 @@ function testNotification() {
   _swReg.active?.postMessage({
     type: 'TEST_NOTIF',
     payload: {
-      title: n > 0 ? `Bon dia! Tens ${n} cosa${n > 1 ? 's' : ''} avui` : 'Bon dia! No tens res pendent avui',
+      title: n > 0 ? `Bon dia! Tens ${n} ${n > 1 ? 'coses' : 'cosa'} avui` : 'Bon dia! No tens res pendent avui',
       body:  items.slice(0, 4).map(i => '• ' + i).join('\n') || 'Dia lliure 🎉',
       items,
     },
