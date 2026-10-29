@@ -23,7 +23,126 @@ let _seientsGroupDrag = null; // drag de grups (moure per canvas)
    alumnes de l'altra classe assegudes. */
 function _seientsGrup() {
   if (typeof esDireccio !== 'function' || !esDireccio()) return '';
+  if (_seientsAmbSelector()) {
+    if (_seientsGrupTriat) return _seientsGrupTriat;
+    /* ⚠ MAI BUIT si se'n pot saber cap. Si tornés '' —perquè encara no n'ha
+       triat, o perquè el selector no s'ha arribat a pintar— el plànol aniria
+       a la clau sense grup i desapareixeria en triar-ne un després: és el
+       forat que va trobar l'auditoria del 8/9/2026. Mentre no en triï, el
+       primer dels seus. */
+    const g = _seientsGrupsDelPerfil();
+    if (g.length) return g[0];
+  }
   return (typeof _grupDeTreball === 'function' && _grupDeTreball()) || '';
+}
+
+/* ============================================================
+   EL SELECTOR DE GRUP DE LA DISTRIBUCIÓ (direcció)
+   ------------------------------------------------------------
+   ⚠ «NO SÉ VEURE ON L'HE D'ESCOLLIR» (la directora, 29/10/2026).
+
+   El 7/10 es va arreglar que Registres i Observacions miressin el grup
+   d'Alumnes quan la direcció ja tenia els seus grups al perfil: des
+   d'aleshores tenen un selector a dalt de la mateixa pàgina. La
+   Distribució de l'aula es va deixar fora a posta («aquell sempre és el
+   grup d'Alumnes»), i va quedar sent l'única de les tres sense selector.
+
+   Resultat: obria la pàgina, hi veia els alumnes de l'última assignatura
+   que hagués tocat, i l'avís li deia «primer tria un grup a Alumnes» —una
+   pàgina que no era aquella— mentre el toast li deia «tria el grup A
+   DALT», on no hi havia res per triar. No era que no ho sabés trobar: no
+   hi era.
+
+   Ara, amb grups al perfil, mana aquest selector, com a les altres dues.
+   Sense grups al perfil es comporta exactament com abans (el grup
+   d'Alumnes), que és el cas d'una direcció que encara no ha omplert el
+   perfil.
+
+   ⚠ Aquí es tria el GRUP, no l'assignatura+grup. Un plànol és d'una aula:
+   si hi sortissin «Matemàtiques · 4t B» i «Català · 4t B» serien dues
+   entrades per al mateix plànol. I per això els alumnes es carreguen
+   SENCERS, sense desdoblament: a l'aula hi seu tota la classe, encara que
+   ella només en tingui mitja a la seva hora. */
+let _seientsGrupTriat = null;
+try { _seientsGrupTriat = localStorage.getItem('seients_grup') || null; } catch (e) {}
+
+function _seientsAmbSelector() {
+  return typeof esDireccio === 'function' && esDireccio() &&
+         typeof _perfilEntradesAmbGrup === 'function' &&
+         _seientsGrupsDelPerfil().length > 0;
+}
+
+/* Els grups de l'aula on fa classe, un sol cop cadascun.
+   Una assignatura desdoblada diu el curs («3r») i no l'aula: l'aula és la
+   línia que hagi triat al perfil, i és la que es demana aquí. */
+function _seientsGrupsDelPerfil() {
+  if (typeof _perfilEntradesAmbGrup !== 'function') return [];
+  const vistos = {}, fora = [];
+  _perfilEntradesAmbGrup().forEach(e => {
+    let g = e.grup;
+    if (e.altres) {
+      g = (typeof _desdobGrupActual === 'function') ? _desdobGrupActual(e.curs, e.nom) : null;
+    }
+    if (!g || !/^(1r|2n|3r|4t|5è|6è) [ABC]$/.test(g)) return;
+    if (vistos[g]) return;
+    vistos[g] = true;
+    fora.push(g);
+  });
+  return fora.sort();
+}
+
+function _seientsRenderGrupPicker() {
+  const picker = document.getElementById('seientsGrupPicker');
+  const sel    = document.getElementById('seientsGrupSel');
+  const hint   = document.getElementById('seientsGrupHint');
+  if (!picker || !sel) return;
+
+  if (!_seientsAmbSelector()) { picker.style.display = 'none'; return; }
+  picker.style.display = '';
+
+  const grups = _seientsGrupsDelPerfil();
+  /* Sense cap de triat —o amb un que ja no és al perfil— s'agafa el primer.
+     Val més començar per un grup que no pas per la paret de «tria'n un». */
+  if (!_seientsGrupTriat || grups.indexOf(_seientsGrupTriat) === -1) {
+    _seientsTriaGrup(grups[0], true);
+  }
+  sel.innerHTML = grups.map(g =>
+    `<option value="${escapeHtml(g)}"${g === _seientsGrupTriat ? ' selected' : ''}>${escapeHtml(g)}</option>`
+  ).join('');
+  if (hint) hint.textContent = 'Cada grup té el seu plànol.';
+  _seientsCarregaAlumnesDelGrup();
+}
+
+/* Desa el grup i recarrega el que en depèn. Amb `nomesDesar` només desa:
+   és el camí de la primera pintada, que tot seguit ja ho carrega tot. */
+function _seientsTriaGrup(grup, nomesDesar) {
+  if (!grup) return;
+  _seientsGrupTriat = grup;
+  try { localStorage.setItem('seients_grup', grup); } catch (e) {}
+  if (nomesDesar) return;
+  _seientsCanviaGrup();          // buida el plànol de l'altre grup i porta el d'aquest
+  _seientsCarregaAlumnesDelGrup();
+}
+
+function canviaGrupSeients(grup) { _seientsTriaGrup(grup); }
+
+/* Els alumnes del grup triat, la classe SENCERA. Es demana amb
+   l'assignatura buida a posta: amb assignatura, `_ensureGrupStudents`
+   aplicaria el desdoblament i al plànol hi faltaria mitja classe. */
+async function _seientsCarregaAlumnesDelGrup() {
+  if (!_seientsAmbSelector() || !_seientsGrupTriat) return;
+  if (typeof _ensureGrupStudents !== 'function' || !config.scriptUrl) return;
+  const hint = document.getElementById('seientsGrupHint');
+  try {
+    await _ensureGrupStudents(_seientsGrupTriat, '');
+    if (hint) hint.textContent = students.length
+      ? students.length + ' alumnes · cada grup té el seu plànol.'
+      : 'Aquest grup encara no té alumnes al full compartit.';
+  } catch (e) {
+    if (hint) hint.textContent = 'No s\'han pogut carregar els alumnes: ' + ((e && e.message) || '');
+    return;
+  }
+  if (typeof renderSeients === 'function') { try { renderSeients(); } catch (e) {} }
 }
 function _seientsLS(base) {
   const g = _seientsGrup();
@@ -36,6 +155,14 @@ function _seientsLS(base) {
    d'Observacions, perquè els tres diguin el mateix i de la mateixa manera. */
 function _seientsPintaAvisGrup() {
   if (typeof _dirAvisGrup !== 'function') return;
+  /* Amb el selector a dalt ja es veu de quin grup és: l'avís sobra, i el
+     seu text («tria un grup a Alumnes») enviaria a una altra pàgina. És el
+     mateix que fan Registres i Observacions amb `_dirAmagaAvisSiSelector`. */
+  if (_seientsAmbSelector()) {
+    const el = document.getElementById('seientsGrupAvis');
+    if (el) el.style.display = 'none';
+    return;
+  }
   _dirAvisGrup('seientsGrupAvis',
     'Estàs col·locant l\'aula de {grup}. Cada grup té el seu plànol.',
     'Primer tria un grup a Alumnes: el plànol i els alumnes són els d\'aquell grup.');
@@ -317,6 +444,7 @@ function initSeients() {
       if (savedM && Array.isArray(savedM)) _seientsMarkers = savedM;
     } catch(e) {}
   }
+  _seientsRenderGrupPicker();
   _seientsPintaAvisGrup();
   // Assegura que hi ha alumnes de tutoria SENSE desdoblament
   _seientsAssegurraAlumnes();
@@ -328,6 +456,11 @@ function initSeients() {
 // L'eina de seients usa SEMPRE tots els alumnes del grup de tutoria,
 // sense aplicar desdoblaments (tots els nens del curs).
 async function _seientsAssegurraAlumnes() {
+  /* Amb el selector, els alumnes els porta `_seientsCarregaAlumnesDelGrup`
+     (els del grup triat). Restaurar aquí els de tutoria li tornaria a posar
+     a la pantalla els de l'última assignatura oberta, que és justament el
+     que la despistava. */
+  if (_seientsAmbSelector()) return;
   // Si ja tenim els students de tutoria carregats, prou.
   const tutorGrup = (typeof _grupDeTreball === 'function') ? _grupDeTreball() : null;
   if (!tutorGrup || !config.scriptUrl) return;

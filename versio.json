@@ -1,10 +1,9 @@
 {
-  "versio": "v321",
+  "versio": "v322",
   "data": "2026-10-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Hi ha un Temporitzador nou: un compte enrere gran per projectar a la pissarra digital. Cliques els minuts que vols i ja compta; hi ha un botó per omplir la pantalla, i quan s'acaba fa un so i es posa vermell.",
-    "Mentre compta, la pantalla no s'apaga, i pots anar a un altre apartat: el compte segueix. Funciona sense connexió.",
-    "És una eina opcional: si no la veus a Eines i et faria servei, demana-la a «Possibles actualitzacions», a l'Inici."
+    "Direcció: a Distribució de l'aula ja pots triar el grup des de la mateixa pàgina, amb un desplegable a dalt, d'entre els grups on fas classe. Abans t'enviava a la pàgina d'Alumnes a triar-lo i no hi havia manera de fer-ho des d'aquí.",
+    "Cada grup segueix tenint el seu plànol, i en canviar de grup surt el que toca. Hi seu la classe sencera, encara que tu només en tinguis mitja a la teva hora."
   ]
 }
