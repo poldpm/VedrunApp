@@ -422,3 +422,50 @@ a mitges: llavors es diu, en comptes de fer veure que s'ha buscat.
 
 **Depèn de:** també `Code.gs` **i una propietat nova**. En Pol enganxa la
 biblioteca un sol cop i hi posa `AULES_FULL`; la mestra no ha de fer res.
+
+---
+
+## `temporitzador` — Temporitzador
+
+**Què fa:** un compte enrere gran, pensat per projectar a la pissarra digital.
+Demanat per una mestra que no vol haver d'obrir el ClassroomScreen quan ja té
+aquesta app oberta tot el dia.
+
+**Fitxers:**
+- `js/temporitzador.js` — tot: el compte, la pantalla i els botons. Neix
+  apagat (`window.EINES_TEMPORITZADOR`).
+- `index.html` — el botó de la llista d'eines (`#navTemporitzador`, amagat de
+  naixement) i la pàgina `#page-temporitzador`.
+- `css/main.css` — `.temp-*`, amb el número en `clamp(…, vw, …)` perquè creixi
+  amb la pantalla, i el bloc `:fullscreen`.
+- `sw.js` — `js/temporitzador.js` al cache de fora de línia.
+- `js/app.js` — la descripció de la targeta d'Eines (`EINES_DESC`), la
+  redirecció de `#temporitzador` a qui no el tingui, la pintada en entrar-hi i
+  l'`aplicaInterficie()`.
+- `js/millores.js` — l'entrada del catàleg, amb `interruptor`.
+- `eines/comprova-temporitzador.js` — el banc, dins de `prova-tot.js`.
+
+**Com funciona:** l'estat és o «compta» (hi ha una hora d'acabar) o «aturat»
+(queden N mil·lisegons). Es desa a `localStorage` perquè sobrevisqui a canviar
+d'apartat i a tancar l'app.
+
+**Paranys:**
+
+1. **El compte no es va restant: es calcula de l'hora d'acabar.** Anar fent
+   `queden--` cada segon sembla que funcioni i no funciona: quan la pestanya
+   passa a segon pla, el navegador frena o atura aquell rellotge i en tornar
+   falten minuts. Es desa l'hora d'acabar i el que es pinta surt sempre de
+   restar-li l'hora d'ara.
+2. **Un `fi` vell no s'arrossega.** Si el deixa comptant i tanca l'app, en
+   obrir-la l'endemà no li ha de sonar: en recuperar l'estat, una hora
+   d'acabar que ja ha passat es llença.
+3. **La pantalla desperta es perd sola** quan la pestanya passa al darrere (el
+   navegador retira el `wakeLock`). S'ha de tornar a demanar al
+   `visibilitychange`, o el portàtil del projector s'adorm a mitja activitat.
+4. **El so necessita un clic abans.** Els navegadors no deixen sonar res fins
+   que algú ha interaccionat; aquí sempre ve del botó «Comença», o sigui que
+   es pot. Es fa amb l'`AudioContext`, sense cap fitxer de so.
+
+**Depèn de:** **només pantalla.** No parla mai amb el servidor ni desa res al
+full de càlcul, i això és a posta: es fa servir amb el projector engegat i la
+connexió que hi hagi. La mestra no ha d'enganxar res.

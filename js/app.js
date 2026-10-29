@@ -245,6 +245,11 @@ function showPage(pageId, _fromPop) {
       !(typeof RubAvalUI !== 'undefined' && RubAvalUI.hiEs && RubAvalUI.hiEs())) {
     pageId = 'home';
   }
+  /* Temporitzador: una altra eina que només té qui l'ha demanada. */
+  if (pageId === 'temporitzador' &&
+      !(typeof Temporitzador !== 'undefined' && Temporitzador.hiEs && Temporitzador.hiEs())) {
+    pageId = 'home';
+  }
   /* Aules lliures: una altra eina que només té qui l'ha demanada. */
   if (pageId === 'aules' &&
       !(typeof Aules !== 'undefined' && Aules.hiEs && Aules.hiEs())) {
@@ -298,6 +303,7 @@ function showPage(pageId, _fromPop) {
   if (pageId === 'rubaval') RubAvalUI.obrePagina();
   if (pageId === 'eines')        renderEines();
   if (pageId === 'aules')        { if (typeof Aules !== 'undefined') Aules.obrePagina(); }
+  if (pageId === 'temporitzador') { if (typeof Temporitzador !== 'undefined') Temporitzador.obre(); }
   if (pageId === 'grups')        initGrups();
   if (pageId === 'seients')      initSeients();
   if (pageId === 'postits')      initPostits();
@@ -472,6 +478,7 @@ const EINES_DESC = {
   postits:    'Apunta idees ràpid. Es guarden soles.',
   rubaval:    'Els teus criteris, amb el pes que vulguis. La nota va al registre.',
   aules:      'Quines aules auxiliars s\u00f3n buides ara, i fins a quina hora.',
+  temporitzador: 'Un compte enrere gran, per projectar: «cinc minuts i recollim».',
 };
 
 function renderEines() {
@@ -5338,6 +5345,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // carrega l'últim de tots i per tant ja hi és quan s'arriba aquí).
   try { if (typeof RubAvalUI !== 'undefined') RubAvalUI.aplicaInterficie(); } catch (e) {}
   try { if (typeof Aules !== 'undefined') Aules.aplicaInterficie(); } catch (e) {}
+  try { if (typeof Temporitzador !== 'undefined') Temporitzador.aplicaInterficie(); } catch (e) {}
   updateHomeCounters(); // inicialitza data sidebar
   // Mostra el nom del perfil al menú des del cache local (immediat)
   try {

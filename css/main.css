@@ -6436,3 +6436,67 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 8px; padding: 7px 10px; min-width: 120px;
 }
+
+/* ============================================================
+   TEMPORITZADOR (eina opcional)
+   ------------------------------------------------------------
+   Es projecta: el número ha de ser llegible des del final de
+   l'aula, i per això creix amb la pantalla (`clamp` amb `vw`) en
+   comptes de tenir una mida fixa. A pantalla completa, la caixa
+   ha d'omplir-la: si no, quedaria el número petit al mig d'un
+   rectangle buit.
+   ============================================================ */
+.temp-wrap {
+  max-width: 780px; margin: 0 auto; padding: 8px 0 24px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.temp-cap {
+  width: 100%; display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.temp-num {
+  font-size: clamp(72px, 22vw, 220px); line-height: 1;
+  font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--garnet-deep); letter-spacing: -.02em;
+  margin: 18px 0 4px;
+}
+.temp-estat {
+  margin: 0 0 18px; font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted);
+}
+.temp-botons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.temp-engega { min-width: 140px; font-size: 16px; }
+.temp-rapids {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px;
+}
+.temp-rapid {
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 8px 14px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--garnet-text);
+  transition: all var(--ease);
+}
+.temp-rapid:hover { border-color: var(--crimson); color: var(--crimson); }
+.temp-rapid:focus-visible { outline: 2px solid var(--crimson); outline-offset: 1px; }
+.temp-peu { margin-top: 18px; text-align: center; max-width: 440px; }
+
+/* Els últims deu segons, i el final. El canvi de color és el que es veu des
+   del fons de l'aula; el text ja ho diu per a qui el tingui a prop. */
+#page-temporitzador.temp-poc .temp-num { color: var(--crimson); }
+#page-temporitzador.temp-acabat .temp-num { color: var(--crimson); }
+#page-temporitzador.temp-acabat .temp-estat { color: var(--crimson); }
+@media (prefers-reduced-motion: no-preference) {
+  #page-temporitzador.temp-acabat .temp-num { animation: temp-batec 1s ease-in-out 3; }
+}
+@keyframes temp-batec { 50% { opacity: .35; } }
+
+/* A pantalla completa omple el projector i el número mana. */
+#page-temporitzador:fullscreen {
+  background: var(--bg-card); display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+#page-temporitzador:fullscreen .temp-num { font-size: clamp(120px, 30vw, 420px); }
+
+@media (max-width: 560px) {
+  .temp-cap { flex-direction: column; }
+  .temp-engega { min-width: 120px; }
+}

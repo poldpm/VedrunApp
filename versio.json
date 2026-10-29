@@ -1,11 +1,10 @@
 {
-  "versio": "v320",
+  "versio": "v321",
   "data": "2026-10-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A la Distribució de l'aula hi ha «Plànols desats»: cada cop que prems «Desar distribució» et queda guardat amb la data, agrupat per dies, i el pots recuperar quan vulguis.",
-    "Esborrar-ne un descompta les parelles que havia registrat. Això importa: fins ara, desar el mateix plànol cinc vegades feia comptar cinc aquelles parelles, i «Repartir alumnes» s'esforçava a separar nens que només havien segut junts un cop.",
-    "I ara, si deses un plànol idèntic a l'últim, t'avisa i no torna a comptar les parelles.",
-    "Els que has desat repetits surten marcats, per si els vols netejar."
+    "Hi ha un Temporitzador nou: un compte enrere gran per projectar a la pissarra digital. Cliques els minuts que vols i ja compta; hi ha un botó per omplir la pantalla, i quan s'acaba fa un so i es posa vermell.",
+    "Mentre compta, la pantalla no s'apaga, i pots anar a un altre apartat: el compte segueix. Funciona sense connexió.",
+    "És una eina opcional: si no la veus a Eines i et faria servei, demana-la a «Possibles actualitzacions», a l'Inici."
   ]
 }

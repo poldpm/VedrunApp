@@ -102,6 +102,20 @@ const MILLORES = [
     /* Com se sap si ja la t\u00e9: l'interruptor del seu `js/personal.js`. */
     interruptor: 'EINES_AULES',
   },
+  {
+    id: 'temporitzador',
+    titol: 'Temporitzador',
+    ras: 'Un compte enrere gran per projectar a la pissarra digital.',
+    mes: [
+      'A Eines \u2192 Temporitzador. Cliques els minuts que vols (1, 2, 5, 10\u2026) i ja compta.',
+      'Hi ha un bot\u00f3 per omplir la pantalla, i quan s\u2019acaba fa un so i el n\u00famero es posa vermell.',
+      'Mentre compta, la pantalla no s\u2019apaga, i pots anar a un altre apartat: el compte segueix.',
+      'Funciona sense connexi\u00f3.',
+    ],
+    data: '2026-10-29',
+    /* Com se sap si ja la t\u00e9: l'interruptor del seu `js/personal.js`. */
+    interruptor: 'EINES_TEMPORITZADOR',
+  },
 ];
 
 /* A qui s'ofereix cada millora. Sense `rols`, a tothom.
