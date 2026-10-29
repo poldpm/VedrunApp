@@ -169,6 +169,83 @@ function _savePairHistory(h) {
   _seientsSyncToSheets(); // persisteix també al Google Sheets
 }
 
+/* ============================================================
+   ELS PLÀNOLS DESATS
+   ------------------------------------------------------------
+   ⚠ EL PROBLEMA QUE RESOL, QUE NO ERA EL QUE SEMBLAVA.
+
+   En Pol, 29/10/2026: «necessito veure l'historial de llocs guardats,
+   que es classifiqui per data, i que si n'he guardat un d'igual moltes
+   vegades el pugui esborrar».
+
+   Fins avui NO hi havia cap historial de plànols: n'hi havia un de sol,
+   l'últim, i el d'abans s'esborrava. El que sí que s'acumulava era una
+   altra cosa, i és la que fa mal: **cada «Desar» sumava +1 a cada parella
+   de veïns**. Aquest compte és el que fa que «Repartir alumnes» no torni
+   a asseure junts els mateixos. O sigui que desant cinc vegades el mateix
+   plànol, aquelles parelles comptaven cinc, i l'app s'esforçava a separar
+   nens que només havien segut junts un cop. Era invisible i no hi havia
+   manera de desfer-ho.
+
+   Per això cada plànol desat es guarda AMB LES PARELLES QUE VA REGISTRAR:
+   esborrant-lo, es resten exactament aquelles. Sense això, esborrar només
+   trauria la fitxa de la llista i el compte es quedaria igual de tort,
+   que és no haver arreglat res.
+
+   I, sobretot, es mira si el plànol és el mateix que l'últim desat: si ho
+   és, no es torna a comptar. Això és l'arrel del problema; la resta és
+   poder reparar el que ja s'hagi acumulat.
+   ============================================================ */
+
+/* Quants se'n guarden per grup. El full de càlcul té un límit per cel·la i
+   un plànol sencer ocupa uns quants KB: amb vint n'hi ha de sobres per a un
+   curs i no s'hi acosta. En entrar-ne un de nou, cau el més vell. */
+const SEIENTS_DESATS_MAX = 20;
+
+function _seientsDesats() {
+  try {
+    const l = JSON.parse(localStorage.getItem(_seientsLS('seients_desats')) || '[]');
+    return Array.isArray(l) ? l : [];
+  } catch (e) { return []; }
+}
+function _seientsDesaDesats(l) {
+  try { localStorage.setItem(_seientsLS('seients_desats'), JSON.stringify(l)); } catch (e) {}
+}
+
+/* La «foto» d'un plànol: qui seu al costat de qui. És el que decideix si
+   dos desats són el mateix, i es fa amb el CODI PERMANENT de cada nen
+   (`rowId`), no amb la posició: el full «Grups» es reordena sol i amb les
+   posicions dos plànols idèntics semblarien diferents l'endemà. */
+function _seientsFoto(layout) {
+  const files = (layout || []).map(g =>
+    (g.seats || []).map(s => (s.rowId != null && s.rowId !== '') ? 'c' + s.rowId
+                            : (s.studentId != null && s.studentId !== '') ? 'p' + s.studentId : '-')
+      .join(',')
+  );
+  return files.sort().join('|');     // moure una fila pel taulell no és un plànol nou
+}
+
+function _seientsQuanText(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function _seientsDiaText(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'Sense data';
+  const avui = new Date();
+  const mateixDia = (a, b) => a.getFullYear() === b.getFullYear() &&
+                              a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (mateixDia(d, avui)) return 'Avui';
+  const ahir = new Date(avui.getTime() - 86400000);
+  if (mateixDia(d, ahir)) return 'Ahir';
+  const DIES = ['diumenge', 'dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'dissabte'];
+  const MESOS = ['gener', 'febrer', 'març', 'abril', 'maig', 'juny', 'juliol',
+                 'agost', 'setembre', 'octubre', 'novembre', 'desembre'];
+  return DIES[d.getDay()] + ' ' + d.getDate() + ' de ' + MESOS[d.getMonth()];
+}
+
 /* ⚠ EL PLÀNOL ES BARREJAVA SOL.
 
    Trobat a la segona auditoria (8/9/2026). Cada seient guardava
@@ -217,10 +294,12 @@ function _seientsSyncToSheets() {
   if (!config.scriptUrl) return;
   const layout  = _seientsPosaCodis(_seientsLayout);
   const history = _loadPairHistory();
+  const desats  = _seientsDesats();
   /* Per la cua: si no es pot desar ara, s'apunta i es torna a provar sol.
      Abans queia en un `catch` buit i el plànol es quedava només en aquest
      ordinador sense que ho digués ningú. */
-  _desaAlFull({ action: 'saveSeients', grup: _seientsGrup(), layout: JSON.stringify(layout), history: JSON.stringify(history) });
+  _desaAlFull({ action: 'saveSeients', grup: _seientsGrup(), layout: JSON.stringify(layout),
+                history: JSON.stringify(history), desats: JSON.stringify(desats) });
 }
 
 function initSeients() {
@@ -288,6 +367,15 @@ function _applySeientsData(r) {
   if (r.history) {
     try { localStorage.setItem(_seientsLS('seients_history'), JSON.stringify(r.history)); } catch(e) {}
   }
+  /* Els plànols desats. Com als marcadors, una llista buida del servidor NO
+     ha de buidar la que ja tenim: un servidor que encara no els conegui
+     torna `undefined` i un que els conegui però no en tingui cap torna [],
+     i en cap dels dos casos s'ha d'esborrar el que hi ha en aquest
+     navegador. */
+  if (Array.isArray(r.desats) && r.desats.length) {
+    _seientsDesaDesats(r.desats);
+  }
+  if (typeof _renderSeientsDesats === 'function') { try { _renderSeientsDesats(); } catch (e) {} }
   if (typeof renderSeients === 'function') { try { renderSeients(); } catch(e) {} }
 }
 
@@ -665,17 +753,131 @@ function seientsSave() {
     showToast('No hi seu ningú: no hi ha cap parella per registrar. Reparteix els alumnes o posa-n’hi tu.', 'error');
     return;
   }
+  /* ⚠ EL MATEIX PLÀNOL DESAT DUES VEGADES NO POT COMPTAR DUES VEGADES.
+
+     És el que feia que «Repartir alumnes» s'esforcés a separar nens que
+     només havien segut junts un cop. Veure el bloc «ELS PLÀNOLS DESATS».
+     El plànol SÍ que es desa (pot haver canviat una taula de lloc, o els
+     marcadors): el que no es torna a fer és sumar les parelles. */
+  const desats = _seientsDesats();
+  const foto   = _seientsFoto(_seientsPosaCodis(_seientsLayout));
+  const ultim  = desats.length ? desats[desats.length - 1] : null;
+  if (ultim && ultim.foto === foto) {
+    _seientsSyncToSheets();
+    showToast('Ja el tenies desat igual: no s\'han tornat a comptar les parelles.', 'info');
+    if (typeof _renderSeientsDesats === 'function') _renderSeientsDesats();
+    return;
+  }
+
   const history = _loadPairHistory();
+  const parelles = [];
   _seientsLayout.forEach(g => {
     // Només registra els veïns immediats (esquerra-dreta), no tota la fila
     _neighborPairs(g).forEach(([a, b]) => {
       const k = _pairKey(a, b);
       history[k] = (history[k] || 0) + 1;
+      parelles.push(k);          // per poder-les restar si s'esborra aquest plànol
     });
   });
-  _savePairHistory(history);
+
+  desats.push({
+    id: 'd' + Date.now() + Math.random().toString(36).slice(2, 6),
+    quan: new Date().toISOString(),
+    foto: foto,
+    parelles: parelles,
+    layout: JSON.parse(JSON.stringify(_seientsPosaCodis(_seientsLayout))),
+    markers: JSON.parse(JSON.stringify(_seientsMarkers || [])),
+    asseguts: _asseguts,
+  });
+  while (desats.length > SEIENTS_DESATS_MAX) desats.shift();   // cau el més vell
+  _seientsDesaDesats(desats);
+
+  _savePairHistory(history);     // això ja ho puja al full, amb els desats
+  if (typeof _renderSeientsDesats === 'function') _renderSeientsDesats();
   showToast('Distribució desada i parelles registrades ✓', 'success');
   renderSeients();
+}
+
+/* ---- Els plànols desats: veure'ls, tornar-hi i esborrar-ne ---- */
+
+/* ⚠ ESBORRAR UN PLÀNOL HA DE DESFER EL QUE VA COMPTAR.
+
+   Si només es tragués de la llista, el compte de parelles es quedaria
+   igual de tort i no hauríem arreglat el problema d'en Pol: continuaria
+   separant nens que només han segut junts un cop. Per això es resten
+   EXACTAMENT les parelles que aquell plànol va registrar, que van
+   guardades amb ell. */
+function seientsEsborraDesat(id) {
+  const desats = _seientsDesats();
+  const i = desats.findIndex(d => d && d.id === id);
+  if (i === -1) return;
+  const d = desats[i];
+
+  const history = _loadPairHistory();
+  (d.parelles || []).forEach(k => {
+    const ara = (history[k] || 0) - 1;
+    if (ara > 0) history[k] = ara; else delete history[k];   // a zero, fora
+  });
+
+  desats.splice(i, 1);
+  _seientsDesaDesats(desats);
+  _savePairHistory(history);     // puja l'historial i la llista al full
+  _renderSeientsDesats();
+  showToast('Esborrat. Les parelles que havia comptat s\'han descomptat.', 'success');
+}
+
+/* Torna a posar un plànol desat damunt el taulell. NO toca el compte de
+   parelles: no s'està desant res, s'està mirant. Es desa quan ella premi
+   «Desar distribució», com sempre. */
+function seientsTornaADesat(id) {
+  const d = _seientsDesats().find(x => x && x.id === id);
+  if (!d || !Array.isArray(d.layout)) return;
+  _seientsLayout = _seientsLligaPerCodi(JSON.parse(JSON.stringify(d.layout)));
+  if (Array.isArray(d.markers)) _seientsMarkers = JSON.parse(JSON.stringify(d.markers));
+  renderSeients();
+  _renderSeientsDesats();
+  showToast('Plànol recuperat. Si el vols deixar així, prem «Desar distribució».', 'info');
+}
+
+function _renderSeientsDesats() {
+  const wrap = document.getElementById('seientsDesats');
+  if (!wrap) return;
+  const desats = _seientsDesats().slice().reverse();    // l'últim, a dalt
+  const compta = document.getElementById('seientsDesatsCount');
+  if (compta) compta.textContent = desats.length ? '(' + desats.length + ')' : '';
+
+  if (!desats.length) {
+    wrap.innerHTML = '<p class="modal-hint" style="margin:6px 0 0">Encara no n\'has desat cap. ' +
+      'Cada cop que premis «Desar distribució» te\'l guardarà aquí amb la data.</p>';
+    return;
+  }
+
+  /* Quantes vegades surt cada plànol: és el que li diu a la mestra quins
+     ha desat repetits, que és el que volia poder netejar. */
+  const quants = {};
+  desats.forEach(d => { quants[d.foto] = (quants[d.foto] || 0) + 1; });
+
+  const perDia = [];
+  desats.forEach(d => {
+    const dia = _seientsDiaText(d.quan);
+    let b = perDia.find(x => x.dia === dia);
+    if (!b) { b = { dia: dia, items: [] }; perDia.push(b); }
+    b.items.push(d);
+  });
+
+  wrap.innerHTML = perDia.map(b => `
+    <div class="seients-desats-dia">
+      <div class="seients-desats-dia-cap">${escapeHtml(b.dia)}</div>
+      ${b.items.map(d => `
+        <div class="seients-desat-fila">
+          <span class="seients-desat-hora">${escapeHtml(_seientsQuanText(d.quan))}</span>
+          <span class="seients-desat-info">${d.asseguts || 0} asseguts${
+            quants[d.foto] > 1 ? ` · <span class="seients-desat-repe">repetit ${quants[d.foto]} cops</span>` : ''
+          }</span>
+          <button class="btn btn-ghost btn-sm" onclick="seientsTornaADesat('${_idJs(d.id)}')" title="Torna a posar aquest plànol al taulell">Recuperar</button>
+          <button class="cal2-agendar-del" onclick="seientsEsborraDesat('${_idJs(d.id)}')" title="Esborra'l i descompta les parelles que va comptar">×</button>
+        </div>`).join('')}
+    </div>`).join('');
 }
 
 /* ---- Render ---- */

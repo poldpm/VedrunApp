@@ -21,7 +21,7 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v319';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v320';   // ← ha de coincidir amb el CACHE del sw.js
 
   /* La versió MÉS VELLA del Code.gs amb què aquesta app encara funciona.
      ------------------------------------------------------------------
@@ -42,7 +42,15 @@
      servidor una acció que abans no hi era (`enviaIdea`). Amb el servidor
      vell, la mestra escriu la seva idea, clica Enviar-li i li surt un error
      que no diu res: val més la franja groga, que almenys diu què passa. */
-  var BACKEND_MINIM = 'v290';
+  /* ⚠ PUJADA A v320 (29/10/2026), i és dels pocs cops que toca.
+
+     Els plànols desats de la Distribució de l'aula són un CAMP NOU que el
+     navegador espera del servidor (`desats`). Amb la biblioteca d'abans, la
+     mestra desaria plànols, els veuria a la llista, i es quedarien només en
+     aquell navegador: al mòbil no hi serien, i esborrar-ne un en un aparell
+     no descomptaria les parelles a l'altre. Val més la franja groga dient
+     que el servidor va endarrerit que no pas que ho descobreixi ella. */
+  var BACKEND_MINIM = 'v320';
 
   var K_AJORNAT  = 'versio_ajornada';
   /* ⚠ EL BUCLE DEL 4/9/2026.

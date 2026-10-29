@@ -3573,7 +3573,7 @@ function handleRequest(e) {
       // Planning
       case 'savePlanning':           result = savePlanning(ss, body.weekId, body.data, body.base); break;
       case 'loadPlanning':           result = loadPlanning(ss, (body&&body.weekId)||p.weekId); break;
-      case 'saveSeients':            result = saveSeients(ss, body.layout, body.history, body.markers, (body&&body.grup)||p.grup); break;
+      case 'saveSeients':            result = saveSeients(ss, body.layout, body.history, body.markers, (body&&body.grup)||p.grup, body.desats); break;
       case 'loadSeients':            result = loadSeients(ss, (body&&body.grup) || p.grup); break;
       case 'savePostits':            result = savePostits(ss, body.postits, body.base); break;
       case 'loadPostits':            result = loadPostits(ss); break;
@@ -7081,7 +7081,7 @@ function getOrCreateDataSheet(ss, nom) {
    enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
    nova, i fins llavors tot es veu malament sense que ningú ho digui.
    ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v317';
+var BACKEND_VERSIO = 'v320';
 
 var MAX_CELA = 45000;
 
@@ -7284,7 +7284,18 @@ function _clauSeients(base, grup) {
   return g ? (base + '__' + g) : base;
 }
 
-function saveSeients(ss, layout, history, markers, grup) {
+/* `desats` és la llista de plànols que la mestra ha desat, amb la data de
+   cadascun i les parelles que va registrar. Serveix per a dues coses que
+   abans no es podien fer: veure què ha desat i quan, i ESBORRAR-NE un sense
+   que el compte de parelles —el que evita repetir company— es quedi tort.
+
+   La llista la munta i la retalla el navegador (veure `_seientsDesats` a
+   js/seients.js); aquí només es guarda tal com arriba, com el layout i els
+   marcadors. Va a part i no dins del layout perquè un plànol desat abans
+   d'avui es pugui seguir llegint igual. */
+function saveSeients(ss, layout, history, markers, grup, desats) {
+  if (desats !== undefined && desats !== null)
+    sheetSetJSON(ss, '_AppData', _clauSeients('seients_desats', grup), typeof desats === 'string' ? desats : JSON.stringify(desats));
   if (layout !== undefined && layout !== null)
     sheetSetJSON(ss, '_AppData', _clauSeients('seients_layout', grup), typeof layout === 'string' ? layout : JSON.stringify(layout));
   if (history !== undefined && history !== null)
@@ -7517,11 +7528,16 @@ function loadSeients(ss, grup) {
   var l = sheetGetJSON(ss, '_AppData', _clauSeients('seients_layout', grup));
   var h = sheetGetJSON(ss, '_AppData', _clauSeients('seients_history', grup));
   var m = sheetGetJSON(ss, '_AppData', _clauSeients('seients_markers', grup));
+  var d = sheetGetJSON(ss, '_AppData', _clauSeients('seients_desats', grup));
   return {
     ok: true,
     layout:  l ? JSON.parse(l) : [],
     history: h ? JSON.parse(h) : {},
     markers: m ? JSON.parse(m) : [],
+    /* Els plànols desats. Una app que encara no els conegui rep un camp de
+       més i no se n'adona: per això es pot enganxar la biblioteca abans que
+       les mestres tinguin la versió nova. */
+    desats:  d ? JSON.parse(d) : [],
   };
 }
 
@@ -7994,7 +8010,10 @@ function bootstrap(ss, weekIds) {
       ok: true,
       layout:  appData['seients_layout']  ? JSON.parse(appData['seients_layout'])  : [],
       history: appData['seients_history'] ? JSON.parse(appData['seients_history']) : {},
-      markers: appData['seients_markers'] ? JSON.parse(appData['seients_markers']) : []
+      markers: appData['seients_markers'] ? JSON.parse(appData['seients_markers']) : [],
+      /* Els plànols desats arriben amb l'arrencada, com la resta: ve de la
+         mateixa lectura d'_AppData i no costa cap viatge de més. */
+      desats:  appData['seients_desats']  ? JSON.parse(appData['seients_desats'])  : []
     };
   } catch(e) { result.seients = null; }
 

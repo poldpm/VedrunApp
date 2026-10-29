@@ -3222,6 +3222,36 @@ body {
   border-radius: 14px; padding: 14px; position: sticky; top: 16px;
 }
 .seients-pool-title { font-size: 13px; font-weight: 700; color: var(--garnet-text); margin-bottom: 10px; }
+
+/* Els plànols desats: una llista per dia, sota el taulell. L'únic que ha de
+   destacar és el que està repetit, que és el que ella ve a netejar. */
+.seients-desats-bloc {
+  margin-top: 18px; padding: 14px 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+}
+.seients-desats-cap { font-size: 13px; font-weight: 700; color: var(--garnet-text); margin-bottom: 4px; }
+.seients-desats-count { font-weight: 600; color: var(--text-sub); }
+.seients-desats-dia { margin-top: 10px; }
+.seients-desats-dia-cap {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text-muted); padding-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+.seients-desat-fila {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+}
+.seients-desat-fila:last-child { border-bottom: 0; }
+.seients-desat-hora {
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px;
+  color: var(--garnet); min-width: 44px;
+}
+.seients-desat-info { flex: 1; min-width: 0; font-size: 12px; color: var(--text-sub); }
+.seients-desat-repe { color: var(--crimson); font-weight: 600; }
+
+@media (max-width: 560px) {
+  .seients-desat-fila { gap: 6px; }
+  .seients-desat-info { flex-basis: 100%; order: 3; }
+}
 .seients-pool-list { display: flex; flex-direction: column; gap: 6px; max-height: 460px; overflow-y: auto; }
 .seients-pool-item {
   display: flex; align-items: center; gap: 8px; padding: 7px 10px;
