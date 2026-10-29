@@ -227,10 +227,13 @@
     <a href="#assoliments">14. Assoliments</a>
     <a href="#registres">15. Registres d'aula</a>
     <a href="#aules">Aules lliures (opcional)</a>
+    <a href="#temporitzador">Temporitzador (opcional)</a>
     <a href="#eines-pagina">Les eines, en targetes</a>
     <a href="#eines-idea" class="sub">Tinc una idea!</a>
     <a href="#grups">16. Generador de grups</a>
+    <a href="#grups-qui" class="sub">Qui hi és avui</a>
     <a href="#seients">17. Distribució de l'aula</a>
+    <a href="#seients-desats" class="sub">Plànols desats</a>
     <a href="#postits">18. Notes i post-its</a>
     <a href="#postits-llistes" class="sub">Llistes de coses a fer</a>
     <a href="#comentaris">19. Generador de comentaris</a>
@@ -1218,6 +1221,27 @@
       </div>
     </section>
 
+    <section id="temporitzador">
+      <h2>Temporitzador <span style="font-size:14px;font-weight:400;color:#7E6070">(eina opcional)</span></h2>
+      <div class="callout">
+        <strong>Aquesta eina només la tenen les mestres que l'han demanada.</strong> Si no la veus a <strong>Eines</strong> i et faria servei, demana-la a <a href="#personalitzar">Possibles actualitzacions</a> (a l'Inici) i en Pol te l'encendrà.
+      </div>
+      <p>«Cinc minuts i recollim.» Un compte enrere <strong>gran</strong>, pensat per <strong>projectar-lo</strong> a la pissarra digital perquè tothom el vegi, sense haver d'obrir cap altra pàgina.</p>
+      <ol class="step-list">
+        <li>Ves a <strong>Eines → Temporitzador</strong>.</li>
+        <li>Clica els minuts que vols: <strong>1, 2, 3, 5, 10, 15, 20 o 30</strong>. Ja compta.</li>
+        <li>Clica <strong>Pantalla completa</strong> perquè ocupi tot el projector.</li>
+      </ol>
+      <p>Mentre compta pots fer <strong>Pausa</strong> i tornar a <strong>Començar</strong> d'on era, afegir o treure un minut amb <strong>+1</strong> i <strong>−1</strong>, o <strong>Reiniciar</strong>.</p>
+      <p>Quan s'acaba fa <strong>un so curt</strong> i el número es posa <strong>vermell</strong>. Els últims deu segons també es veuen vermells, per si la classe no mira el rellotge.</p>
+      <div class="callout tip">
+        <strong>Mentre compta, la pantalla no s'apaga.</strong> I pots anar a un altre apartat de l'app: el compte segueix igual i te'l tornes a trobar en tornar al Temporitzador. També pots tancar l'app i obrir-la: si encara no s'ha acabat, continua.
+      </div>
+      <div class="callout">
+        <strong>Funciona sense connexió.</strong> No parla amb el servidor ni desa res enlloc: és d'aquest aparell i prou.
+      </div>
+    </section>
+
     <!-- LES EINES EN TARGETES -->
     <section id="eines-pagina">
       <h2>Les eines, en targetes</h2>
@@ -1248,8 +1272,18 @@
         Els grups heterogenis agafen la <strong>nota mitjana que tens entrada</strong> d'aquella assignatura. Com més notes tinguis posades, millor equilibrarà. Si encara no n'hi ha cap, reparteix igualment els PI i els AM i t'avisa que no ha pogut equilibrar per nivell.
       </div>
 
+      <h3 id="grups-qui">Qui hi és avui</h3>
+      <p>Sota «Alumnes per grup» hi tens <strong>la llista de la classe</strong>. Si avui algú no ha vingut, <strong>clica el seu nom</strong>: queda ratllat i <strong>no entra al repartiment ni compta per als números</strong>. Torna-hi a clicar per posar-l'hi.</p>
+      <p>A sota hi diu quants en queden («22 de 25»), per si te'n deixes cap.</p>
+      <div class="callout tip">
+        És per a un dia, no una configuració: en canviar d'assignatura o de grup hi tornen a ser tots. Així no et trobes la setmana vinent amb un nen fora sense recordar per què.
+      </div>
+
       <h3>Condicions</h3>
       <p>Pots definir <strong>incompatibilitats</strong> (alumnes que no han d'anar junts) i regenerar tantes vegades com vulguis fins a trobar una distribució que t'agradi.</p>
+      <div class="callout">
+        Una condició sobre un alumne que avui has tret de la llista simplement no fa res: ell no hi és, i la condició no molesta.
+      </div>
       <div class="callout tip">
         El botó <strong>↺ Regenerar</strong> dels heterogenis ara sí que et dona un repartiment <strong>diferent</strong> cada vegada, igualment equilibrat per nivell. Fins a la versió 218 tornava sempre exactament els mateixos grups, i semblava espatllat.
       </div>
@@ -1293,6 +1327,20 @@
       <div class="callout">
         Aquesta eina treballa amb <strong>tots</strong> els alumnes del teu grup de tutoria, sense aplicar desdoblaments: a l'aula hi seuen tots.
       </div>
+
+      <h3 id="seients-desats">Plànols desats</h3>
+      <p>Cada cop que prems <strong>Desar distribució</strong>, aquell plànol et queda guardat. Sota el taulell hi ha <strong>Plànols desats</strong>, amb tots els que has fet <strong>agrupats per dia</strong> i amb l'hora de cadascun.</p>
+      <ul>
+        <li><strong>Recuperar:</strong> torna a posar aquell plànol al taulell. Mirar-lo no canvia res; si el vols deixar així, prem «Desar distribució».</li>
+        <li><strong>×:</strong> l'esborra de la llista.</li>
+      </ul>
+      <div class="callout warn">
+        <strong>Per què importa esborrar els repetits.</strong> Cada vegada que deses, l'app apunta qui ha segut al costat de qui, i és el que fa que «Repartir alumnes» no torni a posar junts els mateixos. Si has desat cinc vegades el mateix plànol, aquelles parelles compten cinc, i l'app s'esforça a separar nens que només han segut junts un cop. <strong>Esborrant un plànol de la llista, aquelles parelles es descompten</strong> i el repartiment torna a comptar bé. Els que tens desats repetits surten marcats.
+      </div>
+      <div class="callout tip">
+        I si deses un plànol <strong>idèntic</strong> a l'últim, l'app t'avisa i <strong>no el torna a comptar</strong>: així ja no se t'embruta sol.
+      </div>
+      <p class="modal-hint">Se'n guarden els últims 20 de cada grup. En entrar-ne un de nou, cau el més antic.</p>
     </section>
 
     <!-- 17. POST-ITS -->
@@ -1603,6 +1651,7 @@
         <tr><td>Convocar una reunió i enviar l enllaç</td><td>Eines → <strong>Convocar reunions</strong></td></tr>
         <tr><td>Les notificacions del matí</td><td>Configuració → <strong>Notificacions</strong></td></tr>
         <tr><td><a href="#aules">Trobar una aula buida</a> ara o a l'hora que vulgui</td><td>Eines → <strong>Aules lliures</strong></td></tr>
+        <tr><td><a href="#temporitzador">Posar un compte enrere</a> a la pissarra digital</td><td>Eines → <strong>Temporitzador</strong></td></tr>
         <tr><td><a href="#eines-idea">Demanar una eina que no existeix</a></td><td>Eines → la targeta <strong>Tinc una idea!</strong></td></tr>
       </table>
       <div class="callout">
@@ -1613,15 +1662,11 @@
     <!-- 21. NOTIFICACIONS -->
     <section id="notificacions">
       <h2>22. Notificacions</h2>
-      <p>L'app pot enviar-te una notificació cada matí a les <strong>7:00</strong> amb tot el que has de tenir en compte aquell dia: tasques que vencen, alertes del planning, activitats especials, notes del dia i events del calendari.</p>
-      <ol class="step-list">
-        <li>Ves a Configuració → secció <strong>Notificacions</strong>.</li>
-        <li>Clica <strong>Activar</strong> i accepta el permís del navegador.</li>
-        <li>Clica <strong>Provar</strong> per veure'n una immediatament.</li>
-      </ol>
       <div class="callout warn">
-        <strong>Limitacions:</strong> funciona a Chrome (Android i escriptori). No funciona a Safari/iPhone. A l'escriptori, Chrome ha d'haver estat obert algun moment del matí perquè la notificació salti.
+        <strong>Ara mateix està aturat.</strong> L'app enviava un avís al matí amb el que tenies aquell dia, però qui decidia el moment era el navegador, no l'app: podia arribar a mitja tarda, dient «bon dia» i recordant-te coses que ja havien passat. Hem preferit aturar-lo abans que deixar-lo arribar a deshora.
       </div>
+      <p>A Configuració, a <strong>Avisos al matí</strong>, hi trobaràs la mateixa explicació i cap botó: de moment no hi ha res per activar.</p>
+      <p><strong>No has de fer res.</strong> Quan es pugui enviar sempre a la mateixa hora, tornarà sol i t'ho explicarem aquí.</p>
     </section>
 
     <!-- 22. SYNC -->
