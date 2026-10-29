@@ -58,37 +58,79 @@ function _seientsGrup() {
    d'Alumnes), que és el cas d'una direcció que encara no ha omplert el
    perfil.
 
-   ⚠ Aquí es tria el GRUP, no l'assignatura+grup. Un plànol és d'una aula:
-   si hi sortissin «Matemàtiques · 4t B» i «Català · 4t B» serien dues
-   entrades per al mateix plànol. I per això els alumnes es carreguen
-   SENCERS, sense desdoblament: a l'aula hi seu tota la classe, encara que
-   ella només en tingui mitja a la seva hora. */
+   ------------------------------------------------------------
+   ⚠ I ELS DESDOBLAMENTS HI HAN DE SER (29/10/2026).
+
+   La primera versió d'això només oferia grups de classe sencera («4t B») i
+   deixava fora els desdoblaments. A la directora, que fa Català a mig grup
+   de 5è, allò la va deixar EXACTAMENT igual que abans: sense cap grup a la
+   llista, el selector no es pintava i tornava a sortir el «ves a Alumnes».
+   Tres errors en catorze línies, i els tres el mateix despiste —pensar
+   l'aula com una classe sencera—:
+
+     1. `_desdobGrupActual()` es demanava sense haver carregat abans els
+        grups del desdoblament, i sense això sempre contesta null (ho diu
+        el seu propi comentari);
+     2. es filtrava amb `/(1r|2n|…) [ABC]/`, que descarta el nom d'un grup
+        de desdoblament, que no té per què ser una línia;
+     3. només es miraven les entrades d'ALTRES cursos, i una assignatura
+        d'un grup propi també es pot desdoblar.
+
+   Ara la llista es construeix com ho fa `_rolCarregaGrupTreball` (el camí
+   provat de Registres i Observacions): si l'assignatura va per
+   desdoblament, el grup és el del desdoblament i els alumnes són els seus;
+   si no, el grup és la classe i els alumnes, la classe sencera.
+   ============================================================ */
 let _seientsGrupTriat = null;
 try { _seientsGrupTriat = localStorage.getItem('seients_grup') || null; } catch (e) {}
 
+/* [{ grup, curs, assig, desdob }] — un per aula on fa classe. Es construeix
+   un cop, en obrir la pàgina, perquè saber si una assignatura es desdobla
+   vol preguntar-ho al servidor. */
+let _seientsGrups = [];
+
 function _seientsAmbSelector() {
-  return typeof esDireccio === 'function' && esDireccio() &&
-         typeof _perfilEntradesAmbGrup === 'function' &&
-         _seientsGrupsDelPerfil().length > 0;
+  if (typeof esDireccio !== 'function' || !esDireccio()) return false;
+  if (_seientsGrups.length) return true;
+  /* Encara no s'ha resolt la llista, però si té grups al perfil ja sabem
+     que el selector és el que mana aquí: si es contestés que no, el plànol
+     se n'aniria al grup d'Alumnes i estaríem on érem. */
+  return typeof _perfilEntradesAmbGrup === 'function' && _perfilEntradesAmbGrup().length > 0;
 }
 
-/* Els grups de l'aula on fa classe, un sol cop cadascun.
-   Una assignatura desdoblada diu el curs («3r») i no l'aula: l'aula és la
-   línia que hagi triat al perfil, i és la que es demana aquí. */
-function _seientsGrupsDelPerfil() {
-  if (typeof _perfilEntradesAmbGrup !== 'function') return [];
-  const vistos = {}, fora = [];
-  _perfilEntradesAmbGrup().forEach(e => {
-    let g = e.grup;
-    if (e.altres) {
-      g = (typeof _desdobGrupActual === 'function') ? _desdobGrupActual(e.curs, e.nom) : null;
+function _seientsGrupsDelPerfil() { return _seientsGrups.map(g => g.grup); }
+function _seientsEntradaDe(grup)  { return _seientsGrups.find(g => g.grup === grup) || null; }
+
+/* Les aules on fa classe, una sola vegada cadascuna. Mateixa lògica que
+   `_rolCarregaGrupTreball`, que és la que ja funciona a les altres pàgines. */
+async function _seientsCarregaGrups() {
+  _seientsGrups = [];
+  if (typeof _perfilEntradesAmbGrup !== 'function') return;
+  const entrades = _perfilEntradesAmbGrup();
+  const vistos = {};
+
+  for (const e of entrades) {
+    const curs = e.curs || String(e.grup || '').split(' ')[0];
+    /* ⚠ PRIMER s'ha de SABER si es desdobla. Sense carregar-ho, preguntar-ho
+       contesta sempre que no, i la mestra es queda sense el seu grup. */
+    if (typeof _desdobCarregaGrups === 'function') {
+      try { await _desdobCarregaGrups(curs, e.nom); } catch (err) {}
     }
-    if (!g || !/^(1r|2n|3r|4t|5è|6è) [ABC]$/.test(g)) return;
-    if (vistos[g]) return;
-    vistos[g] = true;
-    fora.push(g);
-  });
-  return fora.sort();
+    const teDesdob = typeof _desdobOpcions === 'function' &&
+                     _desdobOpcions(curs, e.nom).desdob;
+
+    let grup = null, desdob = false;
+    if (e.altres || teDesdob) {
+      grup = (typeof _desdobGrupActual === 'function') ? _desdobGrupActual(curs, e.nom) : null;
+      desdob = true;
+    } else {
+      grup = e.grup;
+    }
+    if (!grup || vistos[grup]) continue;
+    vistos[grup] = true;
+    _seientsGrups.push({ grup: grup, curs: curs, assig: e.nom, desdob: desdob });
+  }
+  _seientsGrups.sort((a, b) => a.grup.localeCompare(b.grup));
 }
 
 function _seientsRenderGrupPicker() {
@@ -101,13 +143,21 @@ function _seientsRenderGrupPicker() {
   picker.style.display = '';
 
   const grups = _seientsGrupsDelPerfil();
+  if (!grups.length) {
+    /* Té grups al perfil però encara no s'han resolt. No s'inventa cap grup:
+       mentrestant el botó de desar ja la para i li diu que triï. */
+    sel.innerHTML = '<option value="">—</option>';
+    if (hint) hint.textContent = 'Carregant els teus grups…';
+    return;
+  }
   /* Sense cap de triat —o amb un que ja no és al perfil— s'agafa el primer.
      Val més començar per un grup que no pas per la paret de «tria'n un». */
   if (!_seientsGrupTriat || grups.indexOf(_seientsGrupTriat) === -1) {
     _seientsTriaGrup(grups[0], true);
   }
-  sel.innerHTML = grups.map(g =>
-    `<option value="${escapeHtml(g)}"${g === _seientsGrupTriat ? ' selected' : ''}>${escapeHtml(g)}</option>`
+  sel.innerHTML = _seientsGrups.map(g =>
+    `<option value="${escapeHtml(g.grup)}"${g.grup === _seientsGrupTriat ? ' selected' : ''}>` +
+    `${escapeHtml(g.grup)}${g.desdob ? ' · ' + escapeHtml(g.assig) : ''}</option>`
   ).join('');
   if (hint) hint.textContent = 'Cada grup té el seu plànol.';
   _seientsCarregaAlumnesDelGrup();
@@ -126,23 +176,34 @@ function _seientsTriaGrup(grup, nomesDesar) {
 
 function canviaGrupSeients(grup) { _seientsTriaGrup(grup); }
 
-/* Els alumnes del grup triat, la classe SENCERA. Es demana amb
-   l'assignatura buida a posta: amb assignatura, `_ensureGrupStudents`
-   aplicaria el desdoblament i al plànol hi faltaria mitja classe. */
+/* Els alumnes del grup triat.
+
+   ⚠ Si el grup és d'un DESDOBLAMENT, són els del desdoblament i no la
+   classe sencera: a aquella hora, a l'aula, només hi seu mig grup, i
+   posar-hi l'altra meitat seria repartir llocs a nens que no hi són.
+   Si el grup és una classe, la classe sencera (per això l'assignatura va
+   buida: amb assignatura s'hi aplicaria un desdoblament que allà no toca). */
 async function _seientsCarregaAlumnesDelGrup() {
   if (!_seientsAmbSelector() || !_seientsGrupTriat) return;
-  if (typeof _ensureGrupStudents !== 'function' || !config.scriptUrl) return;
+  if (!config.scriptUrl) return;
+  const e = _seientsEntradaDe(_seientsGrupTriat);
   const hint = document.getElementById('seientsGrupHint');
   try {
-    await _ensureGrupStudents(_seientsGrupTriat, '');
+    if (e && e.desdob) {
+      if (typeof _loadDesdobStudents !== 'function') return;
+      await _loadDesdobStudents(e.curs, e.assig);
+    } else {
+      if (typeof _ensureGrupStudents !== 'function') return;
+      await _ensureGrupStudents(_seientsGrupTriat, '');
+    }
     if (hint) hint.textContent = students.length
       ? students.length + ' alumnes · cada grup té el seu plànol.'
       : 'Aquest grup encara no té alumnes al full compartit.';
-  } catch (e) {
-    if (hint) hint.textContent = 'No s\'han pogut carregar els alumnes: ' + ((e && e.message) || '');
+  } catch (err) {
+    if (hint) hint.textContent = 'No s\'han pogut carregar els alumnes: ' + ((err && err.message) || '');
     return;
   }
-  if (typeof renderSeients === 'function') { try { renderSeients(); } catch (e) {} }
+  if (typeof renderSeients === 'function') { try { renderSeients(); } catch (err) {} }
 }
 function _seientsLS(base) {
   const g = _seientsGrup();
@@ -444,7 +505,16 @@ function initSeients() {
       if (savedM && Array.isArray(savedM)) _seientsMarkers = savedM;
     } catch(e) {}
   }
+  /* Primer es pinta amb el que ja se sap (instantani) i després es resolen
+     els grups —que vol preguntar al servidor si alguna assignatura es
+     desdobla— i es torna a pintar. Així la pàgina no es queda en blanc
+     esperant, i quan arriba la llista bona ja hi és. */
   _seientsRenderGrupPicker();
+  if (_seientsAmbSelector()) {
+    _seientsCarregaGrups()
+      .then(() => { _seientsRenderGrupPicker(); _seientsPintaAvisGrup(); })
+      .catch(() => {});
+  }
   _seientsPintaAvisGrup();
   // Assegura que hi ha alumnes de tutoria SENSE desdoblament
   _seientsAssegurraAlumnes();

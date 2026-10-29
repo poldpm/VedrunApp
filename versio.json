@@ -1,9 +1,9 @@
 {
-  "versio": "v322",
+  "versio": "v323",
   "data": "2026-10-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Direcció: a Distribució de l'aula ja pots triar el grup des de la mateixa pàgina, amb un desplegable a dalt, d'entre els grups on fas classe. Abans t'enviava a la pàgina d'Alumnes a triar-lo i no hi havia manera de fer-ho des d'aquí.",
-    "Cada grup segueix tenint el seu plànol, i en canviar de grup surt el que toca. Hi seu la classe sencera, encara que tu només en tinguis mitja a la teva hora."
+    "Direcció: al desplegable de grup de Distribució de l'aula ara hi surten també els grups partits (desdoblaments). Si només en tenies de partits, abans la llista et sortia buida i et tornava a enviar a la pàgina d'Alumnes.",
+    "En un grup partit, els alumnes que reparteixes són els del teu mig grup, que són els que seuen de debò a l'aula en aquella hora."
   ]
 }
