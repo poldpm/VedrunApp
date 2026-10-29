@@ -407,6 +407,41 @@ arriba sol.**
   `?v=1`, o executa-hi `veureAlies()`. El seu projecte no canvia mai i no hi
   ha cap altra manera de saber-ho.
 
+### Comprovar-ho des d'una conversa, sense demanar-li res
+
+Això ho pot fer el Claude mateix, i és el que s'ha de fer quan en Pol digui
+«ja he enganxat la biblioteca»:
+
+```bash
+# des de la carpeta on hi ha les filles clonades
+for n in vedrunapp vedrunapp-*; do
+  U=$(grep -o 'https://script.google.com/macros/s/[A-Za-z0-9_-]*/exec' $n/js/config.local.js | head -1)
+  [ -z "$U" ] && { printf "  %-26s — sense adreça de servidor\n" "$n"; continue; }
+  printf "  %-26s %s\n" "$n" "$(curl -sS -L --max-time 120 "$U?v=1" | head -1)"
+done
+```
+
+Torna una línia per mestra: `VedrunApp — codi v320`. **Aquest número ve del
+seu servidor**, o sigui que diu si l'enganxada hi ha arribat de debò.
+
+⚠ **En una sessió remota cal tenir DOS hosts oberts a la xarxa**, no un:
+
+| Host | Per què |
+|---|---|
+| `script.google.com` | on s'envia la petició |
+| `script.googleusercontent.com` | **on queda aparcada la resposta** |
+
+Amb només el primer, el `curl` es queda a mitges amb un `CONNECT tunnel
+failed, response 403` i sembla que el servidor no contesti, quan el que
+passa és que la resposta és a l'altre host. Va passar el 27 i el 29/10/2026.
+S'obren al menú de l'entorn del núvol → Edit → Network access → Allowed
+domains.
+
+⚠ I **NO és comprovar la biblioteca que ha enganxat en Pol**: el seu Apps
+Script no es pot veure des d'aquí. El que es llegeix és què contesta el seu
+servidor, que és una altra cosa i és la bona. No li diguis mai «he comprovat
+la biblioteca»: digues-li què diu el seu servidor.
+
 ---
 
 ## C · Amb ella al costat  (2 min)
