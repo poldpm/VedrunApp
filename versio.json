@@ -1,10 +1,9 @@
 {
-  "versio": "v318",
-  "data": "2026-10-27",
+  "versio": "v319",
+  "data": "2026-10-29",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "L'avís del matí queda aturat. L'enviava el navegador quan ell volia i podia arribar a mitja tarda dient «bon dia» i recordant coses que ja havien passat. Tornarà quan es pugui enviar sempre a la mateixa hora, i llavors et sortirà sol: no has de fer res.",
-    "A Configuració, a «Avisos al matí», ja no hi ha els botons d'activar i provar, perquè de moment no hi ha res per activar. Hi trobaràs explicat què passa.",
-    "Arreglat: l'avís deia «Tens 2 cosas avui». Ara diu «coses»."
+    "Al generador de grups hi ha «Qui hi és avui»: la llista de la classe amb cada nom clicable. Clica el nom de qui no ha vingut i queda fora del repartiment i dels números. Torna-hi a clicar per posar-l'hi. A sota hi diu quants en queden.",
+    "És per a un dia: en canviar d'assignatura o de grup hi tornen a ser tots."
   ]
 }

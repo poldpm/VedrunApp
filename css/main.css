@@ -2343,6 +2343,23 @@ body {
   color: var(--garnet-deep); min-width: 50px; text-align: center;
 }
 
+/* Qui hi és avui: els noms s'apaguen clicant-los. Un nom apagat s'ha de
+   llegir igual (hi ha de tornar a clicar per posar-l'hi), o sigui que es
+   marca amb la ratlla i el gris, no amagant-lo. */
+.grups-qui-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.grups-qui-btn {
+  font: inherit; font-size: 12px; line-height: 1.2; cursor: pointer;
+  padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface);
+  color: var(--text-main); transition: all var(--ease);
+}
+.grups-qui-btn:hover { border-color: var(--crimson); color: var(--crimson); }
+.grups-qui-btn.fora {
+  background: var(--surface-alt); color: var(--text-muted);
+  border-color: var(--border); text-decoration: line-through;
+}
+.grups-qui-btn:focus-visible { outline: 2px solid var(--crimson); outline-offset: 1px; }
+
 /* Condicions */
 .grups-condicions-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .grups-cond-row {

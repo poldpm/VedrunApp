@@ -8081,6 +8081,31 @@ async function toggleGTask(id) {
 let _grupsNum        = 3;   // alumnes per grup
 let _grupsCondicions = [];  // [ [nomA, nomB] ]  → no poden anar junts
 
+/* ⚠ ELS QUE AVUI NO HI SÓN. Són ÍNDEXS d'`_grupsAlumnes`, com les
+   condicions, i no es filtra mai la llista.
+
+   Sembla més senzill passar al generador una llista ja filtrada, i és
+   justament el que no es pot fer: les condicions (`_grupsCondicions`), el
+   que torna el generador i els noms que es pinten (`_mostrarGrups`) són
+   TOTS índexs dins d'`_grupsAlumnes`. Filtrant la llista, tots es
+   desplacen: la condició «l'Aina amb en Bruno no» passaria a parlar d'uns
+   altres dos nens i el resultat ensenyaria noms canviats, sense que res
+   petés. Per això el que es fa és SALTAR aquests índexs allà on es
+   reparteix, i tota la resta es queda igual.
+
+   No es desa enlloc a posta: és qui falta avui, no una configuració. Es
+   buida en canviar d'assignatura o de grup, com les condicions. */
+let _grupsFora = new Set();
+
+/* Els índexs dels que SÍ que entren al repartiment. */
+function _grupsIndexosPresents() {
+  const al = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes : students;
+  const fora = [];
+  al.forEach((s, i) => { if (!_grupsFora.has(i)) fora.push(i); });
+  return fora;
+}
+function _grupsQuantsPresents() { return _grupsIndexosPresents().length; }
+
 const GRUPS_COLORS = [
   { bg:'#DBEAFE', border:'#93C5FD', text:'#1E40AF' },
   { bg:'#D1FAE5', border:'#6EE7B7', text:'#065F46' },
@@ -8098,9 +8123,11 @@ function initGrups() {
   if (typeof _prefetchNotesResum === "function") { try { _prefetchNotesResum(); } catch (e) {} }
   _grupsNum = 3;
   _grupsCondicions = [];
+  _grupsFora.clear();
   _grupsPoblarSelector();
   document.getElementById('grupsNumVal').textContent = _grupsNum;
   _renderGrupsCondicions();
+  _renderGrupsFora();
   _updateGrupsHint();
   document.getElementById('grupsResultat').innerHTML = `<div class="tasques-empty">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" width="40" height="40"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="3"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
@@ -8177,7 +8204,9 @@ async function grupsCanviaAssig() {
     _grupsAlumnes = alumnes.length ? alumnes : students.slice();
     if (hint) hint.textContent = `${_grupsAlumnes.length} alumnes`;
     _grupsCondicions = [];
+    _grupsFora.clear();          // la llista és nova: tothom hi torna a ser
     _renderGrupsCondicions();
+    _renderGrupsFora();
     _updateGrupsHint();
     return;
   }
@@ -8191,7 +8220,9 @@ async function grupsCanviaAssig() {
     _grupsAlumnes = students.slice();
     if (hint) hint.textContent = `${_grupsAlumnes.length} alumnes`;
     _grupsCondicions = [];
+    _grupsFora.clear();          // la llista és nova: tothom hi torna a ser
     _renderGrupsCondicions();
+    _renderGrupsFora();
     _updateGrupsHint();
     return;
   }
@@ -8206,19 +8237,23 @@ async function grupsCanviaAssig() {
   }
   if (hint) hint.textContent = `${_grupsAlumnes.length} alumnes${grup ? ' a ' + grup : ''}`;
   _grupsCondicions = []; // reinicia condicions en canviar d'assignatura
+  _grupsFora.clear();          // i tothom hi torna a ser
   _renderGrupsCondicions();
+  _renderGrupsFora();
   _updateGrupsHint();
 }
 
 function grupsChangeNum(delta) {
-  const total = ((_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes.length : students.length) || 20;
+  const total = _grupsQuantsPresents() || 20;
   _grupsNum = Math.max(2, Math.min(total, _grupsNum + delta));
   document.getElementById('grupsNumVal').textContent = _grupsNum;
   _updateGrupsHint();
 }
 
 function _updateGrupsHint() {
-  const total = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes.length : students.length;
+  /* Els que hi són avui, no tota la classe: si no, la pista prometria grups
+     que després no sortirien (veure `_grupsFora`). */
+  const total = _grupsQuantsPresents();
   if (!total) { document.getElementById('grupsHint').textContent = 'Carrega els alumnes primer'; return; }
   /* ⚠ «0 DE 12 I 1 DE 8».
 
@@ -8258,6 +8293,56 @@ function afegirCondicio() {
   if (!_al.length) { showToast('Encara no hi ha alumnes: tria l’assignatura a dalt.', 'error'); return; }
   _grupsCondicions.push([null, null]);
   _renderGrupsCondicions();
+}
+
+/* QUI HI ÉS AVUI.
+
+   Un nom apagat no entra al repartiment i no compta per als números. En Pol,
+   29/10/2026: «he de poder triar si algun nen no hi és perquè no el compti».
+
+   Es clica el nom i prou: res de caselles ni de desplegables, que amb
+   vint-i-cinc nens serien vint-i-cinc clics per a res. I el comptador diu
+   sempre quants en queden, perquè es vegi d'un cop d'ull si te'n deixes cap. */
+function _renderGrupsFora() {
+  const wrap = document.getElementById('grupsFora');
+  if (!wrap) return;
+  const al = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes : students;
+  if (!al.length) { wrap.innerHTML = ''; return; }
+
+  /* Dos noms iguals es numeren, igual que a les condicions: si no, no se sap
+     quina de les dues Júlies s'està traient. */
+  const rep = {}; al.forEach(s => { const k = String(s.nom || '').trim().toLowerCase(); rep[k] = (rep[k] || 0) + 1; });
+  const num = {};
+  const noms = al.map(s => {
+    const k = String(s.nom || '').trim().toLowerCase();
+    if (k && rep[k] > 1) { num[k] = (num[k] || 0) + 1; return s.nom + ' (' + num[k] + ')'; }
+    return s.nom || '';
+  });
+
+  wrap.innerHTML = al.map((s, i) => {
+    const fora = _grupsFora.has(i);
+    return `<button type="button" class="grups-qui-btn${fora ? ' fora' : ''}" ` +
+      `onclick="grupsToggleFora(${i})" aria-pressed="${fora ? 'false' : 'true'}" ` +
+      `title="${fora ? 'Avui no hi és — clica per tornar-l\'hi a posar' : 'Hi és — clica per treure\'l del repartiment'}">` +
+      escapeHtml(noms[i]) + '</button>';
+  }).join('');
+
+  const diu = document.getElementById('grupsForaHint');
+  if (diu) {
+    const n = _grupsQuantsPresents();
+    diu.textContent = _grupsFora.size
+      ? `${n} de ${al.length} — ${_grupsFora.size} fora del repartiment`
+      : `Hi són tots (${al.length})`;
+  }
+}
+
+function grupsToggleFora(i) {
+  if (_grupsFora.has(i)) _grupsFora.delete(i); else _grupsFora.add(i);
+  _renderGrupsFora();
+  /* La mida del grup pot haver quedat més gran que els que queden: la pista
+     ho acota (veure `_updateGrupsHint`), i així no promet grups impossibles. */
+  _updateGrupsHint();
+  document.getElementById('grupsNumVal').textContent = _grupsNum;
 }
 
 function _renderGrupsCondicions() {
@@ -8322,6 +8407,12 @@ function eliminarCondicio(ci) {
 function generarGrups() {
   const alumnes = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes : students;
   if (!alumnes.length) { showToast('No hi ha alumnes carregats', 'error'); return; }
+  /* Els que avui hi són. Sempre són ÍNDEXS d'`alumnes`: veure `_grupsFora`. */
+  const presents = _grupsIndexosPresents();
+  if (!presents.length) {
+    showToast('Els has tret tots de la llista: no queda ningú per repartir.', 'error');
+    return;
+  }
   /* ⚠ Amb «Alumnes per grup» a 0 o negatiu, `_formarGrups` no avancava mai i
      la pagina es quedava penjada entre 15 i 22 segons abans de petar. Des dels
      botons no s hi arriba, pero des de qualsevol altra crida si (auditoria
@@ -8331,7 +8422,7 @@ function generarGrups() {
     showToast('Els alumnes per grup han de ser com a mínim 1.', 'error');
     return;
   }
-  _grupsNum = Math.min(_perGrup, alumnes.length);
+  _grupsNum = Math.min(_perGrup, presents.length);
 
   let grups = null;
 
@@ -8347,12 +8438,12 @@ function generarGrups() {
        Amb `true` continua equilibrant per nivell i PI/AM exactament igual:
        l'únic que canvia és per quin nen comença dins de cada nivell, que és
        justament el que ha de canviar quan es demana una repartició nova. */
-    grups = _generarHeterogenis(alumnes, true);
+    grups = _generarHeterogenis(alumnes, true, presents);
     // Intenta respectar les condicions reordenant si cal
     if (!_compleixCondicions(grups)) {
       // Un parell d'intents més barrejant l'ordre de repartiment
       for (let intent = 0; intent < 200; intent++) {
-        const candidat = _generarHeterogenis(alumnes, true);
+        const candidat = _generarHeterogenis(alumnes, true, presents);
         if (_compleixCondicions(candidat)) { grups = candidat; break; }
       }
       if (!_compleixCondicions(grups)) showToast('Grups equilibrats, però no s\'han pogut complir totes les condicions', 'error');
@@ -8361,12 +8452,12 @@ function generarGrups() {
     // Homogeni: aleatori
     const MAX_INTENTS = 500;
     for (let intent = 0; intent < MAX_INTENTS; intent++) {
-      const barrejats = _barrejar([...alumnes.map((s,i) => i)]);
+      const barrejats = _barrejar(presents.slice());
       const candidat  = _formarGrups(barrejats, _grupsNum);
       if (_compleixCondicions(candidat)) { grups = candidat; break; }
     }
     if (!grups) {
-      grups = _formarGrups(_barrejar([...alumnes.map((s,i) => i)]), _grupsNum);
+      grups = _formarGrups(_barrejar(presents.slice()), _grupsNum);
       showToast('No s\'han pogut complir totes les condicions', 'error');
     }
   }
@@ -8376,13 +8467,20 @@ function generarGrups() {
 
 // Genera grups HETEROGENIS: cada grup té una barreja equilibrada de nivells.
 // Reparteix PI (1/grup), AM (1/grup) i la resta ordenats per nota en serpentina.
-function _generarHeterogenis(alumnes, aleatoritzar) {
-  const nGrups = Math.ceil(alumnes.length / _grupsNum);
+/* `presents` són els índexs d'`alumnes` que entren al repartiment. La llista
+   NO es filtra (veure `_grupsFora`): el que torna aquesta funció són índexs
+   d'`alumnes`, i són els mateixos que fan servir les condicions i els noms
+   que es pinten. Sense `presents` es reparteixen tots, com sempre. */
+function _generarHeterogenis(alumnes, aleatoritzar, presents) {
+  const hiEs = presents ? new Set(presents) : null;
+  const quants = hiEs ? hiEs.size : alumnes.length;
+  const nGrups = Math.ceil(quants / _grupsNum);
   const grups = Array.from({ length: nGrups }, () => []);
 
   // Classifica els alumnes per índex
   const ambPI = [], ambAM = [], resta = [];
   alumnes.forEach((s, i) => {
+    if (hiEs && !hiEs.has(i)) return;        // avui no hi és
     /* ⚠ Si l alumne porta el seu PI/AM (ve del full «Grups» d un altre grup),
        mana el SEU.  és de la classe que hi ha carregada, i
        repartint un altre grup hi posava el PI i l AM dels teus alumnes
