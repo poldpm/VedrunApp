@@ -6462,10 +6462,15 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .temp-broca-m { stroke-width: 5; }
 .temp-broca-s { stroke: var(--crimson); stroke-width: 2; }
 .temp-centre { fill: var(--garnet-deep); }
+/* ⚠ L'hora escrita ja no és «14:30»: és «tres quarts menys set minuts de
+   tres», que són tres o quatre vegades més de lletra. Per això la mida és
+   petita i amb clamp, i es deixa anar a dues línies: amb els 20px d'abans
+   sortia de la columna del rellotge. */
 .temp-hora-text {
-  margin: 6px 0 0; font-size: 20px; font-weight: 700;
-  font-variant-numeric: tabular-nums; color: var(--garnet-text);
+  margin: 8px 0 0; font-size: clamp(13px, 1.5vw, 17px); font-weight: 700;
+  line-height: 1.25; text-wrap: balance; color: var(--garnet-text);
 }
+.temp-hora-text[hidden] { display: none; }
 
 .temp-dreta { flex: 1 1 340px; min-width: 0; }
 .temp-rapids { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
@@ -6515,6 +6520,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* A pantalla completa omple el projector i els números manen. */
 #page-temporitzador:fullscreen { background: var(--bg-card); padding: 24px; overflow: auto; }
 #page-temporitzador:fullscreen .temp-rellotge { width: clamp(220px, 28vw, 380px); }
+#page-temporitzador:fullscreen .temp-hora-text { font-size: clamp(16px, 2vw, 26px); }
 #page-temporitzador:fullscreen .temp-card-num { font-size: clamp(56px, 11vw, 150px); }
 
 @media (max-width: 560px) {

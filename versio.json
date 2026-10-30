@@ -1,10 +1,9 @@
 {
-  "versio": "v325",
+  "versio": "v326",
   "data": "2026-10-30",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al Temporitzador hi pots tenir uns quants comptes alhora (fins a sis): la feina de grup a vint minuts i la lectura a cinc, cadascun pel seu compte. Pausar-ne o treure'n un no toca els altres.",
-    "Cada compte es pot anomenar («Lectura», «Recollir») perquè la classe sàpiga quin és quin.",
-    "I hi ha un rellotge de broques amb l'hora actual al costat. Si no el vols, l'amagues i se'n recorda."
+    "L'hora escrita sota el rellotge del Temporitzador ara es diu sempre en català: «dos quarts de tres», «un quart i cinc de quatre». Mai «les dues i mitja».",
+    "I la pots amagar quan vulguis, a part de l'esfera: si vols que els nens llegeixin les broques ells, clica «Amagar l'hora escrita». Se'n recorda."
   ]
 }

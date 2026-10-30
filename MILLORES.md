@@ -431,7 +431,9 @@ biblioteca un sol cop i hi posa `AULES_FULL`; la mestra no ha de fer res.
 amb un rellotge de broques al costat. Demanat per una mestra que no vol haver
 d'obrir el ClassroomScreen quan ja té aquesta app oberta tot el dia. El
 30/10/2026 s'hi va afegir el rellotge i poder-ne tenir uns quants alhora, amb
-nom (fins a sis: projectats a la paret, més no es llegeixen).
+nom (fins a sis: projectats a la paret, més no es llegeixen). El mateix dia,
+l'hora escrita sota el rellotge va passar a dir-se **en català de campanar**
+(«dos quarts de tres») i a poder-se amagar a part de l'esfera.
 
 **Fitxers:**
 - `js/temporitzador.js` — tot: el compte, la pantalla i els botons. Neix
@@ -480,6 +482,19 @@ d'apartat i a tancar l'app.
    distingeixen i només fan soroll.
 8. **El tic només corre si cal.** Amb tot aturat i el rellotge amagat no es
    desperta el navegador cada quart de segon per no res.
+9. **L'hora escrita NO es pot fer amb `toLocaleTimeString`.** Amb la locale
+   catalana en diu «les 14:30» o «dues i mitja» segons el navegador, que és
+   justament el que no es vol, i canvia d'un aparell a un altre. Es compta a
+   mà (`_horaCatala`): es busca el punt de referència més proper dels quatre
+   de cada hora —en punt, un quart, dos quarts, tres quarts, que van cap a
+   l'hora que VE, no darrere de la que ha passat— i es diuen els minuts que
+   falten o que sobren. Com que les referències estan a quinze minuts l'una
+   de l'altra, mai se'n diuen més de set. Compte amb «LA una» (singular) i
+   amb l'apòstrof de «d'una» i «d'onze». El banc ho comprova amb les 1440
+   hores del dia i amb quinze casos escrits a mà.
+10. **El botó de l'hora escrita s'amaga amb el rellotge.** Si no, queda un
+   botó que no canvia res de visible, que és el forat que busca
+   `comprova-controls.js`.
 
 **Depèn de:** **només pantalla.** No parla mai amb el servidor ni desa res al
 full de càlcul, i això és a posta: es fa servir amb el projector engegat i la

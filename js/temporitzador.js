@@ -55,6 +55,7 @@
 
   var CLAU = 'temporitzador_estat';
   var CLAU_RELLOTGE = 'temporitzador_rellotge';
+  var CLAU_HORA = 'temporitzador_hora_text';
   var MINUTS_RAPIDS = [1, 2, 3, 5, 10, 15, 20, 30];
   var MAX = 6;                 // més de sis a la paret no es llegeixen
 
@@ -62,6 +63,7 @@
   var _llista = [];
   var _tic = null;
   var _rellotge = true;
+  var _horaText = true;
   var _wake = null;
 
   /* ---- L'interruptor. Es llegeix EN DIRECTE, no en carregar ----
@@ -109,6 +111,7 @@
     if (_llista.length > MAX) _llista = _llista.slice(0, MAX);
 
     try { _rellotge = localStorage.getItem(CLAU_RELLOTGE) !== 'no'; } catch (e) { _rellotge = true; }
+    try { _horaText = localStorage.getItem(CLAU_HORA) !== 'no'; } catch (e) { _horaText = true; }
   }
 
   /* ---- Quant queda, SEMPRE calculat de l'hora d'acabar ---- */
@@ -125,6 +128,71 @@
     var h = Math.floor(tot / 3600), m = Math.floor((tot % 3600) / 60), s = tot % 60;
     var dd = function (n) { return n < 10 ? '0' + n : String(n); };
     return h > 0 ? (h + ':' + dd(m) + ':' + dd(s)) : (m + ':' + dd(s));
+  }
+
+  /* ============================================================
+     L'HORA ESCRITA, EN CATALÀ DE CAMPANAR
+     ------------------------------------------------------------
+     En Pol, 30/10/2026: «sobretot que sigui escrita sempre en
+     català (dos quarts de tres… MAI les dues i mitja!!)».
+
+     ⚠ NO ES POT FER AMB `toLocaleTimeString`. Amb la locale
+     catalana en diu «les 14:30» o «dues i mitja» segons el
+     navegador, que és precisament el que no volem, i depèn de
+     l'aparell de cada mestra. Es compta a mà, i així diu el
+     mateix a tot arreu.
+
+     Com funciona el sistema: els quarts NO van darrere de l'hora
+     que ha passat, van cap a la que ve. 3:30 no són «les tres i
+     mitja», són DOS QUARTS DE QUATRE. Els punts de referència de
+     cada hora són quatre —en punt, un quart, dos quarts i tres
+     quarts— i cada minut es diu des del més proper, amb «i» o
+     amb «menys». Com que les referències estan a quinze minuts
+     l'una de l'altra, mai se'n diuen més de set: «dos quarts i
+     cinc de quatre», «tres quarts menys dos minuts de quatre».
+
+     Això és el que s'ensenya a l'escola, i és per què els nens
+     ho vegin escrit bé a la paret.
+     ============================================================ */
+  var _NOMS = ['', 'una', 'dues', 'tres', 'quatre', 'cinc', 'sis',
+               'set', 'vuit', 'nou', 'deu', 'onze', 'dotze'];
+  var _MIN = ['', 'un', 'dos', 'tres', 'quatre', 'cinc', 'sis', 'set'];
+  var _QUARTS = ['', 'un quart', 'dos quarts', 'tres quarts'];
+
+  function _h12(h) { var x = h % 12; return x === 0 ? 12 : x; }
+
+  /* «les dues», però «LA una»: l'hora que va sola és singular. */
+  function _les(h) { return h === 1 ? 'la una' : 'les ' + _NOMS[h]; }
+
+  /* «de quatre», però «d'una» i «d'onze»: davant de vocal, apostrofat. */
+  function _de(h) { return (h === 1 || h === 11) ? ('d\'' + _NOMS[h]) : ('de ' + _NOMS[h]); }
+
+  /* «i cinc» es diu així; «i dos» sol no s'entén, demana «minuts». */
+  function _minuts(n) {
+    if (n === 1) return 'un minut';
+    if (n === 5) return 'cinc';
+    return _MIN[n] + ' minuts';
+  }
+
+  function _horaCatala(d) {
+    var h = d.getHours(), m = d.getMinutes();
+    var refs = [0, 15, 30, 45, 60];
+    var ref = 0, prop = 999;
+    refs.forEach(function (r) {
+      var dif = Math.abs(m - r);
+      if (dif < prop) { prop = dif; ref = r; }
+    });
+    var dif = m - ref;
+
+    if (ref === 0) {
+      return dif === 0 ? (_les(_h12(h)) + ' en punt') : (_les(_h12(h)) + ' i ' + _minuts(dif));
+    }
+    if (ref === 60) {                     // 53–59: ja es diu de l'hora que ve
+      return _les(_h12(h + 1)) + ' menys ' + _minuts(-dif);
+    }
+    var q = _QUARTS[ref / 15], cap = _de(_h12(h + 1));
+    if (dif === 0) return q + ' ' + cap;
+    return q + (dif > 0 ? ' i ' : ' menys ') + _minuts(Math.abs(dif)) + ' ' + cap;
   }
 
   /* ============================================================
@@ -172,8 +240,11 @@
     gira('tempBrocaH', h * 30 + m * 0.5);
     var txt = byId('tempHoraText');
     if (txt) {
-      var dd = function (n) { return n < 10 ? '0' + n : String(n); };
-      txt.textContent = d.getHours() + ':' + dd(d.getMinutes());
+      txt.hidden = !_horaText;
+      if (_horaText) {
+        var ara = _horaCatala(d);
+        if (txt.textContent !== ara) txt.textContent = ara;   // només canvia un cop per minut
+      }
     }
   }
 
@@ -182,6 +253,15 @@
     try { localStorage.setItem(CLAU_RELLOTGE, _rellotge ? 'si' : 'no'); } catch (e) {}
     _aplicaRellotge();
   }
+  /* L'hora escrita a sota: la tria la mestra, i a part del rellotge.
+     N'hi ha que volen l'esfera sola, perquè els nens hagin de llegir-la
+     ells; i n'hi ha que volen les dues coses. */
+  function horaTextMostra(si) {
+    _horaText = !!si;
+    try { localStorage.setItem(CLAU_HORA, _horaText ? 'si' : 'no'); } catch (e) {}
+    _aplicaRellotge();
+  }
+
   function _aplicaRellotge() {
     var w = byId('tempRellotge');
     if (w) w.hidden = !_rellotge;
@@ -189,6 +269,14 @@
     if (b) {
       b.textContent = _rellotge ? 'Amagar el rellotge' : 'Mostrar el rellotge';
       b.setAttribute('aria-pressed', _rellotge ? 'true' : 'false');
+    }
+    /* Amb el rellotge amagat, el botó de l'hora escrita no diu res: s'amaga
+       també, per no deixar-hi un botó que no fa res de visible. */
+    var bh = byId('tempHoraBtn');
+    if (bh) {
+      bh.hidden = !_rellotge;
+      bh.textContent = _horaText ? 'Amagar l\'hora escrita' : 'Mostrar l\'hora escrita';
+      bh.setAttribute('aria-pressed', _horaText ? 'true' : 'false');
     }
     if (_rellotge) { _dibuixaEsfera(); _giraBroques(); }
     _mouElTic();
@@ -433,6 +521,7 @@
   window.tempTreu = treu;
   window.tempAnomena = anomena;
   window.tempRellotge = function () { rellotgeMostra(!_rellotge); };
+  window.tempHoraText = function () { horaTextMostra(!_horaText); };
   window.tempPantallaCompleta = pantallaCompleta;
 
   window.Temporitzador = {
@@ -445,6 +534,8 @@
     _restant: _restant,
     _compta: _compta,
     _rellotgeEs: function () { return _rellotge; },
+    _horaTextEs: function () { return _horaText; },
+    _horaCatala: _horaCatala,
     _posaFi: function (id, ms) { var t = _tro(id); if (t) { t.fi = ms; _desa(); _pintaLlista(); _mouElTic(); } },
   };
 })();
