@@ -3645,6 +3645,79 @@ function renderObsDrawerContent(studentId) {
    Qui hi posa el grup del nen: `_aplicaTutoriaAlumnes` i
    `_refreshGrupStudents` (js/perfil.js) i `_entraA`, aquí sota.
    ============================================================ */
+/* ============================================================
+   LLEGIR LES OBSERVACIONS D'UNA LLISTA D'ALUMNES
+   ------------------------------------------------------------
+   ⚠ LA MEITAT QUE ES VA QUEDAR SENSE ARREGLAR (30/10/2026).
+
+   El 22/10 es va arreglar DESAR: mana el grup del nen (aquí sobre).
+   LLEGIR es va quedar com era: es demanava «el grup de la pantalla», un
+   de sol. Mentre la pantalla fos una classe sencera no es notava, perquè
+   el grup de la pantalla i el del nen són el mateix.
+
+   Però a un GRUP PARTIT no ho són: els nens d'un desdoblament de 5è
+   surten de 5è A, 5è B i 5è C, i les seves observacions són als farcells
+   d'aquelles tres classes. Es demanava un farcell que es diu com el
+   desdoblament i que no existeix —i, per si de cas, hi havia una guarda
+   que ni ho intentava si el nom no era «curs + línia»—, o sigui que a la
+   mestra d'aquell mig grup les observacions li sortien TOTES buides. No
+   és que no n'hi hagués: és que ningú no les hi anava a buscar.
+
+   En Pol, 30/10/2026: «les observacions les ha de poder veure qualsevol
+   mestre que tingui aquell alumne».
+
+   Per tant: no es demana el grup de la pantalla, es demanen ELS GRUPS
+   DELS NENS QUE HI HA A LA PANTALLA, i es barregen.
+
+   ⚠ I es casen per grup + fila, mai per fila sola. El `rowId` només és
+   únic DINS d'una classe: amb dues classes barrejades, casar per fila
+   enganxaria les observacions d'un nen de 5è A a un de 5è B.
+   ============================================================ */
+function _obsGrupsDelsAlumnes(grupFallback) {
+  const esClasse = g => /^(1r|2n|3r|4t|5è|6è) [ABC]$/.test(g || '');
+  const out = [];
+  (typeof students !== 'undefined' ? students : []).forEach(st => {
+    const g = (typeof personal !== 'undefined' && personal[st.id]) ? personal[st.id].grupOrigen : null;
+    if (esClasse(g) && out.indexOf(g) === -1) out.push(g);
+  });
+  if (!out.length && esClasse(grupFallback)) out.push(grupFallback);
+  return out;
+}
+
+/* Omple `observacions` amb les de tots aquests nens. Torna els grups que
+   no s'han pogut llegir: qui crida ho ha de DIR, perquè una lectura
+   fallada i un grup sense observacions es veuen igual a la pantalla i no
+   són gens el mateix. */
+async function _carregaObsDelsAlumnes(grupFallback) {
+  observacions = {};
+  const grups = _obsGrupsDelsAlumnes(grupFallback);
+  if (!grups.length) return [];
+
+  // Grup + fila → quin alumne de la pantalla és
+  const dePerGrup = {};
+  (typeof students !== 'undefined' ? students : []).forEach(st => {
+    const p = (typeof personal !== 'undefined') ? personal[st.id] : null;
+    if (!p || p.rowId === undefined) return;
+    dePerGrup[(p.grupOrigen || grupFallback || '') + '#' + p.rowId] = st.id;
+  });
+
+  const fallats = [];
+  const respostes = await Promise.all(grups.map(g =>
+    appsScriptGet({ action: 'getGrupObs', grup: g })
+      .then(r => ({ grup: g, r: r }))
+      .catch(e => ({ grup: g, err: e }))
+  ));
+  respostes.forEach(({ grup, r, err }) => {
+    if (err || !r || r.ok === false) { fallats.push(grup); return; }
+    if (!r.obs) return;
+    Object.keys(r.obs).forEach(rowId => {
+      const id = dePerGrup[grup + '#' + rowId];
+      if (id !== undefined) observacions[id] = r.obs[rowId];
+    });
+  });
+  return fallats;
+}
+
 function _obsGrupDeLAlumne(studentId, materia) {
   const delNen = personal[studentId] && personal[studentId].grupOrigen;
   if (delNen) return delNen;
@@ -5520,8 +5593,9 @@ function _clauEntrada(e) {
    aquell mig grup, no la classe sencera. */
 async function _rolCarregaGrupTreball(clau, pagina) {
   if (!clau || !config.scriptUrl) return;
-  const esObs = pagina === 'observacions';
-  const hint  = document.getElementById(esObs ? 'obsGrupHint' : 'regGrupHint');
+  const esObs  = pagina === 'observacions';
+  const esAlum = pagina === 'alumnes';
+  const hint  = document.getElementById(esAlum ? 'dirGrupEstat' : esObs ? 'obsGrupHint' : 'regGrupHint');
   const entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
   const e = entrades.find(x => x.key === clau);
   if (!e) return;
@@ -5567,34 +5641,53 @@ async function _rolCarregaGrupTreball(clau, pagina) {
   _clauRegistre = _clauEntrada(e);
   if (hint) hint.textContent = students.length + ' alumnes';
 
+  /* ============================================================
+     ALUMNES, amb un grup PARTIT
+     ------------------------------------------------------------
+     A la pàgina d'Alumnes, la direcció tria entre els 18 grups de
+     primària. Hi falten, justament, els grups partits: la directora que fa
+     mig grup de Català de 5è no el trobava enlloc (en Pol, 29/10/2026).
+
+     No es passa per `_dirCarregaGrup`: aquell demana la classe sencera pel
+     seu nom i un grup partit no en té, de nom al full de classes. Es passa
+     per aquí, que és el camí que ja fan servir Registres i Observacions i
+     que sap carregar mig grup.
+
+     ⚠ I no es toca `_direccioGrup`: el grup de treball dels 18 segueix sent
+     el que fos. Si es canviés, els caches i els avisos de mitja app
+     passarien a dir-se com un grup que no és cap classe. */
+  if (esAlum) {
+    const fallats = await _carregaObsDelsAlumnes(grupReal);
+    if (fallats.length) {
+      showToast('No s’han pogut llegir les observacions de ' + fallats.join(', ') +
+                '. El que veus no vol dir que estigui buit: torna-ho a provar.', 'error');
+    }
+    if (hint) {
+      hint.textContent = (e.label || e.nom) + ' · ' + students.length +
+                         ' alumne' + (students.length !== 1 ? 's' : '');
+    }
+    if (typeof renderAlumnesList === 'function') renderAlumnesList();
+    return;
+  }
+
   if (esObs) {
-    // Observacions compartides del grup (les veu tot el claustre)
-    observacions = {};
-    if (grupReal && /^(1r|2n|3r|4t|5è|6è) [ABC]$/.test(grupReal)) {
-      try {
-        const ro = await appsScriptGet({ action: 'getGrupObs', grup: grupReal });
-        /* Mateix parany que als registres: sense aquesta comprovació, una
-           lectura fallada deixava `observacions` buit i la pantalla ensenyava
-           tota la classe «Sense observacions» encara que n'hi hagués un curs
-           sencer escrites per tot el claustre. */
-        if (!ro || ro.ok === false) {
-          throw new Error((ro && ro.error) || 'el servidor no ha contestat');
-        }
-        if (ro.ok && ro.obs) {
-          const rowIdToId = {};
-          students.forEach(st => {
-            const rid = personal[st.id] && personal[st.id].rowId;
-            if (rid !== undefined) rowIdToId[String(rid)] = st.id;
-          });
-          Object.keys(ro.obs).forEach(rowId => {
-            const id = rowIdToId[String(rowId)];
-            if (id !== undefined) observacions[id] = ro.obs[rowId];
-          });
-        }
-      } catch(err) {
-        showToast('No s’han pogut llegir les observacions d’aquest grup. ' +
-                  'El que veus no vol dir que estigui buit: torna-ho a provar.', 'error');
-      }
+    /* Observacions compartides (les veu tot el claustre). Es demanen pels
+       grups DELS NENS, no pel grup de la pantalla: en un grup partit els
+       nens surten de dues o tres classes i les seves observacions són als
+       farcells d'aquelles. Veure `_carregaObsDelsAlumnes`. */
+    let _obsFallats = [];
+    try {
+      _obsFallats = await _carregaObsDelsAlumnes(grupReal);
+    } catch (err) {
+      _obsFallats = ['?'];
+    }
+    /* Una lectura fallada i un grup sense observacions es veuen igual a la
+       pantalla: si no es digués, la mestra es pensaria que no n'hi ha cap
+       quan potser n'hi ha un curs sencer escrites per tot el claustre. */
+    if (_obsFallats.length) {
+      showToast('No s’han pogut llegir les observacions' +
+                (_obsFallats[0] !== '?' ? ' de ' + _obsFallats.join(', ') : '') +
+                '. El que veus no vol dir que estigui buit: torna-ho a provar.', 'error');
     }
     if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector();
     // Deixa triada l'assignatura del selector: és de la que acaba de triar
@@ -5790,7 +5883,21 @@ function _dirRenderGrupPicker() {
       }).join('')}
     </div>`;
   }
-  files.innerHTML = `<div class="dir-grup-cursos" role="group" aria-label="Curs">${cursosHtml}</div>${liniesHtml}`;
+  /* I els seus grups PARTITS, que no són cap de les 18 caselles de dalt:
+     un desdoblament no és una línia de classe i abans no hi havia manera
+     d'arribar-hi des d'aquí. */
+  let partitsHtml = '';
+  const _partits = (typeof _perfilEntradesAmbGrup === 'function' ? _perfilEntradesAmbGrup() : [])
+    .filter(x => x.altres || (typeof _desdobOpcions === 'function' &&
+                              _desdobOpcions(x.curs || String(x.grup || '').split(' ')[0], x.nom).desdob));
+  if (_partits.length) {
+    partitsHtml = `<div class="dir-grup-linies" role="group" aria-labelledby="dirGrupPartitsLabel">
+      <span class="dir-grup-lin-label" id="dirGrupPartitsLabel">Els teus grups partits:</span>
+      ${_partits.map(x => `<button type="button" class="dir-linia-btn${_dirEntradaOberta === x.key ? ' active' : ''}" aria-pressed="${_dirEntradaOberta === x.key}" onclick="dirTriaPartit('${_idJs(x.key)}')">${escapeHtml(x.label || x.nom)}</button>`).join('')}
+    </div>`;
+  }
+
+  files.innerHTML = `<div class="dir-grup-cursos" role="group" aria-label="Curs">${cursosHtml}</div>${liniesHtml}${partitsHtml}`;
   const estat = document.getElementById('dirGrupEstat');
   if (!grup) _dirEstat('Tria un curs i una línia per començar.');
   else if (estat && !estat.textContent.trim()) {
@@ -5807,7 +5914,19 @@ function dirObreCurs(curs) {
 
 function dirTriaGrup(grup) {
   if (!grup) return;
+  _dirEntradaOberta = null;
   _dirCarregaGrup(grup);
+}
+
+/* Quin grup partit té obert a Alumnes, si n'hi té cap. És a part de
+   `_direccioGrup` a posta: aquell és un dels 18 i el fan servir mitja app. */
+let _dirEntradaOberta = null;
+
+async function dirTriaPartit(clau) {
+  if (!clau) return;
+  _dirEntradaOberta = clau;
+  _dirRenderGrupPicker();
+  await _rolCarregaGrupTreball(clau, 'alumnes');
 }
 
 /* Carrega TOT el que depèn del grup: alumnes, observacions compartides,

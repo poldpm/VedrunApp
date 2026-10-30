@@ -1,9 +1,9 @@
 {
-  "versio": "v323",
-  "data": "2026-10-29",
+  "versio": "v324",
+  "data": "2026-10-30",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Direcció: al desplegable de grup de Distribució de l'aula ara hi surten també els grups partits (desdoblaments). Si només en tenies de partits, abans la llista et sortia buida i et tornava a enviar a la pàgina d'Alumnes.",
-    "En un grup partit, els alumnes que reparteixes són els del teu mig grup, que són els que seuen de debò a l'aula en aquella hora."
+    "Les observacions d un alumne les veu qualsevol mestre que el tingui. Si fas un grup partit, amb nens de dues o tres classes, abans te sortien totes buides: no es perdia res, es que ningu no les hi anava a buscar. Ara cada nen porta les seves.",
+    "Direcció: a Alumnes hi ha una fila nova, «Els teus grups partits», per als desdoblaments. Abans només hi havia les divuit caselles de curs i línia, i un grup partit no es cap d elles."
   ]
 }
