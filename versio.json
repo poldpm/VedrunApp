@@ -1,9 +1,10 @@
 {
-  "versio": "v324",
+  "versio": "v325",
   "data": "2026-10-30",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Les observacions d un alumne les veu qualsevol mestre que el tingui. Si fas un grup partit, amb nens de dues o tres classes, abans te sortien totes buides: no es perdia res, es que ningu no les hi anava a buscar. Ara cada nen porta les seves.",
-    "Direcció: a Alumnes hi ha una fila nova, «Els teus grups partits», per als desdoblaments. Abans només hi havia les divuit caselles de curs i línia, i un grup partit no es cap d elles."
+    "Al Temporitzador hi pots tenir uns quants comptes alhora (fins a sis): la feina de grup a vint minuts i la lectura a cinc, cadascun pel seu compte. Pausar-ne o treure'n un no toca els altres.",
+    "Cada compte es pot anomenar («Lectura», «Recollir») perquè la classe sàpiga quin és quin.",
+    "I hi ha un rellotge de broques amb l'hora actual al costat. Si no el vols, l'amagues i se'n recorda."
   ]
 }

@@ -427,9 +427,11 @@ biblioteca un sol cop i hi posa `AULES_FULL`; la mestra no ha de fer res.
 
 ## `temporitzador` — Temporitzador
 
-**Què fa:** un compte enrere gran, pensat per projectar a la pissarra digital.
-Demanat per una mestra que no vol haver d'obrir el ClassroomScreen quan ja té
-aquesta app oberta tot el dia.
+**Què fa:** comptes enrere grans, pensats per projectar a la pissarra digital,
+amb un rellotge de broques al costat. Demanat per una mestra que no vol haver
+d'obrir el ClassroomScreen quan ja té aquesta app oberta tot el dia. El
+30/10/2026 s'hi va afegir el rellotge i poder-ne tenir uns quants alhora, amb
+nom (fins a sis: projectats a la paret, més no es llegeixen).
 
 **Fitxers:**
 - `js/temporitzador.js` — tot: el compte, la pantalla i els botons. Neix
@@ -465,6 +467,19 @@ d'apartat i a tancar l'app.
 4. **El so necessita un clic abans.** Els navegadors no deixen sonar res fins
    que algú ha interaccionat; aquí sempre ve del botó «Comença», o sigui que
    es pot. Es fa amb l'`AudioContext`, sense cap fitxer de so.
+5. **El tic no pot repintar la llista sencera.** Cada compte té un nom que la
+   mestra escriu. Si la pintada de cada quart de segon refés la llista, li
+   esborraria el que està escrivint i li trauria el cursor. Per això hi ha
+   `_pintaLlista()` (quan canvia què hi ha) i `_pintaNumeros()` (a cada tic,
+   que només toca els números).
+6. **El que es desava abans era UN temporitzador, com a objecte.** Des que
+   n'hi pot haver diversos es desa una llista. En recuperar es mira si el que
+   hi ha és l'objecte vell i es converteix: si no, una mestra que el tingués
+   comptant el perdria en actualitzar.
+7. **Si n'acaben dos alhora, un sol so.** Dos xiulets encavalcats no es
+   distingeixen i només fan soroll.
+8. **El tic només corre si cal.** Amb tot aturat i el rellotge amagat no es
+   desperta el navegador cada quart de segon per no res.
 
 **Depèn de:** **només pantalla.** No parla mai amb el servidor ni desa res al
 full de càlcul, i això és a posta: es fa servir amb el projector engegat i la

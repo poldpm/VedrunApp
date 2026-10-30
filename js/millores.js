@@ -108,9 +108,9 @@ const MILLORES = [
     ras: 'Un compte enrere gran per projectar a la pissarra digital.',
     mes: [
       'A Eines \u2192 Temporitzador. Cliques els minuts que vols (1, 2, 5, 10\u2026) i ja compta.',
+      'Pots tenir-ne uns quants alhora i posar-los nom, i al costat hi ha un rellotge de broques amb l\u2019hora.',
       'Hi ha un bot\u00f3 per omplir la pantalla, i quan s\u2019acaba fa un so i el n\u00famero es posa vermell.',
-      'Mentre compta, la pantalla no s\u2019apaga, i pots anar a un altre apartat: el compte segueix.',
-      'Funciona sense connexi\u00f3.',
+      'Mentre compta, la pantalla no s\u2019apaga, i funciona sense connexi\u00f3.',
     ],
     data: '2026-10-29',
     /* Com se sap si ja la t\u00e9: l'interruptor del seu `js/personal.js`. */
