@@ -1,10 +1,10 @@
 {
-  "versio": "v327",
+  "versio": "v328",
   "data": "2026-10-30",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al Generador de grups, si ets tutora ja pots triar la teva classe sencera («La meva tutoria · 2n B») en comptes d'una assignatura, i és el que surt triat d'entrada.",
-    "Amb la tutoria triada, els grups heterogenis s'equilibren per la mitjana de totes les assignatures que hi fas, no per una de sola.",
-    "El rètol de dalt ara diu «Amb quins alumnes», que és el que es tria de debò."
+    "Al Generador de grups ja pots triar què és el que mana: «grups de 4 alumnes» o bé «5 grups». Abans només es podien dir els alumnes per grup i havies de dividir de cap.",
+    "Demanant un nombre de grups, reparteix tothom entre tots i et surten de la mida més igualada possible (23 alumnes en 5 grups → de 4 o de 5).",
+    "El − i el + mouen el número del que hagis triat, i el rètol de dalt et diu sempre quin és."
   ]
 }

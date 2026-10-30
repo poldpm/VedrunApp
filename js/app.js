@@ -8208,6 +8208,25 @@ async function toggleGTask(id) {
 let _grupsNum        = 3;   // alumnes per grup
 let _grupsCondicions = [];  // [ [nomA, nomB] ]  → no poden anar junts
 
+/* ⚠ DUES MANERES DE DIR-HO, I NOMÉS UNA ALHORA.
+
+   En Pol, 30/10/2026: «cal que em permeti fer els grups triant si vull
+   fer-ho per nombre de grups o per nombre de membres per grup… si vull fer
+   5 grups, o si vull fer grups de 4 persones. Evidentment ha de ser una
+   cosa o l'altra».
+
+   Fins ara només hi havia «alumnes per grup». Per a una activitat on el que
+   manda és quants grups (cinc racons, cinc caixes de castanyes) calia
+   dividir de cap i encertar-ho, i amb 23 alumnes no surt rodó.
+
+   · `_grupsMode` val 'mida' (alumnes per grup, el d'abans) o 'quants'
+     (nombre de grups). El ± toca el número del mode que estigui triat.
+   · `_grupsNum` continua volent dir SEMPRE «alumnes per grup»: és el que
+     fan servir el generador i les proves, i no s'ha canviat de sentit.
+     En mode 'quants' no es fa servir per repartir. */
+let _grupsMode   = 'mida';
+let _grupsQuants = 4;       // quants grups vol, en mode 'quants'
+
 /* ⚠ ELS QUE AVUI NO HI SÓN. Són ÍNDEXS d'`_grupsAlumnes`, com les
    condicions, i no es filtra mai la llista.
 
@@ -8249,10 +8268,12 @@ function initGrups() {
   // de notes esta carregat abans que el mestre premi "Generar grups".
   if (typeof _prefetchNotesResum === "function") { try { _prefetchNotesResum(); } catch (e) {} }
   _grupsNum = 3;
+  _grupsMode = 'mida';
+  _grupsQuants = 4;
   _grupsCondicions = [];
   _grupsFora.clear();
   _grupsPoblarSelector();
-  document.getElementById('grupsNumVal').textContent = _grupsNum;
+  _grupsAplicaMode();
   _renderGrupsCondicions();
   _renderGrupsFora();
   _updateGrupsHint();
@@ -8399,10 +8420,62 @@ async function grupsCanviaAssig() {
   _updateGrupsHint();
 }
 
+/* Quants grups sortiran, digui-ho com ho digui. És l'única manera de dir-ho
+   en un sol lloc: tota la resta (la pista, el repartiment) en surt. */
+function _grupsNGrups(total) {
+  if (!total) return 0;
+  if (_grupsMode === 'quants') return Math.max(1, Math.min(total, _grupsQuants));
+  return Math.ceil(total / Math.max(1, Math.min(total, _grupsNum)));
+}
+
+/* El número que es veu i que mouen el − i el +: el del mode triat. */
+function _grupsValor() { return _grupsMode === 'quants' ? _grupsQuants : _grupsNum; }
+
+function grupsSetMode(mode, btn) {
+  _grupsMode = (mode === 'quants') ? 'quants' : 'mida';
+  document.querySelectorAll('.grups-mode-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  /* ⚠ En canviar de mode, el número d'ARRIBADA es posa al que donaria el
+     mateix repartiment que hi havia. Si tenia «grups de 4» amb 23 alumnes
+     (6 grups) i passa a nombre de grups, hi ha de trobar 6, no un 4 que ara
+     voldria dir una altra cosa: si no, el repartiment li canviaria sol pel
+     fet de mirar-s'ho de l'altra manera. */
+  const total = _grupsQuantsPresents();
+  if (total) {
+    if (_grupsMode === 'quants') _grupsQuants = Math.max(1, Math.min(total, Math.ceil(total / Math.max(1, _grupsNum))));
+    else _grupsNum = Math.max(1, Math.min(total, Math.ceil(total / Math.max(1, _grupsQuants))));
+  }
+  _grupsAplicaMode();
+  _updateGrupsHint();
+}
+
+/* Els rètols del ± i del número. Un «+» que digui «un alumne més per grup»
+   quan el que fa és afegir un grup enganya qui faci servir un lector. */
+function _grupsAplicaMode() {
+  const quants = (_grupsMode === 'quants');
+  const lab = document.getElementById('grupsNumLabel');
+  if (lab) lab.textContent = quants ? 'Nombre de grups' : 'Alumnes per grup';
+  const menys = document.getElementById('grupsNumMenys');
+  const mes   = document.getElementById('grupsNumMes');
+  if (menys) menys.setAttribute('aria-label', quants ? 'Un grup menys' : 'Un alumne menys per grup');
+  if (mes)   mes.setAttribute('aria-label',   quants ? 'Un grup més'   : 'Un alumne més per grup');
+  const val = document.getElementById('grupsNumVal');
+  if (val) val.textContent = _grupsValor();
+  document.querySelectorAll('.grups-mode-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-mode') === _grupsMode);
+  });
+}
+
 function grupsChangeNum(delta) {
   const total = _grupsQuantsPresents() || 20;
-  _grupsNum = Math.max(2, Math.min(total, _grupsNum + delta));
-  document.getElementById('grupsNumVal').textContent = _grupsNum;
+  if (_grupsMode === 'quants') {
+    /* Com a màxim un grup per alumne: més grups que nens voldria dir grups
+       buits, i «7 grups» amb 5 nens no es pot complir. */
+    _grupsQuants = Math.max(2, Math.min(total, _grupsQuants + delta));
+  } else {
+    _grupsNum = Math.max(2, Math.min(total, _grupsNum + delta));
+  }
+  document.getElementById('grupsNumVal').textContent = _grupsValor();
   _updateGrupsHint();
 }
 
@@ -8416,10 +8489,11 @@ function _updateGrupsHint() {
      Segona auditoria (8/9/2026): en canviar a una assignatura d'una classe
      més petita, `_grupsNum` es quedava amb el número d'abans (12) i el
      compte sortia amb un grup de zero. La mida d'un grup no pot ser més gran
-     que la classe: s'acota aquí, que és per on passa tothom. */
+     que la classe: s'acota aquí, que és per on passa tothom. I en mode
+     «nombre de grups», tampoc no n'hi pot haver més que alumnes. */
   if (_grupsNum > total) _grupsNum = total;
-  const nGrups  = Math.ceil(total / _grupsNum);
-  const sobren  = total % _grupsNum;
+  if (_grupsQuants > total) _grupsQuants = total;
+  const nGrups  = _grupsNGrups(total);
   let hint = `${total} alumnes → ${nGrups} grup${nGrups!==1?'s':''}`;
   /* ⚠ LA PISTA NO DEIA EL QUE PASSAVA DE DEBÒ.
 
@@ -8427,15 +8501,21 @@ function _updateGrupsHint() {
      que és el que fa el mode HOMOGENI —talla la llista en trossos. En
      heterogenis els alumnes es reparteixen en serpentina entre els grups i
      queden equilibrats: «12 de 3» quan en sobren, no «3 de 3 i 1 de 2». La
-     mestra comptava els grups i no li quadraven amb el que deia la pista. */
-  if (_grupsTipus === 'hetero') {
-    const base = Math.floor(total / nGrups);
+     mestra comptava els grups i no li quadraven amb el que deia la pista.
+
+     Demanant un NOMBRE de grups passa el mateix que en heterogenis: es
+     reparteixen entre tots i queden de `base` o de `base+1`, perquè el que
+     ha demanat són cinc grups i cinc han de sortir. */
+  const base = Math.floor(total / nGrups);
+  const repartit = (_grupsTipus === 'hetero' || _grupsMode === 'quants');
+  if (repartit) {
     if (total % nGrups === 0) hint += ` de ${base}`;
-    else hint += ` de ${base} o ${base + 1} (repartits per nivell)`;
-  } else if (sobren > 0) {
-    hint += ` (${nGrups-1} de ${_grupsNum} i 1 de ${sobren})`;
+    else hint += ` de ${base} o ${base + 1}`;
+    if (_grupsTipus === 'hetero') hint += ' (repartits per nivell)';
   } else {
-    hint += ` de ${_grupsNum}`;
+    const sobren = total % _grupsNum;
+    if (sobren > 0) hint += ` (${nGrups-1} de ${_grupsNum} i 1 de ${sobren})`;
+    else hint += ` de ${_grupsNum}`;
   }
   document.getElementById('grupsHint').textContent = hint;
 }
@@ -8498,7 +8578,7 @@ function grupsToggleFora(i) {
   /* La mida del grup pot haver quedat més gran que els que queden: la pista
      ho acota (veure `_updateGrupsHint`), i així no promet grups impossibles. */
   _updateGrupsHint();
-  document.getElementById('grupsNumVal').textContent = _grupsNum;
+  document.getElementById('grupsNumVal').textContent = _grupsValor();
 }
 
 function _renderGrupsCondicions() {
@@ -8573,12 +8653,24 @@ function generarGrups() {
      la pagina es quedava penjada entre 15 i 22 segons abans de petar. Des dels
      botons no s hi arriba, pero des de qualsevol altra crida si (auditoria
      6/9/2026). */
-  const _perGrup = parseInt(_grupsNum, 10);
-  if (!Number.isFinite(_perGrup) || _perGrup < 1) {
-    showToast('Els alumnes per grup han de ser com a mínim 1.', 'error');
-    return;
+  if (_grupsMode === 'quants') {
+    const _vol = parseInt(_grupsQuants, 10);
+    if (!Number.isFinite(_vol) || _vol < 1) {
+      showToast('El nombre de grups ha de ser com a mínim 1.', 'error');
+      return;
+    }
+    _grupsQuants = Math.min(_vol, presents.length);
+  } else {
+    const _perGrup = parseInt(_grupsNum, 10);
+    if (!Number.isFinite(_perGrup) || _perGrup < 1) {
+      showToast('Els alumnes per grup han de ser com a mínim 1.', 'error');
+      return;
+    }
+    _grupsNum = Math.min(_perGrup, presents.length);
   }
-  _grupsNum = Math.min(_perGrup, presents.length);
+  /* Quants grups han de sortir: en mode 'quants' és el que ha demanat; en
+     mode 'mida', els que surten de la mida. Un sol lloc per decidir-ho. */
+  const _nG = _grupsNGrups(presents.length);
 
   let grups = null;
 
@@ -8594,26 +8686,30 @@ function generarGrups() {
        Amb `true` continua equilibrant per nivell i PI/AM exactament igual:
        l'únic que canvia és per quin nen comença dins de cada nivell, que és
        justament el que ha de canviar quan es demana una repartició nova. */
-    grups = _generarHeterogenis(alumnes, true, presents);
+    grups = _generarHeterogenis(alumnes, true, presents, _nG);
     // Intenta respectar les condicions reordenant si cal
     if (!_compleixCondicions(grups)) {
       // Un parell d'intents més barrejant l'ordre de repartiment
       for (let intent = 0; intent < 200; intent++) {
-        const candidat = _generarHeterogenis(alumnes, true, presents);
+        const candidat = _generarHeterogenis(alumnes, true, presents, _nG);
         if (_compleixCondicions(candidat)) { grups = candidat; break; }
       }
       if (!_compleixCondicions(grups)) showToast('Grups equilibrats, però no s\'han pogut complir totes les condicions', 'error');
     }
   } else {
-    // Homogeni: aleatori
+    /* Homogeni: aleatori. Demanant un NOMBRE de grups es reparteix entre
+       tots (veure `_formarNGrups`); demanant una MIDA es talla per mida,
+       com sempre. */
+    const fes = () => (_grupsMode === 'quants')
+      ? _formarNGrups(_barrejar(presents.slice()), _nG)
+      : _formarGrups(_barrejar(presents.slice()), _grupsNum);
     const MAX_INTENTS = 500;
     for (let intent = 0; intent < MAX_INTENTS; intent++) {
-      const barrejats = _barrejar(presents.slice());
-      const candidat  = _formarGrups(barrejats, _grupsNum);
+      const candidat = fes();
       if (_compleixCondicions(candidat)) { grups = candidat; break; }
     }
     if (!grups) {
-      grups = _formarGrups(_barrejar(presents.slice()), _grupsNum);
+      grups = fes();
       showToast('No s\'han pogut complir totes les condicions', 'error');
     }
   }
@@ -8627,10 +8723,15 @@ function generarGrups() {
    NO es filtra (veure `_grupsFora`): el que torna aquesta funció són índexs
    d'`alumnes`, i són els mateixos que fan servir les condicions i els noms
    que es pinten. Sense `presents` es reparteixen tots, com sempre. */
-function _generarHeterogenis(alumnes, aleatoritzar, presents) {
+function _generarHeterogenis(alumnes, aleatoritzar, presents, nGrupsVol) {
   const hiEs = presents ? new Set(presents) : null;
   const quants = hiEs ? hiEs.size : alumnes.length;
-  const nGrups = Math.ceil(quants / _grupsNum);
+  /* `nGrupsVol` és els grups que s'han demanat (mode «nombre de grups»). Sense
+     ell, els que surten de la mida: és com es cridava abans i hi ha proves
+     que ho fan així. */
+  const nGrups = (nGrupsVol && nGrupsVol > 0)
+    ? Math.max(1, Math.min(quants, Math.floor(nGrupsVol)))
+    : Math.ceil(quants / _grupsNum);
   const grups = Array.from({ length: nGrups }, () => []);
 
   // Classifica els alumnes per índex
@@ -8829,6 +8930,29 @@ function _formarGrups(indexos, mida) {
   const grups = [];
   for (let i = 0; i < indexos.length; i += mida) {
     grups.push(indexos.slice(i, i + mida));
+  }
+  return grups;
+}
+
+/* ⚠ DEMANANT N GRUPS NO ES POT TALLAR PER MIDA.
+
+   La temptació és calcular la mida (`ceil(total/n)`) i fer servir
+   `_formarGrups`. No surt: amb 12 alumnes i 5 grups, ceil(12/5) = 3 i els
+   talls donen QUATRE grups de 3. Ella n'ha demanat cinc i n'hi sortirien
+   quatre, sense que res petés.
+
+   Per tant es reparteix: `base` alumnes a cada grup i un més als primers
+   `resta`. Amb 12 i 5 → 3, 3, 2, 2, 2. */
+function _formarNGrups(indexos, n) {
+  const quants = Math.max(1, Math.min(indexos.length, Math.floor(n) || 1));
+  const base = Math.floor(indexos.length / quants);
+  const resta = indexos.length % quants;
+  const grups = [];
+  let i = 0;
+  for (let g = 0; g < quants; g++) {
+    const mida = base + (g < resta ? 1 : 0);
+    grups.push(indexos.slice(i, i + mida));
+    i += mida;
   }
   return grups;
 }

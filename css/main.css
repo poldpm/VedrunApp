@@ -3517,20 +3517,24 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-/* Selector de tipus de grups (homogeni / heterogeni) */
+/* Els dos selectors de parella del generador: com es compten els grups
+   (alumnes per grup / nombre de grups) i de quin tipus són (homogeni /
+   heterogeni). Comparteixen estil a posta: fan la mateixa feina i, posats
+   l'un sobre l'altre, dos dibuixos diferents només despistarien. */
 .grups-tipus-sel { display: flex; gap: 8px; }
-.grups-tipus-btn {
+.grups-tipus-btn, .grups-mode-btn {
   flex: 1; display: flex; flex-direction: column; gap: 2px;
   padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--r-md);
   background: var(--surface); cursor: pointer; text-align: left;
   transition: all 0.15s var(--ease);
 }
-.grups-tipus-btn:hover { border-color: var(--garnet-mid); }
-.grups-tipus-btn.active {
+.grups-tipus-btn:hover, .grups-mode-btn:hover { border-color: var(--garnet-mid); }
+.grups-tipus-btn.active, .grups-mode-btn.active {
   border-color: var(--crimson); background: #FBEAED;
 }
 .grups-tipus-nom { font-weight: 700; font-size: 13px; color: var(--text-main); }
-.grups-tipus-btn.active .grups-tipus-nom { color: var(--garnet-text); }
+.grups-tipus-btn.active .grups-tipus-nom,
+.grups-mode-btn.active .grups-tipus-nom { color: var(--garnet-text); }
 .grups-tipus-desc { font-size: 11px; color: var(--text-muted); }
 
 /* Condicions de seient a la fitxa de l'alumne */
