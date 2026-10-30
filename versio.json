@@ -1,9 +1,10 @@
 {
-  "versio": "v326",
+  "versio": "v327",
   "data": "2026-10-30",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "L'hora escrita sota el rellotge del Temporitzador ara es diu sempre en català: «dos quarts de tres», «un quart i cinc de quatre». Mai «les dues i mitja».",
-    "I la pots amagar quan vulguis, a part de l'esfera: si vols que els nens llegeixin les broques ells, clica «Amagar l'hora escrita». Se'n recorda."
+    "Al Generador de grups, si ets tutora ja pots triar la teva classe sencera («La meva tutoria · 2n B») en comptes d'una assignatura, i és el que surt triat d'entrada.",
+    "Amb la tutoria triada, els grups heterogenis s'equilibren per la mitjana de totes les assignatures que hi fas, no per una de sola.",
+    "El rètol de dalt ara diu «Amb quins alumnes», que és el que es tria de debò."
   ]
 }

@@ -8275,31 +8275,57 @@ function grupsSetTipus(tipus, btn) {
   if (typeof _updateGrupsHint === 'function') _updateGrupsHint();
 }
 
-// Pobla el selector d'assignatura amb les meves assignatures (amb grup)
+/* ⚠ UNA TUTORA HA DE PODER TRIAR LA SEVA CLASSE, NO UNA ASSIGNATURA.
+
+   En Pol, 30/10/2026: «en el generador de grups necessito que les tutores
+   també puguin triar el grup que tutoritzen, als seus alumnes, i no una
+   assignatura».
+
+   Fins ara el selector només tenia assignatures: les del perfil. L'opció de
+   la tutoria sencera només sortia a qui NO hagués omplert el perfil, o sigui
+   que una tutora que l'hagués omplert —totes— es quedava sense poder fer
+   grups amb la seva classe i havia de triar una assignatura qualsevol per
+   arribar-hi. Ara la tutoria és la PRIMERA opció i la que surt triada: una
+   tutora, quan fa grups, els fa amb els seus. */
+const GRUPS_TUTORIA = '__tutoria__';
+
+/* El rètol de l'opció: amb el grup si el sabem («La meva tutoria · 2n B»). */
+function _grupsEtiquetaTutoria() {
+  const g = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+  return g ? ('La meva tutoria · ' + g) : 'La meva tutoria';
+}
+
+/* Qui té tutoria i alumnes a la pantalla. Una especialista i la direcció no
+   en tenen: oferir-los-ho seria ensenyar-los un grup que no és seu. */
+function _grupsPotTriarTutoria() {
+  const sense = (typeof senseTutoria === 'function') && senseTutoria();
+  return !sense && Array.isArray(students) && students.length > 0;
+}
+
+// Pobla el selector amb la tutoria (si en té) i les meves assignatures
 function _grupsPoblarSelector() {
   const sel = document.getElementById('grupsAssigSelector');
   if (!sel) return;
   const entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
-  if (!entrades.length) {
-    /* Sense perfil. Una tutora encara te els alumnes del seu grup carregats i
-       pot fer grups amb ells; una especialista o la direccio, no: dir-los
-       "Tutoria" era ensenyar-los una assignatura que no fan. */
-    const senseGrup = (typeof senseTutoria === 'function') && senseTutoria();
-    if (senseGrup || !students.length) {
-      sel.innerHTML = '<option value="">—</option>';
-      const h = document.getElementById('grupsAssigHint');
-      if (h) h.innerHTML = 'Encara no has dit a quins grups fas classe. Ves a <strong>El meu perfil</strong>.';
-      _grupsAlumnes = [];
-      return;
-    }
-    sel.innerHTML = '<option value="">Tutoria</option>';
-    _grupsAlumnes = students.slice();
+  const tut = _grupsPotTriarTutoria();
+
+  if (!entrades.length && !tut) {
+    sel.innerHTML = '<option value="">—</option>';
+    const h = document.getElementById('grupsAssigHint');
+    if (h) h.innerHTML = 'Encara no has dit a quins grups fas classe. Ves a <strong>El meu perfil</strong>.';
+    _grupsAlumnes = [];
     return;
   }
-  sel.innerHTML = entrades.map((e,i) =>
-    `<option value="${e.key}"${i===0?' selected':''}>${escapeHtml(e.label)}</option>`
-  ).join('');
-  // Carrega la primera assignatura
+
+  const opcions = [];
+  if (tut) {
+    opcions.push(`<option value="${GRUPS_TUTORIA}" selected>${escapeHtml(_grupsEtiquetaTutoria())}</option>`);
+  }
+  entrades.forEach((e, i) => {
+    opcions.push(`<option value="${e.key}"${(!tut && i === 0) ? ' selected' : ''}>${escapeHtml(e.label)}</option>`);
+  });
+  sel.innerHTML = opcions.join('');
+  // Carrega el que hagi quedat triat (la tutoria, o la primera assignatura)
   grupsCanviaAssig();
 }
 
@@ -8343,9 +8369,12 @@ async function grupsCanviaAssig() {
   const nomBase = (typeof _assigNomMap !== 'undefined') ? _assigNomMap[matKey] : null;
 
   if (!grup) {
-    // Tutoria o sense grup: usa els students actuals
+    /* La tutoria (o res triat): els alumnes que ja hi ha a la pantalla, que
+       són els del seu grup. No cal demanar-los al servidor. */
     _grupsAlumnes = students.slice();
-    if (hint) hint.textContent = `${_grupsAlumnes.length} alumnes`;
+    const gTut = (matKey === GRUPS_TUTORIA && typeof _perfilTutorGrupKey === 'function')
+      ? _perfilTutorGrupKey() : null;
+    if (hint) hint.textContent = `${_grupsAlumnes.length} alumnes${gTut ? ' de ' + gTut : ''}`;
     _grupsCondicions = [];
     _grupsFora.clear();          // la llista és nova: tothom hi torna a ser
     _renderGrupsCondicions();
@@ -8757,11 +8786,33 @@ function qualificacioText(nota) {
   return 'No assoliment';
 }
 
+/* Les assignatures que la tutora fa AL SEU grup. Amb la tutoria triada no hi
+   ha una assignatura sola, i el nivell d'un alumne surt de la mitjana
+   d'aquestes: és el que una tutora entén per «com va». */
+function _grupsClausTutoria() {
+  try {
+    const tutorKey = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
+    if (!tutorKey) return [];
+    const entrades = (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
+    return entrades.filter(e => e.grup === tutorKey).map(e => e.key);
+  } catch (e) { return []; }
+}
+
 function _grupsNotaAlumne(alumne) {
   try {
     var sel = document.getElementById('grupsAssigSelector');
     var matKey = sel ? sel.value : '';
     if (!matKey || !alumne) return null;
+    if (matKey === GRUPS_TUTORIA) {
+      /* ⚠ Sense assignatura no vol dir sense nivell. Es fa la mitjana de les
+         assignatures que fa al seu grup; si cap no té notes, torna null i els
+         grups surten a l'atzar, igual que abans. */
+      var vals = _grupsClausTutoria()
+        .map(function (k) { return notaAlumneMateria(alumne.nom, k); })
+        .filter(function (n) { return n !== null && n !== undefined && !isNaN(n); });
+      if (!vals.length) return null;
+      return vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+    }
     return notaAlumneMateria(alumne.nom, matKey);
   } catch (e) { return null; }
 }
@@ -8808,12 +8859,20 @@ function _mostrarGrups(grups) {
   if (_grupsTipus === "hetero") {
     const _llista = (_grupsAlumnes && _grupsAlumnes.length) ? _grupsAlumnes : students;
     const _ambNota = _llista.filter(a => _grupsNotaAlumne(a) !== null).length;
+    /* ⚠ Amb la tutoria triada no hi ha cap assignatura: dir-li «notes
+       d'aquesta assignatura» la faria buscar una assignatura que no ha triat.
+       El nivell surt de la mitjana de les que fa al seu grup. */
+    const _esTut = (() => {
+      const s = document.getElementById('grupsAssigSelector');
+      return !!(s && s.value === GRUPS_TUTORIA);
+    })();
+    const _dOn = _esTut ? 'de les teves assignatures' : "d'aquesta assignatura";
     if (_ambNota === 0) {
-      _avis = `<div class="grups-avis grups-avis-warn">Encara no hi ha notes d'aquesta assignatura, o sigui que els grups estan fets a l'atzar (tenint en compte PI i AM). Posa-hi notes i torna a generar-los per equilibrar-los per nivell.</div>`;
+      _avis = `<div class="grups-avis grups-avis-warn">Encara no hi ha notes ${_dOn}, o sigui que els grups estan fets a l'atzar (tenint en compte PI i AM). Posa-hi notes i torna a generar-los per equilibrar-los per nivell.</div>`;
     } else if (_ambNota < _llista.length) {
       _avis = `<div class="grups-avis">Equilibrats per nota de ${_ambNota} de ${_llista.length} alumnes. Els altres encara no en tenen i s han repartit igualment.</div>`;
     } else {
-      _avis = `<div class="grups-avis grups-avis-ok">Equilibrats per la nota mitjana dels ${_ambNota} alumnes.</div>`;
+      _avis = `<div class="grups-avis grups-avis-ok">Equilibrats per la nota mitjana ${_esTut ? 'de les teves assignatures, ' : ''}dels ${_ambNota} alumnes.</div>`;
     }
   }
   let html = `<div class="grups-result-header">
