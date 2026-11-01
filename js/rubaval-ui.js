@@ -66,6 +66,55 @@
     return (typeof _perfilEntradesAmbGrup === 'function') ? _perfilEntradesAmbGrup() : [];
   }
 
+  /* ============================================================
+     ⚠ DUES CLAUS QUE NO SÓN LA MATEIXA (1/11/2026)
+     ------------------------------------------------------------
+     · La clau de l'ENTRADA del perfil («catala__5eb») porta el grup
+       enganxat, perquè la mateixa assignatura a dos grups són dues coses
+       diferents. És amb la que es desen les rúbriques.
+     · La clau de l'ASSIGNATURA («catala») és la que fa servir el menú per
+       obrir el registre de notes, i l'ÚNICA que el servidor sap traduir a
+       nom de pestanya del full.
+
+     Aquí es confonien: «passa al registre» obria el registre amb la clau de
+     l'entrada. El servidor no la coneix, i com que el que fa amb una clau
+     que no coneix és posar-li majúscula, la columna de la rúbrica anava a
+     parar a una pestanya `1T_Catala__5eb_5è B` que no obre mai ningú: la
+     nota hi era, desada, i la mestra no la veia al seu registre. El mateix
+     per l'altre costat, el botó «rúbrica» de la capçalera, que buscava la
+     rúbrica amb la clau de l'assignatura i no en trobava cap.
+
+     Ara es tradueix als quatre llocs on es creuen les dues claus, i les
+     rúbriques ja desades no es toquen: se segueixen desant amb la clau de
+     l'entrada, que és on són.
+     ============================================================ */
+  function _navKey(e) {
+    return (typeof _navMateriaKey === 'function') ? _navMateriaKey(e) : (e && e.key);
+  }
+
+  /* De la materia del registre a l'entrada del perfil. Accepta les dues
+     claus: les rúbriques d'abans d'aquest arranjament van obrir el registre
+     amb la de l'entrada i han de continuar trobant-se. */
+  function _entradaDeContext(materia, grup) {
+    if (!materia) return null;
+    var entr = _entrades();
+    var e = entr.filter(function (x) { return x.key === materia; })[0];
+    if (e) return e;
+    var mateixa = entr.filter(function (x) { return _navKey(x) === materia; });
+    if (!mateixa.length) return null;
+    if (mateixa.length === 1) return mateixa[0];
+    /* La mateixa assignatura a més d'un grup: mana el grup del registre. Als
+       desdoblaments el registre no en porta (el base el deixa a null), i
+       llavors és la que va per desdoblament. */
+    return mateixa.filter(function (x) { return grup ? x.grup === grup : x.altres; })[0] || mateixa[0];
+  }
+
+  // La clau amb què es desen les rúbriques d'un registre obert.
+  function _clauDe(materia, grup) {
+    var e = _entradaDeContext(materia, grup);
+    return e ? e.key : materia;
+  }
+
   function _trimestreInicial() {
     if (_trim) return _trim;
     if (typeof getTrimestreProposat === 'function') return getTrimestreProposat() || 1;
@@ -1161,7 +1210,9 @@
 
     // Al registre d'aquella assignatura i aquell trimestre (hi navega sol)
     try {
-      await openNotes(_entrada.key, _trim, _entrada.grup || null);
+      /* La clau de l'ASSIGNATURA, exactament com la fa servir el menú:
+         així la columna va a la MATEIXA pestanya del full que ella obre. */
+      await openNotes(_navKey(_entrada), _trim, _entrada.grup || null);
     } catch (e) {
       avisa('No s\'ha pogut obrir el registre de notes: ' + ((e && e.message) || ''));
       return;
@@ -1250,25 +1301,26 @@
   ui.remapaItem = function (ctx, idVell, idNou) {
     if (!ctx || !ctx.materia || String(idVell) === String(idNou)) return;
     var trim = String(ctx.trimestre);
-    var llista = RubAval.llegeix(ctx.materia, trim);
+    var clau = _clauDe(ctx.materia, ctx.grup);
+    var llista = RubAval.llegeix(clau, trim);
     var tocada = false;
     llista.forEach(function (r) {
       if (String(r.itemId) === String(idVell)) { r.itemId = idNou; tocada = true; }
     });
     if (!tocada) return;
-    RubAval.desa(ctx.materia, trim, llista);
-    if (_entrada && _entrada.key === ctx.materia && String(_trim) === trim) _llista = llista;
+    RubAval.desa(clau, trim, llista);
+    if (_entrada && _entrada.key === clau && String(_trim) === trim) _llista = llista;
     _oblidaMapa();
   };
 
-  ui.rubricaDeItem = function (materia, trim, itemId) {
+  ui.rubricaDeItem = function (materia, trim, itemId, grup) {
     if (!materia || itemId === undefined || itemId === null) return null;
-    try { return _mapaItems(materia, String(trim))[String(itemId)] || null; }
+    try { return _mapaItems(_clauDe(materia, grup), String(trim))[String(itemId)] || null; }
     catch (e) { return null; }
   };
 
-  ui.obreDesDelRegistre = function (materia, trim, itemId) {
-    var e = _entrades().filter(function (x) { return x.key === materia; })[0];
+  ui.obreDesDelRegistre = function (materia, trim, itemId, grup) {
+    var e = _entradaDeContext(materia, grup);
     if (!e) { avisa('Aquesta assignatura ja no és al teu perfil.'); return; }
     _entrada = e;
     _trim = parseInt(trim, 10) || 1;

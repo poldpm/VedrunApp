@@ -1,10 +1,9 @@
 {
-  "versio": "v328",
-  "data": "2026-10-30",
+  "versio": "v329",
+  "data": "2026-11-01",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al Generador de grups ja pots triar què és el que mana: «grups de 4 alumnes» o bé «5 grups». Abans només es podien dir els alumnes per grup i havies de dividir de cap.",
-    "Demanant un nombre de grups, reparteix tothom entre tots i et surten de la mida més igualada possible (23 alumnes en 5 grups → de 4 o de 5).",
-    "El − i el + mouen el número del que hagis triat, i el rètol de dalt et diu sempre quin és."
+    "Rúbriques d avaluació: «Passar al registre» creava la columna en una pestanya equivocada del full, que no obre mai ningú. Les notes hi eren, desades, però no sortien al registre. Ara va on toca, i el botó «rúbrica» de la capçalera torna a trobar la seva rúbrica.",
+    "Si ja n havies passat alguna abans, torna a obrir la rúbrica i clica «Passar al registre»: te la crearà al lloc bo."
   ]
 }
