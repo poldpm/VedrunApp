@@ -178,12 +178,53 @@ En una sessió remota les carpetes `C:/Escorial/...` no existeixen:
 - `js/config.local.js` (el token) SÍ que és al repo de cada filla —veure la
   regla 3—, o sigui que en remot ja hi és i no s'ha de fer res perquè hi sigui.
 
+## ⚠ EL NÚMERO DE VERSIÓ: MIRA'L ABANS DE POSAR-L'HI
+
+En Pol treballa en **diverses converses alhora** (una per rol i una de canvis
+generals) i **totes toquen aquesta mateixa mare**. Dues que agafen el mateix
+número acaben malament, i ja ha passat dues vegades:
+
+- **30/10/2026** — el v323 del temporitzador contra un altre v323 i un v324
+  que una altra conversa acabava de publicar a les set apps. Els set `push`
+  rebutjats i la feina renumerada a v325.
+- **6/11/2026** — el mateix amb el v329 (el color de la nota arrodonida
+  contra la correcció de les rúbriques). Renumerat a v330. **I pitjor:**
+  aquella correcció era només a les filles, no a la mare, o sigui que el
+  `sync-totes.js` l'hi hauria passat per sobre a les set i les mestres
+  haurien tornat a tenir la rúbrica trencada.
+
+**Regla: abans d'escriure el número nou als tres fitxers, passa**
+
+```bash
+node eines/quin-numero.js
+```
+
+Fa el `fetch` i mira **què hi ha publicat de debò al GitHub de cada filla**,
+que és el que les mestres veuen. Torna codi 1 si el número ja és agafat, i
+diu quin has d'agafar. També va dins del `prova-tot.js`, el primer de tots.
+
+⚠ **No te'n refiïs de l'`estat-apps.js` per a això.** Compara amb
+l'`origin/main` de la còpia local, i aquell no es mou fins que algú fa
+`fetch`: mentre l'altra conversa publica, aquí tot sembla al dia. És
+exactament el que va passar les dues vegades.
+
+**I si el número ja és agafat**, en aquest ordre:
+1. **El que es renumera és el d'aquí, no el seu**: el seu número ja és a mans
+   de les mestres i no es pot reaprofitar.
+2. **Mira què ha canviat ell i si allò també és a la mare.** Si no hi és,
+   porta-l'hi abans de sincronitzar res.
+3. Al `versio.json`, **els dos llistats de canvis junts**: qui salti de cop
+   s'ha d'assabentar de les dues coses.
+4. Reposa les filles a `origin/main`, torna a sincronitzar i publica.
+
 ## Workflow tècnic
 - Frontend HTML/CSS/JS pur, sense frameworks. Backend: Google Apps Script (`Code.gs`).
 - **A cada canvi de frontend, puja la versió als TRES fitxers alhora**, o
   l'avís de versió nova mentirà: `sw.js` (`const CACHE = 'vedruna-vNN'`),
   `js/versio.js` (`VERSIO_APP`) i `versio.json` (`versio` + la llista de
   `canvis`, escrits en llenguatge de mestre).
+  Abans de posar-hi el número, **comprova que és lliure** (veure l'apartat
+  d'aquí sobre).
 - ⚠ **UN CANVI AL `Code.gs` NO DEMANA DESPLEGAR RES.** Des que el codi viu a
   la BIBLIOTECA (4/9/2026), en Pol l'enganxa, la desa, i arriba a totes les
   mestres sola. **No li diguis mai que «desplegui una versió nova»**: és
