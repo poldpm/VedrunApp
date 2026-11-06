@@ -113,6 +113,35 @@ const QUALS = [
 ];
 function getQual(n)      { if (n === null || n === undefined || isNaN(n)) return null; for (const q of QUALS) if (n >= q.min && n <= q.max) return q; return QUALS[0]; }
 function getQualCodi(n)  { const q = getQual(n); return q ? q.codi : ''; }
+
+/* ============================================================
+   LA CASELLA DE LA NOTA ARRODONIDA
+   ------------------------------------------------------------
+   En Pol, 6/11/2026: «els totals (nota arrodonida) no tinguin el
+   codi de color de verd o vermell, sinó el codi de color de les
+   mitjanes normals (color segons AN, AS, AE, NA…)».
+
+   Abans anava de verd o vermell segons si arribava al 5: un sol
+   tall, aprovat o suspès. La resta de la taula va amb els quatre
+   colors dels `QUALS` (NA vermell, AS groc, AN blau, AE verd),
+   i així un 5 i un 10 es pintaven igual de verds mentre que a la
+   columna del costat eren de dos colors diferents. Ara tota la
+   fila parla el mateix idioma: el color diu l'assoliment, no si
+   aprova.
+
+   ⚠ ESTÀ EN UNA FUNCIÓ A POSTA. Aquesta casella es pinta en dos
+   llocs —la taula sencera i el refresc d'una fila en entrar una
+   nota— i abans eren dos trossos d'HTML calcats. Arreglant-ne un
+   de sol, la nota hauria canviat de color en recarregar.
+   ============================================================ */
+function _chipNotaArrod(nota) {
+  if (nota === null || nota === undefined || isNaN(nota)) {
+    return '<span style="color:var(--text-muted)">—</span>';
+  }
+  const q = getQual(nota) || QUALS[0];
+  return `<span class="nota10-chip" style="background:${q.bg};color:${q.color};font-size:16px;font-weight:800;min-width:44px">${nota}</span>` +
+         `<span class="qual-badge" style="background:${q.bg};color:${q.color};font-size:11px">${q.codi}</span>`;
+}
 function sobre10(p, max) { if (!max || p === '' || p === null || p === undefined) return null; const n = parseFloat(p); return isNaN(n) ? null : Math.round(n / max * 10 * 100) / 100; }
 function arrod(mitj)     { return mitj === null || mitj === undefined ? null : Math.floor(mitj + 0.5); }
 
@@ -947,15 +976,7 @@ function refreshStudentRow(sid) {
       : '<span style="color:var(--text-muted)">—</span>';
   }
   const nCell = document.getElementById('nota_' + sid);
-  if (nCell) {
-    const nota = arrod(mitj);
-    if (nota !== null) {
-      const isSus = nota < 5;
-      const bgN = isSus ? '#FEE2E2' : '#D1FAE5';
-      const fcN = isSus ? '#991B1B' : '#065F46';
-      nCell.innerHTML = `<span class="nota10-chip" style="background:${bgN};color:${fcN};font-size:16px;font-weight:800;min-width:44px">${nota}</span><span class="qual-badge" style="background:${bgN};color:${fcN};font-size:11px">${getQualCodi(nota)}</span>`;
-    } else { nCell.innerHTML = '<span style="color:var(--text-muted)">—</span>'; }
-  }
+  if (nCell) nCell.innerHTML = _chipNotaArrod(arrod(mitj));
 }
 
 /* ============================================================
@@ -1178,13 +1199,7 @@ function renderNotesTable() {
     const nota = arrod(mitj);
     const tdN = document.createElement('td'); tdN.className='notes-td-mitj notes-td-item-readonly';
     const divN = document.createElement('div'); divN.id='nota_'+s.id; divN.className='mitj-cell';
-    if (nota !== null) {
-      const isSus = nota < 5;
-      const bg    = isSus ? '#FEE2E2' : '#D1FAE5';
-      const fc    = isSus ? '#991B1B' : '#065F46';
-      const qual  = getQualCodi(nota);
-      divN.innerHTML = `<span class="nota10-chip" style="background:${bg};color:${fc};font-size:16px;font-weight:800;min-width:44px">${nota}</span><span class="qual-badge" style="background:${bg};color:${fc};font-size:11px">${qual}</span>`;
-    } else { divN.innerHTML = '<span style="color:var(--text-muted)">—</span>'; }
+    divN.innerHTML = _chipNotaArrod(nota);
     tdN.appendChild(divN); tr.appendChild(tdN);
     fragBody.appendChild(tr);
   });
