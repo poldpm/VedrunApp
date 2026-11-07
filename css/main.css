@@ -1405,7 +1405,7 @@ body {
 .notes-th-item {
   min-width: 140px;
   text-align: center;
-  padding: 10px 28px 10px 12px; /* espai dret per la creu */
+  padding: 10px 28px 10px 28px; /* espai per la creu (dreta) i per l'«A+» (esquerra) */
   /* Aquí hi deia `position: relative`, per la creu d'esborrar que va
      absoluta a dins. Ja no cal: `thead th` és «sticky», que també és
      posicionat, i la creu s'hi ancora igual. Deixar-l'hi seria una línia
@@ -1434,6 +1434,19 @@ body {
 .notes-th-item:hover .notes-del-btn { opacity: 1; }
 .notes-del-btn:hover { color: #EF4444; opacity: 1; }
 .notes-del-btn svg { width: 12px; height: 12px; }
+
+/* «A+»: fer-ne la versió adaptada. A l'altra punta de la capçalera que la
+   creu d'esborrar, a posta: són els dos botons petits de la columna i
+   confondre'ls voldria dir perdre una prova sencera. */
+.notes-adapt-btn {
+  position: absolute; top: 6px; left: 6px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); padding: 1px 4px; border-radius: 4px;
+  font: inherit; font-size: 10px; font-weight: 800; line-height: 1.4;
+  opacity: 0.5; transition: all 0.15s var(--ease);
+}
+.notes-th-item:hover .notes-adapt-btn { opacity: 1; }
+.notes-adapt-btn:hover { color: var(--garnet-text); background: var(--surface-alt); opacity: 1; }
 
 /* Columna Mitjana */
 .notes-th-mitj {

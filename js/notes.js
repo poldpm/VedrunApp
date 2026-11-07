@@ -715,14 +715,81 @@ function _hideNotesLoading() {
 /* ============================================================
    MODAL — Nou ítem
    ============================================================ */
+/* ⚠ LA CATEGORIA DE L'ACTIVITAT QUE S'ESTÀ CREANT.
+
+   A les pestanyes que van per categories («C. Lectora · 40%»…), la categoria
+   és el que decideix amb quines altres activitats fa mitjana i quin tant per
+   cent s'emporta. Viu a la nota de la capçalera del full (el quart tros), i
+   el `Code.gs` la posa a partir d'`item.cat`.
+
+   Es desa aquí, fora del formulari, perquè el formulari no en té casella: les
+   activitats creades des de l'app neixen sense categoria i van al calaix del
+   que en sobra. Per a la versió ADAPTADA d'una activitat això no pot ser:
+   ha de pesar exactament com la normativa, o sigui que ha d'anar a la MATEIXA
+   categoria. Veure `notesNovaAdaptada()`. */
+let _notaItemCat = '';
+
 function openNewNotaModal() {
   document.getElementById('notaItemNom').value = '';
   document.getElementById('notaItemMax').value = '10';
   selectPesByVal('1');
+  _notaItemCat = '';
+  _notaModalSub('S\'afegirà com a columna al full de càlcul de l\'assignatura');
   document.getElementById('newNotaOverlay').classList.add('open');
   setTimeout(() => document.getElementById('notaItemNom').focus(), 100);
 }
-function closeNewNotaModal() { document.getElementById('newNotaOverlay').classList.remove('open'); }
+function closeNewNotaModal() {
+  document.getElementById('newNotaOverlay').classList.remove('open');
+  _notaItemCat = '';
+}
+function _notaModalSub(txt) {
+  const el = document.getElementById('notaItemSub');
+  if (el) el.textContent = txt;
+}
+
+/* ============================================================
+   LA VERSIÓ ADAPTADA D'UNA ACTIVITAT
+   ------------------------------------------------------------
+   En Pol, 7/11/2026: «moltes vegades fem aquest mateix examen
+   adaptat a nivells inferiors… un nen amb una prova adaptada no
+   fa 63 preguntes, en fa moltes menys».
+
+   La solució és UNA COLUMNA PER A CADA PROVA, i no un «sobre 20»
+   amagat dins l'app. ⚠ El motiu és que els punts es desen al full
+   tal qual i qui divideix pel màxim és la CAPÇALERA de la columna:
+   ho fa l'app a la pantalla i ho torna a fer el `Code.gs` al full,
+   per separat (`_mitjanaFila_`). Un màxim que només sabés l'app
+   faria que la pantalla digués 8,5 i el full escrivís 2,7 per al
+   mateix nen —i el full és el que acaba sortint a la fitxa—. Ja
+   va passar una cosa així el 8/9/2026 amb l'actitud.
+
+   Amb dues columnes funciona sense tocar res de tot això: una
+   casella BUIDA no compta enlloc, ni a la pantalla ni al full, o
+   sigui que cada nen fa mitjana només amb la prova que ha fet.
+
+   Aquest botó només treu la feina de recordar-se'n: obre la
+   finestra de sempre amb el nom derivat, el MATEIX pes i la
+   MATEIXA categoria, i només pregunta de quants punts és. El pes
+   i la categoria són l'únic lloc on això es podia espatllar sense
+   que es notés.
+   ============================================================ */
+function notesNovaAdaptada(itemId) {
+  const item = notesItems.find(i => String(i.id) === String(itemId));
+  if (!item) return;
+  openNewNotaModal();
+  _notaItemCat = item.cat || '';
+  document.getElementById('notaItemNom').value = item.nom + ' · adaptada';
+  document.getElementById('notaItemMax').value = '';
+  selectPesByVal(String(item.pes));
+  _notaModalSub('Versió adaptada de «' + item.nom + '». Mateix pes, i els nens que la facin ' +
+                'els deixes en blanc a l\'altra columna.');
+  /* El focus va al MÀXIM, no al nom: el nom ja està posat i l'únic que falta
+     és de quants punts és la prova adaptada. */
+  setTimeout(() => {
+    const m = document.getElementById('notaItemMax');
+    if (m) { m.focus(); m.select(); }
+  }, 120);
+}
 
 function selectPes(btn) {
   document.querySelectorAll('.pes-btn').forEach(b => b.classList.remove('active'));
@@ -760,8 +827,10 @@ function _colsRecentsPosa(ctx, item) {
   _colsRecents[k] = _colsRecents[k].filter(x => Date.now() - x.ts < 300000);
 }
 
-function notesCreaItem(nom, maxPunts, pes) {
+function notesCreaItem(nom, maxPunts, pes, cat) {
   const item = { id: Date.now(), nom: nom, maxPunts: maxPunts, pes: pes };
+  /* Només s'hi posa si n'hi ha: sense `cat`, el `Code.gs` fa el de sempre. */
+  if (cat) item.cat = String(cat);
   notesItems.push(item);
   _colsRecentsPosa(_notesCtxCua(), item);
   notesValors[item.id] = {};
@@ -803,7 +872,7 @@ async function addNotaItem() {
     showToast('El pes ha de ser un número més gran que zero', 'error');
     document.getElementById('notaItemPes').focus(); return;
   }
-  notesCreaItem(nom, maxPunts, pes);
+  notesCreaItem(nom, maxPunts, pes, _notaItemCat);
   closeNewNotaModal();
   showToast('Ítem «' + nom + '» creat', 'success');
 }
@@ -1033,7 +1102,13 @@ function renderNotesTable() {
          que en vénen: per a la resta, aquí no hi canvia res. */
       const _rub = (typeof RubAvalUI !== 'undefined' && RubAvalUI.hiEs && RubAvalUI.hiEs())
         ? RubAvalUI.rubricaDeItem(notesContext.materia, notesContext.trimestre, item.id, notesContext.grup) : null;
-      th.innerHTML = `<button class="notes-del-btn" aria-label="Eliminar ${escapeHtml(item.nom)}" onclick="deleteNotaItem('${_idJs(item.id)}')" title="Eliminar ${escapeHtml(item.nom)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button><div class="notes-th-item-nom" title="${escapeHtml(item.nom)}">${escapeHtml(item.nom)}</div><div class="notes-th-item-meta">Pes ${item.pes} · sobre ${item.maxPunts}</div>` +
+      th.innerHTML = `<button class="notes-del-btn" aria-label="Eliminar ${escapeHtml(item.nom)}" onclick="deleteNotaItem('${_idJs(item.id)}')" title="Eliminar ${escapeHtml(item.nom)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` +
+        /* La versió adaptada d'aquesta prova, amb el mateix pes i la mateixa
+           categoria. Veure `notesNovaAdaptada()`. */
+        `<button class="notes-adapt-btn" title="Fer-ne la versió adaptada de «${escapeHtml(item.nom)}»"
+                 aria-label="Fer la versió adaptada de ${escapeHtml(item.nom)}"
+                 onclick="notesNovaAdaptada('${_idJs(item.id)}')">A+</button>` +
+        `<div class="notes-th-item-nom" title="${escapeHtml(item.nom)}">${escapeHtml(item.nom)}</div><div class="notes-th-item-meta">Pes ${item.pes} · sobre ${item.maxPunts}</div>` +
         (_rub ? `<button class="notes-th-rubrica" title="Obrir la rúbrica de «${escapeHtml(item.nom)}»"
                    aria-label="Obrir la rúbrica de ${escapeHtml(item.nom)}"
                    onclick="RubAvalUI.obreDesDelRegistre('${_idJs(notesContext.materia)}','${_idJs(notesContext.trimestre)}','${_idJs(item.id)}','${_idJs(notesContext.grup || '')}')">rúbrica</button>` : '');

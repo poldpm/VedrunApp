@@ -1,10 +1,9 @@
 {
-  "versio": "v330",
-  "data": "2026-11-06",
+  "versio": "v331",
+  "data": "2026-11-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A Notes, la columna de la nota final arrodonida ja va amb els colors de l'assoliment (NA vermell, AS groc, AN blau, AE verd), com la mitjana del costat. Abans només anava de verd o de vermell segons si arribava al 5, i un 5 i un 10 es pintaven igual.",
-    "Rúbriques d'avaluació: «Passar al registre» creava la columna en una pestanya equivocada del full, que no obre mai ningú. Les notes hi eren, desades, però no sortien al registre. Ara va on toca, i el botó «rúbrica» de la capçalera torna a trobar la seva rúbrica.",
-    "Si ja n'havies passat alguna abans, torna a obrir la rúbrica i clica «Passar al registre»: te la crearà al lloc bo."
+    "A Notes, cada activitat té un botó «A+» a la capçalera per fer-ne la VERSIÓ ADAPTADA: et crea la columna bessona amb el mateix pes i només et pregunta de quants punts és.",
+    "Posa la nota de cada nen només a la columna que ha fet i deixa-li l'altra en blanc: una casella en blanc no compta ni com a zero, o sigui que qui fa 17 de 20 a l'adaptada treu un 8,5 encara que la prova normativa sigui de 63."
   ]
 }
