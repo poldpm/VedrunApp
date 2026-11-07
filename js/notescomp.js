@@ -132,6 +132,15 @@ async function carregaNotesCompartides(grup, forca) {
        mal moment del servidor), durant dos minuts la fitxa seguia dient que
        no hi ha res sense tornar-ho a preguntar. Tornar-ho a demanar és barat;
        ensenyar un buit que no és veritat, no. */
+    /* ⚠ «NO N'HI HA CAP» I «NO ET TOCA VEURE-HO» NO ÉS EL MATEIX.
+
+       El servidor contesta `noEsTutor` a qui no ha de veure res (una
+       especialista, o direcció sense la propietat de la biblioteca). Si això
+       es tornés com una llista buida, la pantalla ho ensenyaria com un
+       «encara no n'hi ha cap de publicada»: un rètol que no li pertoca i que
+       li diu que la cosa existeix. Es torna `null` i la pantalla no pinta
+       res. */
+    if (r && r.noEsTutor) return null;
     const rebut = (r && r.ok && r.assignatures) ? r.assignatures : null;
     if (rebut && rebut.length) _notesCompCache[g] = { assigs: rebut, ts: Date.now() };
     else if (r && r.ok) return rebut || [];
@@ -142,11 +151,33 @@ async function carregaNotesCompartides(grup, forca) {
 /* Les assignatures que NO fa el tutor, per posar-les sota les seves.
    `sevesKeys` són les claus que ja surten a la taula d'ell. */
 function pintaNotesAltresMestres(assigs, rowId, sevesKeys) {
-  if (!assigs || !assigs.length) return '';
+  /* ⚠ ABANS, AMB RES PUBLICAT, AQUÍ NO SORTIA RES DE RES.
+
+     En Pol, 7/11/2026: «sóc tutor, entro a la fitxa d'un alumne i només veig
+     les meves assignatures». El bloc no hi era, i per tant no hi havia
+     manera de saber si és que no n'hi ha cap o és que alguna cosa falla.
+
+     El resum de cada assignatura el publica l'app de la mestra que la fa
+     (cada una té el seu full i ningú no pot llegir el d'una altra). Mentre
+     ella no obri la seva app, aquí no hi ha res. Ara es diu. */
   const _k = s => (s || '').toString().normalize('NFD').replace(_RE_ACC_COMP, '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const meves = new Set((sevesKeys || []).map(_k));
 
+  /* `null` vol dir «no et toca»: res de res, ni el bloc (veure
+     `carregaNotesCompartides`). La llista buida sí que és «encara no n'hi ha
+     cap», i això s'explica. */
+  if (assigs === null || assigs === undefined) return '';
+  if (!assigs.length) {
+    return `
+      <div class="notesalt">
+        <div class="notesalt-tit">Altres assignatures</div>
+        <p class="notesalt-peu">Encara no n'hi ha cap de publicada per a aquest grup. Les publica l'app de cada mestra quan l'obre; si en falta alguna, demana-li que obri la seva app un moment.</p>
+      </div>`;
+  }
+
   const files = assigs.filter(a => !meves.has(_k(a.key)) && !meves.has(_k(a.nom)));
+  /* Totes les que hi ha publicades són seves: no hi ha res a afegir i el
+     bloc no surt (és el cas de qui fa totes les assignatures del seu grup). */
   if (!files.length) return '';
 
   return `
@@ -203,4 +234,75 @@ function _quanText(s) {
   const d = String(s).split(' ')[0].split('-');
   if (d.length !== 3) return '';
   return ' · ' + (+d[2]) + '/' + (+d[1]);
+}
+
+/* ============================================================
+   PUBLICAR-HO TOT, UN COP AL DIA
+   ------------------------------------------------------------
+   ⚠ EL FORAT QUE VA TROBAR EN POL (7/11/2026): «sóc tutor, entro
+   a la fitxa d'un alumne i només veig les meves assignatures».
+
+   Tenia raó, i no era cap error de la pantalla. El resum de cada
+   assignatura viu al full compartit i només s'hi escriu quan
+   l'app D'AQUELLA MESTRA el publica: cada una té el seu full de
+   càlcul i ningú no pot llegir el d'una altra. Fent que es
+   publiqui «en obrir l'assignatura», les notes d'una companya no
+   hi són fins que ella obre aquella assignatura, que pot trigar
+   dies.
+
+   Per això, poc després d'arrencar, l'app publica el resum de
+   TOTES les assignatures que fa a grups que no són el seu. Un cop
+   al dia per assignatura: així, amb que cada mestra obri l'app un
+   cop, el tutor ho té tot.
+
+   · Només les d'un grup del qual NO és tutora: les del seu grup
+     ja les veu ella, i no hi ha res a compartir.
+   · Les de grup rotatori (Tallers), no: avui són uns alumnes i la
+     setmana que ve uns altres, i el resum no voldria dir res.
+   · D'una en una i amb una pausa, i en segon pla: això no ha de
+     fer esperar mai la mestra que acaba d'obrir l'app.
+   ============================================================ */
+const _K_PUBLICAT_DIA = 'notescomp_publicat_dia';
+
+function _avuiText() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+function _jaPublicatAvui(clau) {
+  try {
+    const m = JSON.parse(localStorage.getItem(_K_PUBLICAT_DIA) || '{}');
+    return m[clau] === _avuiText();
+  } catch (e) { return false; }
+}
+function _apuntaPublicat(clau) {
+  try {
+    const m = JSON.parse(localStorage.getItem(_K_PUBLICAT_DIA) || '{}');
+    m[clau] = _avuiText();
+    /* Que no creixi per sempre: les d'altres dies ja no serveixen. */
+    Object.keys(m).forEach(k => { if (m[k] !== _avuiText()) delete m[k]; });
+    localStorage.setItem(_K_PUBLICAT_DIA, JSON.stringify(m));
+  } catch (e) {}
+}
+
+async function publicaTotesLesMevesNotes() {
+  if (!config.scriptUrl) return;
+  if (typeof _perfilEntradesAmbGrup !== 'function') return;
+  const meu = (typeof grupTutoria === 'function') ? grupTutoria() : null;
+  const entrades = _perfilEntradesAmbGrup() || [];
+  for (const e of entrades) {
+    if (!e || !e.grup || !e.key) continue;
+    if (meu && String(e.grup) === String(meu)) continue;        // el seu grup: res a publicar
+    if (e.rotatori) continue;                                    // Tallers: no vol dir res
+    const clau = e.grup + '|' + e.key;
+    if (_jaPublicatAvui(clau)) continue;
+    try {
+      const r = await appsScriptPost({
+        action: 'publicaNotesResum', grup: e.grup, matKey: e.key,
+        nomAssig: String(e.nom || '').split(' · ')[0].trim(), nomMestra: _compNomMestra()
+      });
+      if (r && r.ok) _apuntaPublicat(clau);
+    } catch (err) { /* ja es tornarà a provar demà, o en obrir l'assignatura */ }
+    await new Promise(r => setTimeout(r, 1200));                 // sense atabalar el servidor
+  }
 }

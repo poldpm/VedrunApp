@@ -2483,6 +2483,11 @@ async function loadAll() {
     // Notes de totes les assignatures — l'últim, a 6s (i internament una rere l'altra)
     setTimeout(() => { if (typeof prefetchAllNotes === 'function') prefetchAllNotes(); }, 6000);
 
+    /* Publicar el resum de les assignatures d'altres grups, perquè el tutor/a
+       i la direcció les vegin a la fitxa. Va l'últim de tot i d'una en una:
+       no ha de fer esperar res. Veure `publicaTotesLesMevesNotes()`. */
+    setTimeout(() => { if (typeof publicaTotesLesMevesNotes === 'function') publicaTotesLesMevesNotes(); }, 12000);
+
     initNotifications();
 
     // Activa el refresc automàtic en segon pla (només un cop)
