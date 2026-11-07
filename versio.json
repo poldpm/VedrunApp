@@ -1,8 +1,9 @@
 {
-  "versio": "v335",
+  "versio": "v336",
   "data": "2026-11-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "El botó «A+» de cada activitat (el de fer-ne la versió adaptada) ha baixat a sota d'on diu «Pes · sobre». Abans era a dalt a l'esquerra i, amb un nom d'activitat llarg, el nom se li posava a sobre i no es veia."
+    "ARREGLAT: al Generador de grups, una assignatura que va per desdoblament et portava la CLASSE SENCERA, amb els nens de l'altra meitat. I com que la llista es guarda una estona, allò s'encomanava també a la pantalla de Notes.",
+    "Ara el filtre del desdoblament és en un sol lloc, compartit per les dues pantalles. Si algun dia no es pot saber si una assignatura va per mitja classe, t'ho diu en comptes de donar-te la classe sencera en silenci."
   ]
 }

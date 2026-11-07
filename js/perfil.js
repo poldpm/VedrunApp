@@ -1331,49 +1331,83 @@ function _avisaNoTrobatsDesdob(grup, assig, noTrobats) {
   }
 }
 
+/* ============================================================
+   QUINS ALUMNES SÓN D'UNA ASSIGNATURA (amb desdoblament)
+   ------------------------------------------------------------
+   ⚠ AIXÒ ESTAVA ESCRIT DUES VEGADES, I VA PASSAR EL QUE HAVIA DE PASSAR.
+
+   En Pol, 7/11/2026: «jo no tinc el grup de desdoblament de català, i a la
+   llista em surt un nen del grup de desdoblament... amb la de vegades que
+   t'he demanat que corregissis errors sobre aquest aspecte, com pot ser que
+   encara hi trobi errors?».
+
+   Hi havia dues còpies del mateix: `_refreshGrupStudents()` (la pantalla de
+   notes) i `_carregaAlumnesGrupNet()` (el generador de grups). Totes dues
+   demanaven el grup, hi aplicaven el desdoblament i desaven el resultat a la
+   MATEIXA clau del navegador (`grupcache_<grup>|<assignatura>`).
+
+   La protecció de «si no se sap si és mitja classe, no es dona per bona la
+   sencera» es va escriure NOMÉS a la primera. A la segona, quan la pregunta
+   del desdoblament fallava, es quedava la classe SENCERA i es desava a aquell
+   cache compartit: durant deu minuts, qualsevol pantalla que el llegís —la de
+   notes inclosa— ensenyava la classe sencera, amb els nens de l'altra meitat
+   del desdoblament.
+
+   Ara hi ha UNA funció i les dues la criden. Una correcció aquí val per a les
+   dues pantalles, que és el que fallava.
+
+   `viuEncara`: a la pantalla de notes es canvia de grup mentre les peticions
+   viatgen, i una resposta vella no ha de tocar res. Torna null si ja no toca.
+   ============================================================ */
+async function _alumnesAmbDesdob(grup, materia, viuEncara) {
+  const viu = () => !viuEncara || viuEncara();
+  const r = await appsScriptGet({ action: 'getGrupAlumnes', grup: grup });
+  if (!viu()) return null;
+  let alumnes = (r && r.ok && r.alumnes) ? r.alumnes : [];
+
+  /* ⚠ SI NO SE SAP SI ÉS MITJA CLASSE, NO ES DONA PER BONA LA SENCERA.
+     Es torna a provar un cop i, si torna a fallar, es diu (`dubtos`) i qui
+     crida no ho ha de desar: la propera vegada s'ha de tornar a demanar. */
+  let dubtos = false;
+  if (materia && alumnes.length) {
+    const parts = grup.split(' ');
+    const matNom = _assigNomNet(materia);
+    let d = null;
+    for (let intent = 0; intent < 2 && !(d && d.ok); intent++) {
+      try { d = await appsScriptGet({ action: 'getDesdoblament', curs: parts[0], linia: parts[1], assignatura: matNom }); }
+      catch (e) { d = null; }
+      if (!viu()) return null;
+    }
+    if (!d || !d.ok) {
+      dubtos = true;
+    } else if (d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
+      /* Es casen pel CODI de l'alumne (no canvia mai) i, si no en té, pel
+         nom normalitzat. Abans era el nom exacte: un espai de més o un
+         accent diferent i el nen desapareixia de la llista. */
+      const nn = x => _normNomSimple(x).replace(/\s+/g, ' ');
+      const codis = new Set(), noms = new Set();
+      d.alumnes.forEach(a => {
+        if (a.uid) codis.add(String(a.uid));
+        else noms.add(nn(a.nom));            // sense codi: només pel nom
+      });
+      const filtrats = alumnes.filter(a => (a.uid && codis.has(String(a.uid))) ? true : noms.has(nn(a.nom)));
+      if (filtrats.length) alumnes = filtrats;
+      _avisaNoTrobatsDesdob(grup, matNom, d.noTrobats);
+    }
+  }
+  return { r, alumnes, dubtos, matNom: materia ? _assigNomNet(materia) : '' };
+}
+
 async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
   const meu = ++_grupCarregaId;
   try {
-    const r = await appsScriptGet({ action:'getGrupAlumnes', grup: grup });
-    if (meu !== _grupCarregaId) return;      // ja n'hi ha una de més nova
-    let alumnes = (r.ok && r.alumnes) ? r.alumnes : [];
-
-    /* ⚠ SI NO SE SAP SI ÉS MITJA CLASSE, NO ES DONA PER BONA LA SENCERA.
-
-       Abans, si la pregunta del desdoblament fallava (un mal moment del
-       servidor), es queia en silenci a la classe sencera, es desava a la
-       còpia del navegador i es donava per carregada: durant deu minuts, i
-       fins que no es recarregués l'app, la mestra veia tota la classe a una
-       assignatura de mitja. Ara es torna a provar un cop i, si torna a
-       fallar, es diu i no es guarda res: la propera vegada es tornarà a
-       demanar. */
-    let desdobDubtos = false;
-    if (materia && alumnes.length) {
-      const parts = grup.split(' ');
-      const matNom = _assigNomNet(materia);
-      let d = null;
-      for (let intent = 0; intent < 2 && !(d && d.ok); intent++) {
-        try { d = await appsScriptGet({ action:'getDesdoblament', curs:parts[0], linia:parts[1], assignatura:matNom }); }
-        catch (e) { d = null; }
-        if (meu !== _grupCarregaId) return;
-      }
-      if (!d || !d.ok) {
-        desdobDubtos = true;
-      } else if (d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
-        /* Es casen pel CODI de l'alumne (no canvia mai) i, si no en té, pel
-           nom normalitzat. Abans era el nom exacte: un espai de més o un
-           accent diferent i el nen desapareixia de la llista. */
-        const nn = x => _normNomSimple(x).replace(/\s+/g, ' ');
-        const codis = new Set(), noms = new Set();
-        d.alumnes.forEach(a => {
-          if (a.uid) codis.add(String(a.uid));
-          else noms.add(nn(a.nom));            // sense codi: només pel nom
-        });
-        const filtrats = alumnes.filter(a => a.uid && codis.has(String(a.uid)) ? true : noms.has(nn(a.nom)));
-        if (filtrats.length) alumnes = filtrats;
-        _avisaNoTrobatsDesdob(grup, matNom, d.noTrobats);
-      }
-    }
+    /* Qui decideix quins alumnes són d'aquesta assignatura és `_alumnesAmbDesdob`,
+       que també fa servir el generador de grups: veure el seu comentari. */
+    const res = await _alumnesAmbDesdob(grup, materia, () => meu === _grupCarregaId);
+    if (!res) return;                        // ha arribat tard: no toquis res
+    const r = res.r;
+    let alumnes = res.alumnes;
+    const desdobDubtos = res.dubtos;
 
     /* ⚠ UN GRUP BUIT DE DEBÒ NO ÉS EL MATEIX QUE UNA PETICIÓ QUE HA FALLAT.
 
@@ -2074,50 +2108,59 @@ async function _carregaAlumnesGrupNet(grup, materia) {
   } catch(e) {}
 
   try {
-    const r = await appsScriptGet({ action:'getGrupAlumnes', grup: grup });
-    let alumnes = (r.ok && r.alumnes) ? r.alumnes : [];
+    /* ⚠ AQUÍ HI HAVIA UNA CÒPIA DEL FILTRE DE DESDOBLAMENT, I NO FUNCIONAVA.
 
-    // Aplica desdoblament si l'assignatura n'és
-    /* ⚠ SI NO SE SAP SI ÉS MITJA CLASSE, NO ES DONA PER BONA LA SENCERA.
+       La còpia s'havia fet del `_refreshGrupStudents()` i s'hi havia quedat
+       una línia seva: `if (meu !== _grupCarregaId) return;`. La `meu` d'allà
+       és una variable local d'aquella funció; aquí no existeix. O sigui que
+       cada vegada que una assignatura tenia desdoblament, aquella línia
+       petava, el `catch` de sota s'ho empassava sense dir res i la funció
+       tornava una llista BUIDA. Qui la cridava —el generador de grups— es
+       queia llavors a `students`, la classe sencera: amb els nens de l'altra
+       meitat del desdoblament a dins.
 
-       Abans, si la pregunta del desdoblament fallava (un mal moment del
-       servidor), es queia en silenci a la classe sencera, es desava a la
-       còpia del navegador i es donava per carregada: durant deu minuts, i
-       fins que no es recarregués l'app, la mestra veia tota la classe a una
-       assignatura de mitja. Ara es torna a provar un cop i, si torna a
-       fallar, es diu i no es guarda res: la propera vegada es tornarà a
-       demanar. */
-    let desdobDubtos = false;
-    if (materia && alumnes.length) {
-      const parts = grup.split(' ');
-      const matNom = _assigNomNet(materia);
-      let d = null;
-      for (let intent = 0; intent < 2 && !(d && d.ok); intent++) {
-        try { d = await appsScriptGet({ action:'getDesdoblament', curs:parts[0], linia:parts[1], assignatura:matNom }); }
-        catch (e) { d = null; }
-        if (meu !== _grupCarregaId) return;
+       I com que el resultat es desava al cache que comparteix amb la
+       pantalla de notes, allò s'hi encomanava durant deu minuts.
+
+       Ara el filtre és en UNA funció sola (`_alumnesAmbDesdob`) que fan
+       servir les dues pantalles. Veure el seu comentari. */
+    const res = await _alumnesAmbDesdob(grup, materia);
+    if (!res) return [];
+    const alumnes = res.alumnes;
+
+    /* Si no s'ha pogut saber si és mitja classe, NO es desa: la propera
+       vegada s'ha de tornar a demanar, i mentrestant no s'encomana a ningú
+       més pel cache. Això ja hi era a l'altra pantalla i aquí no. */
+    if (res.dubtos) {
+      try { localStorage.removeItem(cacheKey); } catch (e) {}
+      if (typeof showToast === 'function') {
+        showToast('No he pogut saber si «' + (res.matNom || materia) + ' · ' + grup + '» va per desdoblament: ' +
+                  'et surt la classe sencera. Torna-ho a provar d\'aquí a una estona.', 'error');
       }
-      if (!d || !d.ok) {
-        desdobDubtos = true;
-      } else if (d.existeix && d.alumnes && d.alumnes.length && !d.sensDesdob) {
-        /* Es casen pel CODI de l'alumne (no canvia mai) i, si no en té, pel
-           nom normalitzat. Abans era el nom exacte: un espai de més o un
-           accent diferent i el nen desapareixia de la llista. */
-        const nn = x => _normNomSimple(x).replace(/\s+/g, ' ');
-        const codis = new Set(), noms = new Set();
-        d.alumnes.forEach(a => {
-          if (a.uid) codis.add(String(a.uid));
-          else noms.add(nn(a.nom));            // sense codi: només pel nom
-        });
-        const filtrats = alumnes.filter(a => a.uid && codis.has(String(a.uid)) ? true : noms.has(nn(a.nom)));
-        if (filtrats.length) alumnes = filtrats;
-        _avisaNoTrobatsDesdob(grup, matNom, d.noTrobats);
-      }
+      return alumnes;
     }
 
     if (alumnes.length) {
       try { localStorage.setItem(cacheKey, JSON.stringify({ alumnes, ts: Date.now() })); } catch(e) {}
     }
     return alumnes;
-  } catch(e) { return []; }
+  } catch (e) {
+    /* ⚠ AQUEST `catch` ÉS EL QUE VA AMAGAR EL BUG DURANT SETMANES.
+
+       Deia `catch(e) { return []; }` i prou. Quan el codi de dins petava per
+       una errada de programació, la llista tornava buida, qui la cridava es
+       queia a la classe sencera i a la pantalla sortia una llista plausible:
+       ningú no veia que fallés res.
+
+       Un problema de xarxa sí que ha de passar en silenci (ja es torna a
+       demanar sol). Una errada del codi, no: es diu. */
+    const esDelCodi = (e instanceof ReferenceError) || (e instanceof TypeError);
+    if (esDelCodi) {
+      try { console.error('[grups] la llista de ' + grup + ' ha petat:', e); } catch (x) {}
+      if (typeof showToast === 'function') {
+        showToast('No he pogut preparar la llista de «' + grup + '». Avisa en Pol: hi ha un error a l\'app.', 'error');
+      }
+    }
+    return [];
+  }
 }
