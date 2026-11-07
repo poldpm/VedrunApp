@@ -1,9 +1,8 @@
 {
-  "versio": "v331",
+  "versio": "v332",
   "data": "2026-11-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A Notes, cada activitat té un botó «A+» a la capçalera per fer-ne la VERSIÓ ADAPTADA: et crea la columna bessona amb el mateix pes i només et pregunta de quants punts és.",
-    "Posa la nota de cada nen només a la columna que ha fet i deixa-li l'altra en blanc: una casella en blanc no compta ni com a zero, o sigui que qui fa 17 de 20 a l'adaptada treu un 8,5 encara que la prova normativa sigui de 63."
+    "A Notes, sota la llegenda dels pesos hi diu què fa el botó «A+»: en fa la versió adaptada d'aquella activitat, amb el mateix pes, i recorda que l'altra columna es deixa en blanc."
   ]
 }
