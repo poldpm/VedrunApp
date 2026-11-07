@@ -1411,7 +1411,7 @@ body {
 .notes-th-item {
   min-width: 140px;
   text-align: center;
-  padding: 10px 28px 10px 28px; /* espai per la creu (dreta) i per l'«A+» (esquerra) */
+  padding: 10px 28px 10px 12px; /* espai dret per la creu */
   /* Aquí hi deia `position: relative`, per la creu d'esborrar que va
      absoluta a dins. Ja no cal: `thead th` és «sticky», que també és
      posicionat, i la creu s'hi ancora igual. Deixar-l'hi seria una línia
@@ -1441,18 +1441,24 @@ body {
 .notes-del-btn:hover { color: #EF4444; opacity: 1; }
 .notes-del-btn svg { width: 12px; height: 12px; }
 
-/* «A+»: fer-ne la versió adaptada. A l'altra punta de la capçalera que la
-   creu d'esborrar, a posta: són els dos botons petits de la columna i
-   confondre'ls voldria dir perdre una prova sencera. */
+/* «A+»: fer-ne la versió adaptada. Va A SOTA del «Pes · sobre», dins del
+   text i no flotant en un cantó: així un nom llarg no se li posa a sobre
+   (en Pol, 7/11/2026). I queda lluny de la creu d'esborrar, que és a dalt a
+   la dreta: són els dos botons petits de la columna, i confondre'ls voldria
+   dir perdre una prova sencera. */
 .notes-adapt-btn {
-  position: absolute; top: 6px; left: 6px;
-  background: none; border: none; cursor: pointer;
-  color: var(--text-muted); padding: 1px 4px; border-radius: 4px;
-  font: inherit; font-size: 10px; font-weight: 800; line-height: 1.4;
-  opacity: 0.5; transition: all 0.15s var(--ease);
+  display: inline-block; margin-top: 4px;
+  background: none; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-muted); padding: 0 5px;
+  font: inherit; font-size: 10px; font-weight: 800; line-height: 1.6;
+  opacity: 0.75; transition: all 0.15s var(--ease);
 }
 .notes-th-item:hover .notes-adapt-btn { opacity: 1; }
-.notes-adapt-btn:hover { color: var(--garnet-text); background: var(--surface-alt); opacity: 1; }
+.notes-adapt-btn:hover {
+  color: var(--garnet-text); background: var(--surface-alt);
+  border-color: var(--garnet-mid); opacity: 1;
+}
 
 /* Columna Mitjana */
 .notes-th-mitj {

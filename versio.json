@@ -1,9 +1,8 @@
 {
-  "versio": "v334",
+  "versio": "v335",
   "data": "2026-11-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A la fitxa de l'alumne, les observacions ara hi surten TOTES: les que escrius a l'apartat d'Observacions i també les que apuntes corregint, al comentari d'una casella de Notes.",
-    "Les que vénen d'una activitat ho diuen a sota, en lletra petita («de l'activitat …»). Des de la fitxa només es miren: per canviar-ne una, ves a l'activitat d'on surt."
+    "El botó «A+» de cada activitat (el de fer-ne la versió adaptada) ha baixat a sota d'on diu «Pes · sobre». Abans era a dalt a l'esquerra i, amb un nom d'activitat llarg, el nom se li posava a sobre i no es veia."
   ]
 }

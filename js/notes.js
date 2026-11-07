@@ -1108,12 +1108,15 @@ function renderNotesTable() {
       const _rub = (typeof RubAvalUI !== 'undefined' && RubAvalUI.hiEs && RubAvalUI.hiEs())
         ? RubAvalUI.rubricaDeItem(notesContext.materia, notesContext.trimestre, item.id, notesContext.grup) : null;
       th.innerHTML = `<button class="notes-del-btn" aria-label="Eliminar ${escapeHtml(item.nom)}" onclick="deleteNotaItem('${_idJs(item.id)}')" title="Eliminar ${escapeHtml(item.nom)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` +
-        /* La versió adaptada d'aquesta prova, amb el mateix pes i la mateixa
-           categoria. Veure `notesNovaAdaptada()`. */
+        `<div class="notes-th-item-nom" title="${escapeHtml(item.nom)}">${escapeHtml(item.nom)}</div><div class="notes-th-item-meta">Pes ${item.pes} · sobre ${item.maxPunts}</div>` +
+        /* ⚠ VA SOTA DEL «Pes · sobre», NO A UN CANTÓ.
+           Anava a dalt a l'esquerra, enganxat al nom, i amb un nom llarg el
+           nom se li posava a sobre i el botó no es veia (en Pol, 7/11/2026:
+           «queda per sota les lletres i no es veu»). Aquí va dins del text,
+           no flotant: per llarg que sigui el nom, es fa lloc. */
         `<button class="notes-adapt-btn" title="Fer-ne la versió adaptada de «${escapeHtml(item.nom)}»"
                  aria-label="Fer la versió adaptada de ${escapeHtml(item.nom)}"
                  onclick="notesNovaAdaptada('${_idJs(item.id)}')">A+</button>` +
-        `<div class="notes-th-item-nom" title="${escapeHtml(item.nom)}">${escapeHtml(item.nom)}</div><div class="notes-th-item-meta">Pes ${item.pes} · sobre ${item.maxPunts}</div>` +
         (_rub ? `<button class="notes-th-rubrica" title="Obrir la rúbrica de «${escapeHtml(item.nom)}»"
                    aria-label="Obrir la rúbrica de ${escapeHtml(item.nom)}"
                    onclick="RubAvalUI.obreDesDelRegistre('${_idJs(notesContext.materia)}','${_idJs(notesContext.trimestre)}','${_idJs(item.id)}','${_idJs(notesContext.grup || '')}')">rúbrica</button>` : '');
