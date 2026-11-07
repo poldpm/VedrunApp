@@ -290,7 +290,16 @@ function showPage(pageId, _fromPop) {
   // el tria ella amb el selector de dalt.)
   if (pageId === 'alumnes')      { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); if (typeof _dirRenderGrupPicker === 'function') _dirRenderGrupPicker(); renderAlumnesList(); if (typeof dubtesMira === 'function') dubtesMira(); }
   if (pageId === 'registres')    { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('registres'); _dirAvisRegistres(); renderRegistre(); }
-  if (pageId === 'observacions') { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('observacions'); _dirAvisObservacions(); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid(); }
+  if (pageId === 'observacions') { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); _rolRenderGrupPicker('observacions'); _dirAvisObservacions(); if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector(); renderObsGrid();
+    /* Les apuntades corregint vénen a part (veure `carregaComentarisActivitats`).
+       Quan arriben es torna a pintar: si no, els nens que només en tenen
+       d'aquestes es veurien com a «Sense observacions». */
+    carregaComentarisActivitats().then(() => {
+      if (document.getElementById('page-observacions') &&
+          !document.getElementById('page-observacions').classList.contains('page-hidden')) renderObsGrid();
+      if (currentObsStudentId !== null && currentObsStudentId !== undefined) renderObsDrawerContent(currentObsStudentId);
+    }).catch(() => {});
+  }
   /* L'inici també és de la classe sencera: si no, en tornar de les notes
      d'una assignatura, els comptadors i el panell d'alumnes eren d'aquella. */
   if (pageId === 'home')         { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); renderHome(); }
@@ -1155,9 +1164,10 @@ function openObsDrawer(studentId) {
   const s   = students.find(x => x.id === studentId);
   const obs = observacions[studentId] || {};
   const tot = Object.values(obs).filter(v => v && v.trim()).length;
+  const nAct = _comentarisDe(studentId).length;
   document.getElementById('obsDrawerName').textContent = s ? nomAlumne(s) : '—';
   document.getElementById('obsDrawerMeta').textContent =
-    tot ? tot + (tot !== 1 ? ' assignatures' : ' assignatura') + ' amb observacions' : 'Sense observacions';
+    (tot || nAct) ? _obsCompteText(tot, nAct) + ' amb observacions' : 'Sense observacions';
   document.getElementById('obsDrawerOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   renderObsDrawerContent(studentId);
@@ -3631,14 +3641,19 @@ function renderObsGrid() {
   students.forEach(s => {
     const obs   = observacions[s.id] || {};
     const count = Object.values(obs).filter(v => v&&v.trim()).length;
+    /* ⚠ Les apuntades corregint també compten. Si no, un nen que només en
+       tingui d'aquestes es veu «Sense observacions» i ningú no hi entra:
+       és el que li passava a en Pol el 7/11/2026 («continuo sense veure
+       totes les observacions»), perquè només les havíem posat a la fitxa. */
+    const nAct  = _comentarisDe(s.id).length;
     const card  = document.createElement('div');
     card.className = 'obs-student-card';
     card.innerHTML = `
       <div class="student-avatar">${getInitials(s.nom)}</div>
       <div class="obs-student-card-info">
         <div class="obs-student-card-name">${escapeHtml(nomAlumne(s))}</div>
-        <div class="obs-student-card-count ${count?'has-obs':''}">
-          ${count ? count+(count!==1?' assignatures':' assignatura') : 'Sense observacions'}
+        <div class="obs-student-card-count ${(count || nAct)?'has-obs':''}">
+          ${_obsCompteText(count, nAct)}
         </div>
       </div>
       <svg style="width:16px;height:16px;color:var(--border-strong);flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>`;
@@ -3656,18 +3671,38 @@ function renderObsGrid() {
 /* ============================================================
    OBSERVACIONS — Drawer
    ============================================================ */
+/* El rètol del compte, a la targeta de cada nen i a dalt del calaix. Les
+   escrites a mà i les apuntades corregint es compten per separat: són dues
+   coses diferents i una no es pot esborrar des d'aquí. */
+function _obsCompteText(assig, act) {
+  const parts = [];
+  if (assig) parts.push(assig + (assig !== 1 ? ' assignatures' : ' assignatura'));
+  if (act)   parts.push(act + (act !== 1 ? ' apuntades corregint' : ' apuntada corregint'));
+  return parts.length ? parts.join(' · ') : 'Sense observacions';
+}
+
 function renderObsDrawerContent(studentId) {
   const list  = document.getElementById('obsDrawerList');
   const empty = document.getElementById('obsDrawerEmpty');
+  if (!list) return;
   list.querySelectorAll('.obs-entry,.obs-trim-label').forEach(el => el.remove());
   const obs      = observacions[studentId] || {};
   const entrades = Object.entries(obs).filter(([,v]) => v&&v.trim());
-  if (!entrades.length) { empty.style.display='block'; return; }
+  const comentaris = _comentarisDe(studentId);
+  if (!entrades.length && !comentaris.length) { empty.style.display='block'; return; }
   empty.style.display = 'none';
   const perTrim = { '1':[], '2':[], '3':[] };
   entrades.forEach(([key, text]) => {
     const [trim, ...mp] = key.split('_'); const mat = mp.join('_');
     if (perTrim[trim]) perTrim[trim].push({ mat, text, key });
+  });
+  /* Les apuntades corregint, al seu trimestre i amb el nom de l'activitat.
+     No porten els botons d'editar ni d'esborrar: es toquen a l'activitat
+     d'on surten, que és on viuen de debò. */
+  comentaris.forEach(c => {
+    if (perTrim[String(c.trim)]) {
+      perTrim[String(c.trim)].push({ mat: c.mat || '', text: c.text, activitat: c.activitat, assig: c.assig });
+    }
   });
   [1,2,3].forEach(t => {
     const grup = perTrim[String(t)];
@@ -3675,23 +3710,40 @@ function renderObsDrawerContent(studentId) {
     const label = document.createElement('span');
     label.className = 'obs-trim-label'; label.textContent = TRIM_LABELS[String(t)];
     list.appendChild(label);
-    grup.forEach(({ mat, text }) => {
+    grup.forEach(o => {
+      const { mat, text, activitat } = o;
       const c = MATERIA_COLORS[mat]||MATERIA_COLORS.general;
+      const etiqueta = mat ? _matLabel(mat) : (o.assig || 'General');
       const div = document.createElement('div');
-      div.className = 'obs-entry';
-      div.innerHTML = `
-        <div class="obs-entry-header">
-          <span class="obs-materia-badge" style="background:${c.bg};color:${c.text}">${_matLabel(mat)}</span>
-          <button class="obs-entry-edit" aria-label="Editar aquesta observació" title="Editar" onclick="editObservacio(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          <button class="obs-entry-delete" aria-label="Esborrar aquesta observació" title="Esborrar" onclick="deleteObservacioMateria(${studentId},'${_idJs(mat)}',${t})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-        </div>
-        <div class="obs-entry-text">${escapeHtml(text)}</div>`;
+      div.className = 'obs-entry' + (activitat ? ' obs-entry-activitat' : '');
+      /* ⚠ Els botons es fan a banda i no amb una plantilla dins d'una altra:
+         `comprova-controls.js` perd el fil amb les plantilles niades i acaba
+         llegint els comentaris de més avall com si fossin codi. */
+      const botons = activitat ? '' :
+        '<button class="obs-entry-edit" aria-label="Editar aquesta observació" title="Editar" ' +
+          'onclick="editObservacio(' + studentId + ',\'' + _idJs(mat) + '\',' + t + ')">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+        '<button class="obs-entry-delete" aria-label="Esborrar aquesta observació" title="Esborrar" ' +
+          'onclick="deleteObservacioMateria(' + studentId + ',\'' + _idJs(mat) + '\',' + t + ')">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>';
+      const dOn = activitat
+        ? '<span class="fitxa-obs-font">' + escapeHtml('de l\'activitat «' + activitat + '»') + '</span>'
+        : '';
+      div.innerHTML =
+        '<div class="obs-entry-header">' +
+          '<span class="obs-materia-badge" style="background:' + c.bg + ';color:' + c.text + '">' + escapeHtml(etiqueta) + '</span>' +
+          botons +
+        '</div>' +
+        '<div class="obs-entry-text">' + escapeHtml(text) + dOn + '</div>';
       list.appendChild(div);
     });
   });
-  const tot = entrades.length;
-  document.getElementById('obsDrawerMeta').textContent =
-    tot+(tot!==1?' assignatures':' assignatura')+' amb observacions';
+  const meta = document.getElementById('obsDrawerMeta');
+  if (meta) {
+    meta.textContent = (entrades.length || comentaris.length)
+      ? _obsCompteText(entrades.length, comentaris.length) + ' amb observacions'
+      : 'Sense observacions';
+  }
 }
 
 /* ============================================================

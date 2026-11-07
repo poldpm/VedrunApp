@@ -945,6 +945,13 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .obs-entry:last-child { border-bottom: none; }
+/* Les apuntades corregint: una ratlla al costat perquè d'un cop d'ull es
+   vegi que no són les escrites aquí (i que no porten botons: es toquen a
+   l'activitat d'on surten). */
+.obs-entry-activitat {
+  border-left: 3px solid var(--border-strong);
+  padding-left: 17px; background: var(--surface-alt);
+}
 .obs-entry-header {
   display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
 }

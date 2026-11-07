@@ -1,9 +1,9 @@
 {
-  "versio": "v336",
+  "versio": "v337",
   "data": "2026-11-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "ARREGLAT: al Generador de grups, una assignatura que va per desdoblament et portava la CLASSE SENCERA, amb els nens de l'altra meitat. I com que la llista es guarda una estona, allò s'encomanava també a la pantalla de Notes.",
-    "Ara el filtre del desdoblament és en un sol lloc, compartit per les dues pantalles. Si algun dia no es pot saber si una assignatura va per mitja classe, t'ho diu en comptes de donar-te la classe sencera en silenci."
+    "A l'apartat d'Observacions també hi surten ara les que has apuntat corregint (el comentari d'una casella de Notes), no només a la fitxa de l'alumne.",
+    "El compte de cada targeta les inclou: un nen que només en tingui d'aquestes ja no es veu com a «Sense observacions». Al calaix surten amb una ratlla al costat i el nom de l'activitat, i no porten botó d'editar ni d'esborrar: es toquen a l'activitat d'on surten."
   ]
 }
