@@ -1,8 +1,9 @@
 {
-  "versio": "v332",
+  "versio": "v333",
   "data": "2026-11-07",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A Notes, sota la llegenda dels pesos hi diu què fa el botó «A+»: en fa la versió adaptada d'aquella activitat, amb el mateix pes, i recorda que l'altra columna es deixa en blanc."
+    "A Notes, l'activitat que crees surt ara la PRIMERA, al costat dels noms: les columnes van del revés del temps i la més antiga queda al costat de la Carpeta Viatgera. Abans la nova anava a l'altra punta i l'havies d'anar a buscar.",
+    "La Carpeta Viatgera torna a sortir a Matemàtiques i a Català encara que l'assignatura s'hagi començat més tard que la Carpeta. Fins ara, a una de les dues podia no sortir-hi, i és una columna que compta per a la nota."
   ]
 }

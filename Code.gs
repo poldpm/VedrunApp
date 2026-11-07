@@ -5341,7 +5341,37 @@ function getNotes(ss, materia, trimestre, grup) {
   var sh = ss.getSheetByName(_notesTabName(trimestre, nomBase, grup));
   if (!sh) return { ok:true, items:[], valors:{}, noEntregats:{} };
 
-  if (MATERIES_AMB_CARPETA.indexOf(materia)!==-1) moveCarpetaBeforeMitjana(sh);
+  /* ⚠ LA CARPETA NO ARRIBAVA A LES PESTANYES FETES DESPRÉS.
+
+     En Pol, 7/11/2026: «a català veig la mitjana de carpeta viatgera i a
+     mates no».
+
+     La columna de la Carpeta no la fa aquesta pantalla: la fa la propagació
+     (`propagaCarpetaTots_`), que corre quan es desa una nota a la Carpeta
+     Viatgera i que se SALTA les pestanyes que en aquell moment encara no
+     existeixen (`if (!sh) return`). Qui comencés el Català abans i les Mates
+     després es quedava amb la columna a l'una i no a l'altra, sense cap
+     avís: les dues assignatures compten la Carpeta igual (veure
+     `MATERIES_AMB_CARPETA`), i una de les dues no la comptava.
+
+     Aquí es tapa: en obrir unes notes d'una assignatura que compta la
+     Carpeta, si la columna no hi és es crea i s'hi porten les notes que ja
+     hi ha. ⚠ Només quan NO hi és: amb la columna feta, això no torna a
+     córrer i obrir les notes costa el mateix que abans. */
+  if (MATERIES_AMB_CARPETA.indexOf(materia)!==-1) {
+    if (_colCarpetaDe_(sh) === -1) {
+      var _carpSh = ss.getSheetByName(_notesTabName(trimestre, MATERIA_NOM['carpeta'], grup));
+      if (_carpSh) {
+        try { propagaCarpetaTots_(ss, trimestre, _carpSh, grup); } catch (e) {}
+      }
+      /* Si la Carpeta encara no té cap nota (o no hi ha pestanya), la
+         propagació no crea res: la columna s'hi posa igualment, buida, per
+         no tornar a mirar-ho cada vegada i perquè la mestra la vegi. Buida
+         no compta per a la mitjana. */
+      if (_colCarpetaDe_(sh) === -1) { try { _asseguraColCarpeta_(sh); } catch (e) {} }
+    }
+    moveCarpetaBeforeMitjana(sh);
+  }
 
   var lc = sh.getLastColumn();
   /* Només fins a l'últim alumne amb nom: als fulls que arrosseguen milers de
@@ -5650,13 +5680,23 @@ function addNotaItem(ss, materia, trimestre, item, alumnes, grup) {
   var jaHiEs = _notaColumnaQueJaHiEs_(item, hdrs, metas);
   if (jaHiEs) return { ok:true, itemId: jaHiEs.itemId, jaHiEra: jaHiEs.motiu };
 
-  // Posició d'inserció: ABANS de Carpeta, Mitjana, Nota, Obs
-  var ins = lc+1;
-  for (var i=0; i<hdrs.length; i++) {
-    var hn=(hdrs[i]||'').toString().trim(), mn=(metas[i]||'').toString();
-    if (mn===CARPETA_NOTE||hn==='Mitjana'||hn==='Nota'||hn===COL_OBS){ins=i+1;break;}
-  }
-  if (ins<=lc) sh.insertColumnsBefore(ins,1);
+  /* ⚠ L'ACTIVITAT NOVA VA LA PRIMERA, AL COSTAT DELS NOMS.
+
+     En Pol, 7/11/2026: «et vaig demanar que sempre el nou ítem que crees es
+     posés com a primera columna, al costat dels noms, i no s'està fent... la
+     primera creada, al costat de carpeta viatgera».
+
+     Abans anava al final de les activitats (just abans de Carpeta, Mitjana,
+     Nota i Observacions), i la que acabaves de crear —la que vas a omplir
+     ara mateix— quedava a l'altra punta del full: amb vuit activitats, a
+     buscar-la cada vegada. Ara l'ordre és el revés del temps: l'última feta
+     toca els noms i la primera queda al costat de la Carpeta.
+
+     La columna 1 és la dels noms dels alumnes, o sigui que la posició és
+     sempre la 2. Si la pestanya encara no té cap activitat (lc===1), la 2 és
+     la següent i no cal obrir-hi lloc. */
+  var ins = (lc >= 2) ? 2 : lc + 1;
+  if (ins <= lc) sh.insertColumnsBefore(ins, 1);
 
   // Escriu capçalera amb el granat de l'app
   /* ⚠ ON SE N'ANAVEN ELS SEGONS (mesurat al full d'en Pol, 27/9/2026, amb
@@ -6254,6 +6294,15 @@ function propagaCarpetaTots_(ss, trimestre, carpetaSh, grup, noms) {
       _escriuMitjana_(sh, rp, _mitjanaFila_(hdr2, mts2, d2[rp - 1], d2[rp]));
     }
   });
+}
+
+/* On és la columna de la Carpeta en aquesta pestanya, o -1. Mirar-ho sense
+   crear-la serveix per saber si cal fer-hi res (veure `getNotes`). */
+function _colCarpetaDe_(sh) {
+  var lc = sh.getLastColumn(); if (lc < 1) return -1;
+  var mts = sh.getRange(1, 1, 1, lc).getNotes()[0];
+  for (var i = 0; i < mts.length; i++) if ((mts[i] || '') === CARPETA_NOTE) return i + 1;
+  return -1;
 }
 
 /* La columna «Carpeta Viatgera» d'una pestanya de Mates o Català: la busca

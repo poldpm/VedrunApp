@@ -831,7 +831,12 @@ function notesCreaItem(nom, maxPunts, pes, cat) {
   const item = { id: Date.now(), nom: nom, maxPunts: maxPunts, pes: pes };
   /* Només s'hi posa si n'hi ha: sense `cat`, el `Code.gs` fa el de sempre. */
   if (cat) item.cat = String(cat);
-  notesItems.push(item);
+  /* ⚠ LA NOVA VA LA PRIMERA, no l'última: al costat dels noms, que és on la
+     mestra l'anirà a omplir. Demanat per en Pol (7/11/2026). Ha de coincidir
+     amb on la posa el `Code.gs` al full (`addNotaItem`, columna 2): si una
+     banda l'enganxés al davant i l'altra al darrere, la pantalla diria una
+     cosa fins que es recarregués i una altra després. */
+  notesItems.unshift(item);
   _colsRecentsPosa(_notesCtxCua(), item);
   notesValors[item.id] = {};
   notesItems = sortCarpetaLast(notesItems);
