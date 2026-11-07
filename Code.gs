@@ -7125,12 +7125,23 @@ function getOrCreateDataSheet(ss, nom) {
    ara no ho mirava ningú: s'hi escrivia i el full ho tallava o petava, i la
    propera lectura ja no es podia llegir. Ara s'atura ABANS d'escriure, amb
    marge, i no es toca el que ja hi ha. */
-/* Quina versió del codi hi ha DESPLEGADA ara mateix a aquest Apps Script.
-   Serveix perquè l'app pugui avisar quan el servidor s'ha quedat enrere:
-   enganxar el Code.gs nou NO n'hi ha prou, cal desplegar-ne una versió
-   nova, i fins llavors tot es veu malament sense que ningú ho digui.
-   ⚠ Puja-la al mateix temps que la del sw.js/versio.js/versio.json. */
-var BACKEND_VERSIO = 'v320';
+/* Quina versió del codi corre ARA MATEIX en aquesta biblioteca.
+
+   És el número que surt a Configuració → «Servidor: vNNN» i el que contesta
+   `?v=1`. Ve del servidor, no del navegador: és l'única manera de saber
+   quina biblioteca hi ha enganxada de debò.
+
+   ⚠ PUJA-LA CADA VEGADA QUE CANVIÏ LA BIBLIOTECA, encara que el canvi sigui
+   petit. Es va quedar a la v320 des del 25/10/2026 mentre la biblioteca
+   canviava uns quants cops, i el 7/11/2026 en Pol va enganxar-ne una de nova
+   i va demanar de comprovar-ho: el número deia v320 abans i després, o sigui
+   que no servia per a res, que és justament per al que és. Amb el número al
+   dia, el «Servidor: vNNN» torna a ser un rebut.
+
+   NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
+   vella amb què l'app encara funciona, i només es puja quan deixa de
+   funcionar-hi. Aquest es puja sempre. */
+var BACKEND_VERSIO = 'v333';
 
 var MAX_CELA = 45000;
 
