@@ -1,9 +1,6 @@
 {
-  "versio": "v337",
+  "versio": "v338",
   "data": "2026-11-07",
   "titol": "Novetats d aquesta versió",
-  "canvis": [
-    "A l'apartat d'Observacions també hi surten ara les que has apuntat corregint (el comentari d'una casella de Notes), no només a la fitxa de l'alumne.",
-    "El compte de cada targeta les inclou: un nen que només en tingui d'aquestes ja no es veu com a «Sense observacions». Al calaix surten amb una ratlla al costat i el nom de l'activitat, i no porten botó d'editar ni d'esborrar: es toquen a l'activitat d'on surten."
-  ]
+  "canvis": []
 }

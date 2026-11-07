@@ -6,16 +6,23 @@
    cada mestra té el seu full, la que les entra les PUBLICA al
    full "Grups" compartit i el tutor les llegeix d'allà.
 
-   ⚠ NOMÉS SI ELLA HO VOL. La casella de les notes ve
-   DESMARCADA. Mentre no la marqui, al full compartit no hi ha
-   ni una nota seva: el tutor només veu «notes no compartides».
+   ⚠ FINS AL 7/11/2026 CALIA PERMÍS, I JA NO. Hi havia una casella
+   per assignatura, desmarcada de sèrie, i mentre no es marqués el
+   tutor veia «Notes no compartides». La direcció ho ha decidit al
+   revés: el tutor i la direcció han de poder veure la nota final
+   de cada trimestre de totes les assignatures d'un alumne.
 
-   Aquest fitxer no decideix res: només ensenya la casella i
-   demana al servidor que publiqui. Qui calcula i qui escriu al
-   full compartit és el Code.gs.
+   ⚠ EL QUE NO HA CANVIAT: es publica NOMÉS LA NOTA FINAL de cada
+   trimestre, mai el detall dels exàmens ni els comentaris.
+
+   On hi havia la casella ara hi ha una frase que ho diu: una
+   casella que no mana res seria enganyar la mestra sobre qui veu
+   la seva feina.
+
+   Aquest fitxer no decideix res: qui calcula i qui escriu al full
+   compartit és el Code.gs.
    ============================================================ */
 
-let _compartirEstat = {};      // { "grup|matKey": true/false }
 let _publicaTimer = null;
 
 /* La clau d'aquesta assignatura+grup, tal com la vol el servidor.
@@ -49,93 +56,49 @@ function _compNomMestra() {
   return [(_perfil.nom || ''), (_perfil.cognom || '')].join(' ').trim();
 }
 
-/* ---------- la casella ---------- */
-async function initCompartirNotes() {
+/* ---------- la frase que ho diu ---------- */
+/* Assignatures d'aquesta estona que ja s'han publicat un cop: així obrir-les
+   i tancar-les no demana el mateix una vegada i una altra. */
+const _publicatAquestaEstona = {};
+
+function initCompartirNotes() {
   const row = document.getElementById('notesCompartirRow');
   if (!row) return;
   const c = _compClau();
   if (!c || !config.scriptUrl) { row.style.display = 'none'; return; }
   row.style.display = '';
 
+  /* ⚠ PUBLICAR EN OBRIR, I NO NOMÉS EN ENTRAR NOTES.
+
+     El resum viu al full compartit i només s'hi escriu quan l'app d'aquesta
+     mestra el publica. Si no es fes aquí, les assignatures de qui no tingui
+     la casella marcada d'abans es quedarien sense notes al full fins que
+     tornés a tocar una nota: el tutor seguiria veient-ho buit sense saber
+     per què. Obrir l'assignatura ja és senyal que hi és. */
   const clau = c.grup + '|' + c.matKey;
-  const cb = document.getElementById('notesCompartir');
-  // Pinta de seguida el que ja sabem, i confirma amb el servidor
-  if (_compartirEstat[clau] !== undefined) cb.checked = !!_compartirEstat[clau];
-  _pintaCompartirInfo();
-
-  try {
-    const r = await appsScriptGet({ action: 'loadCompartirNotes', grup: c.grup, matKey: c.matKey, _fons: true });
-    if (r && r.ok) {
-      _compartirEstat[clau] = !!r.compartir;
-      cb.checked = !!r.compartir;
-      _pintaCompartirInfo();
-    }
-  } catch (e) { /* silenciós: es queda el que hi havia */ }
-}
-
-function _pintaCompartirInfo() {
-  const info = document.getElementById('notesCompartirInfo');
-  const cb = document.getElementById('notesCompartir');
-  if (!info || !cb) return;
-  info.textContent = cb.checked
-    ? 'El tutor/a hi veurà la nota de cada trimestre (no els exàmens).'
-    : 'Ara mateix el tutor no pot veure les teves notes.';
-}
-
-async function toggleCompartirNotes(valor) {
-  const c = _compClau();
-  if (!c) return;
-  const clau = c.grup + '|' + c.matKey;
-  _compartirEstat[clau] = !!valor;
-  _pintaCompartirInfo();
-
-  /* ⚠ `appsScriptPost` LLANÇA quan el servidor no hi és. Sense aquest
-     try/catch, la casella es quedava marcada dient «el tutor/a hi veurà la
-     nota» sense haver compartit res —i, al revés, dient que ja no es
-     comparteixen amb les notes encara al full. L'`else` de sota, que és qui
-     ho desfà, no s'arribava a executar mai. Trobat a l'auditoria del
-     27/9/2026. */
-  let r;
-  try {
-    r = await appsScriptPost({
-      action: 'saveCompartirNotes', grup: c.grup, matKey: c.matKey,
-      nomAssig: c.nom, nomMestra: _compNomMestra(), compartir: !!valor
-    });
-  } catch (e) {
-    r = { ok: false, error: (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message)) ||
-                            'no s\'ha pogut parlar amb el servidor' };
-  }
-  if (r && r.ok) {
-    if (!valor) {
-      showToast('Ja no es comparteixen: les notes s\'han tret del full compartit', 'success');
-    } else {
-      showToast('Compartides amb el tutor/a ✓' + (r.alumnes ? ' (' + r.alumnes + ' alumnes)' : ''), 'success');
-      // Coses que la mestra ha de saber, no amagar-les: si no, arrossegarà
-      // alumnes sense nota sense entendre per què.
-      if (r.ambigus) {
-        setTimeout(() => showToast(r.ambigus + ' alumne' + (r.ambigus > 1 ? 's' : '') +
-          ' no s\'ha' + (r.ambigus > 1 ? 'n' : '') + ' pogut compartir: al grup hi ha dos alumnes amb el mateix nom i no es pot saber de qui és la nota. Avisa el tutor/a perquè hi posi el cognom.', 'error'), 4200);
-      } else if (r.sensePar) {
-        setTimeout(() => showToast(r.sensePar + ' alumne' + (r.sensePar > 1 ? 's' : '') +
-          ' de la teva llista no ' + (r.sensePar > 1 ? 'són' : 'és') + ' al full del grup: comprova que el nom estigui escrit igual.', 'error'), 4200);
-      }
-    }
-  } else {
-    // No ha anat: es desfà, no la deixem creure que ho ha compartit
-    _compartirEstat[clau] = !valor;
-    const cb = document.getElementById('notesCompartir');
-    if (cb) cb.checked = !valor;
-    _pintaCompartirInfo();
-    showToast((r && r.error) || 'No s\'ha pogut canviar', 'error');
+  if (!_publicatAquestaEstona[clau]) {
+    _publicatAquestaEstona[clau] = true;
+    appsScriptPost({
+      action: 'publicaNotesResum', grup: c.grup, matKey: c.matKey,
+      nomAssig: c.nom, nomMestra: _compNomMestra()
+    }).catch(function () { _publicatAquestaEstona[clau] = false; });
   }
 }
+
+/* ⚠ La casella ja no hi és (veure la capçalera). Aquesta funció es queda,
+   buida de feina, perquè `comprova-controls.js` comprova que tot el que es
+   crida des de l'HTML existeixi, i perquè un navegador amb la pàgina vella
+   oberta —el service worker pot servir-la una estona— no peti en clicar-la.
+   Publicar ja es fa sol. */
+function toggleCompartirNotes() { /* res a fer: les notes es publiquen sempre */ }
 
 /* Republica quan canvien les notes, si està compartida.
    Amb espera, perquè entrant notes es dispara a cada tecla. */
 function publicaNotesSiCal() {
   const c = _compClau();
   if (!c) return;
-  if (!_compartirEstat[c.grup + '|' + c.matKey]) return;   // no comparteix: res a fer
+  /* Abans aquí hi havia `if (!_compartirEstat[...]) return;`. Ja no hi ha
+     permís que mirar: es publica sempre (veure la capçalera del fitxer). */
   clearTimeout(_publicaTimer);
   _publicaTimer = setTimeout(function () {
     appsScriptPost({
@@ -193,10 +156,15 @@ function pintaNotesAltresMestres(assigs, rowId, sevesKeys) {
         <thead><tr><th>Assignatura</th><th>1r</th><th>2n</th><th>3r</th><th>Qui la fa</th></tr></thead>
         <tbody>
           ${files.map(a => {
+            /* ⚠ Des del 7/11/2026 les notes es publiquen sempre, o sigui
+               que `compartit:false` ja no vol dir «no ho vol compartir»:
+               vol dir que aquella mestra encara no ha tornat a obrir
+               l'assignatura des del canvi i el seu resum és el vell. El
+               rètol ho ha de dir així, que és el que passa de debò. */
             if (!a.compartit) {
               return `<tr class="notesalt-nc">
                 <td>${escapeHtml(a.nom)}</td>
-                <td colspan="3" class="notesalt-nc-txt">Notes no compartides</td>
+                <td colspan="3" class="notesalt-nc-txt">Encara no hi ha notes publicades</td>
                 <td>${escapeHtml(a.mestra || '—')}</td>
               </tr>`;
             }

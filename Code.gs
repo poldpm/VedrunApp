@@ -203,22 +203,31 @@ function publicaNotesResum(ss, grup, matKey, nomAssig, nomMestra) {
   var gss = getGrupsSpreadsheet(ss);
   if (!gss) return { ok: false, error: 'No s\'ha pogut obrir el full de grups compartit' };
 
-  var pref = loadCompartirNotes(ss, grup, matKey);
   var clau = _notesCompClau_(grup, matKey);
   var ara = Utilities.formatDate(new Date(), _gTz_(), 'yyyy-MM-dd HH:mm');
 
-  /* Si NO comparteix: es publica només que existeix, SENSE cap nota.
-     Així el tutor sap que hi ha Música i qui la fa, però no veu res més. */
-  if (!pref.compartir) {
-    sheetSetJSON(gss, '_AppData', clau, JSON.stringify({
-      nom: String(nomAssig || matKey), mestra: String(nomMestra || ''),
-      compartit: false, actualitzat: ara
-    }));
-    return { ok: true, compartit: false };
-  }
+  /* ⚠ JA NO HI HA PERMÍS: ES PUBLICA SEMPRE (7/11/2026).
 
-  /* Sí que comparteix: es calculen les notes finals i es lliguen pel nom
-     amb els alumnes del full compartit, per desar-les amb el seu rowId. */
+     Abans hi havia una casella per assignatura («Compartir amb el tutor/a»)
+     que venia desmarcada, i mentre no es marqués aquí no s'escrivia ni una
+     nota: el tutor veia «Notes no compartides».
+
+     La direcció ho ha decidit al revés: el tutor i la direcció han de poder
+     veure la nota final de cada trimestre de TOTES les assignatures d'un
+     alumne, sense dependre de si la mestra ho ha activat. Per tant aquesta
+     funció publica sempre.
+
+     ⚠ EL QUE NO CANVIA: es publica NOMÉS LA NOTA FINAL de cada trimestre,
+     mai el detall dels exàmens ni els comentaris. El tutor ha de poder
+     veure com va l'alumne, no revisar la feina d'una companya. Si algun dia
+     es vol publicar més, és una altra decisió i s'ha de tornar a parlar.
+
+     La preferència antiga (`compartir_<grup>|<matKey>`) es queda escrita al
+     full de cada mestra però ja no la mira ningú: esborrar-la no aportava
+     res i, si algun dia es torna enrere, hi és. */
+
+  /* Es calculen les notes finals i es lliguen pel nom amb els alumnes del
+     full compartit, per desar-les amb el seu rowId. */
   /* ⚠ EL NOM DE LA PESTANYA, NO L'ETIQUETA DEL MENÚ.
 
      Trobat a l'auditoria del 6/9/2026: aquí es feia servir `nomAssig`, que és
