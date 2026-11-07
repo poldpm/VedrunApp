@@ -1277,6 +1277,12 @@ body {
 }
 .fitxa-obs-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
 .fitxa-obs-text { font-size: 13px; color: var(--text-main); line-height: 1.5; flex: 1; }
+/* D'on surt una observació apuntada corregint. Va a part i més fluix: el que
+   s'ha de llegir és el que va escriure la mestra, no d'on surt. */
+.fitxa-obs-font {
+  display: block; margin-top: 2px;
+  font-size: 11.5px; font-style: italic; color: var(--text-muted);
+}
 
 /* Notes dins la fitxa */
 .fitxa-notes-table { width: 100%; border-collapse: collapse; font-size: 13px; }

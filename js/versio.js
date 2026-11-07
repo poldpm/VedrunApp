@@ -21,7 +21,7 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v333';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v334';   // ← ha de coincidir amb el CACHE del sw.js
 
   /* La versió MÉS VELLA del Code.gs amb què aquesta app encara funciona.
      ------------------------------------------------------------------
@@ -50,7 +50,14 @@
      aquell navegador: al mòbil no hi serien, i esborrar-ne un en un aparell
      no descomptaria les parelles a l'altre. Val més la franja groga dient
      que el servidor va endarrerit que no pas que ho descobreixi ella. */
-  var BACKEND_MINIM = 'v320';
+  /* ⚠ PUJADA A v334 (7/11/2026). Les observacions apuntades corregint —el
+     comentari d'una casella de Notes— surten ara a la fitxa de l'alumne, i
+     per recollir-les el navegador demana una ACCIÓ NOVA
+     (`getComentarisActivitats`). Amb la biblioteca d'abans el servidor no la
+     coneix: la fitxa segueix anant bé, però aquelles observacions no hi
+     surten MAI i no ho diu ningú. És justament el cas de la «idea» de la
+     v290. Val més la franja groga. */
+  var BACKEND_MINIM = 'v334';
 
   var K_AJORNAT  = 'versio_ajornada';
   /* ⚠ EL BUCLE DEL 4/9/2026.

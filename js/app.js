@@ -3030,33 +3030,17 @@ async function renderFitxa(studentId) {
     pBody.innerHTML = '<p class="fitxa-empty-field">Encara no hi ha cap contacte al full de l\'escola.</p>';
   }
 
-  // Observacions agrupades per trimestre
-  const obsBody    = document.getElementById('fitxaObservacions');
-  const entrades   = Object.entries(obs).filter(([, v]) => v && v.trim());
-  if (!entrades.length) {
-    obsBody.innerHTML = '<p class="fitxa-empty-field">Sense observacions enregistrades.</p>';
-  } else {
-    const perTrim = { '1':[], '2':[], '3':[] };
-    entrades.forEach(([key, text]) => {
-      const [trim, ...matParts] = key.split('_');
-      const mat = matParts.join('_');
-      if (perTrim[trim]) perTrim[trim].push({ mat, text });
-    });
-    obsBody.innerHTML = [1,2,3].map(t => {
-      const grup = perTrim[String(t)];
-      if (!grup.length) return '';
-      return `<div class="fitxa-obs-trim">
-        <div class="fitxa-obs-trim-label">${TRIM_LABELS[String(t)]}</div>
-        ${grup.map(({ mat, text }) => {
-          const c = MATERIA_COLORS[mat] || MATERIA_COLORS.general;
-          return `<div class="fitxa-obs-item">
-            <span class="obs-materia-badge" style="background:${c.bg};color:${c.text};flex-shrink:0">${_matLabel(mat)}</span>
-            <span class="fitxa-obs-text">${escapeHtml(text)}</span>
-          </div>`;
-        }).join('')}
-      </div>`;
-    }).join('');
-  }
+  /* Observacions agrupades per trimestre. Es pinten de seguida amb el que ja
+     tenim, i el que s'ha apuntat corregint arriba a part: quan arriba, es
+     repinten. Així la fitxa no s'espera mai (veure `_comentarisActivitats`). */
+  const obsBody = document.getElementById('fitxaObservacions');
+  if (obsBody) obsBody.setAttribute('data-alumne', String(studentId));
+  _pintaObsFitxa(studentId, obs);
+  carregaComentarisActivitats().then(() => {
+    // Si mentrestant ha canviat d'alumne, no li pintem les d'un altre.
+    const c = document.getElementById('fitxaObservacions');
+    if (c && String(c.getAttribute('data-alumne')) === String(studentId)) _pintaObsFitxa(studentId, obs);
+  }).catch(() => {});
 
   // Notes i activitats no entregades de la fitxa
   const notesBody = document.getElementById('fitxaNotes');
@@ -3081,6 +3065,100 @@ async function renderFitxa(studentId) {
      amaga la targeta i prou. */
   try { if (window.Incidencies) Incidencies.pintaFitxa(studentId); } catch (e) {}
   _updateFitxaNav();
+}
+
+/* ============================================================
+   LES OBSERVACIONS DE LA FITXA
+   ------------------------------------------------------------
+   Dues procedències, una sola llista:
+
+   · Les escrites a l'apartat d'Observacions, una per assignatura
+     i trimestre. Són les de sempre.
+   · Les apuntades corregint, al comentari d'una casella de Notes.
+     En Pol, 7/11/2026: «si en una activitat de mates he notat que
+     gira al 6, vull que en les observacions d'aquell alumne
+     surti». Aquestes porten el nom de l'activitat, perquè es vegi
+     d'on surten i perquè es puguin anar a tocar allà: aquí només
+     es miren (decidit amb en Pol el mateix dia).
+   ============================================================ */
+let _comentarisActivitats = null;   // [ {nom, trim, mat, assig, activitat, text} ]
+let _comentarisDemanats   = null;   // la promesa, perquè dues fitxes seguides no en facin dues
+
+/* ⚠ Es demana UN COP per sessió, no a l'arrencada: llegir les notes de
+   cel·la de totes les pestanyes són dues crides per pestanya, i l'arrencada
+   és el que més es nota. Aquí només costa el primer cop que s'obre una
+   fitxa, i a partir de llavors passar de fitxa en fitxa no demana res. */
+function carregaComentarisActivitats(forca) {
+  if (!forca && _comentarisActivitats) return Promise.resolve(_comentarisActivitats);
+  if (!forca && _comentarisDemanats) return _comentarisDemanats;
+  if (!config.scriptUrl) { _comentarisActivitats = []; return Promise.resolve([]); }
+  _comentarisDemanats = appsScriptGet({ action: 'getComentarisActivitats', _fons: true })
+    .then(r => {
+      const c = (r && r.ok) ? r.comentaris : null;
+      _comentarisActivitats = Array.isArray(c) ? c : [];
+      return _comentarisActivitats;
+    })
+    .catch(() => { _comentarisActivitats = []; return []; })
+    .then(x => { _comentarisDemanats = null; return x; });
+  return _comentarisDemanats;
+}
+
+/* Els d'un alumne. Es busquen pel NOM —el full de l'escola es reordena sol i
+   anar per posició ja va costar car una vegada— i es normalitzen ELS DOS
+   COSTATS aquí mateix: així no depèn que el servidor i el navegador
+   normalitzin igual, que no ho fan. */
+function _comentarisDe(studentId) {
+  if (!Array.isArray(_comentarisActivitats) || !_comentarisActivitats.length) return [];
+  const s = students.find(x => String(x.id) === String(studentId));
+  if (!s || !s.nom) return [];
+  const net = n => String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\([^)]*\)/g, '').replace(/[,*]/g, ' ').replace(/\s+/g, ' ').trim();
+  const k = net(s.nom);
+  if (!k) return [];
+  return _comentarisActivitats.filter(c => net(c.nom) === k);
+}
+
+function _pintaObsFitxa(studentId, obs) {
+  const obsBody = document.getElementById('fitxaObservacions');
+  if (!obsBody) return;
+
+  const perTrim = { '1': [], '2': [], '3': [] };
+  Object.entries(obs || {}).forEach(([key, text]) => {
+    if (!text || !text.trim()) return;
+    const [trim, ...matParts] = key.split('_');
+    if (perTrim[trim]) perTrim[trim].push({ mat: matParts.join('_'), text });
+  });
+  _comentarisDe(studentId).forEach(c => {
+    if (perTrim[String(c.trim)]) {
+      perTrim[String(c.trim)].push({ mat: c.mat || '', text: c.text, activitat: c.activitat, assig: c.assig });
+    }
+  });
+
+  const quantes = perTrim['1'].length + perTrim['2'].length + perTrim['3'].length;
+  if (!quantes) {
+    obsBody.innerHTML = '<p class="fitxa-empty-field">Sense observacions enregistrades.</p>';
+    return;
+  }
+
+  obsBody.innerHTML = [1, 2, 3].map(t => {
+    const grup = perTrim[String(t)];
+    if (!grup.length) return '';
+    return `<div class="fitxa-obs-trim">
+      <div class="fitxa-obs-trim-label">${TRIM_LABELS[String(t)]}</div>
+      ${grup.map(o => {
+        const c = MATERIA_COLORS[o.mat] || MATERIA_COLORS.general;
+        /* Sense clau d'assignatura (una de pròpia del perfil), el distintiu
+           diu el nom de la pestanya: val més això que no pas «General». */
+        const etiqueta = o.mat ? _matLabel(o.mat) : (o.assig || 'General');
+        return `<div class="fitxa-obs-item">
+          <span class="obs-materia-badge" style="background:${c.bg};color:${c.text};flex-shrink:0">${escapeHtml(etiqueta)}</span>
+          <span class="fitxa-obs-text">${escapeHtml(o.text)}${
+            o.activitat ? `<span class="fitxa-obs-font">de l'activitat «${escapeHtml(o.activitat)}»</span>` : ''
+          }</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
 }
 
 /* ============================================================

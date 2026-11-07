@@ -3539,6 +3539,7 @@ function handleRequest(e) {
       case 'deleteRegistreItem':   result = deleteRegistreItem(ss, body.itemId, body.grup); break;
       case 'updateRegistreCell':   result = updateRegistreCell(ss, body.itemId, body.studentId, body.value, body.grup, body.nomAlumne); break;
       case 'getObservacions':      result = getObservacions(ss); break;
+      case 'getComentarisActivitats': result = getComentarisActivitats(ss); break;
       case 'saveObservacio':       result = saveObservacio(ss, body.studentId, body.materia, body.trimestre, body.text, body.replace||false, body.nomAlumne, body.grup); break;
       case 'deleteObservacio':     result = deleteObservacio(ss, body.studentId, body.materia, body.trimestre, body.nomAlumne, body.grup); break;
       case 'getNotes':             result = getNotes(ss, body&&body.materia||p.materia, body&&body.trimestre||p.trimestre, body&&body.grup||p.grup); break;
@@ -5182,6 +5183,93 @@ function getObservacions(ss) {
     });
   }
   return { ok:true, observacions:obs };
+}
+
+/* ============================================================
+   EL QUE S'HA APUNTAT CORREGINT, TAMBÉ ÉS UNA OBSERVACIÓ
+   ------------------------------------------------------------
+   En Pol, 7/11/2026: «si en una activitat de mates he notat que
+   gira al 6, vull que en les observacions d'aquell alumne surti».
+
+   Els comentaris que s'escriuen a una casella de Notes es desen
+   com a NOTA d'aquella cel·la (veure `getNotes`). Fins ara només
+   es podien veure tornant a aquella assignatura, aquell trimestre
+   i aquella activitat: a la pràctica, no es tornaven a veure mai.
+
+   Això els recull de totes les pestanyes de notes del full d'una
+   sola passada i els torna per alumne.
+
+   ⚠ PER NOM, NO PER POSICIÓ. L'`getObservacions` d'aquí sobre va
+   per posició de fila i ja ho va pagar (auditoria del 6/9/2026:
+   el full «Grups» es reordena sol i l'observació queia al nen del
+   costat). Aquí hi va el nom, que és el que fa servir tota la
+   resta de l'app des d'aquell dia.
+
+   ⚠ I EL NOM VA TAL QUAL, SENSE NORMALITZAR. La temptació és
+   tornar-ho ja ordenat per nom normalitzat, i llavors el navegador
+   ha de normalitzar EXACTAMENT igual per trobar-ho. No ho fa: el
+   `_normNom` d'aquí treu parèntesis, asteriscs i comes, i el
+   `_normNomSimple` del navegador només accents i majúscules. Amb
+   un nom com «Júlia (possible baixa)» no es trobarien i no ho
+   diria ningú. Tornant el nom sencer, qui compara el normalitza
+   ell mateix pels dos costats i sempre quadra.
+
+   ⚠ I NO VA AL BOOTSTRAP. Llegir les notes de cel·la de vint-i-una
+   pestanyes són dues crides per pestanya, i l'arrencada de l'app
+   ja és el que més es nota (44 viatges). Això es demana a part, el
+   primer cop que s'obre una fitxa, i es queda a la memòria del
+   navegador la resta de l'estona. */
+function getComentarisActivitats(ss) {
+  var llista = [];        // [ {nom, trim, mat, assig, activitat, text} ]
+
+  /* De «1T_Matemàtiques» o «1T_Musica__5ea_5è A» en surt el trimestre i el
+     nom de l'assignatura. Si coincideix amb una de les de sempre, se'n torna
+     també la clau, que és la que dona el color del distintiu a la pantalla. */
+  function _deLaPestanya(nom) {
+    var m = (nom || '').toString().match(/^(\d)T_(.+)$/);
+    if (!m) return null;
+    var resta = m[2], mat = '';
+    Object.keys(MATERIA_NOM).forEach(function (k) {
+      if (mat) return;
+      var lbl = MATERIA_NOM[k];
+      if (resta === lbl || resta.indexOf(lbl + '_') === 0) mat = k;
+    });
+    return { trim: m[1], assig: resta, mat: mat };
+  }
+
+  ss.getSheets().forEach(function (sh) {
+    var d = _deLaPestanya(sh.getName());
+    if (!d) return;
+    var lc = sh.getLastColumn(); if (lc < 2) return;
+    var lr = Math.min(sh.getLastRow(), _ultimaFilaAmbNom_(sh) + 1);
+    if (lr < DATA_ROW) return;
+
+    /* Dues crides per pestanya i prou: tot el rang de cop, valors i notes. */
+    var vals  = sh.getRange(1, 1, lr, lc).getValues();
+    var notes = sh.getRange(1, 1, lr, lc).getNotes();
+
+    // Quines columnes són activitats, i com es diuen.
+    var cols = [];
+    (notes[0] || []).forEach(function (meta, i) {
+      if (_colIdNota_(meta) === null) return;      // Carpeta, Mitjana, Nota, Obs: fora
+      var titol = (vals[0][i] || '').toString().trim();
+      if (titol) cols.push({ i: i, titol: titol });
+    });
+    if (!cols.length) return;
+
+    for (var r = DATA_ROW - 1; r < lr; r += 2) {   // dues files per alumne
+      var nom = (vals[r] && vals[r][0] || '').toString().trim();
+      if (!nom) continue;
+      cols.forEach(function (c) {
+        var txt = (notes[r] && notes[r][c.i] ? String(notes[r][c.i]) : '').trim();
+        if (!txt) return;
+        llista.push({ nom: nom, trim: d.trim, mat: d.mat, assig: d.assig,
+                      activitat: c.titol, text: txt });
+      });
+    }
+  });
+
+  return { ok: true, comentaris: llista };
 }
 /* ⚠ DUES COSES QUE FALLAVEN AQUÍ (auditoria del 6/9/2026).
 
@@ -7141,7 +7229,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v333';
+var BACKEND_VERSIO = 'v334';
 
 var MAX_CELA = 45000;
 
