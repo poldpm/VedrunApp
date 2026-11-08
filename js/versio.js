@@ -21,7 +21,7 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v340';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v341';   // ← ha de coincidir amb el CACHE del sw.js
 
   /* La versió MÉS VELLA del Code.gs amb què aquesta app encara funciona.
      ------------------------------------------------------------------
@@ -57,7 +57,15 @@
      coneix: la fitxa segueix anant bé, però aquelles observacions no hi
      surten MAI i no ho diu ningú. És justament el cas de la «idea» de la
      v290. Val més la franja groga. */
-  var BACKEND_MINIM = 'v334';
+  /* ⚠ PUJADA A v341 (8/11/2026). El botó «Avís d'error» de la pantalla
+     d'Assoliments demana al servidor una ACCIÓ NOVA
+     (`enviaErrorAssoliments`). Amb la biblioteca d'abans, la mestra escriu
+     què veu malament, clica Enviar i li surt un error que no diu res —el cas
+     exacte de la «idea» de la v290. I aquí és pitjor: des que els objectius
+     els publica direcció, aquell botó és l'ÚNICA manera que té d'avisar que
+     un objectiu està malament, perquè ja no el pot arreglar ella. Val més la
+     franja groga dient que el servidor va endarrerit. */
+  var BACKEND_MINIM = 'v341';
 
   var K_AJORNAT  = 'versio_ajornada';
   /* ⚠ EL BUCLE DEL 4/9/2026.

@@ -10045,6 +10045,67 @@ function deleteAssimObj() {
   renderAssoliments();
 }
 
+/* ============================================================
+   AVÍS D'ERROR ALS ASSOLIMENTS
+   ------------------------------------------------------------
+   Des que els objectius els publica direcció, la mestra NO els pot
+   arreglar: si un surt tallat, repetit o a l'assignatura que no toca,
+   abans l'editava i ara no. Aquest és el camí per dir-ho.
+
+   Hi va a dins el curs, el trimestre i l'assignatura, perquè «hi ha un
+   objectiu malament» sol no serveix de res: amb 683 objectius de sis
+   cursos, saber on mirar és la meitat de la feina.
+   ============================================================ */
+function _assimErrorUbicacio() {
+  const { curs, nom } = _assimCursINom(_assimMateria);
+  const assig = nom || (typeof ASSIM_MATERIES !== 'undefined' ? ASSIM_MATERIES[_assimMateria] : '') || '(cap assignatura)';
+  const trim = (typeof getTrimLabel === 'function') ? getTrimLabel(_assimTrim) : (_assimTrim + 'r trimestre');
+  return [curs || '(curs desconegut)', assig, trim].join(' · ');
+}
+
+function openAssimError() {
+  const sub = document.getElementById('assimErrorSub');
+  if (sub) sub.textContent = _assimErrorUbicacio();
+  const t = document.getElementById('assimErrorText');
+  if (t) t.value = '';
+  document.getElementById('assimErrorOverlay').classList.add('open');
+  setTimeout(() => { const e = document.getElementById('assimErrorText'); if (e) e.focus(); }, 100);
+}
+
+function closeAssimError() {
+  document.getElementById('assimErrorOverlay').classList.remove('open');
+}
+
+async function enviaAssimError() {
+  const camp = document.getElementById('assimErrorText');
+  const text = (camp ? camp.value : '').trim();
+  /* ⚠ Sense text, això no feia res i el botó semblava espatllat: es diu. */
+  if (!text) { showToast('Explica què hi veus malament', 'error'); if (camp) camp.focus(); return; }
+  if (!config.scriptUrl) { showToast('Sense connexió al Google Sheets no es pot enviar', 'error'); return; }
+
+  const botó = document.getElementById('assimErrorEnvia');
+  if (botó) { botó.disabled = true; botó.textContent = 'Enviant…'; }
+  try {
+    /* Nom I COGNOM, com a «Tinc una idea!»: al claustre hi ha mestres que es
+       diuen igual. */
+    const p = (typeof _perfil !== 'undefined' && _perfil) ? _perfil : {};
+    const qui = [(p.nom || '').trim(), (p.cognom || '').trim()].filter(x => x).join(' ');
+    const r = await appsScriptPost({
+      action: 'enviaErrorAssoliments', qui: qui, text: text, ubicacio: _assimErrorUbicacio(),
+    });
+    if (r && r.ok) {
+      closeAssimError();
+      showToast('Avís enviat. Gràcies ✓', 'success');
+    } else {
+      showToast((r && r.error) ? r.error : 'No s’ha pogut enviar', 'error');
+    }
+  } catch (e) {
+    showToast('Error de connexió', 'error');
+  } finally {
+    if (botó) { botó.disabled = false; botó.textContent = 'Enviar-ho'; }
+  }
+}
+
 /* Sincronitza tots els assoliments del trimestre actual al Sheets */
 // Recull totes les dades d'assoliments d'un trimestre per al full visible
 /* ⚠ AIXÒ MIRAVA CINC ASSIGNATURES QUE JA NO EXISTEIXEN.

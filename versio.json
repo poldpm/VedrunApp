@@ -1,11 +1,10 @@
 {
-  "versio": "v340",
+  "versio": "v341",
   "data": "2026-11-08",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Els objectius d aprenentatge ja hi són. A Assoliments, cada curs i cada àrea surt amb els objectius del 1r trimestre que ha publicat direcció: no els has d escriure ni pujar cap document. Només has de marcar cada alumne.",
-    "Són els del 1r trimestre i encara estan en revisió: la pantalla t ho avisa. El que marquis no es perd quan en corregeixin la redacció.",
-    "Si en vols algun de teu, el pots afegir com sempre i es posa darrere dels de direcció. Els de direcció no es poden esborrar ni canviar.",
-    "Al Tallers i a la Plàstica, cada objectiu diu de quin bloc és (Plàstica, Robòtica, Teatre, Dibuix…)."
+    "A Assoliments, si hi veus cap objectiu malament tens el botó Avís d error al costat d Afegir objectiu: hi escrius què passa i s arregla. Com que els objectius els posa direcció, tu no els pots corregir.",
+    "L avís ja porta el curs, l assignatura i el trimestre que tenies obert: només has d explicar què veus.",
+    "Els objectius d aprenentatge es vigilen sols: si direcció canvia el seu document, els de l app es posen al dia sense que hagis de fer res."
   ]
 }

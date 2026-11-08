@@ -3541,6 +3541,7 @@ function handleRequest(e) {
       case 'savePersonal':         result = savePersonal(ss, body.studentId, body.dades); break;
       case 'demanaMillora':        result = demanaMillora(body.millora, body.titol, body.qui, body.nota); break;
       case 'enviaIdea':           result = enviaIdea(body.qui, body.idea); break;
+      case 'enviaErrorAssoliments': result = enviaErrorAssoliments(body.qui, body.text, body.ubicacio); break;
       case 'getAulesLliures':     result = getAulesLliures((body && body.refresca) || (p && p.refresca)); break;
       case 'syncAlumnesARegistre': result = syncAlumnesARegistre(ss, body.alumnes, body.grup); break;
       case 'getRegistre':          result = getRegistre(ss, (body&&body.grup)||p.grup); break;
@@ -7238,7 +7239,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v339';
+var BACKEND_VERSIO = 'v341';
 
 var MAX_CELA = 45000;
 
@@ -13768,6 +13769,67 @@ function enviaIdea(qui, idea) {
     MailApp.sendEmail({
       to: _milloraCorreu_(),
       subject: 'Tinc una idea! (' + quiEs + ')',
+      body: cos,
+      name: 'App de gestio de curs',
+      replyTo: correuSeu || undefined,
+    });
+  } catch (e) {
+    return { ok: false, error: 'No s\'ha pogut enviar el correu: ' + e.message };
+  }
+  return { ok: true, a: _milloraCorreu_(), qui: quiEs };
+}
+
+/* ============================================================
+   «AVÍS D'ERROR» DELS ASSOLIMENTS
+   ------------------------------------------------------------
+   Des de la v340 els objectius d'aprenentatge els publica direcció i
+   venen fets dins l'app: la mestra no els escriu. Aixo vol dir que si
+   un objectiu hi surt mal retallat, repetit, a l'assignatura que no
+   toca o directament no hi surt, ella NO ho pot arreglar —i abans si
+   que podia, perque eren seus.
+
+   Per aixo el boto «Avis d'error» de la pantalla d'Assoliments: escriu
+   que veu malament i arriba aqui. Va al mateix correu que les idees,
+   amb un assumpte diferent perque es vegi d'una ullada que no es cap
+   peticio sino una cosa espatllada. I porta a dins el curs, el
+   trimestre i l'assignatura, que es la meitat de la feina de trobar-ho.
+
+   ⚠ El que arriba del navegador es text escrit per una persona: aqui
+   nomes es talla si es massa llarg i es posa al cos del correu. No
+   s'executa res ni s'escriu enlloc del full.
+   ============================================================ */
+function enviaErrorAssoliments(qui, text, ubicacio) {
+  var cos0 = String(text || '').trim();
+  if (!cos0) return { ok: false, error: 'No hi ha res escrit' };
+  if (cos0.length > 4000) cos0 = cos0.slice(0, 4000) + '\n\n[…tallat: era massa llarg]';
+
+  var correuSeu = '';
+  try { correuSeu = Session.getActiveUser().getEmail() || ''; } catch (e) {}
+
+  var nom = String(qui || '').trim();
+  var quiEs = nom || correuSeu || 'algu sense nom al perfil';
+
+  var on = String(ubicacio || '').trim();
+
+  var cos = [
+    nom ? ('Nom del perfil: ' + nom) : 'El perfil no te nom posat.',
+    correuSeu ? ('Compte: ' + correuSeu) : '',
+    on ? ('On ho ha vist: ' + on) : '',
+    '',
+    'Que hi veu malament:',
+    cos0,
+    '',
+    '---',
+    'Enviat des de la pantalla d\'Assoliments de l\'app de gestio de curs.',
+    'Els objectius oficials son a js/objectius.js (generats dels documents',
+    'de direccio del Drive). Si l\'error es del document, s\'arregla al',
+    'document; si es del retall, al fitxer.',
+  ].filter(function (l) { return l !== ''; }).join('\n');
+
+  try {
+    MailApp.sendEmail({
+      to: _milloraCorreu_(),
+      subject: 'Error als assoliments' + (on ? ' — ' + on : '') + ' (' + quiEs + ')',
       body: cos,
       name: 'App de gestio de curs',
       replyTo: correuSeu || undefined,

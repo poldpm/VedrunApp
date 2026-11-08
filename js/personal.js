@@ -1024,7 +1024,7 @@ window.EINES_CARPETA = true;
    (es desa al seu perfil i per tant també al mòbil). Aquesta línia
    es pot treure d'aquí quan ja faci temps que el va llegir.
    ============================================================ */
-window.AVIS_INICI = 'adeu-assistent';
+window.AVIS_INICI = 'assoliments-automatics';
 
 /* ============================================================
    AVISAR LA FAMÍLIA D'UNA INCIDÈNCIA
