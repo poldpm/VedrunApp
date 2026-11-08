@@ -2819,6 +2819,21 @@ body {
 
 /* Capçalera objectiu amb nom curt + ⓘ */
 .assim-obj-nom { font-size: 12px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; line-height: 1.3; }
+
+/* Objectius que ha publicat direcció: es distingeixen dels que s'hi afegeix
+   la mestra, i porten a sobre el nom del bloc (Plàstica, Robòtica, Teatre…)
+   quan el document els agrupa. */
+.assim-th-oficial { background: var(--bg-soft, #FAFAFA); }
+.assim-obj-bloc {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--primary); opacity: .75; margin-bottom: 2px; line-height: 1.2;
+}
+.assim-ofi-avis {
+  font-size: 13px; line-height: 1.45; padding: 10px 12px; margin-bottom: 12px;
+  border-radius: 8px; border-left: 3px solid var(--primary);
+  background: var(--bg-soft, #FAFAFA); color: var(--text-soft, #555);
+}
+.assim-ofi-avis.assim-ofi-prov { border-left-color: #92400E; background: #FEF3C7; color: #78350F; }
 .assim-obj-info {
   background: none; border: none; cursor: pointer;
   font-size: 13px; color: var(--text-muted); padding: 0 2px;

@@ -9553,9 +9553,67 @@ function _assimLlegeix(nova, vella) {
 
 function assimObjKey()      { return `assim_obj_${_assimClauMat()}_${_assimTrim}`; }
 function assimObjKeyVella() { return `assim_obj_${_assimMateria}_${_assimTrim}`; }
-function assimObjLoad()     { return JSON.parse(_assimLlegeix(assimObjKey(), assimObjKeyVella()) || '[]'); }
+
+/* ---------- ELS OBJECTIUS OFICIALS DE DIRECCIÓ ----------
+
+   Els objectius de cada curs, trimestre i àrea els publica direcció i viuen
+   dins l'app (`js/objectius.js`). La mestra no els ha d'escriure: entra, els
+   troba fets i només marca cada alumne.
+
+   Els seus (els que s'afegeixi ella amb «+ Afegir objectiu») van DARRERE i es
+   desen al navegador com sempre. Els oficials no es desen enlloc: si direcció
+   en canvia la redacció, la propera versió de l'app ja porta la bona i les
+   marques es queden al seu lloc (veure `_objId` a js/objectius.js). */
+
+/* El curs i el nom de debò d'una assignatura del selector d'Assoliments.
+   «Música · 3r A» no serveix per buscar: cal «3r» i «Música». */
+function _assimCursINom(matKey) {
+  const k = matKey || _assimMateria;
+  const nom = (typeof _assigNomMap !== 'undefined' && _assigNomMap[k]) ? _assigNomMap[k] : '';
+  const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[k] : null;
+  if (dd && dd.curs) return { curs: dd.curs, nom: dd.assig || nom };
+  const g = (typeof _assigGrupMap !== 'undefined' && _assigGrupMap[k]) ? _assigGrupMap[k] : '';
+  /* El grup s'escriu «2n C»: el curs és el primer tros. Si no hi ha grup
+     associat (p. ex. la tutoria), es fa servir el curs del perfil. */
+  let curs = (g || '').toString().trim().split(/\s+/)[0] || '';
+  if (!curs && typeof _perfil !== 'undefined' && _perfil && _perfil.tutorCurs) curs = _perfil.tutorCurs;
+  return { curs, nom };
+}
+
+function assimObjOficials() {
+  if (typeof objectiusOficials !== 'function') return [];
+  const { curs, nom } = _assimCursINom(_assimMateria);
+  if (!curs || !nom) return [];
+  try { return objectiusOficials(curs, _assimTrim, nom) || []; } catch (e) { return []; }
+}
+
+/* Deixa constància de quin curs i assignatura hi ha darrere d'aquesta clau,
+   perquè el full visible d'assoliments pugui tornar a trobar els objectius
+   oficials d'una assignatura que ara mateix no està oberta. Només s'hi desa
+   el curs i el nom: el text dels objectius surt sempre de l'app. */
+function _assimRecordaOficials() {
+  const { curs, nom } = _assimCursINom(_assimMateria);
+  if (!curs || !nom) return;
+  try {
+    localStorage.setItem(`assim_ofi_${_assimClauMat()}_${_assimTrim}`, JSON.stringify({ curs, nom }));
+  } catch (e) { /* navegador sense espai: tant se val, és només per al full */ }
+}
+
+/* Els de la mestra, i prou. */
+function assimObjPropis() {
+  try { return JSON.parse(_assimLlegeix(assimObjKey(), assimObjKeyVella()) || '[]') || []; }
+  catch (e) { return []; }
+}
+
+/* Tots els que ha de veure: primer els de direcció, després els seus. */
+function assimObjLoad() { return assimObjOficials().concat(assimObjPropis()); }
+
 function assimObjSave(v) {
-  localStorage.setItem(assimObjKey(), JSON.stringify(v));
+  /* ⚠ ELS OFICIALS NO ES DESEN MAI AL NAVEGADOR. Si s'hi colessin, el dia que
+     direcció en corregís la redacció la mestra es quedaria amb la vella per
+     sempre, i amb còpies repetides a la graella. */
+  const propis = (v || []).filter(o => o && !o.oficial);
+  localStorage.setItem(assimObjKey(), JSON.stringify(propis));
   _assimSaveObjToSheets(_assimClauMat(), _assimTrim);   // dades ocultes (sync)
   _autoSyncAssimSheet(_assimTrim);                    // full visible bonic
 }
@@ -9700,6 +9758,7 @@ function _renderAssimTable() {
     const c0 = document.getElementById('assimObjCount'); if (c0) c0.textContent = '';
     return;
   }
+  _assimRecordaOficials();
   const objectius = assimObjLoad();
   const wrap = document.getElementById('assimTableWrap');
   const countEl = document.getElementById('assimObjCount');
@@ -9714,19 +9773,55 @@ function _renderAssimTable() {
     return;
   }
 
-  let html = '<div class="assim-table-scroll"><table class="assim-table"><thead><tr>';
+  /* Si els objectius els ha posat direcció, es diu d'on surten —i que encara
+     són provisionals— perquè la mestra no es pensi que els ha escrit ella ni
+     que són definitius. */
+  const oficials = objectius.filter(o => o.oficial);
+  let html = '';
+  if (oficials.length) {
+    const prov = oficials.some(o => o.provisional);
+    html += '<div class="assim-ofi-avis' + (prov ? ' assim-ofi-prov' : '') + '">'
+          + (prov
+             ? '<strong>Objectius provisionals.</strong> Són els de direcció per al '
+               + getTrimLabel(_assimTrim) + ', però encara s’estan revisant: la redacció pot canviar. '
+               + 'El que marquis no es perd quan es corregeixin.'
+             : '<strong>Objectius de direcció</strong> del ' + getTrimLabel(_assimTrim)
+               + '. Només els has de marcar.')
+          + '</div>';
+  }
+
+  html += '<div class="assim-table-scroll"><table class="assim-table"><thead><tr>';
   html += '<th class="assim-th-nom">Alumne</th>';
   objectius.forEach((obj, i) => {
-    const nomCurt = obj.nom || (obj.text ? obj.text.substring(0,25) : 'Objectiu ' + (i+1));
-    const descTitol = obj.text ? escapeHtml(obj.text) : '';
-    html += `<th class="assim-th-obj">
-      <button class="notes-del-btn" onclick="deleteAssimObjDirect('${_idJs(obj.id)}')" title="Eliminar objectiu" style="top:4px;right:4px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-      <div class="assim-obj-nom"><strong>${escapeHtml(nomCurt)}</strong></div>
-      ${descTitol ? `<button class="assim-obj-info" onclick="showAssimObjInfo('${_idJs(obj.id)}',event)" title="${descTitol}">ⓘ</button>` : ''}
-      <button class="assim-obj-edit" onclick="openAssimObj('${_idJs(obj.id)}')" title="Editar">✎</button>
-    </th>`;
+    let nomCurt = obj.nom || '';
+    if (!nomCurt && obj.text) nomCurt = obj.text.length > 28 ? (obj.text.substring(0, 28) + '…') : obj.text;
+    if (!nomCurt) nomCurt = 'Objectiu ' + (i + 1);
+    const descTitol = obj.text ? escapeHtml(_assimObjTextComplet(obj)) : '';
+    /* ⚠ Els botons es munten amb concatenació i no amb una variable que pugui
+       valdre ''. És el parany del 2/9/2026: un `onclick` buit es pinta
+       clicable i no fa res. Un objectiu oficial directament NO porta els
+       botons d'esborrar ni d'editar, perquè no són seus. */
+    let botons = '';
+    if (!obj.oficial) {
+      botons += '<button class="notes-del-btn" onclick="deleteAssimObjDirect(\'' + _idJs(obj.id) + '\')"'
+             +  ' title="Eliminar objectiu" style="top:4px;right:4px">'
+             +  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+             +  '</button>';
+    }
+    let peu = '';
+    if (descTitol) {
+      peu += '<button class="assim-obj-info" onclick="showAssimObjInfo(\'' + _idJs(obj.id) + '\',event)"'
+          +  ' title="' + descTitol + '">ⓘ</button>';
+    }
+    if (!obj.oficial) {
+      peu += '<button class="assim-obj-edit" onclick="openAssimObj(\'' + _idJs(obj.id) + '\')" title="Editar">✎</button>';
+    }
+    const etiBloc = obj.bloc ? '<div class="assim-obj-bloc">' + escapeHtml(obj.bloc) + '</div>' : '';
+    html += '<th class="assim-th-obj' + (obj.oficial ? ' assim-th-oficial' : '') + '">'
+         +  botons + etiBloc
+         +  '<div class="assim-obj-nom"><strong>' + escapeHtml(nomCurt) + '</strong></div>'
+         +  peu
+         +  '</th>';
   });
   html += '<th class="assim-th-pct">%</th></tr></thead><tbody>';
 
@@ -9846,6 +9941,14 @@ function _updateAssimRowPct(sid) {
   });
 }
 
+/* El text sencer que es veu a la ⓘ: si l'objectiu és d'un bloc (Plàstica,
+   Robòtica, Teatre…), es diu de quin. */
+function _assimObjTextComplet(obj) {
+  if (!obj) return '';
+  const t = obj.text || '';
+  return obj.bloc ? (obj.bloc + ' · ' + t) : t;
+}
+
 /* --- Modal objectiu --- */
 function showAssimObjInfo(objId, event) {
   event.stopPropagation();
@@ -9860,22 +9963,40 @@ function showAssimObjInfo(objId, event) {
     document.body.appendChild(tip);
     document.addEventListener('click', () => tip.style.display = 'none');
   }
-  tip.innerHTML = `<strong>${escapeHtml(obj.nom || '')}</strong><br>${escapeHtml(obj.text)}`;
+  const capçalera = obj.oficial
+    ? (obj.bloc ? obj.bloc : 'Objectiu de direcció') + (obj.provisional ? ' · provisional' : '')
+    : (obj.nom || '');
+  tip.innerHTML = `<strong>${escapeHtml(capçalera)}</strong><br>${escapeHtml(obj.text)}`;
   const r = event.target.getBoundingClientRect();
   tip.style.display = 'block';
   tip.style.top     = (r.bottom + window.scrollY + 6) + 'px';
   tip.style.left    = Math.min(r.left + window.scrollX, window.innerWidth - 280) + 'px';
 }
 
+/* Un objectiu que ve de direcció no es pot esborrar ni editar des d'aquí: no
+   és seu, i si desaparegués d'una app i no de les altres ningú no entendria
+   per què. Es diu, en comptes de no fer res. */
+function _assimEsOficial(id) {
+  return assimObjOficials().some(o => o.id === id);
+}
+
 function deleteAssimObjDirect(id) {
+  if (_assimEsOficial(id)) {
+    showToast('Aquest objectiu l’ha posat direcció: no es pot esborrar', 'info');
+    return;
+  }
   if (!confirm('Eliminar aquest objectiu i totes les seves avaluacions?')) return;
-  const objectius = assimObjLoad().filter(o => o.id !== id);
+  const objectius = assimObjPropis().filter(o => o.id !== id);
   students.forEach(s => localStorage.removeItem(assimValKey(_assimSid(s), id)));
   assimObjSave(objectius);
   renderAssoliments();
 }
 
 function openAssimObj(id) {
+  if (id && _assimEsOficial(id)) {
+    showToast('Aquest objectiu l’ha posat direcció: no es pot editar', 'info');
+    return;
+  }
   _assimEditObjId = id;
   const del = document.getElementById('assimObjDelBtn');
   document.getElementById('assimObjTitle').textContent = id ? 'Editar objectiu' : 'Nou objectiu';
@@ -9902,7 +10023,7 @@ function saveAssimObj() {
   /* ⚠ Sense nom, aixo posava el cursor al camp i prou: el boto semblava
      espatllat (auditoria 6/9/2026). Ara es diu que hi falta. */
   if (!nom) { showToast('Posa-li un nom a l’objectiu', 'error'); document.getElementById('assimObjNom').focus(); return; }
-  const objectius = assimObjLoad();
+  const objectius = assimObjPropis();
   if (_assimEditObjId) {
     const obj = objectius.find(o => o.id === _assimEditObjId);
     if (obj) { obj.nom = nom; obj.text = text; }
@@ -9916,7 +10037,7 @@ function saveAssimObj() {
 
 function deleteAssimObj() {
   if (!_assimEditObjId || !confirm('Eliminar aquest objectiu i totes les seves avaluacions?')) return;
-  const objectius = assimObjLoad().filter(o => o.id !== _assimEditObjId);
+  const objectius = assimObjPropis().filter(o => o.id !== _assimEditObjId);
   // Elimina les avaluacions d'aquest objectiu
   students.forEach(s => localStorage.removeItem(assimValKey(_assimSid(s), _assimEditObjId)));
   assimObjSave(objectius);
@@ -9939,20 +10060,44 @@ function deleteAssimObj() {
    per a aquest trimestre. Així també hi entren les assignatures que es facin
    demà, sense haver de tocar aquesta llista mai més. I l'alumne s'identifica
    amb `_assimSid`, que és amb el que s'han desat les valoracions. */
+/* ⚠ I TAMBÉ HI HAN D'ENTRAR ELS OBJECTIUS DE DIRECCIÓ (8/11/2026).
+
+   Des que els objectius els publica direcció i viuen dins l'app, una mestra
+   pot avaluar un trimestre sencer sense haver escrit mai cap objectiu seu: al
+   navegador no hi hauria cap clau `assim_obj_…` i el full `1T_Assoliments`
+   d'aquella assignatura hauria sortit buit. Per això cada assignatura que
+   s'obre deixa constància del seu curs i nom a `assim_ofi_…`
+   (`_assimRecordaOficials`) i aquí es tornen a demanar a `js/objectius.js`.
+   Al navegador no s'hi desa cap text: si direcció en corregeix la redacció,
+   el full la porta bona a la primera sincronització. */
 function _buildAssimSheetData(trim) {
   const data = {};
   const prefix = 'assim_obj_';
+  const prefixOfi = 'assim_ofi_';
   const sufix = '_' + trim;
-  const claus = [];
+  const claus = [];          // claus d'assignatura amb objectius propis
+  const ofi = {};            // clau d'assignatura → { curs, nom }
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && k.indexOf(prefix) === 0 && k.slice(-sufix.length) === sufix) claus.push(k);
+    if (!k || k.slice(-sufix.length) !== sufix) continue;
+    if (k.indexOf(prefix) === 0) claus.push(k);
+    else if (k.indexOf(prefixOfi) === 0) {
+      const mat = k.slice(prefixOfi.length, k.length - sufix.length);
+      if (!mat) continue;
+      try { ofi[mat] = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { /* res */ }
+      if (claus.indexOf(prefix + mat + sufix) === -1) claus.push(prefix + mat + sufix);
+    }
   }
   claus.forEach(k => {
     const mat = k.slice(prefix.length, k.length - sufix.length);
     if (!mat) return;
     let objectius = [];
-    try { objectius = JSON.parse(localStorage.getItem(k) || '[]') || []; } catch (e) { return; }
+    try { objectius = JSON.parse(localStorage.getItem(k) || '[]') || []; } catch (e) { objectius = []; }
+    const info = ofi[mat];
+    if (info && info.curs && info.nom && typeof objectiusOficials === 'function') {
+      try { objectius = (objectiusOficials(info.curs, trim, info.nom) || []).concat(objectius); }
+      catch (e) { /* si no n'hi ha, es queden només els seus */ }
+    }
     if (!objectius.length) return;
     const alumnes = students.map(s => {
       const sid = (typeof _assimSid === 'function') ? _assimSid(s) : s.id;
