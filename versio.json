@@ -1,10 +1,10 @@
 {
-  "versio": "v341",
-  "data": "2026-11-08",
+  "versio": "v342",
+  "data": "2026-11-09",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A Assoliments, si hi veus cap objectiu malament tens el botó Avís d error al costat d Afegir objectiu: hi escrius què passa i s arregla. Com que els objectius els posa direcció, tu no els pots corregir.",
-    "L avís ja porta el curs, l assignatura i el trimestre que tenies obert: només has d explicar què veus.",
-    "Els objectius d aprenentatge es vigilen sols: si direcció canvia el seu document, els de l app es posen al dia sense que hagis de fer res."
+    "A Assoliments, quan hi ha molts objectius la graella s arrossega cap als costats ella sola, sense moure la resta de la pàgina. La columna dels noms es queda enganxada a l esquerra i la del % a la dreta: ja no has de comptar files per saber de quin alumne estàs marcant.",
+    "I al mòbil tampoc no se t escapa la pantalla cap a un costat.",
+    "Arreglat: el botó de l assignatura que quedava encès no sempre era el de la graella que es veia. Cliqueses Matemàtiques i al cap d una estona l encès passava a ser una altra assignatura, tot i que els objectius eren els bons."
   ]
 }

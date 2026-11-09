@@ -9670,8 +9670,26 @@ function renderAssoliments() {
       b.classList.toggle('active', parseInt(b.dataset.trim) === trimActual);
     });
   }
+  _assimSincronitzaBotons();
   _renderAssimTable();
   _renderAssimResum();
+}
+
+/* ⚠ EL BOTÓ ENCÈS SEMPRE HA DE SER EL DE LA GRAELLA QUE ES VEU.
+
+   L'arranjament de debò és a `_perfilRenderAssimSelector` (js/perfil.js), que
+   era qui encenia el primer botó cada vegada que es repintava. Això d'aquí és
+   la xarxa de sota: es crida a cada pintada de la graella, o sigui que si
+   algun dia una altra cosa torna a repintar el selector, el que es veu i el
+   que està encès no es poden separar. Val més una línia de més que no pas que
+   en Pol es torni a trobar els objectius de Mates amb l'Anglès encès. */
+function _assimSincronitzaBotons() {
+  document.querySelectorAll('#assimMateriaSelector .trim-sel-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mat === _assimMateria);
+  });
+  document.querySelectorAll('#assimTrimSelector .trim-sel-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.trim, 10) === _assimTrim);
+  });
 }
 
 async function selectAssimTrim(trim, btn) {

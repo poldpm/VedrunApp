@@ -1619,20 +1619,34 @@ function _perfilRenderAssimSelector() {
     return;
   }
 
-  cont.innerHTML = entrades.map((e, i) => {
+  /* ⚠ EL BOTÓ ENCÈS HA DE SER EL DE L'ASSIGNATURA QUE ES VEU.
+
+     En Pol, 9/11/2026: «faig clic a matemàtiques, em carrega bé els
+     assoliments, però al cap d'una estona s'està mostrant els objectius de
+     mates amb el botó d'anglès seleccionat».
+
+     Aquí s'encenia SEMPRE el primer botó (`i===0`), i aquest selector es
+     torna a pintar quan arriba el perfil del servidor —que és uns segons
+     després d'obrir l'app, justament «al cap d'una estona». La graella es
+     quedava a Matemàtiques, que és el que ella havia triat, i el botó encès
+     passava a ser el primer de la llista. Res no s'espatllava, però la
+     pantalla deia una cosa i ensenyava una altra, i això fa perdre la
+     confiança abans que cap error.
+
+     Ara es decideix PRIMER quina assignatura toca —la que ja hi havia, si
+     encara existeix— i després s'encén el seu botó. */
+  let actiu = (typeof _assimMateria !== 'undefined' && _assimMateria) ? _assimMateria : '';
+  if (!entrades.some(e => e.key === actiu)) actiu = entrades[0].key;
+  if (typeof _assimMateria !== 'undefined') _assimMateria = actiu;
+
+  cont.innerHTML = entrades.map((e) => {
     if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
     if (typeof ASSIM_MATERIES !== 'undefined' && !ASSIM_MATERIES[e.key]) ASSIM_MATERIES[e.key] = e.label;
     if (e.altres) _assigDesdobMap[e.key] = { curs: e.curs, assig: e.nom, rotatori: e.rotatori };
     else _assigGrupMap[e.key] = e.grup;
     _assigNomMap[e.key] = e.nom;
-    return `<button class="trim-sel-btn${i===0?' active':''}" data-mat="${e.key}" onclick="selectAssimMateria('${_idJs(e.key)}',this)">${escapeHtml(e.label)}</button>`;
+    return `<button class="trim-sel-btn${e.key === actiu ? ' active' : ''}" data-mat="${e.key}" onclick="selectAssimMateria('${_idJs(e.key)}',this)">${escapeHtml(e.label)}</button>`;
   }).join('');
-
-  // Si la matèria activa ja no existeix, selecciona la primera
-  if (typeof _assimMateria !== 'undefined') {
-    const existeix = entrades.some(e => e.key === _assimMateria);
-    if (!existeix && entrades.length) _assimMateria = entrades[0].key;
-  }
 }
 
 // Mapes clau→grup i clau→nom base (per als selectors amb grup)

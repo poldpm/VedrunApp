@@ -2712,22 +2712,58 @@ body {
 }
 @media (max-width: 900px) { .assim-layout { grid-template-columns: 1fr; } }
 
-/* Capçalera objectius */
+/* Capçalera objectius
+
+   ⚠ ES POT PARTIR EN DUES LÍNIES. Són tres botons («Actualitzar full»,
+   «+ Afegir objectiu» i «Avís d'error») i en un mòbil de 390 px no hi caben
+   seguits: desbordaven la pàgina 59 px i tornaven a fer que s'arrossegués
+   tota la pantalla, que és justament el que s'acabava d'arreglar. */
 .assim-objectius-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
 }
+.assim-objectius-accions { display: flex; gap: 6px; flex-wrap: wrap; }
 .assim-objectius-count { font-size: 13px; color: var(--text-muted); font-weight: 500; }
 
-/* Taula */
-.assim-table-scroll { overflow-x: auto; }
-.assim-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* Taula
+
+   ⚠ L'SCROLL HA DE SER DE LA TAULA, NO DE LA PÀGINA (en Pol, 9/11/2026):
+   «si hi ha molts objectius he de fer molt d'scroll lateral, perdo els noms
+   els botons i tot».
+
+   La causa no era aquest `overflow-x` —ja hi era— sinó el `min-width: auto`
+   que porten de sèrie les caselles d'una graella CSS: `.assim-main` creixia
+   fins a cabre la taula sencera, la pàgina es feia més ampla que la finestra
+   i per tant aquí mai no hi havia res que desbordés. Amb `min-width: 0` la
+   casella es queda de l'amplada de la pantalla i qui desborda és la taula,
+   que és qui ha de tenir la barra.
+
+   Amb 683 objectius això no és cosmètica: una graella de 30 columnes sense
+   els noms a la vista és impossible de marcar sense equivocar-se de nen. */
+.assim-main { min-width: 0; }
+.assim-table-scroll { overflow-x: auto; max-width: 100%; }
+.assim-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 13px; }
 .assim-table th, .assim-table td { border: 1px solid var(--border); }
+
+/* Les dues columnes que no es mouen: els noms a l'esquerra i el % a la dreta.
+
+   ⚠ Amb `border-collapse: collapse` una casella enganxada PERD la vora del
+   costat per on passa la resta de la taula: queda com si no hi hagués límit i
+   les creus semblen de la columna del nom. Per això la línia es torna a posar
+   amb una ombra, que sí que viatja amb la casella. */
+.assim-th-nom, .assim-td-nom {
+  position: sticky; left: 0; z-index: 2;
+  box-shadow: 1px 0 0 var(--border);
+}
+.assim-th-pct, .assim-td-pct {
+  position: sticky; right: 0; z-index: 2;
+  box-shadow: -1px 0 0 var(--border);
+}
 
 .assim-th-nom {
   text-align: left; padding: 8px 12px; min-width: 140px;
   background: var(--surface-alt); font-size: 11px; font-weight: 700;
-  color: var(--text-muted); position: sticky; left: 0; z-index: 1;
+  color: var(--text-muted);
 }
 .assim-th-obj {
   min-width: 120px; max-width: 160px; padding: 8px 8px 6px;
@@ -2741,13 +2777,13 @@ body {
   color: var(--text-muted); padding: 0 4px;
 }
 .assim-obj-edit:hover { color: var(--crimson); }
-.assim-th-pct { min-width: 60px; padding: 8px; background: #F9EDEF;
+.assim-th-pct { min-width: 64px; padding: 8px; background: #F9EDEF;
   font-size: 11px; color: #7A1E2E; text-align: center; font-weight: 700; }
 
 .assim-td-nom {
   padding: 8px 12px; font-size: 13px; font-weight: 500;
-  background: var(--surface-tint); position: sticky; left: 0; z-index: 1;
-  color: var(--text-main);
+  background: var(--surface-tint);
+  color: var(--text-main); white-space: nowrap;
 }
 .assim-cell {
   text-align: center; padding: 10px 8px; cursor: pointer;
@@ -5862,6 +5898,14 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
   .assim-table-scroll { overflow-x: auto; max-width: 100%; }
   .assim-th-obj { min-width: 76px; }
   .page-content { padding-left: 12px; padding-right: 12px; }
+}
+/* Al mòbil, la columna dels noms no es pot menjar mitja taula: es talla amb
+   punts suspensius i el nom sencer es veu en passar-hi el dit o el ratolí. */
+@media (max-width: 600px) {
+  .assim-th-nom { min-width: 104px; }
+  .assim-td-nom {
+    max-width: 104px; overflow: hidden; text-overflow: ellipsis;
+  }
 }
 
 /* ============================================================
