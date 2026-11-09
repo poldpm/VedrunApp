@@ -2870,6 +2870,10 @@ body {
   background: var(--bg-soft, #FAFAFA); color: var(--text-soft, #555);
 }
 .assim-ofi-avis.assim-ofi-prov { border-left-color: #92400E; background: #FEF3C7; color: #78350F; }
+/* Direcció ha reescrit la llista: més fort que el de «provisionals»,
+   perquè aquí el que la mestra ja tenia marcat pot haver canviat de
+   significat i ho ha de repassar. */
+.assim-ofi-avis.assim-ofi-canvi { border-left-color: #991B1B; background: #FEE2E2; color: #7F1D1D; }
 .assim-obj-info {
   background: none; border: none; cursor: pointer;
   font-size: 13px; color: var(--text-muted); padding: 0 2px;

@@ -1,9 +1,10 @@
 {
-  "versio": "v344",
+  "versio": "v345",
   "data": "2026-11-09",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Als assoliments de 6è, els objectius ara diuen exactament el que diu el document de direcció. Hi havia nou frases que l app deia una mica diferent, i la diferència era meva: en passar-les les havia corregit pel meu compte. Els objectius són oficials i no es toquen.",
-    "El que hagis marcat no s ha mogut: cada objectiu segueix al seu lloc."
+    "ATENCIÓ SI FAS MATEMÀTIQUES A 2n: direcció ha canviat la llista d objectius sencera (abans n hi havia 15 i ara 12, i no són els mateixos). Si ja n havies marcat, repassa-ho: les marques es queden a la seva columna i ara poden ser d un objectiu que diu una altra cosa. La pantalla t ho avisa en vermell.",
+    "A Tallers de 2n, el bloc de Robòtica ara parla de l Mtiny, de l Scratch JR i del Lego Spike: són els mateixos objectius, dits amb més detall, i el que tinguessis marcat segueix valent.",
+    "I unes quantes frases dels objectius de 2n i de 6è ara diuen exactament el que diu el document de direcció."
   ]
 }

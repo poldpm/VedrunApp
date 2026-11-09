@@ -9899,6 +9899,30 @@ function _renderAssimTable() {
      que són definitius. */
   const oficials = objectius.filter(o => o.oficial);
   let html = '';
+
+  /* ⚠ SI DIRECCIÓ HA CANVIAT LA LLISTA SENCERA, S'HA DE DIR.
+
+     Les marques van per posició, i això és bo quan es corregeix la redacció
+     d'un objectiu: no es perd res. Però quan direcció en reescriu la llista
+     de dalt a baix —el 9/11/2026 ho va fer amb Matemàtiques de 2n: de quinze
+     objectius a dotze i no els mateixos— les marques es queden a la seva
+     casella i ara són d'un objectiu que diu una altra cosa. L'app no ho pot
+     endevinar ni arreglar: només ho pot dir. Veure `canvis` a
+     js/objectius.js. */
+  if (typeof objectiusCanvi === 'function') {
+    const { curs, nom } = _assimCursINom(_assimMateria);
+    const canvi = (curs && nom) ? objectiusCanvi(curs, _assimTrim, nom) : null;
+    if (canvi) {
+      html += '<div class="assim-ofi-avis assim-ofi-canvi">'
+           +  '<strong>Atenció: aquests objectius han canviat'
+           +  (canvi.data ? ' (' + escapeHtml(canvi.data) + ')' : '') + '.</strong> '
+           +  escapeHtml(canvi.que || '')
+           +  ' Si ja n’havies marcat abans, <strong>repassa-ho</strong>: les marques '
+           +  'es queden a la seva columna i ara poden ser d’un objectiu que diu una altra cosa.'
+           +  '</div>';
+    }
+  }
+
   if (oficials.length) {
     const prov = oficials.some(o => o.provisional);
     html += '<div class="assim-ofi-avis' + (prov ? ' assim-ofi-prov' : '') + '">'

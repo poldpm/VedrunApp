@@ -146,6 +146,14 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 2n de Primària ---------- */
   '2n|1': {
     provisional: true,
+    /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
+       ho avisa perquè les marques d'abans ja no volen dir el mateix. */
+    canvis: {
+      'Matemàtiques': {
+        data: '9 de novembre',
+        que: 'Direcció va canviar la llista sencera: abans hi havia 15 objectius i ara n’hi ha 12, i no són els mateixos.',
+      },
+    },
     assigs: {
       'Català': [
         'Llegir amb la fluïdesa i l’entonació adequades segons el text.',
@@ -171,7 +179,7 @@ const OBJECTIUS_OFICIALS = {
         'Prendre consciència de la importància de lliurar les tasques de manera acurada, ordenada i ben elaborada.',
       ],
       'Anglès': [
-        'Comprendre missatges orals relacionats amb els temes treballats (explicacions de la mestra, audicions,...)',
+        'Comprendre missatges orals relacionats amb els temes treballats. (explicacions de la mestra, audicions,...)',
         'Usar preguntes amb estructures senzilles (“Do you like…?” / “Can you…?”).',
         'Saber respondre a preguntes senzilles amb l’estructura corresponent (“Yes, I like” / “No I don’t like” / “I can” / “I can’t”).',
         'Conèixer i utilitzar el vocabulari treballat a cada unitat.',
@@ -186,30 +194,30 @@ const OBJECTIUS_OFICIALS = {
       'Medi': [
         'Conèixer els 5 sentits, relacionar-los amb els òrgans on es troben i reconèixer algunes parts d’aquests.',
         'Gaudir i participar de les activitats sensorials proposades, i aprendre la funció de cada sentit.',
-        'Prendre consciència dels hàbits alimentaris i d’higiene per una vida saludable.',
+        'Prendre consciència dels hàbits alimentaris i d\'higiene per una vida saludable.',
         'Prendre consciència de la importància de lliurar les tasques de manera acurada, ordenada i ben elaborada.',
       ],
       'Matemàtiques': [
-        'Dissenyar i seguir una estratègia eficient per realitzar els comptatges i enregistrar-ne els nombres.',
-        'Practicar el comptatge acústic de nombres de l’1 al 100, tant cap endavant com cap enrere, d’1 en 1, de 2 en 2, de 5 en 5 i de 10 en 10.',
-        'Reconèixer els nombres parells i senars.',
-        'Agilitzar el procés de comptatge amb agrupacions de 10 elements.',
-        'Resoldre les sumes i les restes sense portar-ne.',
-        'Resoldre sumes portant-ne de nombres fins al 500.',
-        'Aprofundir en els símbols d’igualtat (=) i de desigualtat: menor que (<) i major que (>).',
-        'Reafirmar el coneixement de la graella del 100.',
-        'Identificar correctament els nombres que ha d’utilitzar per a resoldre problemes i saber fer les operacions necessàries.',
-        'Reconèixer el valor posicional de nombres fins a 100 (CDU)',
-        'Llegir nombres escrits amb paraules i identificar-ne el valor numèric amb xifres.',
-        'Familiaritzar-se amb el rellotge de busques i conèixer les hores en punt.',
-        'Reconèixer els diferents cossos geomètrics.',
-        'Començar a prendre consciència de la relació entre la suma i multiplicació.',
-        'Prendre consciència de la importància de lliurar les tasques de manera acurada, ordenada i ben elaborada.',
+        /* ⚠ Direcció va canviar aquesta llista SENCERA el 9/11/2026: abans
+           n'hi havia quinze i ara n'hi ha dotze, i no són les mateixes. Veure
+           `canvis` d'aquest trimestre, al final del bloc. */
+        'Comptar, llegir i escriure nombres fins al 100, endavant i endarrere.',
+        'Representar nombres fins al 100 de diverses maneres: amb material manipulatiu, amb dibuixos de desenes i unitats i a la recta numèrica.',
+        'Compondre i descompondre nombres de dues xifres en desenes i unitats, i també el 100.',
+        'Comparar i ordenar nombres fins al 100 i fer servir els signes <, > i =.',
+        'Entendre la centena com a 10 desenes i representar-la amb material.',
+        'Sumar desenes amb desenes, també a la recta numèrica, i representar-ne el resultat.',
+        'Fer sumes de dues xifres amb i sense portar-ne i restes sense portar-ne, i fixar-se en el signe per saber quina operació cal fer.',
+        'Calcular mentalment en el rang de l’1 al 20: descomposicions del 10, dobles i quasi dobles.',
+        'Reconèixer, continuar i crear patrons i seqüències numèriques i de figures.',
+        'Representar i descriure figures geomètriques planes.',
+        'Resoldre problemes senzills de suma i resta de la vida quotidiana, triant l’operació i escrivint-ne la resposta.',
+        'Explicar el procés seguit i treballar de manera cooperativa en les activitats de grup.',
       ],
       'Cultura Religiosa': [
         'Conèixer i valorar les festes tradicionals del nostre país, les costums i les creences com a patrimoni cultural del país.',
         'Saber que moltes Marededéus són venerades en santuaris.',
-        'Adonar-se dels canvis que s’han produït a la natura durant la tardor.',
+        'Adonar-se les canvis que s’han produït a la natura durant la tardor.',
         'Adonar-se del sentit de la festa de Tots Sants per als cristians.',
         'Conèixer el sentit de la celebració de l’Advent, com a temps d’espera.',
         'Saber quines són les principals tradicions del Nadal de diferents països.',
@@ -235,7 +243,7 @@ const OBJECTIUS_OFICIALS = {
         'Cantar tenint cura de la dicció del text i de la continuïtat de la línia melòdica.',
         'Practicar l’entonació per imitació i fonomímia.',
         'Iniciar l’escriptura i la lectura de ritmes (negres, corxeres i silenci de negra).',
-        'Iniciar l’escriptura i lectura de les notes do, mi, sol al pentagrama.',
+        'Iniciar l\'escriptura i lectura de les notes do,mi,sol al pentagrama.',
         'Tenir clara la diferenciació entre pulsació i ritme.',
       ],
       'Tallers': [
@@ -249,10 +257,10 @@ const OBJECTIUS_OFICIALS = {
         'Desenvolupar la creativitat en els propis treballs.',
         'Valorar els treballs artístics propis i els de la resta de companys.',
         '# Robòtica',
-        'Aprendre a través de la robòtica i l’Mtiny i en Dash.',
-        'Aprendre la lògica bàsica de la programació.',
+        'Aprendre a través de la robòtica, l’Mtiny.',
+        'Aprendre la lògica bàsica de la programació a través de l’Scratch JR.',
         'Fomentar el pensament creatiu.',
-        'Treballar i desenvolupar la motricitat fina.',
+        'Treballar i desenvolupar la motricitat fina amb el Lego Spike.',
         'Adquirir el coneixement de vocabulari específic.',
         '# Teatre',
         'Desenvolupar la capacitat d’expressió corporal i gestual per comunicar idees, accions i emocions sense necessitat de paraules.',
@@ -264,6 +272,23 @@ const OBJECTIUS_OFICIALS = {
       ],
     },
   },
+
+  /* ---------- Quan direcció canvia una llista sencera ----------
+
+     ⚠ AIXÒ NO ÉS DECORACIÓ. L'identificador de cada objectiu va per POSICIÓ
+     (veure `_objId`), i això és a posta: així, quan direcció corregeix la
+     redacció d'un objectiu, el que la mestra hagi marcat no es perd.
+
+     Però el 9/11/2026 va passar l'altra cosa: direcció va REESCRIURE la
+     llista de Matemàtiques de 2n sencera —de quinze objectius a dotze, i no
+     els mateixos—. Les marques es queden a la seva posició, i per tant ara
+     són d'un objectiu que diu una altra cosa. Això no es pot endevinar des de
+     l'app i no es pot arreglar sol: només es pot DIR, i que la mestra ho
+     repassi. Si no es digués, ella veuria una graella plena de marques que ja
+     no volen dir el que volien dir.
+
+     Quan direcció doni els objectius per definitius i no s'hagin de tornar a
+     moure, aquests avisos es poden treure. */
 
   /* ---------- 3r de Primària ---------- */
   '3r|1': {
@@ -957,6 +982,18 @@ function objectiusOficials(curs, trim, assig) {
   return sortida;
 }
 
+/* Direcció ha canviat de dalt a baix els objectius d'aquesta assignatura?
+   Torna { data, que } o null. Veure el comentari de `canvis` aquí sobre. */
+function objectiusCanvi(curs, trim, assig) {
+  const blocs = (typeof OBJECTIUS_OFICIALS !== 'undefined') ? OBJECTIUS_OFICIALS : {};
+  const bloc = blocs[curs + '|' + trim];
+  if (!bloc || !bloc.canvis) return null;
+  const buscat = _objNorm((assig || '').toString().split('·')[0]);
+  let trobat = null;
+  Object.keys(bloc.canvis).forEach(k => { if (_objNorm(k) === buscat) trobat = bloc.canvis[k]; });
+  return trobat || null;
+}
+
 /* Hi ha objectius oficials per a aquest curs i trimestre? (per saber si val
    la pena dir-ho a la pantalla) */
 function objectiusOficialsHiHa(curs, trim) {
@@ -968,6 +1005,6 @@ function objectiusOficialsHiHa(curs, trim) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     OBJECTIUS_CURS_ESCOLAR, OBJECTIUS_OFICIALS,
-    objectiusOficials, objectiusOficialsHiHa, _objNorm, _objId,
+    objectiusOficials, objectiusOficialsHiHa, objectiusCanvi, _objNorm, _objId,
   };
 }
