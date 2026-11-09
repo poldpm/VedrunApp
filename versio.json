@@ -1,10 +1,11 @@
 {
-  "versio": "v346",
+  "versio": "v347",
   "data": "2026-11-09",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "L avís d objectius provisionals ara va per assignatura i no per trimestre: on direcció ja els ha repassat (al seu document hi són en negre) l avís desapareix i allà els objectius són els oficials.",
-    "A 2n ja són definitius els de Català, Castellà, Anglès, Medi, Matemàtiques i Cultura Religiosa. A 6è, els d Anglès i Matemàtiques. La resta segueixen en revisió i t ho diu la pantalla.",
-    "Això es torna a mirar sol cada vegada que direcció toca un document: no has de fer res."
+    "Direcció ha repassat tots sis documents d objectius aquest migdia i l app ja els porta al dia, lletra per lletra.",
+    "ATENCIÓ A 2n I A 3r: a Matemàtiques i a Tallers de 2n, i a Tallers de 3r, la llista ha canviat de debò (objectius nous al mig, un de menys, i el taller de Robòtica de 3r refet de dalt a baix). Si ja n havies marcat, la pantalla t ho avisa en vermell i val la pena repassar-ho.",
+    "A 4t i a 5è, el taller de creativitat ara es diu Taller d aplicació de tècniques plàstiques dins l escultura.",
+    "I unes quantes frases de tots els cursos ara diuen exactament el que diu el document de direcció."
   ]
 }
