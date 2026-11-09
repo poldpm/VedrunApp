@@ -1,11 +1,9 @@
 {
-  "versio": "v343",
+  "versio": "v344",
   "data": "2026-11-09",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Si fas Tallers, ara pots triar quin taller fas tu. Sota el selector de grup hi ha la barra El teu taller: cliques el teu i a la graella només hi queden els seus objectius, no els dels tallers de les companyes.",
-    "Només ho has de triar un cop: queda desat al teu perfil i també et surt triat al mòbil i a qualsevol altre ordinador.",
-    "No esborra res: les columnes dels altres tallers només queden amagades, i amb el botó Tots hi tornen.",
-    "La barra surt només on hi ha res a triar. A Matemàtiques, Català o Música no hi surt."
+    "Als assoliments de 6è, els objectius ara diuen exactament el que diu el document de direcció. Hi havia nou frases que l app deia una mica diferent, i la diferència era meva: en passar-les les havia corregit pel meu compte. Els objectius són oficials i no es toquen.",
+    "El que hagis marcat no s ha mogut: cada objectiu segueix al seu lloc."
   ]
 }
