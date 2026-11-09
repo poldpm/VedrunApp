@@ -321,8 +321,10 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 3r de Primària ---------- */
   '3r|1': {
     provisional: true,
-    /* Cap àrea en negre encara: tot el document hi és en vermell (llegit amb
-       `eines/objectius-colors.js` el 9/11/2026). */
+    /* En negre al document, repassades (llegit amb `eines/objectius-colors.js`
+       el 9/11/2026 a la tarda). A Anglès els objectius van mig negres i mig
+       vermells i el títol encara és vermell: es queda provisional. */
+    definitius: ['Medi', 'Matemàtiques', 'Cultura Religiosa'],
     canvis: {
       'Tallers': {
         data: '9 de novembre',
@@ -365,7 +367,7 @@ const OBJECTIUS_OFICIALS = {
         'Comprendre diferents tipus de textos (enunciats, còmics, contes...)',
         'Saber les estructures verbals treballades (Are they (big)? Yes, they are. / No, they aren’t. They’re (black and white)! They play. They don’t walk.',
         'Conèixer el vocabulari de cada unitat (animals in danger,a dolphin, a gorilla, a hippo, a panda, a seal, a tiger, a tortoise, a whale i els verbs drink, eat, fight, play, sleep, walk) i consolidar el vocabulari anterior (colors, números, mesos de l’any, vocabulari anys anteriors...).',
-        'Comprendre el vocabulari i les estructures gramaticals de l’obra de teatre en anglès “Tarzan”.',
+        'Comprendre el vocabulari i les estructures gramaticals de l’obra de teatre en anglès “Magic Mindy”.',
         'Conèixer les tradicions i vocabulari de Halloween.',
         'Saber les estructures verbals treballades (What time is (Maths)? (Maths) is at (nine) o’clock / half past (ten). He / She lives … He / She doesn’t like, What have you got on your pizza? Have you got any (pineapple), I’ve got some (pineapple). I haven’t got any (peppers). Does he / she like (spinach)? …Yes, he / she does. / No, he / she doesn’t.',
         'Conèixer les tradicions de Nadal i el seu vocabulari (broccoli, Christmas pudding, gravy, mince pies, peas, roast potatoes, roast turkey i sprouts).',
@@ -379,7 +381,7 @@ const OBJECTIUS_OFICIALS = {
         'Utilitzar el mètode científic per establir conclusions sobre el concepte del so.',
         'Comprendre com viatja el so a través dels diferents medis.',
         'Reflexionar sobre la contaminació acústica a la qual estem exposats.',
-        'Utilitzar correctament les tecnologies (TIC) per buscar i seleccionar informació relacionada amb el treball del paisatge.',
+        'Utilitzar correctament les tecnologies (TIC) per buscar i seleccionar informació relacionada amb el treball dels animals vertebrats.',
       ],
       'Matemàtiques': [
         'Ús de representacions per a la descomposició de nombres.',
