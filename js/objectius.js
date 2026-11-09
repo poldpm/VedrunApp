@@ -24,14 +24,33 @@
    documents canviïn, es torna a generar aquest fitxer i arriba a
    totes les apps amb l'avís de versió nova: la mestra no fa res.
 
-   ⚠ ARA MATEIX SÓN PROVISIONALS. En Pol, 8/11/2026: «estan en
-   vermell perquè els hem de revisar […] quan estiguin de color
-   negre vol dir que estan corregits i són els oficials». Per això
-   cada trimestre porta `provisional: true` i la pantalla ho
-   avisa. Quan direcció els doni per bons, es treu la marca.
+   ⚠ PROVISIONAL O DEFINITIU VA PER ASSIGNATURA, NO PER TRIMESTRE.
+
+   En Pol, 8/11/2026: «estan en vermell perquè els hem de revisar
+   […] quan estiguin de color negre vol dir que estan corregits i
+   són els oficials». I el 9/11: «si una assignatura els té de color
+   vermell, sí que són els provisionals» —o sigui que dins d'un
+   mateix document n'hi pot haver de repassats i de no repassats.
+
+   Per això cada trimestre porta `provisional: true` (de sèrie, tot
+   és provisional) i una llista `definitius` amb les assignatures
+   que direcció JA ha repassat, les que al document són en NEGRE.
+   Les que hi són no porten l'avís groc; les que no, sí.
+
+   ⚠ El valor de sèrie és «provisional» a posta. Si algun dia algú
+   s'oblida d'afegir una assignatura als `definitius`, la mestra veu
+   un avís que sobra —molesta i prou—; a l'inrevés veuria uns
+   objectius com a definitius sense ser-ho, i això sí que enganya.
+   Quan totes siguin negres, `provisional: false` i fora llista.
 
    FORMAT
-   Clau `'<curs>|<trimestre>'` → { provisional, assigs }.
+   Clau `'<curs>|<trimestre>'` → { provisional, definitius, assigs }.
+   ⚠ I EL COLOR NO ES VEU DES D'AQUÍ. El text que torna el Drive ve
+   sense colors: quines assignatures són negres no es pot deduir
+   llegint el document, s'ha de mirar el .docx per dins o
+   preguntar-ho. Per això `definitius` s'escriu a mà i no se'n
+   dedueix res sol.
+
    `assigs` va pel NOM de l'assignatura tal com el diu el perfil
    de la mestra (`PERFIL_ASSIGS_PER_CURS`, js/perfil.js), no com
    el diu el document: així es troben sols. Dins de cada llista,
@@ -146,6 +165,10 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 2n de Primària ---------- */
   '2n|1': {
     provisional: true,
+    /* Al document són en NEGRE: direcció les ha repassades i són definitives.
+       Llegit amb `eines/objectius-colors.js` el 9/11/2026. Hi falten
+       Educació física, Música i Tallers, que encara hi són en vermell. */
+    definitius: ['Català', 'Castellà', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
@@ -745,6 +768,11 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 6è de Primària ---------- */
   '6è|1': {
     provisional: true,
+    /* En negre al document, repassades (9/11/2026). La resta hi són en
+       vermell; a Cultura religiosa els objectius són negres però el títol
+       encara és vermell, i mentre els dos colors no es posin d'acord compta
+       com a provisional. */
+    definitius: ['Anglès', 'Matemàtiques'],
     assigs: {
       'Català': [
         'Entendre i analitzar el contingut d’una audició.',
@@ -963,6 +991,11 @@ function objectiusOficials(curs, trim, assig) {
   Object.keys(bloc.assigs).forEach(k => { if (_objNorm(k) === buscat) clau = k; });
   if (!clau) return [];
 
+  /* Provisional? De sèrie sí; no, si aquesta assignatura és a `definitius`
+     (al document és en negre, direcció ja l'ha repassada). */
+  const definitius = (bloc.definitius || []).map(_objNorm);
+  const provisional = !!bloc.provisional && definitius.indexOf(_objNorm(clau)) === -1;
+
   const sortida = [];
   let blocActual = '';
   let n = 0;
@@ -975,7 +1008,7 @@ function objectiusOficials(curs, trim, assig) {
       text: t,
       bloc: blocActual,
       oficial: true,
-      provisional: !!bloc.provisional,
+      provisional: provisional,
     });
     n++;
   });

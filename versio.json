@@ -1,10 +1,10 @@
 {
-  "versio": "v345",
+  "versio": "v346",
   "data": "2026-11-09",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "ATENCIÓ SI FAS MATEMÀTIQUES A 2n: direcció ha canviat la llista d objectius sencera (abans n hi havia 15 i ara 12, i no són els mateixos). Si ja n havies marcat, repassa-ho: les marques es queden a la seva columna i ara poden ser d un objectiu que diu una altra cosa. La pantalla t ho avisa en vermell.",
-    "A Tallers de 2n, el bloc de Robòtica ara parla de l Mtiny, de l Scratch JR i del Lego Spike: són els mateixos objectius, dits amb més detall, i el que tinguessis marcat segueix valent.",
-    "I unes quantes frases dels objectius de 2n i de 6è ara diuen exactament el que diu el document de direcció."
+    "L avís d objectius provisionals ara va per assignatura i no per trimestre: on direcció ja els ha repassat (al seu document hi són en negre) l avís desapareix i allà els objectius són els oficials.",
+    "A 2n ja són definitius els de Català, Castellà, Anglès, Medi, Matemàtiques i Cultura Religiosa. A 6è, els d Anglès i Matemàtiques. La resta segueixen en revisió i t ho diu la pantalla.",
+    "Això es torna a mirar sol cada vegada que direcció toca un document: no has de fer res."
   ]
 }
