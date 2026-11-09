@@ -3855,6 +3855,12 @@ body {
 .desdob-chip:hover { border-color: var(--crimson); }
 .desdob-chip.actiu { background: var(--crimson); border-color: var(--crimson); color: #fff; }
 .desdob-bar-info { background: #F4F1F2; border-color: #E6DDDF; }
+/* La barra del taller propi, just sota la del grup: es distingeix de la del
+   grup perquè no són la mateixa cosa i es veuen l'una sobre l'altra. */
+.desdob-bar-wrap + .desdob-bar-wrap:not(:empty) { margin-top: 6px; }
+.desdob-bar-bloc { background: #F4F1F2; border-color: #E6DDDF; }
+.desdob-bar-bloc .desdob-bar-label { color: var(--garnet-mid); }
+.desdob-bar-nota { font-size: 12px; color: var(--text-muted); margin-left: 2px; }
 .desdob-bar-info .desdob-bar-label { color: var(--garnet-mid); font-weight: 600; }
 .perfil-altre-grup { margin-top: 8px; }
 .perfil-altre-assig { display: block; font-size: 13px; font-weight: 600; color: var(--garnet-text); margin-bottom: 4px; }

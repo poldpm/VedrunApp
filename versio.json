@@ -1,10 +1,11 @@
 {
-  "versio": "v342",
+  "versio": "v343",
   "data": "2026-11-09",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A Assoliments, quan hi ha molts objectius la graella s arrossega cap als costats ella sola, sense moure la resta de la pàgina. La columna dels noms es queda enganxada a l esquerra i la del % a la dreta: ja no has de comptar files per saber de quin alumne estàs marcant.",
-    "I al mòbil tampoc no se t escapa la pantalla cap a un costat.",
-    "Arreglat: el botó de l assignatura que quedava encès no sempre era el de la graella que es veia. Cliqueses Matemàtiques i al cap d una estona l encès passava a ser una altra assignatura, tot i que els objectius eren els bons."
+    "Si fas Tallers, ara pots triar quin taller fas tu. Sota el selector de grup hi ha la barra El teu taller: cliques el teu i a la graella només hi queden els seus objectius, no els dels tallers de les companyes.",
+    "Només ho has de triar un cop: queda desat al teu perfil i també et surt triat al mòbil i a qualsevol altre ordinador.",
+    "No esborra res: les columnes dels altres tallers només queden amagades, i amb el botó Tots hi tornen.",
+    "La barra surt només on hi ha res a triar. A Matemàtiques, Català o Música no hi surt."
   ]
 }

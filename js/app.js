@@ -9580,11 +9580,109 @@ function _assimCursINom(matKey) {
   return { curs, nom };
 }
 
-function assimObjOficials() {
+/* Tots els oficials d'aquesta assignatura, sense filtrar per taller. */
+function _assimOficialsTots() {
   if (typeof objectiusOficials !== 'function') return [];
   const { curs, nom } = _assimCursINom(_assimMateria);
   if (!curs || !nom) return [];
   try { return objectiusOficials(curs, _assimTrim, nom) || []; } catch (e) { return []; }
+}
+
+/* ---------- QUIN TALLER FA ELLA ----------
+
+   En Pol, 9/11/2026: «en els assoliments de tallers hi surten un llistat de
+   tots els tallers que es fan. Un mestre només en fa un d'aquests […] el dels
+   altres no es pot pas avaluar».
+
+   Els documents de direcció posen els objectius de Tallers per BLOCS —
+   Plàstica, Robòtica, Teatre, Taller d'estampació, Stop Motion…— i cada
+   mestra en fa un. Sense triar, a 4t li sortien 33 objectius de quatre
+   tallers i només nou eren seus.
+
+   No va per assignatura, va per BLOCS: així la barra surt sola a qualsevol
+   assignatura que en porti més d'un, sense haver d'escriure «Tallers» enlloc
+   ni tornar-hi el dia que direcció parteixi una altra àrea.
+
+   ⚠ ES DESA AL PERFIL, no al navegador: és una cosa d'ella, no d'aquell
+   ordinador (regla 4 del CLAUDE.md, i el mateix que fa `_desdobSetGrup` amb
+   el grup de desdoblament). Si ho desés al navegador, al mòbil li tornarien
+   a sortir els quatre tallers. */
+function _assimBlocClau() {
+  const { curs, nom } = _assimCursINom(_assimMateria);
+  return _objNorm(curs) + '|' + _objNorm(nom);
+}
+
+function _assimBlocsDisponibles() {
+  const vistos = [];
+  _assimOficialsTots().forEach(o => {
+    if (o.bloc && vistos.indexOf(o.bloc) === -1) vistos.push(o.bloc);
+  });
+  return vistos;
+}
+
+/* El que ha triat, si encara existeix.
+
+   ⚠ La segona meitat importa: els objectius són provisionals i direcció pot
+   reanomenar un taller d'un trimestre a l'altre. Si el desat ja no hi és, no
+   mana: val més ensenyar-los tots i que ella ho torni a triar que no pas
+   deixar-li la graella buida sense dir-li per què. */
+function assimBlocTriat() {
+  const m = (typeof _perfil !== 'undefined' && _perfil && _perfil.assimBloc) ? _perfil.assimBloc : null;
+  if (!m) return '';
+  const b = m[_assimBlocClau()];
+  if (!b) return '';
+  return _assimBlocsDisponibles().indexOf(b) !== -1 ? b : '';
+}
+
+function assimTriaBloc(bloc) {
+  if (typeof _perfil === 'undefined' || !_perfil) return;
+  if (!_perfil.assimBloc || typeof _perfil.assimBloc !== 'object') _perfil.assimBloc = {};
+  if (bloc) _perfil.assimBloc[_assimBlocClau()] = bloc;
+  else delete _perfil.assimBloc[_assimBlocClau()];
+  try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch (e) {}
+  /* No s'espera el servidor: triar el teu taller ha de ser instantani. Si el
+     desat falla, al navegador ja hi és i es tornarà a desar al proper canvi.
+     Mateix criteri que `_desdobSetGrup`. */
+  if (config.scriptUrl) {
+    appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }).catch(function () {});
+  }
+  renderAssoliments();
+}
+
+function assimObjOficials() {
+  const tots = _assimOficialsTots();
+  const b = assimBlocTriat();
+  return b ? tots.filter(o => o.bloc === b) : tots;
+}
+
+/* La barra per triar el taller propi, just sota la del grup. Només surt si hi
+   ha més d'un bloc: a Matemàtiques o a Català no hi ha res a triar. */
+function _renderAssimBlocBar() {
+  const el = document.getElementById('assimBlocBar');
+  if (!el) return;
+  const blocs = _assimBlocsDisponibles();
+  if (blocs.length < 2) { el.innerHTML = ''; return; }
+
+  const triat = assimBlocTriat();
+  const { nom } = _assimCursINom(_assimMateria);
+  const esTaller = _objNorm(nom) === 'tallers';
+  const etiqueta = esTaller ? 'El teu taller' : 'El teu bloc';
+
+  /* ⚠ Els botons es munten amb concatenació, no amb una variable que pugui
+     valdre '': veure «Botons que no fan res» al CLAUDE.md. */
+  let html = '<div class="desdob-bar desdob-bar-bloc">'
+           + '<span class="desdob-bar-label">' + etiqueta + ':</span>';
+  blocs.forEach(b => {
+    html += '<button type="button" class="desdob-chip' + (b === triat ? ' actiu' : '') + '"'
+         +  ' onclick="assimTriaBloc(\'' + _idJs(b) + '\')">' + escapeHtml(b) + '</button>';
+  });
+  html += '<button type="button" class="desdob-chip' + (triat ? '' : ' actiu') + '"'
+       +  ' onclick="assimTriaBloc(\'\')" title="Veure els objectius de tots els tallers">Tots</button>';
+  if (!triat) {
+    html += '<span class="desdob-bar-nota">Tria el teu i només avaluaràs els seus objectius.</span>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 /* Deixa constància de quin curs i assignatura hi ha darrere d'aquesta clau,
@@ -9594,8 +9692,12 @@ function assimObjOficials() {
 function _assimRecordaOficials() {
   const { curs, nom } = _assimCursINom(_assimMateria);
   if (!curs || !nom) return;
+  /* Hi va també el taller triat: si no, el full visible li tornaria a posar
+     els objectius dels tallers de les altres mestres, que és justament el que
+     s'acabava de treure de la pantalla. */
+  const bloc = (typeof assimBlocTriat === 'function') ? assimBlocTriat() : '';
   try {
-    localStorage.setItem(`assim_ofi_${_assimClauMat()}_${_assimTrim}`, JSON.stringify({ curs, nom }));
+    localStorage.setItem(`assim_ofi_${_assimClauMat()}_${_assimTrim}`, JSON.stringify({ curs, nom, bloc }));
   } catch (e) { /* navegador sense espai: tant se val, és només per al full */ }
 }
 
@@ -9671,6 +9773,7 @@ function renderAssoliments() {
     });
   }
   _assimSincronitzaBotons();
+  _renderAssimBlocBar();
   _renderAssimTable();
   _renderAssimResum();
 }
@@ -10174,8 +10277,13 @@ function _buildAssimSheetData(trim) {
     try { objectius = JSON.parse(localStorage.getItem(k) || '[]') || []; } catch (e) { objectius = []; }
     const info = ofi[mat];
     if (info && info.curs && info.nom && typeof objectiusOficials === 'function') {
-      try { objectius = (objectiusOficials(info.curs, trim, info.nom) || []).concat(objectius); }
-      catch (e) { /* si no n'hi ha, es queden només els seus */ }
+      try {
+        let ofs = objectiusOficials(info.curs, trim, info.nom) || [];
+        /* Només el taller que fa ella: el full ha d'ensenyar el mateix que la
+           pantalla, no els objectius dels tallers de les companyes. */
+        if (info.bloc) ofs = ofs.filter(o => o.bloc === info.bloc);
+        objectius = ofs.concat(objectius);
+      } catch (e) { /* si no n'hi ha, es queden només els seus */ }
     }
     if (!objectius.length) return;
     const alumnes = students.map(s => {
