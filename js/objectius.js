@@ -65,6 +65,14 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 1r de Primària ---------- */
   '1r|1': {
     provisional: true,
+    /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
+       ho avisa perquè les marques d'abans ja no volen dir el mateix. */
+    canvis: {
+      'Música': {
+        data: '10 de novembre',
+        que: 'Direcció ha refet la llista sencera: de 10 objectius a 8, i tots amb una altra redacció.',
+      },
+    },
     assigs: {
       'Català': [
         'Expressar i narrar les seves pròpies vivències i sentiments',
@@ -134,16 +142,14 @@ const OBJECTIUS_OFICIALS = {
         'Portar l’equipament adequat per realitzar l’educació física.',
       ],
       'Música': [
-        'Escoltar amb respecte i interès les audicions.',
-        'Discriminar les qualitats del so, utilitzant la terminologia.',
-        'Reconèixer els sons que ens envolten.',
-        'Imitar els sons de l’entorn.',
-        'Conèixer els instruments de petita percussió.',
-        'Seguir la pulsació (amb regularitat).',
-        'Esforçar.se per cantar bé i expressivament.',
-        'Conèixer i cantar de memòria les cançons apreses.',
-        'Ballar i expressar-se corporalment en grup.',
-        'Improvisar moviments per acompanyar les cançons i audicions.',
+        'Escoltar amb respecte, atenció i interès les audicions musicals.',
+        'Reconèixer i imitar sons i sorolls de l\'entorn.',
+        'Discriminar les qualitats del so (fort-fluix, llarg-curt i agut-greu), utilitzant la terminologia adequada.',
+        'Conèixer i reconèixer els instruments de petita percussió treballats a l\'aula.',
+        'Seguir i mantenir una pulsació regular a través del cant, el moviment i la percussió.',
+        'Conèixer i cantar de memòria les cançons apreses, esforçant-se per cantar amb una bona entonació i expressivitat.',
+        'Participar en danses col·lectives, coordinant els moviments amb la música i amb els companys.',
+        'Improvisar i crear moviments per acompanyar cançons i audicions musicals.',
       ],
       'Tallers': [
         '# Plàstica',
@@ -166,12 +172,16 @@ const OBJECTIUS_OFICIALS = {
   '2n|1': {
     provisional: true,
     /* Al document són en NEGRE: direcció les ha repassades i són definitives.
-       Llegit amb `eines/objectius-colors.js` el 9/11/2026. Hi falten
-       Educació física, Música i Tallers, que encara hi són en vermell. */
-    definitius: ['Català', 'Castellà', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa'],
+       Llegit amb `eines/objectius-colors.js` el 10/11/2026. Hi falten
+       Educació física i Tallers, que encara hi són en vermell. */
+    definitius: ['Català', 'Castellà', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Música'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
+      'Música': {
+        data: '10 de novembre',
+        que: 'Direcció ha refet la llista sencera: continuen sent 7 objectius, però tots diuen una altra cosa.',
+      },
       'Matemàtiques': {
         data: '9 de novembre',
         que: 'Direcció ha refet la llista: abans hi havia 15 objectius, després 12, i ara n’hi ha un de nou de figures simètriques al mig i un de menys al final.',
@@ -265,13 +275,13 @@ const OBJECTIUS_OFICIALS = {
         'Portar l’equipament adequat per realitzar l’educació física.',
       ],
       'Música': [
-        'Identificar amb agilitat la direccionalitat del so.',
-        'Reconèixer auditivament petits fragments de cançons.',
-        'Cantar tenint cura de la dicció del text i de la continuïtat de la línia melòdica.',
-        'Practicar l’entonació per imitació i fonomímia.',
-        'Iniciar l’escriptura i la lectura de ritmes (negres, corxeres i silenci de negra).',
-        'Iniciar l\'escriptura i lectura de les notes do,mi,sol al pentagrama.',
-        'Tenir clara la diferenciació entre pulsació i ritme.',
+        'Conèixer i cantar de memòria les cançons apreses, tenint cura de l\'entonació, la dicció i la continuïtat de la línia melòdica.',
+        'Reconèixer i mantenir una pulsació regular, diferenciant-la del ritme a través del cant, el moviment i la percussió.',
+        'Llegir, interpretar i crear petits patrons rítmics de quatre pulsacions amb les figures treballades (negra, dues corxeres i silenci de negra).',
+        'Reconèixer, llegir i entonar, amb ajuda, les notes DO, RE, MI, SOL i LA al pentagrama.',
+        'Discriminar auditivament la direccionalitat del so, identificant sons ascendents, descendents i estables.',
+        'Escoltar amb atenció, respecte i interès les audicions musicals, reconeixent i expressant alguns elements de la música a través del moviment.',
+        'Participar en danses i interpretacions musicals col·lectives, coordinant els moviments amb la música i mostrant una actitud de respecte i col·laboració.',
       ],
       'Tallers': [
         '# Plàstica',
@@ -326,6 +336,10 @@ const OBJECTIUS_OFICIALS = {
        vermells i el títol encara és vermell: es queda provisional. */
     definitius: ['Medi', 'Matemàtiques', 'Cultura Religiosa'],
     canvis: {
+      'Música': {
+        data: '10 de novembre',
+        que: 'Direcció ha refet la llista sencera: de 11 objectius a 7, i tots amb una altra redacció.',
+      },
       'Tallers': {
         data: '9 de novembre',
         que: 'Direcció ha refet el taller de Robòtica de dalt a baix (de 8 objectius a 13) i ha reanomenat el taller de creativitat.',
@@ -426,17 +440,13 @@ const OBJECTIUS_OFICIALS = {
         'Portar l’equipament esportiu i calçat adequat per a la pràctica de l’activitat física.',
       ],
       'Música': [
-        'Diferenciar entre pulsació i ritme.',
-        'Reconèixer tres altures.',
-        'Discriminar auditivament ritmes senzills de 4 pulsacions.',
-        'Conèixer els instruments treballats: el clarinet.',
-        'Interpretar de memòria les cançons treballades al llarg del trimestre.',
-        'Interpretar cançons amb interès per la bona pràctica.',
-        'Practicar la lectura i l’escriptura musical de les notes d-r-m-f-s.',
-        'Practicar l’entonació per imitació i fonomímia de les notes d-r-m-f-s.',
-        'Interpretar amb precisió els ritmes treballats (negres, corxeres, silenci de negra i blanca).',
-        'Inventar ritmes de 4 pulsacions amb les figures treballades (negres, corxeres, silenci de negra i blanca).',
-        'Crear moviments i gestos per descriure i seguir una cançó o audició.',
+        'Conèixer i cantar de memòria les cançons apreses, tenint cura de l\'entonació, la dicció i l\'expressivitat.',
+        'Reconèixer i mantenir una pulsació regular, diferenciant-la del ritme a través del cant, el moviment i la percussió.',
+        'Llegir, escriure, interpretar i crear ritmes de quatre pulsacions amb les figures treballades (negra, dues corxeres, blanca i silenci de negra).',
+        'Reconèixer, llegir, escriure i entonar les notes DO, RE, MI, FA i SOL al pentagrama, amb el suport de la imitació i la fonomímia.',
+        'Discriminar auditivament i reproduir petits fragments melòdics de tres altures.',
+        'Escoltar amb atenció, respecte i interès les audicions musicals, reconeixent-ne alguns elements i identificant les característiques i el timbre del clarinet.',
+        'Participar en danses i interpretacions musicals col·lectives, coordinant els moviments amb la música i mostrant una actitud de respecte i col·laboració.',
       ],
       'Tallers': [
         '# Taller món de colors',
@@ -483,6 +493,14 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 4t de Primària ---------- */
   '4t|1': {
     provisional: true,
+    /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
+       ho avisa perquè les marques d'abans ja no volen dir el mateix. */
+    canvis: {
+      'Música': {
+        data: '10 de novembre',
+        que: 'Direcció ha refet la llista sencera: d’11 objectius a 8, i tots amb una altra redacció.',
+      },
+    },
     assigs: {
       'Català': [
         'Utilitzar adjectius, frases fetes i comparacions per a descriure persones.',
@@ -586,17 +604,14 @@ const OBJECTIUS_OFICIALS = {
         'Portar l’equipament esportiu i calçat adequat per a la pràctica de l’activitat física.',
       ],
       'Música': [
-        'Consolidar l\'hàbit de saber escoltar.',
-        'Discriminar auditivament ritmes de 6 pulsacions.',
-        'Distingir les figures rítmiques: blanca, negra, corxera, semicorxera.',
-        'Reconèixer una melodia, un instrument o una qualitat del so en l\'obra escoltada, amb resposta gestual i/o oral.',
-        'Gaudir amb l\'audició musical.',
-        'Practicar l’entonació i el cant interior.',
-        'Practicar ritmes i polirítmies.',
-        'Aprendre cançons tradicionals d’aquí i d’arreu.',
-        'Practicar la lectura de les notes al pentagrama dins l’escala de do amb fonomímia i per imitació.',
-        'Identificar i portar a la pràctica tres indicacions de dinàmica: piano, mezzoforte i forte.',
-        'Dansar amb elegància i bona coordinació.',
+        'Escoltar amb atenció, respecte i interès les audicions musicals, reconeixent-ne alguns elements com els instruments, les frases musicals i l\'estructura.',
+        'Conèixer i cantar de memòria les cançons apreses, tenint cura de l\'entonació, la dicció i l\'expressivitat.',
+        'Participar en la interpretació de cànons i obstinats rítmics i melòdics, mantenint la pròpia part i escoltant els companys.',
+        'Llegir, interpretar, discriminar auditivament i crear patrons rítmics amb les figures treballades (blanca, negra, corxeres, semicorxeres i silencis).',
+        'Reconèixer, llegir i entonar les notes de l\'escala de DO al pentagrama, amb el suport de la imitació i la fonomímia.',
+        'Conèixer i reconèixer els instruments de la família de vent fusta (flauta travessera, oboè, clarinet i fagot), identificant-ne les característiques i el timbre.',
+        'Interpretar acompanyaments musicals senzills amb instruments com els carrillons, les campanes i els boomwhackers, seguint la pulsació i respectant les entrades.',
+        'Participar en danses i activitats d\'expressió corporal, coordinant els moviments amb la música i amb els companys.',
       ],
       'Tallers': [
         '# Taller d’aplicació de tècniques plàstiques dins l’escultura',
@@ -643,6 +658,14 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 5è de Primària ---------- */
   '5è|1': {
     provisional: true,
+    /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
+       ho avisa perquè les marques d'abans ja no volen dir el mateix. */
+    canvis: {
+      'Música': {
+        data: '10 de novembre',
+        que: 'Direcció ha refet la llista sencera: de 9 objectius a 7, i tots amb una altra redacció. Ja no hi surt la cantata.',
+      },
+    },
     assigs: {
       'Català': [
         'Fluïdesa de la comunicació oral a l’aula.',
@@ -739,15 +762,13 @@ const OBJECTIUS_OFICIALS = {
         'Gaudir dels jocs duts a terme sense tindre en compte els resultats.',
       ],
       'Música': [
-        'Escoltar de manera activa trobant les relacions entre els elements d’una peça musical.',
-        'Gaudir amb l’audició musical.',
-        'Cantar amb cura de l’afinació, dicció i bona posició corporal.',
-        'Saber cantar amb les dinàmiques adequades.',
-        'Saber què comporta cantar en grup.',
-        'Mostrar interès pel projecte de la cantata de celebració dels 200 anys de la fundació de les Vedrunes.',
-        'Conèixer les cançons treballades de la Cantata KIM DE MART.',
-        'Reconèixer diferències rítmiques i/o melòdiques de frases semblants.',
-        'Descobrir la flauta dolça com a instrumentista.',
+        'Escoltar amb atenció, respecte i interès les audicions musicals, reconeixent-ne alguns elements, les característiques de les obres i els seus compositors o intèrprets.',
+        'Conèixer i cantar de memòria les cançons apreses, tenint cura de l\'afinació, la dicció, la postura corporal i l\'expressivitat.',
+        'Participar en interpretacions vocals col·lectives, respectant les entrades, les dinàmiques i escoltant les altres veus.',
+        'Reconèixer, discriminar auditivament i interpretar patrons rítmics amb les figures treballades, especialment la corxera amb punt i la semicorxera.',
+        'Interpretar patrons rítmics i acompanyaments musicals amb percussió corporal i altres recursos sonors, coordinant-se amb la música i amb els companys.',
+        'Interpretar petites melodies amb la flauta dolça utilitzant les notes SOL, LA i SI, tenint cura de la digitació, la respiració, l\'articulació i la qualitat del so.',
+        'Participar en danses col·lectives, reconeixent-ne l\'estructura musical i coordinant els moviments amb la música i amb els companys.',
       ],
       'Tallers': [
         '# Taller de ball de bastons',
@@ -792,6 +813,14 @@ const OBJECTIUS_OFICIALS = {
        encara és vermell, i mentre els dos colors no es posin d'acord compta
        com a provisional. */
     definitius: ['Anglès', 'Matemàtiques'],
+    /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
+       ho avisa perquè les marques d'abans ja no volen dir el mateix. */
+    canvis: {
+      'Música': {
+        data: '10 de novembre',
+        que: 'Direcció ha refet la llista sencera: de 9 objectius a 7, i tots amb una altra redacció.',
+      },
+    },
     assigs: {
       'Català': [
         'Entendre i analitzar el contingut d’una audició.',
@@ -925,15 +954,13 @@ const OBJECTIUS_OFICIALS = {
         'Assumir el resultat del joc sigui quin sigui aquest.',
       ],
       'Música': [
-        'Escoltar activament i comprensivament les audicions treballades a classe.',
-        'Mostrar curiositat i interès pel coneixement d\'obres, autors i instruments.',
-        'Aprendre cançons d’autor, populars i tradicionals.',
-        'Interpretar les cançons amb els matisos, articulacions, moviment, caràcter i fraseig adequat.',
-        'Dominar les notes sol-la-si-do’-re’ de la mà esquerra amb la flauta dolça.',
-        'Aconseguir tocar peces amb una bona articulació i bon so.',
-        'Tocar les peces treballades amb acompanyament.',
-        'Mostrar predisposició i atenció a l’hora de dansar.',
-        'Dansar amb elegància i bona coordinació.',
+        'Escoltar amb atenció, respecte i interès les audicions musicals, reconeixent les obres, els compositors, els intèrprets i els instruments treballats.',
+        'Identificar i comprendre alguns elements i característiques de les obres escoltades, relacionant-los amb els diferents estils i gèneres musicals.',
+        'Conèixer i cantar de memòria les cançons apreses, tenint cura de l\'afinació, la dicció, la postura corporal i l\'expressivitat.',
+        'Participar en interpretacions vocals col·lectives, respectant les entrades, els matisos i el fraseig, i escoltant els companys.',
+        'Llegir i interpretar melodies amb la flauta dolça, utilitzant les notes treballades i tenint cura de la digitació, l\'articulació i la qualitat del so.',
+        'Interpretar peces amb la flauta dolça, individualment i en grup, seguint la pulsació i coordinant-se amb l\'acompanyament musical.',
+        'Participar en danses col·lectives, reconeixent-ne l\'estructura i coordinant els moviments amb la música i amb els companys.',
       ],
       'Tallers': [
         '# Stop Motion',
