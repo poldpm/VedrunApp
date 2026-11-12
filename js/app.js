@@ -3126,8 +3126,10 @@ function _comentarisDe(studentId) {
   if (!Array.isArray(_comentarisActivitats) || !_comentarisActivitats.length) return [];
   const s = students.find(x => String(x.id) === String(studentId));
   if (!s || !s.nom) return [];
-  const net = n => String(n || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/\([^)]*\)/g, '').replace(/[,*]/g, ' ').replace(/\s+/g, ' ').trim();
+  /* El mateix normalitzador que fa servir el generador de comentaris
+     (`_comentNetNom`): si fossin dos, un dia divergirien i un alumne
+     deixaria de trobar-se en una de les dues pantalles. */
+  const net = n => _comentNetNom(n);
   const k = net(s.nom);
   if (!k) return [];
   return _comentarisActivitats.filter(c => net(c.nom) === k);
@@ -11563,16 +11565,76 @@ function _comentTriaForma() {
 }
 
 // Construeix el prompt: esborrany + estil del mestre + nota + forma variable
+/* El nom d'un alumne, sense accents, sense el «(1)» dels noms repetits i
+   sense comes: el full de l'escola i el navegador no els escriuen igual.
+   Es normalitzen ELS DOS COSTATS amb aquesta mateixa funcio. */
+function _comentNetNom(n) {
+  return String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/\([^)]*\)/g, '').replace(/[,*]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+
+/* Un apunt del servidor, es d'aquesta assignatura?
+
+   El servidor els torna amb el nom de la PESTANYA: «Matematiques» per a les
+   de la tutoria i «Musica__5ea_5e A» per a les dels altres cursos. Aqui es
+   compara amb la clau de l'assignatura («musica__5ea») i, si no, amb el seu
+   nom («Matematiques»). NOMES aixo: amb una regla mes ampla, la Musica de 3r
+   A i la de 5e A acabarien al mateix comentari. */
+function _comentMateixaAssig(c, matKey) {
+  var net = function (x) {
+    return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  };
+  var a = net(c && c.assig);
+  if (!a || !matKey) return false;
+  if (a.indexOf(net(matKey)) === 0) return true;
+  var nom = (typeof _assigNomMap !== 'undefined') ? _assigNomMap[matKey] : '';
+  if (nom && a === net(nom)) return true;
+  return false;
+}
+
 /* ---- Apunts que el mestre ha escrit activitat per activitat ----
-   Es recullen de les notes de cada trimestre d'aquesta assignatura. Son
-   el material mes valuos que hi ha per al comentari: son seus i concrets. */
+   Son el material mes valuos que hi ha per al comentari: son seus i concrets.
+
+   ⚠ ABANS NOMES ES MIRAVA EL CACHE DEL NAVEGADOR, i per aixo deia que un
+   alumne no en tenia cap quan si que en tenia (en Pol, 12/11/2026).
+   `notescache_…` nomes existeix si en aquest aparell s'ha obert la pantalla
+   de Notes d'aquella assignatura i d'aquell trimestre. Des d'un altre
+   ordinador, o despres de buidar el navegador, no hi havia res a mirar i el
+   generador es pensava que no n'hi havia.
+
+   Ara es mira primer el SERVIDOR (`_comentarisActivitats`, el mateix que fa
+   servir la fitxa de l'alumne), que els te tots, i el cache nomes s'hi
+   afegeix per si hi ha algun apunt escrit fa un moment que encara no ha
+   pujat. Els repetits es descarten. */
 function comentApuntsActivitats(nomAlumne, matKey, nomesTrim) {
   if (!nomAlumne || !matKey) return [];
-  var out = [];
+  var out = [], vistos = {};
+  function afegeix(activitat, text) {
+    var t = String(text || '').trim();
+    if (!t) return;
+    var k = (activitat || '') + '\u00a7' + t;
+    if (vistos[k]) return;
+    vistos[k] = 1;
+    out.push({ activitat: activitat || 'Activitat', text: t });
+  }
+
+  var trims = nomesTrim ? [String(nomesTrim)] : ['1', '2', '3'];
+  var clauNom = _comentNetNom(nomAlumne);
+
+  // 1) Del servidor: hi son tots, de tots els aparells.
+  if (Array.isArray(_comentarisActivitats)) {
+    _comentarisActivitats.forEach(function (c) {
+      if (!c || _comentNetNom(c.nom) !== clauNom) return;
+      if (trims.indexOf(String(c.trim)) === -1) return;
+      if (!_comentMateixaAssig(c, matKey)) return;
+      afegeix(c.activitat, c.text);
+    });
+  }
+
+  // 2) Del cache d'aquest navegador: el que s'acaba d'escriure.
   var _pos = (typeof _fitxaPosPerNom === 'function') ? _fitxaPosPerNom : null;
-  /* Nomes el trimestre del qual parla el comentari: si no, al gener hi
-     entraven apunts del maig que encara no han passat (auditoria 6/9/2026). */
-  var trims = nomesTrim ? [nomesTrim] : [1, 2, 3];
   trims.forEach(function (trim) {
     // Pot estar desat amb grup o sense: mirem les dues formes
     var claus = Object.keys(localStorage).filter(function (k) {
@@ -11585,14 +11647,50 @@ function comentApuntsActivitats(nomAlumne, matKey, nomesTrim) {
       var idx = _pos ? _pos(nomAlumne, c.rowNoms) : -1;
       if (idx === -1) return;
       (c.items || []).forEach(function (it) {
-        var txt = (c.comentaris[it.id] || {})[idx];
-        if (txt && String(txt).trim()) {
-          out.push({ activitat: it.nom || 'Activitat', text: String(txt).trim() });
-        }
+        afegeix(it.nom, (c.comentaris[it.id] || {})[idx]);
       });
     });
   });
   return out;
+}
+
+/* ---- Observacions escrites a l'apartat d'Observacions ----
+   En Pol, 12/11/2026: «el generador de comentari ha de tenir en compte les
+   observacions, tant si estan fetes directament a l'apartat d'observacions
+   com si estan fetes des del comentari d'alguna activitat».
+
+   Les de l'activitat son les de sobre. Aquestes son les altres: es desen a
+   `observacions[id]['<trim>_<assignatura>']` i les veu tot el claustre.
+   S'hi agafen les d'AQUESTA assignatura i les GENERALS del mateix
+   trimestre —les generals parlen del nen, no de l'area, i son les que
+   expliquen per que una cosa va com va. */
+function comentObservacions(studentId, matKey, trim) {
+  if (studentId === null || studentId === undefined) return [];
+  var obs = _comentObsDeLAlumne(studentId) || {};
+  var out = [];
+  Object.keys(obs).forEach(function (clau) {
+    var text = obs[clau];
+    if (!text || !String(text).trim()) return;
+    var tall = clau.indexOf('_');
+    if (tall === -1) return;
+    if (clau.slice(0, tall) !== String(trim)) return;
+    var mat = clau.slice(tall + 1);
+    if (mat === matKey) out.push({ general: false, text: String(text).trim() });
+    else if (mat === 'general') out.push({ general: true, text: String(text).trim() });
+  });
+  // Primer les de l'assignatura, que son les que toquen mes de prop.
+  out.sort(function (a, b) { return (a.general ? 1 : 0) - (b.general ? 1 : 0); });
+  return out;
+}
+
+/* L'interruptor dels apunts: si mai no s'ha tocat, ENCES.
+
+   Abans el valor de sortida era apagat, i per tant el generador no feia
+   servir ni un sol apunt de ningu que no hagues anat a buscar la casella.
+   Qui l'hagi apagat a posta te un `false` desat i es respecta. */
+function comentUsaApunts() {
+  var e = comentEstilLlegeix();
+  return e.usarApunts === undefined ? true : !!e.usarApunts;
 }
 
 // Interruptor: es recorda amb la resta de preferencies de redaccio
@@ -11612,20 +11710,23 @@ function _comentPintaApunts() {
   var info = document.getElementById('comentApuntsInfo');
   var cb = document.getElementById('comentUsarApunts');
   if (!info || !cb) return;
-  var e = {};
-  try { e = JSON.parse(localStorage.getItem('coment_estil') || '{}') || {}; } catch (err) {}
-  cb.checked = !!e.usarApunts;
+  cb.checked = comentUsaApunts();
 
   var al = (typeof students !== 'undefined' && _comentAlumne)
     ? students.find(function (s) { return String(s.id) === String(_comentAlumne); }) : null;
-  if (!al) { info.textContent = 'Tria un alumne per veure quants n\'hi ha.'; return; }
-  var ap = comentApuntsActivitats(al.nom, _comentAssig);
-  if (!ap.length) {
-    info.textContent = 'Aquest alumne encara no té cap apunt en aquesta assignatura.';
+  if (!al) { info.textContent = 'Tria un alumne per veure què hi ha.'; return; }
+  /* ⚠ DEL TRIMESTRE QUE S'ESTÀ ESCRIVINT, no de tot el curs: si no, el
+     número d'aquí no és el que el comentari farà servir de debò. */
+  var trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
+  var ap  = comentApuntsActivitats(al.nom, _comentAssig, trim);
+  var ob  = comentObservacions(al.id, _comentAssig, trim);
+  var trossos = [];
+  if (ap.length) trossos.push(ap.length === 1 ? '1 apunt d\'activitat' : ap.length + ' apunts d\'activitats');
+  if (ob.length) trossos.push(ob.length === 1 ? '1 observació' : ob.length + ' observacions');
+  if (!trossos.length) {
+    info.textContent = 'D\'aquest alumne no hi ha cap apunt ni observació d\'aquesta assignatura en aquest trimestre.';
   } else {
-    info.textContent = ap.length === 1
-      ? 'Es farà servir 1 apunt que has escrit.'
-      : 'Es faran servir ' + ap.length + ' apunts que has escrit.';
+    info.textContent = 'Es faran servir ' + trossos.join(' i ') + '.';
   }
 }
 
@@ -11652,15 +11753,29 @@ function _comentPrompt(rubrica, alumne, esborrany) {
 
   parts.push('\nIDEES QUE HA DE CONTENIR (venen de la rubrica que he marcat jo):\n"""\n' + esborrany + '\n"""');
 
-  // Apunts que el mestre ha escrit activitat per activitat
-  if (estil.usarApunts) {
+  /* El que el mestre ha escrit d'aquest nen, de les dues bandes. En Pol,
+     12/11/2026: «ha de tenir en compte les observacions, tant si estan fetes
+     directament a l'apartat d'observacions com si estan fetes des del
+     comentari d'alguna activitat». Son dues coses i al prompt hi van per
+     separat, perque no volen dir el mateix: una es d'un dia i d'una feina
+     concreta, l'altra es del nen. */
+  if (comentUsaApunts()) {
     var ap = comentApuntsActivitats(alumne.nom, _comentAssig, _trim);
     if (ap.length) {
-      parts.push('\nAPUNTS MEUS D\'AQUEST ALUMNE, activitat per activitat. Son observacions ' +
+      parts.push('\nAPUNTS MEUS D\'AQUEST ALUMNE, activitat per activitat. Son coses ' +
         'que he escrit jo mentre corregia. Fes-los servir per concretar el comentari amb coses ' +
         'que han passat de debo, pero NO els copiïs literalment ni anomenis les activitats ' +
         'una per una:\n"""\n' +
         ap.map(function (a) { return '- ' + a.activitat + ': ' + a.text; }).join('\n') +
+        '\n"""');
+    }
+    var ob = comentObservacions(alumne.id, _comentAssig, _trim);
+    if (ob.length) {
+      parts.push('\nOBSERVACIONS D\'AQUEST ALUMNE que hem apuntat els mestres aquest ' +
+        'trimestre. Parlen de com va i de com treballa, i son el context del comentari. ' +
+        'Tenles en compte, pero NO les copiïs ni en facis un apartat a part; i si alguna ' +
+        'es delicada, digues-ho amb cura:\n"""\n' +
+        ob.map(function (o) { return '- ' + (o.general ? '(general) ' : '') + o.text; }).join('\n') +
         '\n"""');
     }
   }
@@ -11900,8 +12015,86 @@ function _comentOmpleAlumnes() {
   if (!students.some(s => String(s.id) === String(_comentAlumne))) { _comentAlumne = null; sel.value = ''; }
 }
 
-/* Els alumnes que toquen per a l'assignatura triada, igual que fa Assoliments. */
+/* Els alumnes que toquen per a l'assignatura triada, igual que fa Assoliments,
+   i tot seguit el material del comentari (apunts i observacions). */
 async function _comentCarregaAlumnesDelGrup(matKey, laTriaLaMestra) {
+  await _comentCarregaAlumnesFer(matKey, laTriaLaMestra);
+  _comentCarregaContext(matKey);
+}
+
+/* ⚠ EL GENERADOR DEIA QUE UN ALUMNE NO TENIA APUNTS QUAN SÍ QUE EN TENIA.
+
+   En Pol, 12/11/2026. Els apunts es miraven només al cache del navegador, i
+   les observacions no es miraven gens perquè `observacions` només s'omple a
+   les pantalles d'Alumnes i d'Observacions: entrant al generador des de
+   qualsevol altre lloc, estava buit.
+
+   Aquí es demanen totes dues coses en obrir l'assignatura:
+
+   · Els apunts d'activitats, UNA crida per sessió (ja els guarda
+     `carregaComentarisActivitats`, el mateix que fa servir la fitxa).
+   · Les observacions del grup, una crida per grup.
+
+   ⚠ I LES OBSERVACIONS NO ES DESEN A `observacions`, encara que allà és on
+   viuen per a la resta de l'app. Es desen aquí, en una còpia que només
+   llegeix el generador.
+
+   El motiu és un error que va sortir al banc dels tres rols: `observacions`
+   és de tota l'app i `_carregaObsDelsAlumnes` la BUIDA abans de tornar-la a
+   omplir. Demanar-la des d'aquí vol dir que una resposta que arriba tard
+   —mentre la direcció ja ha canviat de grup— hi deixa les observacions del
+   grup d'abans. Una còpia pròpia no pot fer mal a ningú. */
+let _comentObsPropies   = {};     // 'grup#rowId' → { '1_mat': text }
+let _comentObsDemanades = {};     // grup → true, per no demanar-lo dos cops
+
+function _comentCarregaContext(matKey) {
+  try {
+    if (typeof carregaComentarisActivitats === 'function') {
+      carregaComentarisActivitats().then(function () {
+        try { _comentPintaApunts(); } catch (e) {}
+      }).catch(function () {});
+    }
+  } catch (e) {}
+
+  try {
+    if (typeof config === 'undefined' || !config.scriptUrl) return;
+    if (typeof students === 'undefined' || !students.length) return;
+    /* Els grups dels NENS que hi ha a la pantalla, no el de l'assignatura:
+       en un grup partit els nens surten de dues o tres classes i les seves
+       observacions són als farcells d'aquelles (veure
+       `_carregaObsDelsAlumnes`, que ho fa igual per a la seva banda). */
+    var grups = (typeof _obsGrupsDelsAlumnes === 'function')
+      ? _obsGrupsDelsAlumnes((typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null)
+      : [];
+    grups.forEach(function (g) {
+      if (_comentObsDemanades[g]) return;
+      _comentObsDemanades[g] = true;
+      appsScriptGet({ action: 'getGrupObs', grup: g }).then(function (r) {
+        if (!r || r.ok === false || !r.obs) return;
+        Object.keys(r.obs).forEach(function (rowId) {
+          _comentObsPropies[g + '#' + rowId] = r.obs[rowId];
+        });
+        try { _comentPintaApunts(); } catch (e) {}
+      }).catch(function () { _comentObsDemanades[g] = false; });
+    });
+  } catch (e) {}
+}
+
+/* Les observacions d'aquest alumne, vinguin d'on vinguin: si una altra
+   pantalla ja les ha carregades a `observacions`, d'allà; si no, de la
+   còpia del generador. */
+function _comentObsDeLAlumne(studentId) {
+  if (typeof observacions !== 'undefined' && observacions) {
+    var d = observacions[String(studentId)] || observacions[studentId];
+    if (d && Object.keys(d).length) return d;
+  }
+  var p = (typeof personal !== 'undefined') ? personal[studentId] : null;
+  if (!p || p.rowId === undefined || p.rowId === null) return {};
+  var g = p.grupOrigen || '';
+  return _comentObsPropies[g + '#' + p.rowId] || {};
+}
+
+async function _comentCarregaAlumnesFer(matKey, laTriaLaMestra) {
   if (!matKey) return;
   const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[matKey] : null;
   /* ⚠ El comentari d'informe el llegirà una família: que no es generi amb la
