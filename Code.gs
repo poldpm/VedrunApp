@@ -7097,14 +7097,14 @@ function _assimNivellFull(v) {
   return null;
 }
 
-/* «3 MBA · 5 AS · 2 AAJ». Els que valen 0 no s'escriuen. */
-function _assimResumFull(compte) {
-  var trossos = [];
-  if (compte.mba)  trossos.push(compte.mba  + ' MBA');
-  if (compte.ass)  trossos.push(compte.ass  + ' AS');
-  if (compte.aaj)  trossos.push(compte.aaj  + ' AAJ');
-  if (compte.nass) trossos.push(compte.nass + ' NA');
-  return trossos.length ? trossos.join(' · ') : '—';
+/* El percentatge d'assoliment, amb els quatre nivells pesats. En Pol,
+   12/11/2026: «MBA és 100%, AS és 75%, AAJ és 50% i NA és 0%». Ha de donar
+   EXACTAMENT el mateix que `_assimPes` de js/app.js: si no, el full i
+   l'app dirien dos números diferents del mateix nen. */
+function _assimPctFull(compte, total) {
+  if (!total) return 0;
+  var punts = compte.mba * 1 + compte.ass * 0.75 + compte.aaj * 0.5;
+  return Math.round(punts / total * 100);
 }
 
 function syncAssoliments(ss, trimestre, data) {
@@ -7164,7 +7164,7 @@ function syncAssoliments(ss, trimestre, data) {
     if (_grupClau) _titol += ' · ' + _grupClau.toUpperCase();
     var objs    = matData.objectius;
     var alumnes = matData.alumnes || [];
-    var nCols   = objs.length + 2; // Col A=Alumne + objectius + resum
+    var nCols   = objs.length + 2; // Col A=Alumne + objectius + %
 
     // Capçalera assignatura (fila fusionada)
     sh.getRange(row, 1, 1, nCols).merge()
@@ -7177,7 +7177,7 @@ function syncAssoliments(ss, trimestre, data) {
     // abans es pintava casella per casella i cada una era un viatge a Google.
     var capVals = ['Alumne'];
     objs.forEach(function(obj, i) { capVals.push(obj.nom || ('Obj.'+(i+1))); });
-    capVals.push('Resum');
+    capVals.push('%');
     sh.getRange(row, 1, 1, nCols).setValues([capVals])
       .setFontWeight('bold').setBackground(GARNET_M).setFontColor('#7A1E2E').setFontFamily('Nunito');
     // Centrat i ajust de text només dels objectius i el %; la casella
@@ -7208,12 +7208,11 @@ function syncAssoliments(ss, trimestre, data) {
           else                     { fV.push('—');   fF.push(GREY_BG);   fC.push(GREY_FC);   fP.push('normal'); }
           fA.push('center');
         });
-        /* Al final de la fila hi havia un %. Des del 12/11/2026 hi va el
-           RECOMPTE PER NIVELLS, igual que a la pantalla: amb quatre nivells
-           un sol número ja no diu res, i el que va al butlletí són els
-           nivells. */
-        fV.push(_assimResumFull(compte));
-        fF.push(GREY_BG); fC.push(GREY_FC);
+        // El % d'assoliment, amb els quatre nivells pesats, igual que a la pantalla.
+        var pct = _assimPctFull(compte, objs.length);
+        fV.push(pct + '%');
+        fF.push(pct >= 80 ? GREEN_BG : pct >= 50 ? YELLOW_BG : RED_BG);
+        fC.push(pct >= 80 ? GREEN_FC : pct >= 50 ? YELLOW_FC : RED_FC);
         fP.push('bold'); fA.push('center');
         vals.push(fV); fons.push(fF); colors.push(fC); pesos.push(fP); alin.push(fA);
       });
@@ -7269,7 +7268,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v350';
+var BACKEND_VERSIO = 'v351';
 
 var MAX_CELA = 45000;
 

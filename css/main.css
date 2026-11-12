@@ -2806,16 +2806,12 @@ body {
 .assim-cell:hover    { filter: brightness(0.95); }
 .assim-td-pct        { text-align: center; padding: 6px; background: #F9EDEF; white-space: nowrap; }
 
-/* El recompte per nivells del final de cada fila, al lloc del % d'abans. */
-.assim-resum-pill {
-  display: inline-block; margin: 1px; padding: 1px 6px; border-radius: 9px;
-  font-size: 11px; font-weight: 700; line-height: 1.5;
+/* El percentatge del final de cada fila. El recompte per nivells hi és al
+   rètol del ratolí (l'atribut `title`). */
+.assim-resum-pct-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-weight: 700; font-size: 12px; cursor: help;
 }
-.assim-resum-pill.mba  { color: #065F46; background: #D1FAE5; }
-.assim-resum-pill.ass  { color: #1E40AF; background: #DBEAFE; }
-.assim-resum-pill.aaj  { color: #92400E; background: #FEF3C7; }
-.assim-resum-pill.nass { color: #991B1B; background: #FEE2E2; }
-.assim-resum-cap       { color: var(--text-muted); font-weight: 700; }
 
 /* Resum lateral */
 .assim-sidebar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
@@ -5946,12 +5942,11 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
   .assim-td-nom {
     max-width: 104px; overflow: hidden; text-overflow: ellipsis;
   }
-  /* I el recompte de nivells, tampoc. En una línia ocupava 190 px dels 390
-     d'un mòbil —més que la meitat de la pantalla— i no quedava lloc per als
-     objectius, que és el que s'hi ha de marcar. Aquí va un nivell per línia. */
+  /* I la columna del %, tampoc: amb 58 px en fa prou i deixa l'amplada per
+     als objectius, que és el que s'hi ha de marcar. */
   .assim-th-pct { min-width: 58px; }
-  .assim-td-pct { max-width: 58px; white-space: normal; padding: 4px 2px; }
-  .assim-resum-pill { display: block; margin: 1px auto; padding: 1px 3px; font-size: 10px; }
+  .assim-td-pct { max-width: 58px; padding: 4px 2px; }
+  .assim-resum-pct-pill { padding: 2px 5px; font-size: 11px; }
 }
 
 /* ============================================================

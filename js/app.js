@@ -9554,26 +9554,42 @@ function _assimNivellInfo(key) {
   return null;
 }
 
-/* El resum del final de cada fila: quants n'hi ha de cada nivell. Els que
-   valen 0 no s'escriuen —una fila plena de zeros no es llegeix— i, si encara
-   no s'ha marcat res, hi va un guió. */
-function _assimResumCel(compte) {
-  const trossos = [];
-  ASSIM_NIVELLS.forEach(n => {
-    const q = compte[n.key] || 0;
-    if (q) trossos.push('<span class="assim-resum-pill ' + n.key + '" title="' + n.nom + '">' + q + ' ' + n.curt + '</span>');
-  });
-  return trossos.length ? trossos.join('') : '<span class="assim-resum-cap">—</span>';
+/* El resum del final de cada fila: el percentatge d'assoliment, amb els
+   pesos de `_assimPes`. El recompte per nivells («3 MBA · 5 AS…») es queda
+   com a rètol del ratolí: hi és per a qui el vulgui, sense ocupar lloc. */
+function _assimPctFila(compte, total) {
+  if (!total) return 0;
+  let punts = 0;
+  ASSIM_NIVELLS.forEach(n => { punts += _assimPes(n.key) * (compte[n.key] || 0); });
+  return Math.round(punts / total * 100);
 }
 
-/* Quant compta cada nivell quan alguna pantalla encara en fa un percentatge
-   (la fitxa de l'alumne, la vista de grup, el full visible). La graella
-   d'Assoliments ja no en fa cap: hi va el recompte per nivells.
-   MBA i AS compten igual perquè tots dos són «assolit»: així els números que
-   les mestres ja veien no es mouen de lloc. */
+function _assimResumCel(compte, total) {
+  const pct = _assimPctFila(compte, total);
+  const color   = pct >= 80 ? '#065F46' : pct >= 50 ? '#92400E' : '#991B1B';
+  const bgColor = pct >= 80 ? '#D1FAE5' : pct >= 50 ? '#FEF3C7' : '#FEE2E2';
+  const detall = ASSIM_NIVELLS
+    .filter(n => compte[n.key])
+    .map(n => compte[n.key] + ' ' + n.curt).join(' · ');
+  const títol = detall ? detall + ' (de ' + total + ')' : 'Encara no has marcat res d\'aquest alumne';
+  return '<span class="assim-resum-pct-pill" title="' + escapeHtml(títol) + '"'
+       + ' style="background:' + bgColor + ';color:' + color + '">' + pct + '%</span>';
+}
+
+/* Quant compta cada nivell en el percentatge. En Pol, 12/11/2026: «MBA és
+   100%, AS és 75%, AAJ és 50% i NA és 0%».
+
+   ⚠ Això fa BAIXAR el percentatge del que ja hi hagi marcat: el ✓ d'abans
+   ara és un AS i, per tant, un 75 i no un 100. És a posta i és el que es va
+   decidir: amb quatre nivells, si el MBA i l'AS valguessin igual el
+   percentatge no els distingiria i no serviria de res tenir-ne quatre.
+
+   El mateix número el fan servir la graella, la fitxa de l'alumne, la vista
+   de grup i el full visible: han de dir tots el mateix del mateix nen. */
 function _assimPes(key) {
-  if (key === 'mba' || key === 'ass') return 1;
-  if (key === 'aaj') return 0.5;
+  if (key === 'mba')  return 1;
+  if (key === 'ass')  return 0.75;
+  if (key === 'aaj')  return 0.5;
   return 0;
 }
 
@@ -10047,11 +10063,10 @@ function _renderAssimTable() {
          +  peu
          +  '</th>';
   });
-  /* Al final de cada fila hi anava un %. Ara hi va el RECOMPTE PER NIVELLS.
-     En Pol, 12/11/2026: «fora el %». Amb quatre nivells, un sol número ja no
-     diu res —un 75% podien ser tres AS o un MBA i dos AAJ— i, sobretot, el
-     que va al butlletí són els nivells, no la mitjana. */
-  html += '<th class="assim-th-pct">Resum</th></tr></thead><tbody>';
+  /* El percentatge d'assoliment de cada alumne, amb els quatre nivells
+     pesats (`_assimPes`). El recompte per nivells —«3 MBA · 5 AS»— es queda
+     com a rètol del ratolí: hi és per a qui el vulgui i no ocupa lloc. */
+  html += '<th class="assim-th-pct">%</th></tr></thead><tbody>';
 
   students.forEach(s => {
     const compte = { mba: 0, ass: 0, aaj: 0, nass: 0 };
@@ -10076,7 +10091,7 @@ function _renderAssimTable() {
          «'${…}'» —ja entre cometes. */
       html += `<td class="${cls}" title="${info ? escapeHtml(info.nom) : 'Sense avaluar'}" onclick="toggleAssim('${_idJs(_assimSid(s))}','${_idJs(obj.id)}',this)">${icon}</td>`;
     });
-    html += `<td class="assim-td-pct">${_assimResumCel(compte)}</td>`;
+    html += `<td class="assim-td-pct">${_assimResumCel(compte, objectius.length)}</td>`;
     html += '</tr>';
   });
 
@@ -10156,7 +10171,7 @@ function _updateAssimRowPct(sid) {
       if (v) compte[v]++;
     });
     const pctCell = tr.querySelector('.assim-td-pct');
-    if (pctCell) pctCell.innerHTML = _assimResumCel(compte);
+    if (pctCell) pctCell.innerHTML = _assimResumCel(compte, objectius.length);
   });
 }
 

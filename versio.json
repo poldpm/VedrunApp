@@ -1,11 +1,11 @@
 {
-  "versio": "v350",
+  "versio": "v351",
   "data": "2026-11-12",
   "titol": "Novetats d aquesta versió",
   "canvis": [
     "Els Assoliments ara es marquen amb els quatre nivells del butlletí: MBA, AS, AAJ i NA. Cada clic a la casella passa al següent.",
     "El que ja tenies marcat hi continua sent: el ✓ d abans ara és AS, el ~ és AAJ i la ✗ és NA.",
-    "Al final de cada fila, en lloc del %, hi ha el recompte: quants n hi ha de cada nivell.",
+    "El % del final de la fila compta cada nivell diferent: MBA 100, AS 75, AAJ 50 i NA 0. Per això els percentatges baixen una mica respecte d abans; si una cosa està molt ben assolida, posa-hi MBA i torna a comptar 100.",
     "El generador de comentaris ja no et demana escriure els objectius: agafa els d Assoliments, amb el que hi tinguis marcat de cada alumne.",
     "I el que marquis des del generador es desa als Assoliments: és la mateixa avaluació i no l has de fer dues vegades."
   ]
