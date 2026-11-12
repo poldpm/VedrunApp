@@ -21,7 +21,7 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v349';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v350';   // ← ha de coincidir amb el CACHE del sw.js
 
   /* La versió MÉS VELLA del Code.gs amb què aquesta app encara funciona.
      ------------------------------------------------------------------
@@ -65,7 +65,15 @@
      els publica direcció, aquell botó és l'ÚNICA manera que té d'avisar que
      un objectiu està malament, perquè ja no el pot arreglar ella. Val més la
      franja groga dient que el servidor va endarrerit. */
-  var BACKEND_MINIM = 'v341';
+  /* ⚠ PUJADA A v350 (12/11/2026). Els assoliments passen de tres estats
+     (✓ ~ ✗) als QUATRE NIVELLS del butlletí (MBA, AS, AAJ, NA). El servidor
+     d'abans no els coneix: la mestra marcaria «MBA» a l'app, ho veuria bé a
+     la pantalla, i al FULL VISIBLE d'assoliments li sortirien totes les
+     caselles amb un guió, com si no hagués avaluat res. Les dades no es
+     perden —van senceres a `_AppData_Assim`—, però el full és el que moltes
+     miren i el que ensenyen. És el cas de la v320: val més la franja groga
+     dient que el servidor va endarrerit. */
+  var BACKEND_MINIM = 'v350';
 
   var K_AJORNAT  = 'versio_ajornada';
   /* ⚠ EL BUCLE DEL 4/9/2026.

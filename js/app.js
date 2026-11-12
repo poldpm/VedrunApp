@@ -3404,8 +3404,10 @@ function loadFitxaAssoliments(studentId, container) {
       const prefix = `assim_${mat}_${trim}_${rowId}_`;
       objectius.forEach(obj => {
         const v = localStorage.getItem(prefix + obj.id);
-        if (v === 'true') punts += 1;
-        else if (v === '"partial"') punts += 0.5;
+        if (v === null) return;
+        /* Pot ser dels nous ("mba"…) o dels vells (true/"partial"): ho
+           tradueix `_assimNivell`, i `_assimPes` diu quant compta. */
+        try { punts += _assimPes(_assimNivell(JSON.parse(v))); } catch (e) { /* valor fet malbé: no compta */ }
       });
       return Math.round(punts / objectius.length * 100);
     });
@@ -9505,8 +9507,75 @@ function _renderHomeSetmana() {
    ASSOLIMENTS
    Objectius: localStorage: assim_obj_{materia}_{trim} → [{id,text}]
    Avaluació: localStorage: assim_{materia}_{trim}_{studentId}_{objId}
-              → true (assolit) | false (no assolit) | null (no avaluat)
+              → 'mba' | 'ass' | 'aaj' | 'nass' | null (no avaluat)
+
+   ⚠ ELS QUATRE NIVELLS, I PER QUÈ (12/11/2026).
+
+   Fins ara això eren tres estats —✓ assolit, ~ parcial, ✗ no assolit— i un
+   % al final. El generador de comentaris, en canvi, sempre ha anat amb els
+   quatre nivells del butlletí: MBA, AS, AAJ i NA. Mentre no parlessin la
+   mateixa llengua, el que la mestra marcava aquí no servia allà: havia de
+   tornar a escriure els objectius al generador i tornar a marcar-los un per
+   un. En Pol, 12/11/2026: «fes que assoliments també s'avaluïn amb mba, as,
+   aaj, na».
+
+   Ara es desa la clau del nivell i el generador de comentaris ho llegeix
+   directament.
+
+   ⚠ EL QUE JA HI HAVIA DESAT NO ES TOCA. Al navegador i als fulls de les
+   mestres hi ha milers de `true`, `false` i `"partial"` d'aquestes setmanes.
+   No es migren (una migració que falli a mig fer deixa la graella a mitges):
+   es tradueixen EN LLEGIR, amb `_assimNivell()`. Un ✓ d'abans és un AS, un ~
+   és un AAJ i un ✗ és un NA. MBA és nou i abans no es podia dir.
    ============================================================ */
+
+/* Els quatre nivells, en l'ordre en què es marquen. Les claus són les
+   mateixes que les de `NIVELL_INFO` (el generador de comentaris): és
+   justament el que fa que una cosa serveixi per a l'altra. */
+const ASSIM_NIVELLS = [
+  { key: 'mba',  curt: 'MBA', nom: 'Molt ben assolit',   cls: 'assim-cell mba'  },
+  { key: 'ass',  curt: 'AS',  nom: 'Assolit',            cls: 'assim-cell ass'  },
+  { key: 'aaj',  curt: 'AAJ', nom: 'Assolit amb ajuda',  cls: 'assim-cell aaj'  },
+  { key: 'nass', curt: 'NA',  nom: 'No assolit',         cls: 'assim-cell nass' },
+];
+
+/* El nivell d'un valor desat, sigui dels nous o dels vells. Torna null si no
+   està avaluat. Tot el que llegeixi assoliments ha de passar per aquí. */
+function _assimNivell(v) {
+  if (v === true)      return 'ass';    // el ✓ de sempre
+  if (v === false)     return 'nass';   // el ✗ de sempre
+  if (v === 'partial') return 'aaj';    // el ~ de sempre
+  if (v === 'mba' || v === 'ass' || v === 'aaj' || v === 'nass') return v;
+  return null;
+}
+
+function _assimNivellInfo(key) {
+  for (let i = 0; i < ASSIM_NIVELLS.length; i++) if (ASSIM_NIVELLS[i].key === key) return ASSIM_NIVELLS[i];
+  return null;
+}
+
+/* El resum del final de cada fila: quants n'hi ha de cada nivell. Els que
+   valen 0 no s'escriuen —una fila plena de zeros no es llegeix— i, si encara
+   no s'ha marcat res, hi va un guió. */
+function _assimResumCel(compte) {
+  const trossos = [];
+  ASSIM_NIVELLS.forEach(n => {
+    const q = compte[n.key] || 0;
+    if (q) trossos.push('<span class="assim-resum-pill ' + n.key + '" title="' + n.nom + '">' + q + ' ' + n.curt + '</span>');
+  });
+  return trossos.length ? trossos.join('') : '<span class="assim-resum-cap">—</span>';
+}
+
+/* Quant compta cada nivell quan alguna pantalla encara en fa un percentatge
+   (la fitxa de l'alumne, la vista de grup, el full visible). La graella
+   d'Assoliments ja no en fa cap: hi va el recompte per nivells.
+   MBA i AS compten igual perquè tots dos són «assolit»: així els números que
+   les mestres ja veien no es mouen de lloc. */
+function _assimPes(key) {
+  if (key === 'mba' || key === 'ass') return 1;
+  if (key === 'aaj') return 0.5;
+  return 0;
+}
 
 let _assimTrim    = 1;
 let _assimMateria = '';   // cap assignatura inventada: la posa el perfil
@@ -9535,13 +9604,17 @@ const ASSIM_MATERIES = {
    porta ja. Les de tutoria (`catala__2nc`) es queden igual a posta: així les
    rúbriques i les valoracions que les mestres ja tenen desades no es mouen
    de lloc el dia que s'actualitzin. */
-function _assimClauMat() {
+/* El paràmetre `mat` és per al generador de comentaris, que ha de poder
+   llegir els assoliments d'una assignatura sense obrir-ne la pantalla. Sense
+   paràmetre, es comporta exactament com sempre. */
+function _assimClauMat(mat) {
+  const m = (mat === undefined || mat === null) ? _assimMateria : mat;
   const g = (typeof _grupDeTreball === 'function') ? (_grupDeTreball() || '') : '';
-  if (!g || typeof _assimMateria !== 'string') return _assimMateria;
-  const esDAltreCurs = (typeof _assigDesdobMap !== 'undefined') && !!_assigDesdobMap[_assimMateria];
-  const jaPortaGrup = _assimMateria.indexOf('__') !== -1 && !esDAltreCurs;
-  if (jaPortaGrup) return _assimMateria;
-  return _assimMateria + '@' + g.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!g || typeof m !== 'string') return m;
+  const esDAltreCurs = (typeof _assigDesdobMap !== 'undefined') && !!_assigDesdobMap[m];
+  const jaPortaGrup = m.indexOf('__') !== -1 && !esDAltreCurs;
+  if (jaPortaGrup) return m;
+  return m + '@' + g.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 /* Llegeix amb la clau nova i, si encara no hi ha res, amb la vella. Així el
@@ -9551,8 +9624,8 @@ function _assimLlegeix(nova, vella) {
   return v !== null ? v : localStorage.getItem(vella);
 }
 
-function assimObjKey()      { return `assim_obj_${_assimClauMat()}_${_assimTrim}`; }
-function assimObjKeyVella() { return `assim_obj_${_assimMateria}_${_assimTrim}`; }
+function assimObjKey(mat, trim)      { return `assim_obj_${_assimClauMat(mat)}_${trim === undefined ? _assimTrim : trim}`; }
+function assimObjKeyVella(mat, trim) { return `assim_obj_${(mat === undefined || mat === null) ? _assimMateria : mat}_${trim === undefined ? _assimTrim : trim}`; }
 
 /* ---------- ELS OBJECTIUS OFICIALS DE DIRECCIÓ ----------
 
@@ -9581,11 +9654,13 @@ function _assimCursINom(matKey) {
 }
 
 /* Tots els oficials d'aquesta assignatura, sense filtrar per taller. */
-function _assimOficialsTots() {
+function _assimOficialsTots(mat, trim) {
   if (typeof objectiusOficials !== 'function') return [];
-  const { curs, nom } = _assimCursINom(_assimMateria);
+  const m = (mat === undefined || mat === null) ? _assimMateria : mat;
+  const t = (trim === undefined) ? _assimTrim : trim;
+  const { curs, nom } = _assimCursINom(m);
   if (!curs || !nom) return [];
-  try { return objectiusOficials(curs, _assimTrim, nom) || []; } catch (e) { return []; }
+  try { return objectiusOficials(curs, t, nom) || []; } catch (e) { return []; }
 }
 
 /* ---------- QUIN TALLER FA ELLA ----------
@@ -9607,14 +9682,14 @@ function _assimOficialsTots() {
    ordinador (regla 4 del CLAUDE.md, i el mateix que fa `_desdobSetGrup` amb
    el grup de desdoblament). Si ho desés al navegador, al mòbil li tornarien
    a sortir els quatre tallers. */
-function _assimBlocClau() {
-  const { curs, nom } = _assimCursINom(_assimMateria);
+function _assimBlocClau(mat) {
+  const { curs, nom } = _assimCursINom((mat === undefined || mat === null) ? _assimMateria : mat);
   return _objNorm(curs) + '|' + _objNorm(nom);
 }
 
-function _assimBlocsDisponibles() {
+function _assimBlocsDisponibles(mat, trim) {
   const vistos = [];
-  _assimOficialsTots().forEach(o => {
+  _assimOficialsTots(mat, trim).forEach(o => {
     if (o.bloc && vistos.indexOf(o.bloc) === -1) vistos.push(o.bloc);
   });
   return vistos;
@@ -9626,12 +9701,12 @@ function _assimBlocsDisponibles() {
    reanomenar un taller d'un trimestre a l'altre. Si el desat ja no hi és, no
    mana: val més ensenyar-los tots i que ella ho torni a triar que no pas
    deixar-li la graella buida sense dir-li per què. */
-function assimBlocTriat() {
+function assimBlocTriat(mat, trim) {
   const m = (typeof _perfil !== 'undefined' && _perfil && _perfil.assimBloc) ? _perfil.assimBloc : null;
   if (!m) return '';
-  const b = m[_assimBlocClau()];
+  const b = m[_assimBlocClau(mat)];
   if (!b) return '';
-  return _assimBlocsDisponibles().indexOf(b) !== -1 ? b : '';
+  return _assimBlocsDisponibles(mat, trim).indexOf(b) !== -1 ? b : '';
 }
 
 function assimTriaBloc(bloc) {
@@ -9649,9 +9724,9 @@ function assimTriaBloc(bloc) {
   renderAssoliments();
 }
 
-function assimObjOficials() {
-  const tots = _assimOficialsTots();
-  const b = assimBlocTriat();
+function assimObjOficials(mat, trim) {
+  const tots = _assimOficialsTots(mat, trim);
+  const b = assimBlocTriat(mat, trim);
   return b ? tots.filter(o => o.bloc === b) : tots;
 }
 
@@ -9702,13 +9777,13 @@ function _assimRecordaOficials() {
 }
 
 /* Els de la mestra, i prou. */
-function assimObjPropis() {
-  try { return JSON.parse(_assimLlegeix(assimObjKey(), assimObjKeyVella()) || '[]') || []; }
+function assimObjPropis(mat, trim) {
+  try { return JSON.parse(_assimLlegeix(assimObjKey(mat, trim), assimObjKeyVella(mat, trim)) || '[]') || []; }
   catch (e) { return []; }
 }
 
 /* Tots els que ha de veure: primer els de direcció, després els seus. */
-function assimObjLoad() { return assimObjOficials().concat(assimObjPropis()); }
+function assimObjLoad(mat, trim) { return assimObjOficials(mat, trim).concat(assimObjPropis(mat, trim)); }
 
 function assimObjSave(v) {
   /* ⚠ ELS OFICIALS NO ES DESEN MAI AL NAVEGADOR. Si s'hi colessin, el dia que
@@ -9720,8 +9795,8 @@ function assimObjSave(v) {
   _autoSyncAssimSheet(_assimTrim);                    // full visible bonic
 }
 
-function assimValKey(sid, objId)      { return `assim_${_assimClauMat()}_${_assimTrim}_${sid}_${objId}`; }
-function assimValKeyVella(sid, objId) { return `assim_${_assimMateria}_${_assimTrim}_${sid}_${objId}`; }
+function assimValKey(sid, objId, mat, trim)      { return `assim_${_assimClauMat(mat)}_${trim === undefined ? _assimTrim : trim}_${sid}_${objId}`; }
+function assimValKeyVella(sid, objId, mat, trim) { return `assim_${(mat === undefined || mat === null) ? _assimMateria : mat}_${trim === undefined ? _assimTrim : trim}_${sid}_${objId}`; }
 // Identificador ESTABLE d'un alumne per als assoliments: rowId si existeix
 // (estable entre càrregues), si no l'id de posició (compatibilitat).
 function _assimSid(s) {
@@ -9751,15 +9826,19 @@ function _assimSid(s) {
   if (st && st.rowId !== undefined && st.rowId !== null && st.rowId !== '') return st.rowId;
   return s;
 }
-function assimValGet(sid, objId) {
-  const v = _assimLlegeix(assimValKey(sid, objId), assimValKeyVella(sid, objId));
-  return v === null ? null : JSON.parse(v);
+/* Torna sempre la CLAU DEL NIVELL ('mba'|'ass'|'aaj'|'nass') o null, tradueixi
+   o no el que hi hagi desat (veure `_assimNivell`). */
+function assimValGet(sid, objId, mat, trim) {
+  const v = _assimLlegeix(assimValKey(sid, objId, mat, trim), assimValKeyVella(sid, objId, mat, trim));
+  if (v === null) return null;
+  try { return _assimNivell(JSON.parse(v)); } catch (e) { return null; }
 }
-function assimValSet(sid, objId, val) {
-  if (val === null) localStorage.removeItem(assimValKey(sid, objId));
-  else localStorage.setItem(assimValKey(sid, objId), JSON.stringify(val));
-  _assimSaveValsToSheets(_assimClauMat(), _assimTrim);  // dades ocultes (sync)
-  _autoSyncAssimSheet(_assimTrim);                    // full visible bonic
+function assimValSet(sid, objId, val, mat, trim) {
+  const t = (trim === undefined) ? _assimTrim : trim;
+  if (val === null) localStorage.removeItem(assimValKey(sid, objId, mat, t));
+  else localStorage.setItem(assimValKey(sid, objId, mat, t), JSON.stringify(val));
+  _assimSaveValsToSheets(_assimClauMat(mat), t);  // dades ocultes (sync)
+  _autoSyncAssimSheet(t);                         // full visible bonic
 }
 
 /* --- Render --- */
@@ -9968,17 +10047,21 @@ function _renderAssimTable() {
          +  peu
          +  '</th>';
   });
-  html += '<th class="assim-th-pct">%</th></tr></thead><tbody>';
+  /* Al final de cada fila hi anava un %. Ara hi va el RECOMPTE PER NIVELLS.
+     En Pol, 12/11/2026: «fora el %». Amb quatre nivells, un sol número ja no
+     diu res —un 75% podien ser tres AS o un MBA i dos AAJ— i, sobretot, el
+     que va al butlletí són els nivells, no la mitjana. */
+  html += '<th class="assim-th-pct">Resum</th></tr></thead><tbody>';
 
   students.forEach(s => {
-    let punts = 0;
+    const compte = { mba: 0, ass: 0, aaj: 0, nass: 0 };
     html += `<tr><td class="assim-td-nom">${escapeHtml(nomAlumne(s))}</td>`;
     objectius.forEach(obj => {
       const val = assimValGet(_assimSid(s), obj.id);
-      if (val === true)       punts += 1;
-      else if (val === 'partial') punts += 0.5;
-      const cls = val === true ? 'assim-cell assolit' : val === 'partial' ? 'assim-cell parcial' : val === false ? 'assim-cell no-assolit' : 'assim-cell buit';
-      const icon = val === true ? '✓' : val === 'partial' ? '~' : val === false ? '✗' : '—';
+      if (val) compte[val]++;
+      const info = _assimNivellInfo(val);
+      const cls = info ? info.cls : 'assim-cell buit';
+      const icon = info ? info.curt : '—';
       /* ⚠ EL CODI DE L'ALUMNE HA D'ANAR ENTRE COMETES.
 
          Trobat a la segona auditoria (8/9/2026), i era el pitjor de tots:
@@ -9991,12 +10074,9 @@ function _renderAssimTable() {
          permanent el va convertir en invàlid, i el repàs que va posar
          `_idJs()` a 77 llocs no el va veure perquè només buscava el patró
          «'${…}'» —ja entre cometes. */
-      html += `<td class="${cls}" onclick="toggleAssim('${_idJs(_assimSid(s))}','${_idJs(obj.id)}',this)">${icon}</td>`;
+      html += `<td class="${cls}" title="${info ? escapeHtml(info.nom) : 'Sense avaluar'}" onclick="toggleAssim('${_idJs(_assimSid(s))}','${_idJs(obj.id)}',this)">${icon}</td>`;
     });
-    const pct = objectius.length > 0 ? Math.round(punts / objectius.length * 100) : 0;
-    const color = pct >= 80 ? '#065F46' : pct >= 50 ? '#92400E' : '#991B1B';
-    const bgColor = pct >= 80 ? '#D1FAE5' : pct >= 50 ? '#FEF3C7' : '#FEE2E2';
-    html += `<td class="assim-td-pct"><span style="background:${bgColor};color:${color};padding:2px 8px;border-radius:10px;font-weight:700;font-size:12px">${pct}%</span></td>`;
+    html += `<td class="assim-td-pct">${_assimResumCel(compte)}</td>`;
     html += '</tr>';
   });
 
@@ -10016,9 +10096,7 @@ function _renderAssimResum() {
   list.innerHTML = students.map(s => {
     let puntsR = 0;
     objectius.forEach(obj => {
-      const v = assimValGet(_assimSid(s), obj.id);
-      if (v === true) puntsR += 1;
-      else if (v === 'partial') puntsR += 0.5;
+      puntsR += _assimPes(assimValGet(_assimSid(s), obj.id));
     });
     const pct = Math.round(puntsR / objectius.length * 100);
     const color = pct >= 80 ? '#065F46' : pct >= 50 ? '#92400E' : '#991B1B';
@@ -10034,15 +10112,15 @@ function _renderAssimResum() {
   }).join('');
 }
 
-/* --- Toggle estat (—→✓→✗→—) --- */
+/* --- Clicar una casella: — → MBA → AS → AAJ → NA → — --- */
 function toggleAssim(sid, objId, cell) {
   const cur = assimValGet(sid, objId);
-  // Cicle: null → true → 'partial' → false → null
-  let next;
-  if (cur === null)         next = true;
-  else if (cur === true)    next = 'partial';
-  else if (cur === 'partial') next = false;
-  else                      next = null;
+  const i = ASSIM_NIVELLS.findIndex(n => n.key === cur);
+  /* Sense marcar (i === -1) comença pel primer; l'últim torna a buidar-la,
+     que és com s'esmena una marca posada sense voler. */
+  const next = (i === -1) ? ASSIM_NIVELLS[0].key
+             : (i + 1 < ASSIM_NIVELLS.length) ? ASSIM_NIVELLS[i + 1].key
+             : null;
 
   assimValSet(sid, objId, next);
   _applyAssimCell(cell, next);
@@ -10050,10 +10128,10 @@ function toggleAssim(sid, objId, cell) {
 }
 
 function _applyAssimCell(cell, val) {
-  if (val === true)       { cell.className='assim-cell assolit';    cell.textContent='✓'; }
-  else if (val==='partial'){ cell.className='assim-cell parcial';   cell.textContent='~'; }
-  else if (val === false) { cell.className='assim-cell no-assolit'; cell.textContent='✗'; }
-  else                    { cell.className='assim-cell buit';       cell.textContent='—'; }
+  const info = _assimNivellInfo(_assimNivell(val));
+  cell.className  = info ? info.cls : 'assim-cell buit';
+  cell.textContent = info ? info.curt : '—';
+  cell.title       = info ? info.nom : 'Sense avaluar';
 }
 
 function _updateAssimRowPct(sid) {
@@ -10072,17 +10150,13 @@ function _updateAssimRowPct(sid) {
     const s = students.find(x => nomAlumne(x) === nomCell.textContent) ||
               students.find(x => x.nom === nomCell.textContent);
     if (!s || String(_assimSid(s)) !== String(sid)) return;
-    let punts = 0;
+    const compte = { mba: 0, ass: 0, aaj: 0, nass: 0 };
     objectius.forEach(obj => {
       const v = assimValGet(_assimSid(s), obj.id);
-      if (v === true) punts += 1;
-      else if (v === 'partial') punts += 0.5;
+      if (v) compte[v]++;
     });
-    const pct = objectius.length > 0 ? Math.round(punts / objectius.length * 100) : 0;
-    const color = pct >= 80 ? '#065F46' : pct >= 50 ? '#92400E' : '#991B1B';
-    const bgColor = pct >= 80 ? '#D1FAE5' : pct >= 50 ? '#FEF3C7' : '#FEE2E2';
     const pctCell = tr.querySelector('.assim-td-pct');
-    if (pctCell) pctCell.innerHTML = `<span style="background:${bgColor};color:${color};padding:2px 8px;border-radius:10px;font-weight:700;font-size:12px">${pct}%</span>`;
+    if (pctCell) pctCell.innerHTML = _assimResumCel(compte);
   });
 }
 
@@ -11080,13 +11154,100 @@ async function selectComentAssig(assig, btn) {
 function onComentAlumneChange() {
   const sel = document.getElementById('comentAlumneSelect');
   _comentAlumne = sel.value || null;
-  _comentSeleccions = {};
+  /* No es buida: es va a buscar el que ja tingui marcat a Assoliments
+     d'aquest nen. És tota la gràcia del canvi del 12/11/2026. */
+  _comentPrefill();
   renderComentRubrica();
   try { _comentPintaApunts(); } catch (e) {}
 }
 
+/* ============================================================
+   D'ON SURTEN ELS OBJECTIUS DEL GENERADOR DE COMENTARIS
+   ------------------------------------------------------------
+   Fins al 12/11/2026 sortien d'una rúbrica que s'havia d'escriure a part:
+   la mestra obria el generador i li deia «Encara no has escrit els objectius
+   d'Anglès», quan a Assoliments ja els tenia tots, posats per direcció i
+   marcats alumne per alumne. En Pol: «no hauria de ser així. Ha d'agafar els
+   assoliments, que es generen automàticament».
+
+   Ara surten d'Assoliments: els oficials de direcció més els que ella hi
+   hagi afegit, del mateix trimestre i de la mateixa assignatura. La rúbrica
+   escrita a mà només es fa servir si allà no hi ha res (un curs o un
+   trimestre que direcció encara no ha publicat), i així a ningú no se li
+   perd el que ja tenia escrit.
+   ============================================================ */
+function _comentObjectius() {
+  const trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
+  let dAssim = [];
+  try {
+    if (_comentAssig && typeof assimObjLoad === 'function') dAssim = assimObjLoad(_comentAssig, trim) || [];
+  } catch (e) { dAssim = []; }
+
+  if (dAssim.length) {
+    return dAssim.map(o => ({
+      /* El que va al comentari és el text sencer de l'objectiu, no el nom
+         curt de la columna: el nom curt («Monedes») no diu res a la IA. */
+      nom: o.text || o.nom || '',
+      bloc: o.bloc || '',
+      assimId: o.id,
+      nivells: null,
+    }));
+  }
+
+  const r = _comentAssig ? RUBRIQUES[_comentAssig] : null;
+  return (r && r.objectius) ? r.objectius.map(o => ({
+    nom: o.nom, bloc: '', assimId: null, nivells: o.nivells,
+  })) : [];
+}
+
+/* El nom de l'assignatura, vingui d'on vingui la llista. */
+function _comentNomAssig() {
+  const r = _comentAssig ? RUBRIQUES[_comentAssig] : null;
+  if (r && r.nom) return r.nom;
+  if (typeof MATERIES !== 'undefined' && MATERIES[_comentAssig]) return MATERIES[_comentAssig];
+  const b = document.querySelector('#comentAssigSelector .trim-sel-btn.active');
+  return (b && b.textContent.trim()) || _comentAssig || '';
+}
+
+/* Posa a la graella el que la mestra ja tingui marcat a Assoliments d'aquest
+   alumne. Si no ha marcat res, els botons surten buits i els pot marcar
+   aquí: el que marqui es desa als Assoliments, que és on viu. */
+function _comentPrefill() {
+  _comentSeleccions = {};
+  if (!_comentAlumne || typeof assimValGet !== 'function') return;
+  const alumne = students.find(s => String(s.id) === String(_comentAlumne));
+  if (!alumne) return;
+  const sid  = (typeof _assimSid === 'function') ? _assimSid(alumne) : alumne.id;
+  const trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
+  _comentObjectius().forEach((o, i) => {
+    if (!o.assimId) return;
+    const niv = assimValGet(sid, o.assimId, _comentAssig, trim);
+    if (!niv) return;
+    const j = NIVELL_INFO.findIndex(n => n.key === niv);
+    if (j >= 0) _comentSeleccions[i] = j;
+  });
+}
+
+/* Clicar un nivell aquí ÉS marcar l'assoliment: es desa al mateix lloc que
+   la graella d'Assoliments, i per tant també va al full. Si no hi hagués
+   aquest desat, la mestra marcaria dues vegades el mateix i les dues
+   pantalles acabarien dient coses diferents del mateix nen. */
+function comentMarcaNivell(i, j) {
+  _comentSeleccions[i] = j;
+  try {
+    const o = _comentObjectius()[i];
+    const alumne = students.find(s => String(s.id) === String(_comentAlumne));
+    if (o && o.assimId && alumne) {
+      const sid  = (typeof _assimSid === 'function') ? _assimSid(alumne) : alumne.id;
+      const trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
+      assimValSet(sid, o.assimId, NIVELL_INFO[j].key, _comentAssig, trim);
+    }
+  } catch (e) { /* si no es pot desar, almenys el comentari es podrà generar */ }
+  renderComentRubrica();
+}
+
 function renderComentRubrica() {
-  const rubrica = _comentAssig ? RUBRIQUES[_comentAssig] : null;
+  const objectius = _comentObjectius();
   const container = document.getElementById('comentRubrica');
   const genBtn    = document.getElementById('comentGenBtn');
 
@@ -11106,16 +11267,17 @@ function renderComentRubrica() {
     return;
   }
 
-  if (!rubrica || !rubrica.objectius.length) {
-    // Abans deia "s'afegirà quan tinguis els objectius definitius": en passiva,
-    // com si els hagués de posar algú altre. Els objectius se'ls fa cada mestra,
-    // així que ha de quedar clar què ha de fer ella i on ho fa.
-    const nomAssig = rubrica?.nom || document.querySelector('#comentAssigSelector .trim-sel-btn.active')?.textContent.trim() || _comentAssig;
+  /* Sense objectius enlloc: ni direcció n'ha publicat d'aquest curs i
+     trimestre, ni ella n'ha escrit cap. Llavors sí que se li ofereix
+     d'escriure'ls. */
+  if (!objectius.length) {
+    const nomAssig = _comentNomAssig();
     container.innerHTML =
       `<div class="tasques-empty" style="margin-top:12px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" width="36" height="36"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        <p>Encara no has escrit els objectius de <strong>${escapeHtml(nomAssig)}</strong>.<br>
-        Clica <strong>Editar objectius</strong> per escriure'ls, o importa'ls d'un document que ja tinguis.</p>
+        <p>Encara no hi ha objectius de <strong>${escapeHtml(nomAssig)}</strong> per a aquest trimestre.<br>
+        Els de direcció arriben sols a <strong>Assoliments</strong> quan els publiquen. Mentrestant,
+        pots escriure'ls tu.</p>
         <button class="btn btn-primary btn-sm" style="margin-top:10px"
           onclick="rubriques && rubriques.obreEditor()">Editar objectius</button>
       </div>`;
@@ -11128,18 +11290,26 @@ function renderComentRubrica() {
     return;
   }
 
+  const venenDAssim = objectius.some(o => o.assimId);
   let html = '';
-  rubrica.objectius.forEach((obj, i) => {
+  if (venenDAssim) {
+    html += '<p class="coment-dassim">Són els objectius d\'<strong>Assoliments</strong>, '
+         +  'amb el que ja hi tens marcat. El que canviïs aquí també s\'hi desa.</p>';
+  }
+  objectius.forEach((obj, i) => {
     const sel = _comentSeleccions[i] ?? -1;
+    const etiqueta = (obj.bloc ? obj.bloc + ' · ' : '') + obj.nom;
     html += `<div class="coment-objectiu-row">
-      <div class="coment-obj-nom-compact" title="${escapeHtml(obj.nom)}">${i+1}. ${escapeHtml(obj.nom)}</div>
+      <div class="coment-obj-nom-compact" title="${escapeHtml(etiqueta)}">${i+1}. ${escapeHtml(etiqueta)}</div>
       <div class="coment-nivells-row">`;
     NIVELL_INFO.forEach((niv, j) => {
       const active = sel === j ? ' active' : '';
-      // Un objectiu sense criteris (o incomplet) no ha de fer petar la pagina
-      const tooltip = escapeHtml((obj.nivells || [])[j] || '').replace(/"/g, '&quot;');
+      /* Els objectius de direcció no porten una frase per nivell: el rètol
+         del botó ja diu què vol dir. Els de la rúbrica escrita a mà sí, i
+         es continuen ensenyant en passar-hi el ratolí. */
+      const tooltip = escapeHtml((obj.nivells || [])[j] || niv.label).replace(/"/g, '&quot;');
       html += `<button type="button" class="coment-niv-btn ${niv.cls}${active}"
-        onclick="_comentSeleccions[${i}]=${j}; renderComentRubrica();"
+        onclick="comentMarcaNivell(${i},${j})"
         title="${tooltip}">${niv.short}</button>`;
     });
     html += '</div></div>';
@@ -11149,28 +11319,37 @@ function renderComentRubrica() {
 }
 
 function _updateComentBtn() {
-  const rubrica = RUBRIQUES[_comentAssig];
   const genBtn  = document.getElementById('comentGenBtn');
-  if (!genBtn || !rubrica) return;
+  if (!genBtn) return;
   const omplerts = Object.keys(_comentSeleccions).length;
   // Activat amb almenys 1 objectiu marcat; si en falten t'avisarà per pop-up
   genBtn.disabled = omplerts === 0;
   genBtn.title = '';
 }
 
+/* Torna a agafar el que hi ha als Assoliments. Abans això buidava la
+   graella; ara, buidar-la deixaria la pantalla dient que no has avaluat res
+   quan sí que ho has fet, a l'altra pantalla. */
 function resetComentRubrica() {
-  _comentSeleccions = {};
+  _comentPrefill();
   renderComentRubrica();
 }
 
-// Construeix l'esborrany base a partir de les frases de la rúbrica
+/* Construeix l'esborrany base.
+
+   Amb la rúbrica escrita a mà, cada objectiu porta una frase per nivell i
+   l'esborrany és aquelles frases enganxades. Amb els objectius de direcció
+   no n'hi ha cap: el que hi ha és l'objectiu i el nivell que s'hi ha posat.
+   Llavors l'esborrany és la llista d'objectius de cada nivell, que és
+   exactament el que la IA necessita per escriure el comentari. */
 function _buildEsborrany(rubrica, alumne) {
   const grups = { mba: [], ass: [], aaj: [], nass: [] };
-  rubrica.objectius.forEach((obj, i) => {
+  (rubrica.objectius || []).forEach((obj, i) => {
     const nivIdx = _comentSeleccions[i] ?? -1;
     if (nivIdx < 0) return;
     const niv = NIVELL_INFO[nivIdx].key;
-    grups[niv].push(obj.nivells[nivIdx]);
+    const frase = (obj.nivells && obj.nivells[nivIdx]) ? obj.nivells[nivIdx] : obj.nom;
+    if (frase) grups[niv].push(frase);
   });
   const CONN = {
     mba:  ['En aquest trimestre, ', 'A més, ', 'També destaca que ', 'Cal afegir que '],
@@ -11195,6 +11374,31 @@ function _buildEsborrany(rubrica, alumne) {
       return connectors[Math.min(i, connectors.length - 1)] + frase;
     }).join(' ');
   }
+  /* ⚠ ELS OBJECTIUS DE DIRECCIÓ ESTAN EN INFINITIU.
+
+     «Escoltar amb respecte les audicions musicals» no es pot encastar dins
+     d'una frase com si fos un criteri de la rúbrica: en sortiria «En aquest
+     trimestre, la Berta escoltar amb respecte…». Per a la IA tant se val
+     —li arriben com a idees—, però l'esborrany sense IA és el que la mestra
+     copia a l'informe quan no hi ha clau de Gemini.
+
+     Per això, quan els objectius no porten frase pròpia per nivell, no es
+     fa veure que és una redacció: es fa una llista per nivells, que es
+     llegeix bé i no inventa res. */
+  const teFrases = (rubrica.objectius || []).some(o => o.nivells && o.nivells.length);
+  if (!teFrases) {
+    const llista = [];
+    NIVELL_INFO.forEach(n => {
+      const items = grups[n.key];
+      if (!items.length) return;
+      llista.push(n.label + ': ' + items.map(f => {
+        let t = f.trim();
+        return t.replace(/[.;]+$/, '');
+      }).join('; ') + '.');
+    });
+    return llista.join('\n');
+  }
+
   const parts = [
     ferParagraf(grups.mba, CONN.mba),
     ferParagraf(grups.ass, CONN.ass),
@@ -11473,9 +11677,13 @@ function _comentPrompt(rubrica, alumne, esborrany) {
 }
 
 async function generarComentari() {
-  const rubrica = RUBRIQUES[_comentAssig];
+  /* Els objectius surten d'Assoliments (veure `_comentObjectius`). Es munta
+     un objecte amb la mateixa forma que tenia la rúbrica escrita a mà,
+     perquè tot el que ve després —l'esborrany i el prompt— no ha de saber
+     d'on venen. */
+  const rubrica = { nom: _comentNomAssig(), objectius: _comentObjectius() };
   const alumne  = students.find(s => s.id == _comentAlumne);
-  if (!rubrica || !alumne) return;
+  if (!rubrica.objectius.length || !alumne) return;
 
   // Comprova si hi ha objectius sense avaluar
   const sensAvaluar = rubrica.objectius
@@ -11599,6 +11807,8 @@ function selectComentTrim(t, btn) {
   _comentTrim = t;
   document.querySelectorAll('#comentTrimSelector .trim-sel-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  // Els objectius i les marques són d'un trimestre: canviant-lo, canvien tots dos.
+  _comentPrefill();
   renderComentRubrica();
 }
 function _comentPintaTrim() {

@@ -2791,10 +2791,31 @@ body {
   user-select: none;
 }
 .assim-cell.buit     { color: var(--text-muted); background: var(--surface); }
+/* Els quatre nivells del butlletí (12/11/2026). Els colors són EXACTAMENT els
+   del generador de comentaris (.badge-mba i companyia): la mestra veu els
+   mateixos quatre nivells a les dues pantalles i no ha d'aprendre res nou.
+   La lletra és més petita perquè hi caben tres caràcters, no un símbol. */
+.assim-cell.mba      { color: #065F46; background: #D1FAE5; font-size: 12px; letter-spacing: .2px; }
+.assim-cell.ass      { color: #1E40AF; background: #DBEAFE; font-size: 12px; letter-spacing: .2px; }
+.assim-cell.aaj      { color: #92400E; background: #FEF3C7; font-size: 12px; letter-spacing: .2px; }
+.assim-cell.nass     { color: #991B1B; background: #FEE2E2; font-size: 12px; letter-spacing: .2px; }
+/* Els de la graella d'abans: encara els fa servir el banc de proves i
+   qualsevol pantalla que no s'hagi refet. */
 .assim-cell.assolit  { color: #065F46; background: #D1FAE5; }
 .assim-cell.no-assolit { color: #991B1B; background: #FEE2E2; }
 .assim-cell:hover    { filter: brightness(0.95); }
-.assim-td-pct        { text-align: center; padding: 6px; background: #F9EDEF; }
+.assim-td-pct        { text-align: center; padding: 6px; background: #F9EDEF; white-space: nowrap; }
+
+/* El recompte per nivells del final de cada fila, al lloc del % d'abans. */
+.assim-resum-pill {
+  display: inline-block; margin: 1px; padding: 1px 6px; border-radius: 9px;
+  font-size: 11px; font-weight: 700; line-height: 1.5;
+}
+.assim-resum-pill.mba  { color: #065F46; background: #D1FAE5; }
+.assim-resum-pill.ass  { color: #1E40AF; background: #DBEAFE; }
+.assim-resum-pill.aaj  { color: #92400E; background: #FEF3C7; }
+.assim-resum-pill.nass { color: #991B1B; background: #FEE2E2; }
+.assim-resum-cap       { color: var(--text-muted); font-weight: 700; }
 
 /* Resum lateral */
 .assim-sidebar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
@@ -3037,6 +3058,15 @@ body {
 }
 .coment-legenda .coment-niv-btn { margin: 0; cursor: default; }
 .coment-legenda > span:not(.coment-niv-btn) { margin-right: 10px; }
+/* La mateixa llegenda, a Assoliments: va enganxada a sobre de la graella. */
+.assim-legenda { margin-bottom: 8px; }
+
+/* L'avís de dalt de la graella: aquests objectius vénen d'Assoliments. */
+.coment-dassim {
+  margin: 0 0 8px; padding: 7px 12px;
+  background: var(--bg-alt); border-radius: var(--r-md);
+  font-size: 12px; color: var(--text-muted);
+}
 
 /* Files compactes: nom objectiu + 4 botons horitzontals */
 .coment-objectiu-row {
@@ -5916,6 +5946,12 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
   .assim-td-nom {
     max-width: 104px; overflow: hidden; text-overflow: ellipsis;
   }
+  /* I el recompte de nivells, tampoc. En una línia ocupava 190 px dels 390
+     d'un mòbil —més que la meitat de la pantalla— i no quedava lloc per als
+     objectius, que és el que s'hi ha de marcar. Aquí va un nivell per línia. */
+  .assim-th-pct { min-width: 58px; }
+  .assim-td-pct { max-width: 58px; white-space: normal; padding: 4px 2px; }
+  .assim-resum-pill { display: block; margin: 1px auto; padding: 1px 3px; font-size: 10px; }
 }
 
 /* ============================================================

@@ -1254,17 +1254,24 @@
 
       <h3 id="assoliments-marcar">Marcar els alumnes</h3>
       <div class="callout tip">
-        <strong>El nom i el % no es mouen.</strong> Quan hi ha molts objectius, la graella s'arrossega cap als costats <strong>ella sola</strong>, sense moure la resta de la pàgina: la columna dels <strong>noms</strong> es queda enganxada a l'esquerra i la del <strong>%</strong> a la dreta. Així no has de comptar files per saber de quin alumne estàs marcant.
+        <strong>El nom i el resum no es mouen.</strong> Quan hi ha molts objectius, la graella s'arrossega cap als costats <strong>ella sola</strong>, sense moure la resta de la pàgina: la columna dels <strong>noms</strong> es queda enganxada a l'esquerra i la del <strong>resum</strong> a la dreta. Així no has de comptar files per saber de quin alumne estàs marcant.
       </div>
-      <p>Per cada alumne i objectiu marques un valor, que va canviant cada cop que hi cliques:</p>
+      <p>Per cada alumne i objectiu marques un nivell, i <strong>cada clic a la casella passa al següent</strong>:</p>
 
       <ul>
-        <li><span class="feature-icon">✓</span> Assolit (verd)</li>
-        <li><span class="feature-icon">~</span> Assolit parcialment (groc)</li>
-        <li><span class="feature-icon">✗</span> No assolit (vermell)</li>
-        <li><span class="feature-icon">—</span> Sense avaluar (gris)</li>
+        <li><strong>MBA</strong> — Molt ben assolit</li>
+        <li><strong>AS</strong> — Assolit</li>
+        <li><strong>AAJ</strong> — Assolit amb ajuda</li>
+        <li><strong>NA</strong> — No assolit</li>
+        <li><strong>—</strong> Sense avaluar. Si t'has equivocat, continua clicant: després del NA la casella torna a quedar buida.</li>
       </ul>
-      <p>L'app calcula un <strong>percentatge d'assoliment</strong> per cada alumne, que surt també a la seva fitxa. Tot es <strong>sincronitza sol</strong> a un full visible i acolorit del Google Sheets cada cop que marques una cel·la o edites un objectiu; no cal clicar cap botó de desat.</p>
+      <div class="callout tip">
+        <strong>Són els mateixos nivells del butlletí i del generador de comentaris.</strong> Per això el que marques aquí serveix allà: obres el <a href="#comentaris">generador de comentaris</a> i ja t'hi surt marcat, sense tornar a fer la feina.
+      </div>
+      <div class="callout">
+        <strong>I el que tenies marcat abans no s'ha perdut.</strong> Fins ara les caselles anaven amb ✓, ~ i ✗. El que ja havies posat hi continua sent, amb el nom nou: el <strong>✓</strong> ara és <strong>AS</strong>, el <strong>~</strong> és <strong>AAJ</strong> i la <strong>✗</strong> és <strong>NA</strong>. El MBA és nou i abans no es podia dir.
+      </div>
+      <p>Al final de cada fila hi ha el <strong>recompte</strong>: quants n'hi ha de cada nivell («3 MBA · 5 AS · 2 AAJ»). Tot es <strong>sincronitza sol</strong> a un full visible i acolorit del Google Sheets cada cop que marques una cel·la o edites un objectiu; no cal clicar cap botó de desat.</p>
     </section>
 
     <!-- 14. REGISTRES -->
@@ -1501,18 +1508,21 @@
     <!-- 18. COMENTARIS -->
     <section id="comentaris">
       <h2>19. Generador de comentaris</h2>
-      <p>Genera els comentaris d'informe de final de trimestre a partir dels teus objectius d'avaluació. La feina de redactar te la fa; les valoracions les poses tu.</p>
+      <p>Genera els comentaris d'informe de final de trimestre a partir dels <a href="#assoliments">assoliments que ja tens marcats</a>. La feina de redactar te la fa; les valoracions les poses tu.</p>
       <ol class="step-list">
         <li>Tria el <strong>trimestre</strong>. Surt marcat el que toca ara (al juliol i a l'agost, el que s'acaba de tancar). D'això depèn el que hi entra: els teus apunts d'aquell trimestre i com es redacta el text.</li>
         <li>Tria l'<strong>assignatura</strong> i l'<strong>alumne</strong>. Les assignatures són les del teu <a href="#perfil">perfil</a>: si una la fas a un curs que no és la teva tutoria, hi surt el curs al costat («Música · 5è»). En canviar d'assignatura, la llista d'alumnes canvia sola als d'aquell curs.</li>
-        <li>Per cada objectiu, marca un dels quatre nivells: Molt ben assolit (MBA), Assolit (AS), Assolit amb ajuda (AAJ) o No assolit (NA). Passa el ratolí per sobre per veure la frase completa de cada nivell.</li>
+        <li><strong>Els objectius ja hi són</strong>, i amb el que hagis marcat a Assoliments d'aquell alumne. Repassa-ho, i el que encara no hagis marcat, marca'l aquí mateix.</li>
         <li>Clica <strong>Generar comentari</strong>.</li>
       </ol>
+      <div class="callout tip">
+        <strong>No has d'escriure els objectius enlloc.</strong> Són els mateixos d'<a href="#assoliments">Assoliments</a> —els que publica direcció, més els que hi hagis afegit tu— i els quatre nivells són els mateixos (MBA, AS, AAJ, NA). <strong>El que marquis aquí també es desa als Assoliments</strong>: és la mateixa avaluació, mirada des d'una altra pantalla, i no l'has de fer dues vegades.
+      </div>
       <p>L'app agafa els criteris que has marcat, els ordena (comença pel positiu i acaba amb el que cal reforçar), hi posa l'article i el nom correctes de l'alumne, i te'n dona un comentari cohesionat en una finestra emergent.</p>
       <ul>
         <li>El comentari és <strong>editable</strong> abans de copiar-lo: sempre en tens el control final.</li>
         <li>El botó <strong>Regenerar</strong> te'n fa un de nou, redactat diferent.</li>
-        <li><strong>Reiniciar</strong> esborra les valoracions marcades per començar de zero.</li>
+        <li><strong>Reiniciar</strong> torna a agafar el que tens marcat a Assoliments, per si t'has embolicat retocant-ho aquí.</li>
         <li>Si deixes algun objectiu sense marcar, l'app t'avisa per si te'l vas descuidar.</li>
         <li>Si la IA no està disponible en aquell moment, obtens igualment un esborrany amb totes les idees ordenades, que pots copiar i polir.</li>
       </ul>
@@ -1524,6 +1534,9 @@
       </div>
 
       <h3 id="objectius">Els meus objectius</h3>
+      <div class="callout">
+        <strong>De normal no has de tocar res d'aquí.</strong> Des que els objectius els publica direcció, el generador els agafa sols d'<a href="#assoliments">Assoliments</a>. Això d'aquí sota només fa falta <strong>si d'una assignatura teva encara no n'hi ha de publicats</strong> (un curs o un trimestre que direcció no ha penjat): llavors te'ls pots escriure tu, amb una frase per nivell, i el generador els farà servir mentre no n'hi hagi d'oficials.
+      </div>
       <p>Els objectius i els seus criteris <strong>són teus</strong>: cada mestra té els seus. Al costat del selector d'assignatura hi ha el botó <strong>Editar objectius</strong>.</p>
       <p>Cada objectiu té:</p>
       <ul>

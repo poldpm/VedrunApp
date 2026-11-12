@@ -477,10 +477,15 @@ function _grupviewAssimPct(matKey, trim, a) {
     objectius.forEach(obj => {
       const v = localStorage.getItem('assim_' + matKey + '_' + trim + '_' + rowId + '_' + obj.id);
       if (v === null) return;
-      // Els valors es guarden com true / "partial" / false
-      if (v === 'true') { punts += 1; algun = true; }
-      else if (v === '"partial"') { punts += 0.5; algun = true; }
-      else if (v === 'false') { algun = true; }
+      /* Des del 12/11/2026 els valors són "mba" | "ass" | "aaj" | "nass";
+         abans eren true / "partial" / false, i als navegadors de les mestres
+         encara n'hi ha. `_assimNivell` tradueix els vells i `_assimPes` diu
+         quant compta cadascun (veure js/app.js). */
+      let niv = null;
+      try { niv = _assimNivell(JSON.parse(v)); } catch (e) { niv = null; }
+      if (!niv) return;
+      punts += _assimPes(niv);
+      algun = true;
     });
     if (!algun) return null;
     return Math.round(punts / objectius.length * 100);
