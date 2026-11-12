@@ -1,11 +1,11 @@
 {
-  "versio": "v357",
+  "versio": "v358",
   "data": "2026-11-12",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A Convocar reunions, la durada de la reunió té una opció nova: Tota la franja sencera.",
-    "Serveix per al que no s ha de partir en trossos (una tarda de portes obertes, una xerrada, una sortida): cada estona que marquis s ofereix d una peça i qui la reservi se la queda tota.",
-    "La família hi veu fins a quina hora va cada estona, perquè amb aquesta opció cada una pot tenir la seva llargada.",
-    "Amb la franja sencera el descans entremig no cal, i queda desactivat."
+    "Al Generador de comentaris, fora el botó Editar objectius: des que els objectius els publica direcció i es marquen a Assoliments, no servia de res.",
+    "El botó del costat, La meva manera d escriure, ara es diu Configuració del comentari i és a dalt, al costat de Generar comentari.",
+    "És on segueixes canviant la llargada, el to, els teus comentaris d exemple i les teves manies.",
+    "Si d una assignatura encara no hi ha objectius publicats, la mateixa pantalla et segueix deixant escriure ls o importar los."
   ]
 }

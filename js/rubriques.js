@@ -687,22 +687,38 @@
     window[nom] = nou;
   }
 
+  /* ⚠ ABANS AQUÍ HI HAVIA UN BOTÓ «EDITAR OBJECTIUS». FORA (12/11/2026).
+
+     En Pol: «no serveix de res». I té raó des que els objectius surten
+     sols d'Assoliments —els publica direcció i es marquen allà—: obrir-ne
+     un editor al costat només convidava a tocar una còpia que després
+     queda tapada pels oficials.
+
+     On SÍ que es manté és a la pantalla de quan no n'hi ha cap ni de
+     direcció ni d'ella: allà és l'única manera d'escriure'n, i treure'l la
+     deixaria sense sortida.
+
+     El que queda és «Configuració del comentari» (abans «La meva manera
+     d'escriure»), i va al costat de «Generar comentari», que és on es mira
+     quan es vol canviar com surt. */
   function botoEditar() {
-    var barra = document.getElementById('comentAssigSelector');
-    if (!barra || document.getElementById('rubBtnEditar')) return;
-    var b = el('button', 'btn btn-ghost btn-sm');
-    b.id = 'rubBtnEditar';
-    b.type = 'button';
-    b.textContent = 'Editar objectius';
-    b.addEventListener('click', function () { obreEditor(); });
-    if (barra.parentNode) barra.parentNode.appendChild(b);
+    if (document.getElementById('rubBtnEstil')) return;
+    var lloc = document.querySelector('.coment-header-actions');
+    var gen = document.getElementById('comentGenBtn');
+    if (!lloc) return;
 
     var b2 = el('button', 'btn btn-ghost btn-sm');
     b2.id = 'rubBtnEstil';
     b2.type = 'button';
-    b2.textContent = 'La meva manera d\'escriure';
+    b2.textContent = 'Configuració del comentari';
+    b2.title = 'La llargada, el to i el que vulguis que hi digui sempre';
     b2.addEventListener('click', function () { obreEstil(); });
-    if (barra.parentNode) barra.parentNode.appendChild(b2);
+    if (gen && gen.parentNode === lloc && gen.nextSibling) lloc.insertBefore(b2, gen.nextSibling);
+    else lloc.appendChild(b2);
+
+    // Si una pestanya vella encara té el botó d'abans, que no s'hi quedi.
+    var vell = document.getElementById('rubBtnEditar');
+    if (vell && vell.parentNode) vell.parentNode.removeChild(vell);
   }
 
   /* ========== ENLLAÇOS PERSONALS DE LA PORTADA ==========
@@ -772,8 +788,8 @@
       var m = el('div', 'modal rub-modal');
       m.innerHTML =
         '<div class="modal-header">' +
-          '<div><div class="modal-header-title">La meva manera d\'escriure</div>' +
-          '<div class="modal-header-sub">Perque els comentaris sonin a tu i no a una IA</div></div>' +
+          '<div><div class="modal-header-title">Configuració del comentari</div>' +
+          '<div class="modal-header-sub">Com vols que surtin: la teva manera d\'escriure, la llargada i el to</div></div>' +
           '<button class="modal-close" id="estTancar" aria-label="Tancar">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
         '</div>' +
