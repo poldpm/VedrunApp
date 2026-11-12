@@ -1,11 +1,10 @@
 {
-  "versio": "v358",
+  "versio": "v359",
   "data": "2026-11-12",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al Generador de comentaris, fora el botó Editar objectius: des que els objectius els publica direcció i es marquen a Assoliments, no servia de res.",
-    "El botó del costat, La meva manera d escriure, ara es diu Configuració del comentari i és a dalt, al costat de Generar comentari.",
-    "És on segueixes canviant la llargada, el to, els teus comentaris d exemple i les teves manies.",
-    "Si d una assignatura encara no hi ha objectius publicats, la mateixa pantalla et segueix deixant escriure ls o importar los."
+    "Al Generador de comentaris, el botó Reiniciar ja no reinicia d un clic: ara pregunta abans.",
+    "La finestra t explica què passarà i et diu quants objectius hi tens marcats ara i quants en quedaran.",
+    "A Assoliments no s hi esborra mai res, i el comentari que ja hagis generat tampoc no es toca."
   ]
 }

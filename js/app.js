@@ -11347,7 +11347,64 @@ function _updateComentBtn() {
 /* Torna a agafar el que hi ha als Assoliments. Abans això buidava la
    graella; ara, buidar-la deixaria la pantalla dient que no has avaluat res
    quan sí que ho has fet, a l'altra pantalla. */
+/* ⚠ REINICIAR DEMANA PERMÍS (12/11/2026, demanat per en Pol).
+
+   Abans era un clic i avall: el que tenies marcat a la pantalla marxava i
+   tornava el que hi ha desat a Assoliments, sense dir res. El botó és al
+   costat de «Generar comentari», o sigui que una errada de punteria et
+   desfeia la feina.
+
+   Què fa de debò, i és el que explica la finestra: torna a portar aquí el
+   que hi ha desat a Assoliments d'aquest alumne, aquesta assignatura i
+   aquest trimestre. A Assoliments NO s'hi esborra res —marcar un nivell
+   aquí ja s'hi desa— i el comentari ja generat tampoc no es toca. El que
+   es perd és el que hi hagi marcat aquí i no estigui desat allà. */
 function resetComentRubrica() {
+  const ov = document.getElementById('comentResetOverlay');
+  if (!ov) { _comentReiniciaAra(); return; }   // sense la finestra, no es pot quedar sense fer-se
+  const que = document.getElementById('comentResetQue');
+  if (que) {
+    const ara = Object.keys(_comentSeleccions || {}).filter(k => (_comentSeleccions[k] ?? -1) >= 0).length;
+    const desats = _comentQuantsDesats();
+    que.innerHTML = ara === desats
+      ? `Ara hi tens <strong>${ara}</strong> objectiu${ara === 1 ? '' : 's'} marcat${ara === 1 ? '' : 's'}, i és el mateix que hi ha desat a Assoliments: no hauria de canviar res.`
+      : `Ara hi tens <strong>${ara}</strong> objectiu${ara === 1 ? '' : 's'} marcat${ara === 1 ? '' : 's'} en aquesta pantalla. En reiniciar en quedaran <strong>${desats}</strong>, els que tens desats a Assoliments.`;
+  }
+  ov.classList.add('open');
+  setTimeout(() => { const b = document.getElementById('comentResetOk'); if (b) b.focus(); }, 60);
+}
+
+/* Quants en tornarien d'Assoliments. És el mateix càlcul que `_comentPrefill`,
+   però sense tocar res: serveix per dir-ho abans de fer-ho. */
+function _comentQuantsDesats() {
+  try {
+    if (!_comentAlumne || typeof assimValGet !== 'function') return 0;
+    const alumne = students.find(s => String(s.id) === String(_comentAlumne));
+    if (!alumne) return 0;
+    const sid  = (typeof _assimSid === 'function') ? _assimSid(alumne) : alumne.id;
+    const trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
+    let n = 0;
+    _comentObjectius().forEach(o => {
+      if (!o.assimId) return;
+      const niv = assimValGet(sid, o.assimId, _comentAssig, trim);
+      if (niv && NIVELL_INFO.findIndex(x => x.key === niv) >= 0) n++;
+    });
+    return n;
+  } catch (e) { return 0; }
+}
+
+function tancaComentReset() {
+  const ov = document.getElementById('comentResetOverlay');
+  if (ov) ov.classList.remove('open');
+}
+
+function comentResetConfirma() {
+  tancaComentReset();
+  _comentReiniciaAra();
+  if (typeof showToast === 'function') showToast('Tornat al que tens a Assoliments', 'success');
+}
+
+function _comentReiniciaAra() {
   _comentPrefill();
   renderComentRubrica();
 }
