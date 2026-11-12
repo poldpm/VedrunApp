@@ -65,9 +65,25 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 1r de Primària ---------- */
   '1r|1': {
     provisional: true,
+    /* En negre al document, repassades (llegit amb `eines/objectius-colors.js`
+       el 12/11/2026). Hi falten Anglès —títol i objectius encara vermells— i
+       l'artística, que va mig i mig. */
+    definitius: ['Català', 'Castellà', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Educació Física'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
+      'Medi': {
+        data: '12 de novembre',
+        que: 'Direcció ha refet la llista sencera: de 7 objectius a 5, i cap no és dels d’abans. El barri, les botigues i les festes de Vic ja no hi són; ara va de l’escola, el calendari i les estacions.',
+      },
+      'Matemàtiques': {
+        data: '12 de novembre',
+        que: 'Direcció ha tret l’objectiu «Comptar de 2 en 2», que era el tercer: tots els de sota han pujat una casella.',
+      },
+      'Català': {
+        data: '12 de novembre',
+        que: 'Al lloc de «Aprendre a redactar missatges breus i notes» (el desè) ara hi ha «Iniciar-se en l’ús de la lletra lligada»: no és el mateix i val més tornar-lo a mirar.',
+      },
       'Música': {
         data: '10 de novembre',
         que: 'Direcció ha refet la llista sencera: de 10 objectius a 8, i tots amb una altra redacció.',
@@ -75,16 +91,16 @@ const OBJECTIUS_OFICIALS = {
     },
     assigs: {
       'Català': [
-        'Expressar i narrar les seves pròpies vivències i sentiments',
-        'Aprendre i respectar les normes que regeixen una conversa',
-        'Participar en les converses',
-        'Recitar un poema',
+        'Expressar i narrar les seves pròpies vivències i sentiments.',
+        'Aprendre i respectar les normes que regeixen una conversa.',
+        'Participar en les converses.',
+        'Recitar un poema.',
         'Millorar l’expressió oral.',
         'Aprendre a identificar sons vocàlics i consonàntics.',
         'Millorar la fluïdesa lectora.',
-        'Llegir i comprendre dites i rodolins',
+        'Llegir i comprendre dites i rodolins.',
         'Identificar paraules de les lectures treballades.',
-        'Aprendre a redactar missatges breus i notes.',
+        'Iniciar-se en l’ús de la lletra lligada.',
         'Aprenentatge sistemàtic: auditiu, visual i escrit de les grafies.',
         'Comprendre textos breus.',
         'Fer ús de la majúscula en els noms propis.',
@@ -103,18 +119,15 @@ const OBJECTIUS_OFICIALS = {
         'Mostra interès per la festa tradicional anglesa de Halloween.',
       ],
       'Medi': [
-        'Diferenciar un poble d’una ciutat.',
-        'Conèixer les festes, tradicions i llocs emblemàtics de Vic.',
-        'Reconèixer diferents elements del mobiliari urbà.',
-        'Conèixer l’entorn i serveis més propers a l’escola (el barri, botigues i serveis).',
-        'Diferenciar les botigues i productes que podem comprar a cada botiga del barri.',
-        'Fomentar bones habilitats socials necessàries per a la interacció i integració a la societat.',
+        'Conèixer els espais i les normes de l’escola.',
+        'Saber els dies de la setmana i els mesos de l’any.',
+        'Conèixer les característiques de les estacions de l’any.',
+        'Fomentar bones habilitats socials necessàries per a la interacció i integració amb els altres.',
         'Conèixer les normes bàsiques de seguretat viària.',
       ],
       'Matemàtiques': [
-        'Reconèixer i escriure la grafia i el nom dels nombres del 0 al 20',
+        'Reconèixer i escriure la grafia i el nom dels nombres del 0 al 20.',
         'Utilitzar la sèrie numèrica de l’1 al 20 de manera creixent i decreixent.',
-        'Comptar de 2 en 2.',
         'Comparar i ordenar diferents quantitats.',
         'Realitzar sumes i restes senzilles.',
         'Utilitzar la representació de nombres per resoldre operacions.',
@@ -125,7 +138,7 @@ const OBJECTIUS_OFICIALS = {
         'Identificar els membres de la nostra família.',
         'Conèixer el valor de la família.',
         'Prendre consciència d’un mateix.',
-        'Conèixer com podem resoldre un problema a través del conte del cargol.',
+        'Conèixer com podem resoldre un problema a través de contes.',
       ],
       'Educació Física': [
         'Moure les diverses parts del cos i reconèixer-les pel seu nom.',
