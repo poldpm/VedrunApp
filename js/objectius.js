@@ -172,9 +172,15 @@ const OBJECTIUS_OFICIALS = {
   '2n|1': {
     provisional: true,
     /* Al document són en NEGRE: direcció les ha repassades i són definitives.
-       Llegit amb `eines/objectius-colors.js` el 10/11/2026. Hi falten
-       Educació física i Tallers, que encara hi són en vermell. */
-    definitius: ['Català', 'Castellà', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Música'],
+       Llegit amb `eines/objectius-colors.js` el 12/11/2026. Ara ja només hi
+       falten els Tallers, que encara hi són en vermell.
+
+       L'Educació física hi entra el 12/11: els objectius ja eren negres des
+       del principi, però el TÍTOL era vermell, i mentre els dos colors no es
+       posen d'acord compta com a provisional (veure eines/OBJECTIUS.md).
+       Avui direcció ha passat el títol a negre i prou: ni una lletra del text
+       no ha canviat. */
+    definitius: ['Català', 'Castellà', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Educació Física', 'Música'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
