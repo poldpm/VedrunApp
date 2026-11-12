@@ -1,12 +1,9 @@
 {
-  "versio": "v360",
+  "versio": "v361",
   "data": "2026-11-12",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al Generador de comentaris, el botó Veure ls i triar los obre la llista de tots els apunts i totes les observacions que entraran al comentari d aquell alumne.",
-    "Hi són escrits tal com els vas escriure, separats entre els teus apunts d activitats, els apunts dels deures i les observacions.",
-    "Pots desmarcar el que no vulguis que es tingui en compte: el que desmarquis no s envia i el comentari no en pot parlar.",
-    "A dalt hi tens el compte de quants entraran i els botons de marcar ho o desmarcar ho tot.",
-    "La tria val mentre tinguis l app oberta i es recorda per cada alumne, assignatura i trimestre."
+    "A 2n, direcció ha refet els 6 objectius del Teatre (dins de Tallers): continuen sent 6, però tots diuen una altra cosa. Si ja n havies marcat, torna a mirar-los: la pantalla t ho avisa.",
+    "I el 1r trimestre de 2n ja és definitiu sencer: a cap assignatura no hi surt l avís groc de provisionals."
   ]
 }

@@ -183,17 +183,14 @@ const OBJECTIUS_OFICIALS = {
 
   /* ---------- 2n de Primària ---------- */
   '2n|1': {
-    provisional: true,
-    /* Al document són en NEGRE: direcció les ha repassades i són definitives.
-       Llegit amb `eines/objectius-colors.js` el 12/11/2026. Ara ja només hi
-       falten els Tallers, que encara hi són en vermell.
+    /* ✔ TOT EL 2n DEL 1r TRIMESTRE JA ÉS DEFINITIU (12/11/2026, vespre).
 
-       L'Educació física hi entra el 12/11: els objectius ja eren negres des
-       del principi, però el TÍTOL era vermell, i mentre els dos colors no es
-       posen d'acord compta com a provisional (veure eines/OBJECTIUS.md).
-       Avui direcció ha passat el títol a negre i prou: ni una lletra del text
-       no ha canviat. */
-    definitius: ['Català', 'Castellà', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Educació Física', 'Música'],
+       Aquella tarda direcció va refer el Teatre dels Tallers i va passar
+       l'àrea a negre. Amb això, les nou àrees del document tenen el títol i
+       els objectius en negre —llegit amb `eines/objectius-colors.js`—, o
+       sigui que ja no cal ni `provisional` ni la llista de `definitius`:
+       aquí no hi surt l'avís groc enlloc. */
+    provisional: false,
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
@@ -206,8 +203,8 @@ const OBJECTIUS_OFICIALS = {
         que: 'Direcció ha refet la llista: abans hi havia 15 objectius, després 12, i ara n’hi ha un de nou de figures simètriques al mig i un de menys al final.',
       },
       'Tallers': {
-        data: '9 de novembre',
-        que: 'Direcció ha afegit un objectiu nou a la Plàstica (composicions amb figures geomètriques) al mig de la llista, i ha canviat tres objectius de Robòtica.',
+        data: '12 de novembre',
+        que: 'Direcció ha refet els 6 objectius del Teatre: continuen sent 6, però tots diuen una altra cosa. (El 9 de novembre ja havia tocat la Plàstica i la Robòtica.)',
       },
     },
     assigs: {
@@ -320,12 +317,12 @@ const OBJECTIUS_OFICIALS = {
         'Treballar i desenvolupar la motricitat fina amb el Lego Spike.',
         'Adquirir el coneixement de vocabulari específic.',
         '# Teatre',
-        'Desenvolupar la capacitat d’expressió corporal i gestual per comunicar idees, accions i emocions sense necessitat de paraules.',
-        'Millorar l’expressió oral, modulant la veu, el ritme i l’entonació per transmetre emocions i intencions de manera clara i expressiva.',
-        'Fomentar la creativitat i la imaginació a través del joc dramàtic, la improvisació i la creació d’escenes teatrals.',
-        'Promoure la cooperació i el treball en equip, valorant les aportacions dels companys i construint conjuntament escenes i situacions teatrals.',
-        'Potenciar la confiança i la desinhibició personal, afavorint una actitud positiva davant de l’expressió pública i del grup.',
-        'Reconèixer i gestionar les emocions pròpies i alienes, aprenent a expressar-les i a representar-les de manera conscient i respectuosa.',
+        'Desenvolupar l’autocontrol postural, la coordinació i l’expressió gestual per comunicar accions, oficis i conceptes sense paraules.',
+        'Fomentar l’escolta activa, diferenciant entre sentir i escoltar, per identificar sons de l’entorn, reconèixer la veu dels companys i imitar sons d’animals, objectes o fenòmens naturals.',
+        'Millorar l’expressió oral, modulant la veu i utilitzant diferents entonacions per expressar l’alegria, la tristesa, la curiositat o la informació.',
+        'Estimular la creativitat i la capacitat interpretativa mitjançant la improvisació de petites històries amb personatges i situacions, fomentant l’ús espontani de la llengua catalana.',
+        'Promoure la cooperació i el treball en parelles o petits grups, valorant les idees dels companys per crear i representar escenes conjuntament.',
+        'Potenciar la confiança, el respecte i la desinhibició personal per actuar i expressar-se amb seguretat davant del grup.',
       ],
     },
   },
