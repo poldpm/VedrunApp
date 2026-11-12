@@ -11821,6 +11821,157 @@ function comentToggleApunts(valor) {
   _comentPintaApunts();
 }
 
+/* ============================================================
+   TRIAR QUINS APUNTS I QUINES OBSERVACIONS ENTREN AL COMENTARI
+   ------------------------------------------------------------
+   En Pol, 12/11/2026: «vull que primer de tot hi hagi l'opció de veure
+   tots els apunts o totes les observacions d'aquell alumne que es
+   tindran en compte […] i que puguis marcar o desmarcar algun comentari
+   o algun apunt que no vols que es tingui en compte».
+
+   Abans la casella deia «Es faran servir 7 apunts i 3 observacions» i
+   prou: no es veien, i si un no hi tenia res a veure —un apunt d'un dia
+   dolent, una observació que ja no toca— l'única sortida era apagar-ho
+   TOT i perdre també els sis que sí que servien.
+
+   ⚠ LES TRIES NO ES DESEN ENLLOC, I ÉS A POSTA.
+   Valen mentre l'app està oberta i es recorden per alumne, assignatura i
+   trimestre, o sigui que pots anar i tornar sense perdre-les. En tornar-hi
+   un altre dia hi són tots altra vegada, que és el costat segur de
+   l'error: val més que t'hi surti un apunt que no volies que no pas que
+   un apunt teu deixi d'entrar per sempre sense que te'n recordis.
+   ============================================================ */
+var _comentApuntsFora = {};     // clau d'alumne → { clau d'item: true }
+var _comentApuntsCache = null;  // el que hi ha pintat ara, per poder clicar-hi
+
+function _comentApuntsClauAlumne() {
+  var trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
+  return String(_comentAlumne || '') + '|' + String(_comentAssig || '') + '|' + trim;
+}
+function _comentApuntsClauItem(tipus, item) {
+  return tipus + '§' + String(item.activitat || (item.general ? 'general' : '')) +
+         '§' + String(item.text || '');
+}
+/* Si un apunt entra o no al comentari. De sèrie, SÍ: res no es queda fora
+   sense que la mestra ho hagi dit. */
+function comentApuntEntra(tipus, item) {
+  var fora = _comentApuntsFora[_comentApuntsClauAlumne()];
+  return !(fora && fora[_comentApuntsClauItem(tipus, item)]);
+}
+
+/* Les tres fonts d'una tacada. `nomes` les deixa ja filtrades pel que la
+   mestra hagi desmarcat: és el que fa servir el prompt. */
+function _comentFonts(alumne, trim, nomes) {
+  var out = { ap: [], cv: [], ob: [] };
+  if (!alumne) return out;
+  try { out.ap = comentApuntsActivitats(alumne.nom, _comentAssig, trim) || []; } catch (e) {}
+  try { out.cv = _comentApuntsCarpeta(alumne.nom, _comentAssig, trim) || []; } catch (e) {}
+  try { out.ob = comentObservacions(alumne.id, _comentAssig, trim) || []; } catch (e) {}
+  if (nomes) {
+    out.ap = out.ap.filter(function (x) { return comentApuntEntra('ap', x); });
+    out.cv = out.cv.filter(function (x) { return comentApuntEntra('cv', x); });
+    out.ob = out.ob.filter(function (x) { return comentApuntEntra('ob', x); });
+  }
+  return out;
+}
+
+function _comentAlumneActual() {
+  if (typeof students === 'undefined' || !_comentAlumne) return null;
+  return students.find(function (s) { return String(s.id) === String(_comentAlumne); }) || null;
+}
+
+/* Obrir i tancar la llista */
+function comentApuntsVeure() {
+  var cont = document.getElementById('comentApuntsLlista');
+  var btn  = document.getElementById('comentApuntsVeure');
+  if (!cont) return;
+  var obert = !cont.hidden;
+  cont.hidden = obert;
+  if (btn) {
+    btn.textContent = obert ? 'Veure\'ls i triar-los' : 'Amagar-los';
+    btn.setAttribute('aria-expanded', obert ? 'false' : 'true');
+  }
+  if (!obert) _comentPintaLlistaApunts();
+}
+
+function comentApuntsTot(entren) {
+  if (!_comentApuntsCache) return;
+  var clau = _comentApuntsClauAlumne();
+  if (entren) { delete _comentApuntsFora[clau]; }
+  else {
+    var fora = _comentApuntsFora[clau] = _comentApuntsFora[clau] || {};
+    ['ap', 'cv', 'ob'].forEach(function (t) {
+      (_comentApuntsCache[t] || []).forEach(function (x) { fora[_comentApuntsClauItem(t, x)] = true; });
+    });
+  }
+  _comentPintaLlistaApunts();
+  _comentPintaApunts();
+}
+
+function comentApuntsToggle(tipus, i) {
+  if (!_comentApuntsCache) return;
+  var item = (_comentApuntsCache[tipus] || [])[i];
+  if (!item) return;
+  var clau = _comentApuntsClauAlumne();
+  var fora = _comentApuntsFora[clau] = _comentApuntsFora[clau] || {};
+  var k = _comentApuntsClauItem(tipus, item);
+  if (fora[k]) delete fora[k]; else fora[k] = true;
+  _comentPintaLlistaApunts();
+  _comentPintaApunts();
+}
+
+function _comentPintaLlistaApunts() {
+  var cont = document.getElementById('comentApuntsLlista');
+  if (!cont || cont.hidden) return;
+  var al = _comentAlumneActual();
+  if (!al) {
+    _comentApuntsCache = null;
+    cont.innerHTML = '<p class="coment-apunts-buit">Tria un alumne per veure què hi ha.</p>';
+    return;
+  }
+  var trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
+  var f = _comentFonts(al, trim, false);
+  _comentApuntsCache = f;
+
+  var total = f.ap.length + f.cv.length + f.ob.length;
+  if (!total) {
+    cont.innerHTML = '<p class="coment-apunts-buit">D\'aquest alumne no hi ha cap apunt ni cap ' +
+      'observació d\'aquesta assignatura en aquest trimestre.</p>';
+    return;
+  }
+  var dins = f.ap.filter(function (x) { return comentApuntEntra('ap', x); }).length
+           + f.cv.filter(function (x) { return comentApuntEntra('cv', x); }).length
+           + f.ob.filter(function (x) { return comentApuntEntra('ob', x); }).length;
+
+  function pintaGrup(tipus, titol, llista, nota) {
+    if (!llista.length) return '';
+    var h = '<div class="coment-ap-grup"><h4>' + escapeHtml(titol) + '</h4>';
+    if (nota) h += '<p class="coment-ap-grup-nota">' + nota + '</p>';
+    llista.forEach(function (x, i) {
+      var entra = comentApuntEntra(tipus, x);
+      var de = x.activitat || (x.general ? 'Observació general' : 'Observació d\'aquesta assignatura');
+      h += '<label class="coment-ap-item' + (entra ? '' : ' fora') + '">' +
+        '<input type="checkbox" ' + (entra ? 'checked' : '') +
+          ' onchange="comentApuntsToggle(\'' + tipus + '\',' + i + ')"' +
+          ' aria-label="Tenir en compte aquest apunt">' +
+        '<span><span class="coment-ap-de">' + escapeHtml(de) + '</span>' +
+        '<span class="coment-ap-text">' + escapeHtml(x.text) + '</span></span></label>';
+    });
+    return h + '</div>';
+  }
+
+  cont.innerHTML =
+    '<div class="coment-apunts-eines">' +
+      '<strong>' + dins + ' de ' + total + '</strong> entraran al comentari' +
+      '<button class="btn btn-ghost btn-sm" onclick="comentApuntsTot(true)">Marcar-ho tot</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="comentApuntsTot(false)">Desmarcar-ho tot</button>' +
+    '</div>' +
+    pintaGrup('ap', 'Els meus apunts d\'activitats', f.ap, '') +
+    pintaGrup('cv', 'Apunts dels deures (Carpeta Viatgera)', f.cv,
+         'Als deures hi ha feina de diverses àrees barrejada: només se\'n farà servir el que parli d\'aquesta assignatura.') +
+    pintaGrup('ob', 'Observacions', f.ob, '');
+}
+
 // Diu quants apunts te aquest alumne, perque el mestre sapiga si serviran
 function _comentPintaApunts() {
   var info = document.getElementById('comentApuntsInfo');
@@ -11828,31 +11979,50 @@ function _comentPintaApunts() {
   if (!info || !cb) return;
   cb.checked = comentUsaApunts();
 
-  var al = (typeof students !== 'undefined' && _comentAlumne)
-    ? students.find(function (s) { return String(s.id) === String(_comentAlumne); }) : null;
-  if (!al) { info.textContent = 'Tria un alumne per veure què hi ha.'; return; }
+  var veure = document.getElementById('comentApuntsVeure');
+  var al = _comentAlumneActual();
+  if (!al) {
+    info.textContent = 'Tria un alumne per veure què hi ha.';
+    if (veure) veure.disabled = true;
+    _comentPintaLlistaApunts();
+    return;
+  }
   /* ⚠ DEL TRIMESTRE QUE S'ESTÀ ESCRIVINT, no de tot el curs: si no, el
      número d'aquí no és el que el comentari farà servir de debò. */
   var trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
-  var ap  = comentApuntsActivitats(al.nom, _comentAssig, trim);
-  var cv  = _comentApuntsCarpeta(al.nom, _comentAssig, trim);
-  var ob  = comentObservacions(al.id, _comentAssig, trim);
-  var trossos = [];
-  if (ap.length) trossos.push(ap.length === 1 ? '1 apunt d\'activitat' : ap.length + ' apunts d\'activitats');
-  if (ob.length) trossos.push(ob.length === 1 ? '1 observació' : ob.length + ' observacions');
-  if (!trossos.length && !cv.length) {
+  var tot = _comentFonts(al, trim, false);
+  var usa = _comentFonts(al, trim, true);
+  var total = tot.ap.length + tot.cv.length + tot.ob.length;
+  if (veure) veure.disabled = !total;
+
+  if (!total) {
     info.textContent = 'D\'aquest alumne no hi ha cap apunt ni observació d\'aquesta assignatura en aquest trimestre.';
+    _comentPintaLlistaApunts();
     return;
   }
+
+  var trossos = [];
+  if (usa.ap.length) trossos.push(usa.ap.length === 1 ? '1 apunt d\'activitat' : usa.ap.length + ' apunts d\'activitats');
+  if (usa.ob.length) trossos.push(usa.ob.length === 1 ? '1 observació' : usa.ob.length + ' observacions');
   var txt = trossos.length ? 'Es faran servir ' + trossos.join(' i ') + '.' : '';
-  if (cv.length) {
+  if (usa.cv.length) {
     /* Els deures no són d'una àrea: s'hi envien tots i es fa servir el que
        hi tingui a veure. Val més dir-ho que no pas que es pensi que els dos
        números s'han de sumar. */
-    txt += (txt ? ' I ' : 'Hi ha ') + (cv.length === 1 ? '1 apunt dels deures' : cv.length + ' apunts dels deures') +
+    txt += (txt ? ' I ' : 'Hi ha ') + (usa.cv.length === 1 ? '1 apunt dels deures' : usa.cv.length + ' apunts dels deures') +
            ' (Carpeta Viatgera): s\'hi farà servir el que parli d\'aquesta assignatura.';
   }
+  /* ⚠ EL QUE HA QUEDAT FORA S'HA DE DIR.
+     Si no, d'aquí a una setmana la mestra no recorda que va desmarcar-ne
+     tres i es pensa que el comentari els ha tingut en compte. */
+  var queden = usa.ap.length + usa.cv.length + usa.ob.length;
+  var fora = total - queden;
+  if (!queden) txt = 'Els has deixat tots fora: el comentari no en farà servir cap.';
+  else if (fora) {
+    txt += (txt ? ' ' : '') + (fora === 1 ? 'N\'has deixat 1 fora.' : 'N\'has deixat ' + fora + ' fora.');
+  }
   info.textContent = txt;
+  _comentPintaLlistaApunts();
 }
 
 function _comentPrompt(rubrica, alumne, esborrany) {
@@ -11885,7 +12055,12 @@ function _comentPrompt(rubrica, alumne, esborrany) {
      separat, perque no volen dir el mateix: una es d'un dia i d'una feina
      concreta, l'altra es del nen. */
   if (comentUsaApunts()) {
-    var ap = comentApuntsActivitats(alumne.nom, _comentAssig, _trim);
+    /* ⚠ NOMÉS EL QUE ELLA HA DEIXAT MARCAT.
+       El que hagi desmarcat a la llista no arriba ni a la IA: si hi
+       arribés, la tria no serviria de res i el comentari parlaria
+       d'allò que havia dit que no volia. */
+    var _f = _comentFonts(alumne, _trim, true);
+    var ap = _f.ap;
     if (ap.length) {
       parts.push('\nAPUNTS MEUS D\'AQUEST ALUMNE, activitat per activitat. Son coses ' +
         'que he escrit jo mentre corregia. Fes-los servir per concretar el comentari amb coses ' +
@@ -11897,7 +12072,7 @@ function _comentPrompt(rubrica, alumne, esborrany) {
     /* Els deures de la Carpeta Viatgera. Hi van TOTS i el prompt diu que
        nomes faci servir els que parlin d'aquesta area: veure
        `_comentApuntsCarpeta`. */
-    var cv = _comentApuntsCarpeta(alumne.nom, _comentAssig, _trim);
+    var cv = _f.cv;
     if (cv.length) {
       parts.push('\nAPUNTS MEUS DELS DEURES (la Carpeta Viatgera). La carpeta son els deures ' +
         'i hi ha feina de diverses arees barrejada, o sigui que aqui n\'hi ha que NO son de ' +
@@ -11907,7 +12082,7 @@ function _comentPrompt(rubrica, alumne, esborrany) {
         cv.map(function (a) { return '- ' + a.activitat + ': ' + a.text; }).join('\n') +
         '\n"""');
     }
-    var ob = comentObservacions(alumne.id, _comentAssig, _trim);
+    var ob = _f.ob;
     if (ob.length) {
       parts.push('\nOBSERVACIONS D\'AQUEST ALUMNE que hem apuntat els mestres aquest ' +
         'trimestre. Parlen de com va i de com treballa, i son el context del comentari. ' +
@@ -12078,6 +12253,9 @@ function selectComentTrim(t, btn) {
   // Els objectius i les marques són d'un trimestre: canviant-lo, canvien tots dos.
   _comentPrefill();
   renderComentRubrica();
+  /* I els apunts i les observacions també són d'un trimestre: si no es
+     repinten, la llista es queda ensenyant els de l'altre. */
+  try { _comentPintaApunts(); } catch (e) {}
 }
 function _comentPintaTrim() {
   const t = _comentTrimActual();

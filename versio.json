@@ -1,10 +1,12 @@
 {
-  "versio": "v359",
+  "versio": "v360",
   "data": "2026-11-12",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al Generador de comentaris, el botó Reiniciar ja no reinicia d un clic: ara pregunta abans.",
-    "La finestra t explica què passarà i et diu quants objectius hi tens marcats ara i quants en quedaran.",
-    "A Assoliments no s hi esborra mai res, i el comentari que ja hagis generat tampoc no es toca."
+    "Al Generador de comentaris, el botó Veure ls i triar los obre la llista de tots els apunts i totes les observacions que entraran al comentari d aquell alumne.",
+    "Hi són escrits tal com els vas escriure, separats entre els teus apunts d activitats, els apunts dels deures i les observacions.",
+    "Pots desmarcar el que no vulguis que es tingui en compte: el que desmarquis no s envia i el comentari no en pot parlar.",
+    "A dalt hi tens el compte de quants entraran i els botons de marcar ho o desmarcar ho tot.",
+    "La tria val mentre tinguis l app oberta i es recorda per cada alumne, assignatura i trimestre."
   ]
 }
