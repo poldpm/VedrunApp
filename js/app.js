@@ -11581,16 +11581,17 @@ function _comentNetNom(n) {
    compara amb la clau de l'assignatura («musica__5ea») i, si no, amb el seu
    nom («Matematiques»). NOMES aixo: amb una regla mes ampla, la Musica de 3r
    A i la de 5e A acabarien al mateix comentari. */
-function _comentMateixaAssig(c, matKey) {
-  var net = function (x) {
-    return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, '');
-  };
-  var a = net(c && c.assig);
+function _comentNetClau(x) {
+  return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function _comentMateixaAssig(c, matKey, nomExplicit) {
+  var a = _comentNetClau(c && c.assig);
   if (!a || !matKey) return false;
-  if (a.indexOf(net(matKey)) === 0) return true;
-  var nom = (typeof _assigNomMap !== 'undefined') ? _assigNomMap[matKey] : '';
-  if (nom && a === net(nom)) return true;
+  if (a.indexOf(_comentNetClau(matKey)) === 0) return true;
+  var nom = nomExplicit || ((typeof _assigNomMap !== 'undefined') ? _assigNomMap[matKey] : '');
+  if (nom && a === _comentNetClau(nom)) return true;
   return false;
 }
 
@@ -11608,7 +11609,7 @@ function _comentMateixaAssig(c, matKey) {
    servir la fitxa de l'alumne), que els te tots, i el cache nomes s'hi
    afegeix per si hi ha algun apunt escrit fa un moment que encara no ha
    pujat. Els repetits es descarten. */
-function comentApuntsActivitats(nomAlumne, matKey, nomesTrim) {
+function comentApuntsActivitats(nomAlumne, matKey, nomesTrim, nomAssig) {
   if (!nomAlumne || !matKey) return [];
   var out = [], vistos = {};
   function afegeix(activitat, text) {
@@ -11628,7 +11629,7 @@ function comentApuntsActivitats(nomAlumne, matKey, nomesTrim) {
     _comentarisActivitats.forEach(function (c) {
       if (!c || _comentNetNom(c.nom) !== clauNom) return;
       if (trims.indexOf(String(c.trim)) === -1) return;
-      if (!_comentMateixaAssig(c, matKey)) return;
+      if (!_comentMateixaAssig(c, matKey, nomAssig)) return;
       afegeix(c.activitat, c.text);
     });
   }
@@ -11649,6 +11650,64 @@ function comentApuntsActivitats(nomAlumne, matKey, nomesTrim) {
       (c.items || []).forEach(function (it) {
         afegeix(it.nom, (c.comentaris[it.id] || {})[idx]);
       });
+    });
+  });
+  return out;
+}
+
+/* ---- ELS APUNTS DE LA CARPETA VIATGERA ----
+
+   En Pol, 12/11/2026: «tenim un problema amb els apunts de carpeta viatgera.
+   Com que son deures, una barreja d'exercicis de mates i catala, hi podem
+   arribar a posar apunts de cada una de les assignatures, pero consta com a
+   assignatura "Carpeta viatgera", de la qual no posem nota ni comentari.
+   Es a un dels llocs on mes posem comentaris, per tant s'ha de tenir en
+   compte a l'assignatura que toca: si es un comentari relacionat en
+   matematiques, ha de tenir-se en compte al comentari de matematiques.»
+
+   La Carpeta Viatgera ja es una cosa que l'app coneix (`esClauCarpeta`, i al
+   servidor `MATERIES_AMB_CARPETA`): es la pestanya dels deures, i la seva
+   nota ja compta a Mates i a Catala. El que faltava eren els APUNTS.
+
+   ⚠ QUI DECIDEIX DE QUINA AREA ES CADA APUNT? Ningu, aqui. Un apunt de
+   deures pot ser de mates, de catala o de qualsevol cosa, i endevinar-ho pel
+   titol de l'activitat seria jugar-se-la: «Fitxa 12» no diu res. Per tant
+   s'envien TOTS al comentari de cada area, i el prompt diu clarament que
+   nomes faci servir els que parlin d'aquella area i que ignori la resta.
+   Qui ho sap triar es qui llegeix el text, no una regla nostra.
+
+   Sense IA no canvia res: l'esborrany no porta mai els apunts. */
+function _comentApuntsCarpeta(nomAlumne, matKey, trim) {
+  // A la Carpeta mateixa no se li escriu cap comentari: no te sentit.
+  if (!matKey || (typeof esClauCarpeta === 'function' && esClauCarpeta(String(matKey).split('__')[0]))) return [];
+
+  var grup = (typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null;
+  var claus = [];
+
+  /* Primer, la Carpeta del seu perfil que sigui del MATEIX grup: aixi no
+     s'hi cola la carpeta d'una altra classe. */
+  if (typeof _perfilEntradesAmbGrup === 'function') {
+    (_perfilEntradesAmbGrup() || []).forEach(function (e) {
+      if (!e || !e.key) return;
+      if (typeof esClauCarpeta !== 'function' || !esClauCarpeta(String(e.key).split('__')[0])) return;
+      if (grup && e.grup && e.grup !== grup) return;
+      claus.push({ key: e.key, nom: e.nom });
+    });
+  }
+  /* I si no la te al perfil (pero hi escriu igualment), es prova amb el nom
+     de sempre: la pestanya es diu «1T_Carpeta Viatgera». */
+  if (!claus.length) {
+    claus.push({ key: 'carpetaviatgera__' + _comentNetClau(grup || ''), nom: 'Carpeta Viatgera' });
+    claus.push({ key: 'carpeta__' + _comentNetClau(grup || ''), nom: 'Carpeta Viatgera' });
+  }
+
+  var out = [], vistos = {};
+  claus.forEach(function (c) {
+    comentApuntsActivitats(nomAlumne, c.key, trim, c.nom).forEach(function (a) {
+      var k = a.activitat + '\u00a7' + a.text;
+      if (vistos[k]) return;
+      vistos[k] = 1;
+      out.push(a);
     });
   });
   return out;
@@ -11719,15 +11778,24 @@ function _comentPintaApunts() {
      número d'aquí no és el que el comentari farà servir de debò. */
   var trim = (typeof _comentTrimActual === 'function') ? _comentTrimActual() : 1;
   var ap  = comentApuntsActivitats(al.nom, _comentAssig, trim);
+  var cv  = _comentApuntsCarpeta(al.nom, _comentAssig, trim);
   var ob  = comentObservacions(al.id, _comentAssig, trim);
   var trossos = [];
   if (ap.length) trossos.push(ap.length === 1 ? '1 apunt d\'activitat' : ap.length + ' apunts d\'activitats');
   if (ob.length) trossos.push(ob.length === 1 ? '1 observació' : ob.length + ' observacions');
-  if (!trossos.length) {
+  if (!trossos.length && !cv.length) {
     info.textContent = 'D\'aquest alumne no hi ha cap apunt ni observació d\'aquesta assignatura en aquest trimestre.';
-  } else {
-    info.textContent = 'Es faran servir ' + trossos.join(' i ') + '.';
+    return;
   }
+  var txt = trossos.length ? 'Es faran servir ' + trossos.join(' i ') + '.' : '';
+  if (cv.length) {
+    /* Els deures no són d'una àrea: s'hi envien tots i es fa servir el que
+       hi tingui a veure. Val més dir-ho que no pas que es pensi que els dos
+       números s'han de sumar. */
+    txt += (txt ? ' I ' : 'Hi ha ') + (cv.length === 1 ? '1 apunt dels deures' : cv.length + ' apunts dels deures') +
+           ' (Carpeta Viatgera): s\'hi farà servir el que parli d\'aquesta assignatura.';
+  }
+  info.textContent = txt;
 }
 
 function _comentPrompt(rubrica, alumne, esborrany) {
@@ -11767,6 +11835,19 @@ function _comentPrompt(rubrica, alumne, esborrany) {
         'que han passat de debo, pero NO els copiïs literalment ni anomenis les activitats ' +
         'una per una:\n"""\n' +
         ap.map(function (a) { return '- ' + a.activitat + ': ' + a.text; }).join('\n') +
+        '\n"""');
+    }
+    /* Els deures de la Carpeta Viatgera. Hi van TOTS i el prompt diu que
+       nomes faci servir els que parlin d'aquesta area: veure
+       `_comentApuntsCarpeta`. */
+    var cv = _comentApuntsCarpeta(alumne.nom, _comentAssig, _trim);
+    if (cv.length) {
+      parts.push('\nAPUNTS MEUS DELS DEURES (la Carpeta Viatgera). La carpeta son els deures ' +
+        'i hi ha feina de diverses arees barrejada, o sigui que aqui n\'hi ha que NO son de ' +
+        rubrica.nom + '. FES SERVIR NOMES els que parlin de ' + rubrica.nom + '; els altres, ' +
+        'ignora\'ls del tot i no els mencionis ni de passada. Si cap no hi te a veure, no ' +
+        'diguis res dels deures:\n"""\n' +
+        cv.map(function (a) { return '- ' + a.activitat + ': ' + a.text; }).join('\n') +
         '\n"""');
     }
     var ob = comentObservacions(alumne.id, _comentAssig, _trim);
