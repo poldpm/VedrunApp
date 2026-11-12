@@ -1,11 +1,11 @@
 {
-  "versio": "v356",
+  "versio": "v357",
   "data": "2026-11-12",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "La pàgina que reben les famílies per reservar hora ja no és una llista interminable: ara és una graella de la setmana, com el planning.",
-    "Hi veuen els dies a dalt i les hores a l esquerra, les lliures en verd i els dies i les hores sense cap opció ratllats de gris. Es passa de setmana amb les fletxes.",
-    "Hi caben les hores de fora de l horari laboral i les deu opcions que hi pugui haver dins d una mateixa hora.",
-    "I carrega molt més de pressa: abans preguntava al teu calendari una vegada per cada hora lliure i ara ho fa d un sol cop. Si tot i així triga, la pàgina ho explica a la família."
+    "A Convocar reunions, la durada de la reunió té una opció nova: Tota la franja sencera.",
+    "Serveix per al que no s ha de partir en trossos (una tarda de portes obertes, una xerrada, una sortida): cada estona que marquis s ofereix d una peça i qui la reservi se la queda tota.",
+    "La família hi veu fins a quina hora va cada estona, perquè amb aquesta opció cada una pot tenir la seva llargada.",
+    "Amb la franja sencera el descans entremig no cal, i queda desactivat."
   ]
 }

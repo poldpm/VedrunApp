@@ -1220,10 +1220,31 @@ function _reuXoca_(data, inici, fi) {
 /* Parteix una estona (17:00–19:00) en franges de la durada demanada,
    amb el descans entremig. UN SOL LLOC: ho fan servir tant crear un
    calendari com afegir-hi hores després, així no poden divergir. */
+/* La durada d'una convocatòria: minuts, o 0 si s'ofereix la franja sencera.
+   Es llegeix SEMPRE des d'aquí perquè el 0 no es perdi pel camí: amb un
+   `|| 15` qualsevol, la franja sencera es tornaria a partir en quarts. */
+function _reuDurada_(v) {
+  var n = parseInt(v, 10);
+  if (isNaN(n) || n < 0) return 15;
+  return n;
+}
+
 function _reuTrossos_(data, ini, fi, durada, buffer) {
   var out = [];
   var m0 = _reuMinuts_(ini), m1 = _reuMinuts_(fi);
   if (isNaN(m0) || isNaN(m1) || m1 <= m0) return out;
+  /* ⚠ DURADA 0 = LA FRANJA SENCERA, EN UNA SOLA REUNIÓ.
+
+     En Pol, 12/11/2026: «de durada de reunió també hi ha d'haver l'opció
+     d'oferir la franja sencera». És per a allò que no es parteix: una
+     xerrada de tot un vespre, una porta oberta de 17 a 19, una sortida.
+     L'estona s'ofereix tal com està, sense trossejar i sense descans:
+     qui la reserva se la queda tota.
+
+     ⚠ El 0 no es pot comparar amb `||`: `parseInt(x,10) || 15` el
+     converteix en 15 i la franja es tornaria a partir en quarts. Cada lloc
+     que llegeix la durada ho ha de mirar amb `isNaN`. */
+  if (!(durada > 0)) { out.push({ data: data, inici: _reuHora_(m0), fi: _reuHora_(m1) }); return out; }
   for (var m = m0; m + durada <= m1; m += durada + buffer) {
     out.push({ data: data, inici: _reuHora_(m), fi: _reuHora_(m + durada) });
   }
@@ -1231,7 +1252,7 @@ function _reuTrossos_(data, ini, fi, durada, buffer) {
 }
 
 function _reuGenera_(d) {
-  var durada = parseInt(d.durada, 10) || 15;
+  var durada = _reuDurada_(d.durada);
   var buffer = parseInt(d.buffer, 10) || 0;
   if (buffer < 0 || buffer > 120) buffer = 0;
   var perDia = d.perDia || {};
@@ -1344,8 +1365,8 @@ function _reuCreaFer_(ss, d) {
   d = d || {};
   var titol = String(d.titol || '').trim();
   if (!titol) return { ok: false, error: 'Falta el títol' };
-  var durada = parseInt(d.durada, 10) || 15;
-  if (durada < 5 || durada > 240) return { ok: false, error: 'La durada ha de ser entre 5 i 240 minuts' };
+  var durada = _reuDurada_(d.durada);
+  if (durada !== 0 && (durada < 5 || durada > 240)) return { ok: false, error: 'La durada ha de ser entre 5 i 240 minuts' };
   var perDia = d.perDia || {};
   var teCap = false;
   Object.keys(perDia).forEach(function (k) { if ((perDia[k] || []).length) teCap = true; });
@@ -1503,7 +1524,8 @@ function reunionsAfegeixHores(ss, calId, estones) {
       return { ok: false, jaHiEren: jaHiEren, xoquen: xoquen, error: jaHiEren || xoquen
         ? 'Cap hora nova: ' + (jaHiEren ? jaHiEren + ' ja les tenies al calendari de reunions' : '') +
           (jaHiEren && xoquen ? ' i ' : '') + (xoquen ? xoquen + ' xoquen amb el teu Google Calendar' : '') + '.'
-        : 'Amb aquesta estona i una durada de ' + cal.durada + ' minuts no hi cap cap reunió.' };
+        : (cal.durada ? 'Amb aquesta estona i una durada de ' + cal.durada + ' minuts no hi cap cap reunió.'
+                      : 'Aquesta estona no s\'entén: mira que l\'hora de començar sigui abans que la d\'acabar.') };
     }
     sh.getRange(sh.getLastRow() + 1, 1, noves.length, REU_CAP_HORES.length).setValues(noves);
 
@@ -1711,7 +1733,7 @@ function _reuCalFila_(ss, calId) {
 }
 function _reuCalObj_(f) {
   return { id: String(f[0]), titol: String(f[1]), descripcio: String(f[2]),
-           durada: +f[3] || 15, buffer: +f[4] || 0, lloc: String(f[5]),
+           durada: _reuDurada_(f[3]), buffer: +f[4] || 0, lloc: String(f[5]),
            actiu: String(f[6]) !== 'no', creat: String(f[7]),
            avisar: String(f[8]) !== 'no', maxPersona: +f[9] || 0,
            desDe: _reuTxtData_(f[10]), finsA: _reuTxtData_(f[11]),
@@ -1749,7 +1771,10 @@ function _reuPerDiaText_(perDia) {
    qui ofereix de 9 a 10 i de 17 a 18 no ha de trobar-se, en reprogramar,
    que també ofereix tot el migdia. */
 function _reuPerDiaDeLesHores_(files, durada, buffer) {
-  var pas = (parseInt(durada, 10) || 15) + (parseInt(buffer, 10) || 0);
+  /* Amb la franja sencera (durada 0) el que separa dues estones és només el
+     descans: dues franges del mateix dia (de 9 a 10 i de 17 a 18) no s'han
+     d'ajuntar mai en una sola de 9 a 18. */
+  var descans = parseInt(buffer, 10) || 0;
   var perDow = {};
   files.forEach(function (h) {
     var data = _reuTxtData_(h[2]), ini = _reuTxtHora_(h[3]), fi = _reuTxtHora_(h[4]);
@@ -1768,7 +1793,7 @@ function _reuPerDiaDeLesHores_(files, durada, buffer) {
       var ultim = trams[trams.length - 1];
       // el mateix tros repetit (dues setmanes) no obre cap estona nova
       if (ultim && x.i >= ultim.i && x.f <= ultim.f) return;
-      if (ultim && x.i <= ultim.f + pas - (parseInt(durada, 10) || 15)) { ultim.f = Math.max(ultim.f, x.f); return; }
+      if (ultim && x.i <= ultim.f + descans) { ultim.f = Math.max(ultim.f, x.f); return; }
       trams.push({ i: x.i, f: x.f });
     });
     if (trams.length) {
@@ -2451,6 +2476,7 @@ function _reuPaginaHtml_(calId) {
   + '.pastilles{display:flex;flex-direction:column;gap:4px}'
   + 'button.p{font:inherit;font-weight:700;font-size:13px;background:#E8F6EE;color:#15603A;'
   + 'border:1.5px solid #BBE3CC;border-radius:7px;padding:7px 4px;cursor:pointer;min-height:36px;width:100%}'
+  + 'button.p small{display:block;font-weight:400;font-size:10.5px;opacity:.9}'
   + 'button.p:hover{background:#D6EFE1;border-color:#15603A}'
   + 'button.p:focus-visible{outline:3px solid var(--c);outline-offset:2px}'
   + 'button.p.triat{background:var(--c);border-color:var(--c);color:#fff}'
@@ -2552,7 +2578,11 @@ function _reuPaginaHtml_(calId) {
   + '+"<button class=\'btn\' id=\'retry2\' style=\'margin-top:12px\'>Torna-ho a provar</button>";app.innerHTML=h;'
   + 'var rb=document.getElementById("retry2");if(rb)rb.addEventListener("click",carrega);return;}'
   + 'if(!r.hores.length){h+="<div class=\'buit\'><strong>Ara mateix no queda cap hora lliure.</strong><br>Si necessites una altra hora, respon el correu amb què t\'han enviat aquest enllaç.</div>";app.innerHTML=h;return;}'
-  + 'h+="<div class=\'meta\'>Reunions de "+r.durada+" minuts"+(r.lloc?" &middot; "+esc(r.lloc):"")+" &middot; queden "+r.hores.length+" hores lliures</div>";'
+  /* Amb la franja sencera cada estona té la seva llargada: dir-ne «reunions
+     de 0 minuts» no voldria dir res. Es diu que cada una és tota l'estona i
+     a cada pastilla hi surt fins a quina hora va. */
+  + 'h+="<div class=\'meta\'>"+(r.durada?("Reunions de "+r.durada+" minuts"):"Cada hora que tries és l\'estona sencera")'
+  + '+(r.lloc?" &middot; "+esc(r.lloc):"")+" &middot; queden "+r.hores.length+" hores lliures</div>";'
   + 'PERDIA={};ORDRE=[];'
   + 'r.hores.forEach(function(s){var d=normData(s.data)||"?";'
   + 'if(!PERDIA[d]){PERDIA[d]=[];ORDRE.push(d);}'
@@ -2634,7 +2664,8 @@ function _reuPaginaHtml_(calId) {
   + 'h+="<div class=\'gc"+salt+"\'><div class=\'pastilles\'>";'
   + 'l.forEach(function(s){'
   + 'h+="<button class=\'p"+(SEL&&SEL===s.slotId?" triat":"")+"\' data-s=\'"+esc(s.slotId)+"\'"'
-  + '+" aria-label=\'"+esc(dataText(s.data))+", "+esc(s.inici)+"\'>"+esc(s.inici)+"</button>";});'
+  + '+" aria-label=\'"+esc(dataText(s.data))+", de "+esc(s.inici)+" a "+esc(s.fi)+"\'>"+esc(s.inici)'
+  + '+(INFO&&INFO.durada?"":"<small>fins "+esc(s.fi)+"</small>")+"</button>";});'
   + 'h+="</div></div>";}}'
   + 'h+="</div></div>";'
   + 'h+="<div class=\'llegenda\'><span><i class=\'l1\'></i>Hora lliure</span>"'
@@ -7545,7 +7576,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v356';
+var BACKEND_VERSIO = 'v357';
 
 var MAX_CELA = 45000;
 

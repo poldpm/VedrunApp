@@ -145,7 +145,7 @@ function _renderReunions() {
           ${c.acabat ? '<span class="reu-badge">Ja ha passat</span>' : ''}
         </div>
         <div class="reu-card-meta">
-          ${c.durada} min${c.lloc ? ' · ' + escapeHtml(c.lloc) : ''}
+          ${_reuDuradaText(c.durada)}${c.lloc ? ' · ' + escapeHtml(c.lloc) : ''}
           ${_reuTramDates(c)}
         </div>
       </div>
@@ -501,7 +501,11 @@ function obreReuAfegir(calId) {
   _reuAfegirEstones = [];
   let ov = document.getElementById('reuAfegirOverlay');
   if (!ov) ov = _reuMuntaAfegir();
-  document.getElementById('reuAfSub').textContent = c.titol + ' · reunions de ' + c.durada + ' min';
+  document.getElementById('reuAfSub').textContent = c.titol + ' · ' + _reuDuradaText(c.durada);
+  const comPartir = document.getElementById('reuAfComPartir');
+  if (comPartir) comPartir.textContent = parseInt(c.durada, 10) === 0
+    ? 'Cada estona que posis s\'oferirà sencera, d\'una peça, com la resta d\'aquesta convocatòria.'
+    : 'Es partiran amb la durada i el descans que ja té aquest calendari.';
   const p = n => (n < 10 ? '0' : '') + n;
   const d = new Date(); d.setDate(d.getDate() + 1);
   document.getElementById('reuAfData').value = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
@@ -541,12 +545,16 @@ function _reuPintaAfegir() {
   if (!_reuAfegirEstones.length) {
     c.innerHTML = '<span class="modal-hint">Encara no has afegit cap estona.</span>';
   } else {
-    const dur = _reuAfegirCal ? _reuAfegirCal.durada : 15;
+    /* ⚠ AMB LA FRANJA SENCERA, AQUEST BUCLE NO S'ACABAVA MAI.
+       Amb durada 0, `x += 0` no avança i la pestanya es quedava penjada.
+       Amb la franja sencera la resposta és sempre una: l'estona. */
+    const dur = parseInt(_reuAfegirCal ? _reuAfegirCal.durada : 15, 10);
     const buf = 0;
     c.innerHTML = _reuAfegirEstones.map((e, i) => {
       const m = h => (+h.split(':')[0]) * 60 + (+h.split(':')[1]);
       let n = 0;
-      for (let x = m(e.inici); x + dur <= m(e.fi); x += dur + buf) n++;
+      if (!(dur > 0)) n = m(e.fi) > m(e.inici) ? 1 : 0;
+      else for (let x = m(e.inici); x + dur <= m(e.fi); x += dur + buf) n++;
       return `<span class="reu-chip">${_reuDataText(e.data)} · ${e.inici}–${e.fi}
         <em class="reu-chip-n">${n} hore${n === 1 ? '' : 's'}</em>
         <button onclick="_reuTreuEstona(${i})" aria-label="Treure">×</button></span>`;
@@ -608,7 +616,7 @@ function _reuMuntaAfegir() {
           <div class="modal-hint">Pots afegir-hi diverses estones de dies diferents abans de desar.</div>
         </div>
         <div class="callout-mini">
-          Es partiran amb la durada i el descans que ja té aquest calendari.
+          <span id="reuAfComPartir">Es partiran amb la durada i el descans que ja té aquest calendari.</span>
           Les que xoquin amb el teu Google Calendar o amb hores que ja hi ha, no s'afegiran.
         </div>
       </div>
@@ -658,7 +666,7 @@ function obreReuReprograma(calId) {
   if (!ov) ov = _reuMuntaReprograma();
 
   document.getElementById('reuRepSub').textContent =
-    c.titol + ' · reunions de ' + c.durada + ' min';
+    c.titol + ' · ' + _reuDuradaText(c.durada);
 
   const avis = document.getElementById('reuRepAvisHores');
   if (avis) {
@@ -944,6 +952,7 @@ function obreReuNou() {
   document.getElementById('reuDesDe').value = dl.getFullYear() + '-' + p(dl.getMonth() + 1) + '-' + p(dl.getDate());
   document.getElementById('reuFinsA').value = fi.getFullYear() + '-' + p(fi.getMonth() + 1) + '-' + p(fi.getDate());
 
+  _reuDuradaCanvia();
   _reuPintaDies();
   _reuVesAPas(1);
   ov.classList.add('open');
@@ -1046,6 +1055,35 @@ function _reuCopiaDia(n) {
   });
   _reuPintaDies();
   showToast(quants ? 'Copiades a ' + quants + ' dia' + (quants > 1 ? 's' : '') : 'Marca primer els altres dies', quants ? 'success' : 'error');
+}
+
+/* Com es diu la durada d'una convocatòria. 0 vol dir que cada reunió és la
+   franja sencera que ofereix la mestra, i llavors «0 min» no voldria dir
+   res. ⚠ El 0 no es pot mirar amb `||`: es convertiria en 15. */
+function _reuDuradaText(d) {
+  const n = parseInt(d, 10);
+  return (isNaN(n) || n > 0) ? (n || 15) + ' min' : 'franja sencera';
+}
+
+/* ⚠ AMB LA FRANJA SENCERA, EL DESCANS NO VOL DIR RES.
+
+   El descans és el que es deixa ENTRE dues reunions d'una mateixa estona, i
+   amb la franja sencera no n'hi ha dues: n'hi ha una. Deixar-lo clicable
+   seria oferir un botó que no fa res (veure CLAUDE.md, «Botons que no fan
+   res»), així que es desactiva i es diu per què. */
+function _reuDuradaCanvia() {
+  const sel = document.getElementById('reuDurada');
+  if (!sel) return;
+  const sencera = parseInt(sel.value, 10) === 0;
+  const buf = document.getElementById('reuBuffer');
+  if (buf) {
+    buf.disabled = sencera;
+    if (sencera) buf.value = '0';
+  }
+  const lbl = document.querySelector('label[for="reuBuffer"]');
+  if (lbl) lbl.textContent = sencera ? 'Descans entremig (no cal)' : 'Descans entremig';
+  const hint = document.getElementById('reuDuradaHint');
+  if (hint) hint.hidden = !sencera;
 }
 
 /* ---------- PAS 2: repassar i treure ---------- */
@@ -1193,14 +1231,16 @@ function _reuMuntaModal() {
           <div class="reu-dos">
             <div class="modal-field">
               <label class="modal-label" for="reuDurada">Cada reunió dura</label>
-              <select class="modal-input" id="reuDurada">
+              <select class="modal-input" id="reuDurada" onchange="_reuDuradaCanvia()">
                 <option value="10">10 minuts</option>
                 <option value="15">15 minuts</option>
                 <option value="20">20 minuts</option>
                 <option value="30">30 minuts</option>
                 <option value="45">45 minuts</option>
                 <option value="60">1 hora</option>
+                <option value="0">Tota la franja sencera</option>
               </select>
+              <div class="modal-hint" id="reuDuradaHint" hidden>Cada estona que marquis s&#39;ofereix d&#39;una peça, sense partir: qui la reservi se la queda tota.</div>
             </div>
             <div class="modal-field">
               <label class="modal-label" for="reuBuffer">Descans entremig</label>
