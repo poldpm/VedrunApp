@@ -2178,6 +2178,54 @@ function _reuReserva_(calId, slotId, nom, email) {
    ============================================================ */
 
 // Crides que fa la pàgina pública (google.script.run). NO demanen token.
+/* ⚠ LA PÀGINA DE LES FAMÍLIES TRIGAVA UNA ETERNITAT A CARREGAR.
+
+   En Pol, 12/11/2026: «la persona que ho rep, la família, rep un llistat
+   enorme, primer de tot que tarda moltíssim a carregar».
+
+   El perquè era aquí: per a CADA hora lliure es preguntava al Google
+   Calendar si xocava amb res (`_reuXoca_`), i cada pregunta és un viatge a
+   Google. Amb tres setmanes d'hores de deu minuts són dues-centes crides
+   abans de poder ensenyar res: minuts d'espera mirant una pàgina en blanc.
+
+   Ara es demana el calendari UNA vegada per a tot el període i els
+   solapaments es miren a la memòria. De dues-centes crides a una.
+
+   Torna una llista d'estones ocupades en mil·lisegons, o `null` si el
+   calendari no s'ha pogut llegir —que NO és el mateix que «no hi ha res»:
+   qui ho cridi ha de distingir-ho. */
+function _reuOcupades_(desDe, finsA) {
+  var out = [];
+  try {
+    var pagina = null, voltes = 0;
+    do {
+      var q = {
+        timeMin: _reuISO_(desDe), timeMax: _reuISO_(finsA),
+        singleEvents: true, maxResults: 2500, orderBy: 'startTime'
+      };
+      if (pagina) q.pageToken = pagina;
+      var r = Calendar.Events.list('primary', q);
+      (r.items || []).forEach(function (it) {
+        if (it.status === 'cancelled') return;
+        if (it.transparency === 'transparent') return;       // marcat com a "lliure"
+        if (it.start && it.start.date) return;                // de tot el dia: no bloqueja una hora
+        // Si ella hi ha dit que no hi va, no compta
+        var jo = (it.attendees || []).filter(function (a) { return a.self; })[0];
+        if (jo && jo.responseStatus === 'declined') return;
+        var i = new Date(it.start.dateTime).getTime();
+        var f = new Date(it.end.dateTime).getTime();
+        if (isNaN(i) || isNaN(f)) return;
+        out.push({ i: i, f: f });
+      });
+      pagina = r.nextPageToken;
+      voltes++;
+    } while (pagina && voltes < 10);
+    return out;
+  } catch (e) {
+    return null;   // no s'ha pogut llegir: ho ha de saber qui ho crida
+  }
+}
+
 function reuPublicInfo(calId) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -2186,6 +2234,10 @@ function reuPublicInfo(calId) {
     var cal = _reuCalObj_(f.v);
     var sh = _reuHores_(ss), n = sh.getLastRow();
     var lliures = [];
+    /* Primer es recullen les candidates del full (sense tocar el calendari) i
+       després es demana el calendari UNA sola vegada per a tot el període.
+       Veure `_reuOcupades_`. */
+    var caps = [];
     if (n >= 2) {
       var v = sh.getRange(2, 1, n - 1, REU_CAP_HORES.length).getValues();
       var ara = Date.now();
@@ -2208,10 +2260,41 @@ function reuPublicInfo(calId) {
         var _quan = _reuData_(_data, _ini);
         if (!_quan || isNaN(_quan.getTime())) return;          // data que no s'entén
         if (_quan.getTime() < ara) return;                     // ja passada
-        try { if (_reuXoca_(_data, _ini, _fi)) return; } catch (e) {}
+        var _fins = _reuData_(_data, _fi);
+        if (!_fins || isNaN(_fins.getTime())) return;
 
-        lliures.push({ slotId: String(h[1]), data: _data, inici: _ini, fi: _fi });
+        caps.push({ slotId: String(h[1]), data: _data, inici: _ini, fi: _fi,
+                    i: _quan.getTime(), f: _fins.getTime() });
       });
+    }
+
+    /* ⚠ SI EL CALENDARI NO ES POT LLEGIR, NO S'OFEREIX RES.
+
+       És la decisió de sempre (abans era per hora): val més no oferir una
+       hora que posar-li a la mestra una reunió a sobre d'una altra cosa. El
+       que canvia és que ara, amb una sola crida, un error ho tapa tot: per
+       això es diu a la pàgina amb `calendariKO`, i aquella explica que es
+       torni a provar d'aquí a una estona. Abans la família no sabia per què
+       havien desaparegut les hores. */
+    var calendariKO = false;
+    if (caps.length) {
+      var minI = caps[0].i, maxF = caps[0].f;
+      caps.forEach(function (c) { if (c.i < minI) minI = c.i; if (c.f > maxF) maxF = c.f; });
+      var ocupades = _reuOcupades_(new Date(minI), new Date(maxF));
+      if (ocupades === null) {
+        // Un segon intent: una fallada de xarxa sol ser cosa d'un moment.
+        Utilities.sleep(700);
+        ocupades = _reuOcupades_(new Date(minI), new Date(maxF));
+      }
+      if (ocupades === null) { calendariKO = true; caps = []; }
+      else {
+        caps.forEach(function (c) {
+          for (var k = 0; k < ocupades.length; k++) {
+            if (c.i < ocupades[k].f && ocupades[k].i < c.f) return;   // se solapen
+          }
+          lliures.push({ slotId: c.slotId, data: c.data, inici: c.inici, fi: c.fi });
+        });
+      }
     }
     lliures.sort(function (a, b) { return (a.data + a.inici).localeCompare(b.data + b.inici); });
     /* ⚠ AMB EL CALENDARI TANCAT ENCARA S'ENVIAVEN TOTES LES HORES.
@@ -2223,7 +2306,7 @@ function reuPublicInfo(calId) {
     if (!cal.actiu) lliures = [];
     return { ok: true, titol: cal.titol, descripcio: cal.descripcio, lloc: cal.lloc,
              durada: cal.durada, actiu: cal.actiu, hores: lliures,
-             missatge: cal.missatge };
+             calendariKO: calendariKO, missatge: cal.missatge };
   } catch (e) {
     return { ok: false, error: 'Hi ha hagut un problema. Torna-ho a provar.' };
   }
@@ -2266,6 +2349,15 @@ function _reuPaginaHtml_(calId) {
   + '*{box-sizing:border-box;margin:0;padding:0}'
   + 'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#FAF7F8;color:var(--tx);line-height:1.6;padding:18px}'
   + '.w{max-width:620px;margin:0 auto}'
+  /* ⚠ UNA SETMANA SENCERA NO HI CAP EN 620 PÍXELS.
+
+     Amb l'amplada de sempre, a un ordinador la graella sortia tallada i
+     s'havia de rellliscar de costat per veure el divendres —justament el que
+     es volia evitar—. Mentre es veu la graella la targeta s'eixampla; el
+     formulari i la confirmació es queden estrets, que és on es llegeix
+     millor. Al mòbil no canvia res: ja no hi arriba. */
+  + '.w.ample{max-width:1000px}'
+  + '#sota{max-width:560px}'
   + '.card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.04)}'
   + 'h1{font-size:23px;color:var(--gd);line-height:1.25;margin-bottom:6px}'
   + '.desc{color:var(--mu);margin-bottom:4px;white-space:pre-wrap}'
@@ -2309,8 +2401,75 @@ function _reuPaginaHtml_(calId) {
      `aria-live="polite"` fa que el lector llegeixi el que hi apareix, i
      `tabindex="-1"` permet posar-hi el focus des del codi despres de cada
      pas. Aixo no canvia res del que es veu. */
+  /* ============================================================
+     LA GRAELLA DE LA SETMANA
+     ------------------------------------------------------------
+     En Pol, 12/11/2026: «vull que la persona que rebi l'horari disponible ho
+     vegi en el mateix format que el planning setmanal […] com si fos un
+     Google Calendar […] si durant tot aquell dia no hi ha cap opció, que
+     estigui tota d'un color com si estigués bloquejat».
+
+     Abans era una llista de dies: s'obria un dia, es miraven les hores, es
+     tancava, s'obria el següent… Amb tres setmanes, trobar un forat era
+     anar obrint i tancant.
+
+     ⚠ TRES COSES QUE DECIDEIXEN COM ESTÀ FET:
+     · Les hores NO són de 9 a 5. La mestra n'ofereix fora del seu horari, i
+       la graella es fa amb les hores que hi ha de debò, de la primera a
+       l'última.
+     · Dins d'una hora hi pot haver deu opcions (reunions de 10 minuts), i hi
+       han de cabre totes: per això cada casella és una llista de pastilles
+       que creix cap avall, no una sola casella.
+     · Al mòbil no hi caben cinc dies. La graella rellisca de costat i la
+       columna de les hores es queda enganxada, com a qualsevol calendari.
+       No hi ha una segona pantalla per al mòbil: una de sola, que s'hi
+       adapta, és una de sola per mantenir. */
+  + '.setm{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 10px}'
+  + '.setm b{font-size:15px;color:var(--gd)}'
+  + '.nav{font:inherit;font-weight:700;background:#fff;color:var(--g);border:1.5px solid var(--bd);'
+  + 'border-radius:9px;min-width:46px;min-height:46px;cursor:pointer;font-size:17px}'
+  + '.nav[disabled]{opacity:.35;cursor:not-allowed}'
+  + '.nav:hover:not([disabled]){border-color:var(--c);background:var(--soft)}'
+  + '.gscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--bd);border-radius:12px;background:#fff}'
+  + '.g{display:grid;min-width:max-content}'
+  + '.gc{border-bottom:1px solid #F0E8EA;border-right:1px solid #F0E8EA;padding:5px;min-height:48px}'
+  + '.gh{position:sticky;top:0;z-index:3;background:var(--soft);font-weight:700;font-size:12.5px;color:var(--gd);'
+  + 'text-align:center;padding:8px 5px;line-height:1.25;border-bottom:1px solid var(--bd)}'
+  + '.gh small{display:block;font-weight:400;font-size:11px;color:var(--mu)}'
+  + '.gh.capbuit{color:var(--mu);background:#F4F1F2}'
+  + '.gt{position:sticky;left:0;z-index:2;background:#fff;font-size:12px;color:var(--mu);font-weight:700;'
+  + 'text-align:right;padding:7px 8px;border-right:1px solid var(--bd);white-space:nowrap}'
+  + '.gh.gt{z-index:4}'
+  /* Les caselles sense cap opcio i els dies sencers sense cap hora: el mateix
+     gris ratllat, perque es vegi d un cop d ull que alla no hi ha res a mirar. */
+  /* Quan entre una fila i la següent hi ha hores saltades (de les 10 a les
+     16, posem), la fila de sota porta una ratlla per sobre: es veu que allà
+     al mig hi ha un tros de dia que no s'ofereix. */
+  + '.gc.salt,.gt.salt{border-top:2px solid var(--bd)}'
+  + '.gc.buida{background:repeating-linear-gradient(45deg,#F7F4F5,#F7F4F5 6px,#F2EDEE 6px,#F2EDEE 12px)}'
+  + '.gc.diabuit{background:repeating-linear-gradient(45deg,#F2EDEE,#F2EDEE 6px,#EAE3E5 6px,#EAE3E5 12px)}'
+  + '.pastilles{display:flex;flex-direction:column;gap:4px}'
+  + 'button.p{font:inherit;font-weight:700;font-size:13px;background:#E8F6EE;color:#15603A;'
+  + 'border:1.5px solid #BBE3CC;border-radius:7px;padding:7px 4px;cursor:pointer;min-height:36px;width:100%}'
+  + 'button.p:hover{background:#D6EFE1;border-color:#15603A}'
+  + 'button.p:focus-visible{outline:3px solid var(--c);outline-offset:2px}'
+  + 'button.p.triat{background:var(--c);border-color:var(--c);color:#fff}'
+  + '.llegenda{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:10px;font-size:12.5px;color:var(--mu)}'
+  + '.llegenda i{display:inline-block;width:13px;height:13px;border-radius:4px;vertical-align:-2px;margin-right:5px;border:1.5px solid}'
+  + '.l1{background:#E8F6EE;border-color:#BBE3CC}'
+  + '.l2{background:var(--c);border-color:var(--c)}'
+  + '.l3{background:#F2EDEE;border-color:#E3DADC}'
+  + '.rellisca{font-size:12.5px;color:var(--mu);margin-top:8px}'
+  + '.espera{text-align:center;padding:26px 6px}'
+  + '.espera .rodona{width:38px;height:38px;border:4px solid var(--soft);border-top-color:var(--c);'
+  + 'border-radius:50%;margin:0 auto 14px;animation:gira 1s linear infinite}'
+  + '@keyframes gira{to{transform:rotate(360deg)}}'
+  + '@media (prefers-reduced-motion:reduce){.espera .rodona{animation:none}}'
+  + '.espera b{display:block;color:var(--gd);font-size:16px;margin-bottom:6px}'
+  + '.espera p{color:var(--mu);font-size:13.5px;margin:6px auto 0;max-width:330px}'
   + '</style></head><body><div class="w"><div class="card" id="app" role="status" aria-live="polite" tabindex="-1">'
-  + '<div class="carregant">Carregant les hores disponibles…</div>'
+  + '<div class="espera"><div class="rodona"></div><b>Estem buscant les hores lliures</b>'
+  + '<p id="espera2"></p></div>'
   + '</div></div><script>'
   /* ⚠ XSS REFLECTIT A L'ENLLAÇ QUE REBEN LES FAMÍLIES (auditoria 6/9/2026).
 
@@ -2355,47 +2514,156 @@ function _reuPaginaHtml_(calId) {
   + 'var dt=new Date(+p[0],+p[1]-1,+p[2]);'
   + 'return DIES[dt.getDay()]+" "+(+p[2])+" "+prep(MESOS[+p[1]-1]);}'
   + 'var app=document.getElementById("app");'
-  + 'function carrega(){google.script.run.withSuccessHandler(pinta).withFailureHandler(function(){'
-  + 'app.innerHTML="<div class=\'err\'>No s\'ha pogut carregar. Comprova la connexió i torna-ho a provar.</div>";'
+  /* ⚠ L'ESPERA S'HA D'EXPLICAR.
+
+     En Pol, 12/11/2026: «que surti un missatge maco, clar, vistós, que digui
+     que és una cosa que tarda molt perquè està carregant moltes dades […]
+     has de pensar que això ho solen rebre famílies amb poca experiència en
+     el món online».
+
+     Una pantalla quieta vol dir «està penjat». Aquí el text va canviant sol:
+     als 3 segons diu per què triga, als 10 diu que no es tanqui i als 20 que
+     de vegades Google va lent. No és una barra de progrés falsa: és dir el
+     que passa. */
+  + 'var tempsEspera=[];'
+  + 'function diuEspera(t){var e=document.getElementById("espera2");if(e)e.textContent=t;}'
+  + 'function esperaNeta(){tempsEspera.forEach(clearTimeout);tempsEspera=[];}'
+  + 'function esperaComenca(){esperaNeta();'
+  + 'tempsEspera.push(setTimeout(function(){diuEspera("Estem mirant hora per hora quines són lliures de debò. Triga uns segons.");},3000));'
+  + 'tempsEspera.push(setTimeout(function(){diuEspera("Encara hi som. No tanquis la pàgina: quan acabi, et sortiran totes les hores de cop.");},10000));'
+  + 'tempsEspera.push(setTimeout(function(){diuEspera("De vegades Google va lent. Tranquil·la: no s\'ha espatllat res, només cal esperar una mica més.");},20000));}'
+  + 'function esperaPinta(){esperaComenca();'
+  + 'app.innerHTML="<div class=\'espera\'><div class=\'rodona\'></div><b>Estem buscant les hores lliures</b><p id=\'espera2\'></p></div>";}'
+  + 'function carrega(){esperaPinta();'
+  + 'google.script.run.withSuccessHandler(function(r){esperaNeta();pinta(r);}).withFailureHandler(function(){'
+  + 'esperaNeta();'
+  + 'app.innerHTML="<div class=\'err\'>No s\'han pogut carregar les hores. Pot ser la connexió: espera uns segons i torna-ho a provar.</div>"'
+  + '+"<button class=\'btn\' id=\'retry\' style=\'margin-top:12px\'>Torna-ho a provar</button>";'
+  + 'var b=document.getElementById("retry");if(b)b.addEventListener("click",carrega);'
   + '}).reuPublicInfo(CAL);}'
   + 'function pinta(r){INFO=r;if(!r||!r.ok){app.innerHTML="<div class=\'err\'>"+esc((r&&r.error)||"Enllaç no vàlid")+"</div>";return;}'
   + 'var h="<h1>"+esc(r.titol)+"</h1>";'
   + 'if(r.descripcio)h+="<div class=\'desc\'>"+esc(r.descripcio)+"</div>";'
   + 'if(!r.actiu){h+="<div class=\'err\'>Aquest calendari està tancat: ja no s\'hi poden reservar hores.</div>";app.innerHTML=h;return;}'
+  /* El calendari de la mestra no s'ha pogut llegir: no és que no hi hagi
+     hores, és que ara mateix no se sap quines són lliures. Dir-ho. */
+  + 'if(r.calendariKO){h+="<div class=\'err\'><strong>Ara mateix no podem saber quines hores queden lliures.</strong><br>'
+  + 'No és culpa teva ni s\'ha espatllat res: no hem pogut consultar l\'agenda. Prova-ho d\'aquí a uns minuts.</div>"'
+  + '+"<button class=\'btn\' id=\'retry2\' style=\'margin-top:12px\'>Torna-ho a provar</button>";app.innerHTML=h;'
+  + 'var rb=document.getElementById("retry2");if(rb)rb.addEventListener("click",carrega);return;}'
   + 'if(!r.hores.length){h+="<div class=\'buit\'><strong>Ara mateix no queda cap hora lliure.</strong><br>Si necessites una altra hora, respon el correu amb què t\'han enviat aquest enllaç.</div>";app.innerHTML=h;return;}'
   + 'h+="<div class=\'meta\'>Reunions de "+r.durada+" minuts"+(r.lloc?" &middot; "+esc(r.lloc):"")+" &middot; queden "+r.hores.length+" hores lliures</div>";'
-  // Primer es tria el DIA i després l'hora. Abans sortien totes les hores de
-  // tots els dies de cop: amb tres setmanes eren dues-centes al mòbil, i la
-  // família havia de baixar una eternitat per trobar la que li anava bé.
   + 'PERDIA={};ORDRE=[];'
   + 'r.hores.forEach(function(s){var d=normData(s.data)||"?";'
   + 'if(!PERDIA[d]){PERDIA[d]=[];ORDRE.push(d);}'
   + 'PERDIA[d].push({slotId:s.slotId,data:d,inici:normHora(s.inici),fi:normHora(s.fi)});});'
   + 'ORDRE.sort();'
   + 'ORDRE.forEach(function(d){PERDIA[d].sort(function(a,b){return a.inici.localeCompare(b.inici);});});'
-  + 'CAP=h;pintaDies();}'
+  + 'CAP=h;preparaGraella();pintaSetmana();}'
 
-  // Pas 1: els dies
-  + 'function pintaDies(){var h=CAP+"<div class=\'dia\'><h2>Tria el dia</h2>";'
-  + 'ORDRE.forEach(function(d){var n=PERDIA[d].length;'
-  + 'h+="<button class=\'d\' data-d=\'"+esc(d)+"\'><span>"+esc(d==="?"?"Sense data":diaCurt(d))+"</span>"'
-  + '+"<em>"+n+(n===1?" hora":" hores")+"</em></button>";});'
-  + 'h+="</div>";app.innerHTML=h;'
-  + 'app.querySelectorAll("button.d").forEach(function(b){b.addEventListener("click",function(){'
-  + 'pintaHores(b.getAttribute("data-d"));});});}'
+  /* ---- La graella: quines columnes i quines files hi ha ----
+     Es decideix UNA vegada amb totes les hores, no setmana a setmana: si
+     cada setmana tingués la seva amplada i les seves files, passar d'una a
+     l'altra ho mouria tot de lloc i costaria de seguir. */
+  + 'var SETMANES=[],SET=0,COLS=[],FILES=[],SEL=null;'
+  + 'function dilluns(d){var p=d.split("-");var dt=new Date(+p[0],+p[1]-1,+p[2]);'
+  + 'var n=dt.getDay();dt.setDate(dt.getDate()-((n+6)%7));return dt;}'
+  + 'function aIso(dt){var p=function(n){return (n<10?"0":"")+n;};'
+  + 'return dt.getFullYear()+"-"+p(dt.getMonth()+1)+"-"+p(dt.getDate());}'
+  + 'function preparaGraella(){'
+  + 'var dies=ORDRE.filter(function(d){return d!=="?";});'
+  + 'if(!dies.length){SETMANES=[];return;}'
+  /* Quins dies de la setmana surten: de dilluns a divendres sempre, i el cap
+     de setmana NOMES si hi ha alguna hora. Una mestra pot oferir un dissabte
+     i aquella hora no es pot perdre. */
+  + 'var teCap=false;dies.forEach(function(d){var p=d.split("-");'
+  + 'var n=new Date(+p[0],+p[1]-1,+p[2]).getDay();if(n===0||n===6)teCap=true;});'
+  + 'COLS=teCap?[1,2,3,4,5,6,0]:[1,2,3,4,5];'
+  /* ⚠ LES HORES SÓN LES QUE HI HA, NI DE 9 A 5 NI TOTES LES DEL MIG.
 
-  // Pas 2: les hores d'aquell dia
-  + 'function pintaHores(d){var l=PERDIA[d]||[];'
-  + 'var h=CAP+"<div class=\'dia\'><h2>"+esc(d==="?"?"Sense data":dataText(d))+"</h2><div class=\'hores\'>";'
-  + 'l.forEach(function(s){h+="<button class=\'h\' data-s=\'"+esc(s.slotId)+"\'>"+esc(s.inici)+"</button>";});'
-  + 'h+="</div><button class=\'btn btn2\' id=\'tornar\' style=\'margin-top:14px\'>&larr; Triar un altre dia</button></div>";'
+     Dues coses alhora. La primera: la mestra ofereix hores fora del seu
+     horari laboral («moltes altres vegades també poso hores fora»), o sigui
+     que res de 9 a 17: si una hora no hi surt, no es pot triar.
+
+     La segona: si n'ofereix a les 9 i a les 19, posar-hi totes les files del
+     mig deixa deu files ratllades seguides, i el divendres a les 19 queda
+     tan avall que ningú no hi arriba. Només hi surten les hores on hi ha
+     alguna cosa, les mateixes a totes les setmanes perquè passar de setmana
+     no ho mogui tot de lloc. Quan se'n salta alguna, la fila següent porta
+     una ratlla per sobre: es veu que allà hi ha un buit. */
+  + 'var teHora={};ORDRE.forEach(function(d){(PERDIA[d]||[]).forEach(function(s){'
+  + 'var hh=parseInt(s.inici.slice(0,2),10);if(!isNaN(hh))teHora[hh]=1;});});'
+  + 'FILES=Object.keys(teHora).map(Number).sort(function(a,b){return a-b;});'
+  + 'if(!FILES.length)FILES=[9];'
+  + 'var pri=dilluns(dies[0]),ult=dilluns(dies[dies.length-1]);'
+  + 'SETMANES=[];var c=new Date(pri.getTime());'
+  + 'while(c.getTime()<=ult.getTime()&&SETMANES.length<60){SETMANES.push(aIso(c));c.setDate(c.getDate()+7);}'
+  /* S obre a la setmana de la primera hora lliure, no a la d avui: si la
+     primera es d aqui a tres setmanes, ningu no ha de clicar tres cops. */
+  + 'SET=0;}'
+
+  + 'function mesCurt(m){return ["gen.","febr.","març","abr.","maig","juny","jul.","ag.","set.","oct.","nov.","des."][m];}'
+  + 'function titolSetmana(iso){var p=iso.split("-");var a=new Date(+p[0],+p[1]-1,+p[2]);'
+  + 'var b=new Date(a.getTime());b.setDate(b.getDate()+(COLS.length>5?6:4));'
+  + 'return a.getDate()+" "+mesCurt(a.getMonth())+" &ndash; "+b.getDate()+" "+mesCurt(b.getMonth())+" "+b.getFullYear();}'
+
+  + 'function pintaSetmana(){'
+  + 'if(!SETMANES.length){app.innerHTML=CAP+"<div class=\'buit\'>No hi ha cap hora amb data.</div>";return;}'
+  + 'var base=SETMANES[SET].split("-");'
+  + 'var dl=new Date(+base[0],+base[1]-1,+base[2]);'
+  + 'var h=CAP;'
+  + 'h+="<div class=\'setm\'><button class=\'nav\' id=\'ant\' aria-label=\'Setmana anterior\'"+(SET<=0?" disabled":"")+">&#8249;</button>"'
+  + '+"<b>"+titolSetmana(SETMANES[SET])+"</b>"'
+  + '+"<button class=\'nav\' id=\'seg\' aria-label=\'Setmana següent\'"+(SET>=SETMANES.length-1?" disabled":"")+">&#8250;</button></div>";'
+  /* La graella: una columna per a les hores i una per dia. */
+  + 'var dates=[],buitDia=[];'
+  + 'COLS.forEach(function(n,i){var dt=new Date(dl.getTime());'
+  + 'dt.setDate(dt.getDate()+((n===0?7:n)-1));var iso=aIso(dt);'
+  + 'dates.push({iso:iso,dt:dt});buitDia.push(!(PERDIA[iso]&&PERDIA[iso].length));});'
+  + 'h+="<div class=\'gscroll\'><div class=\'g\' style=\'grid-template-columns:auto repeat("+COLS.length+",minmax(84px,1fr))\'>";'
+  + 'h+="<div class=\'gh gt\'></div>";'
+  + 'dates.forEach(function(x,i){'
+  + 'h+="<div class=\'gh"+(buitDia[i]?" capbuit":"")+"\'>"+DIES[x.dt.getDay()].slice(0,2)+" "+x.dt.getDate()'
+  + '+"<small>"+(buitDia[i]?"sense hores":((PERDIA[x.iso]||[]).length+(PERDIA[x.iso].length===1?" hora":" hores")))+"</small></div>";});'
+  + 'for(var fi=0;fi<FILES.length;fi++){var hh=FILES[fi];'
+  + 'var salt=(fi>0&&hh>FILES[fi-1]+1)?" salt":"";'
+  + 'h+="<div class=\'gt"+salt+"\'>"+("0"+hh).slice(-2)+":00</div>";'
+  + 'for(var k=0;k<dates.length;k++){'
+  + 'var l=(PERDIA[dates[k].iso]||[]).filter(function(s){return parseInt(s.inici.slice(0,2),10)===hh;});'
+  + 'if(!l.length){h+="<div class=\'gc"+salt+" "+(buitDia[k]?"diabuit":"buida")+"\'></div>";continue;}'
+  + 'h+="<div class=\'gc"+salt+"\'><div class=\'pastilles\'>";'
+  + 'l.forEach(function(s){'
+  + 'h+="<button class=\'p"+(SEL&&SEL===s.slotId?" triat":"")+"\' data-s=\'"+esc(s.slotId)+"\'"'
+  + '+" aria-label=\'"+esc(dataText(s.data))+", "+esc(s.inici)+"\'>"+esc(s.inici)+"</button>";});'
+  + 'h+="</div></div>";}}'
+  + 'h+="</div></div>";'
+  + 'h+="<div class=\'llegenda\'><span><i class=\'l1\'></i>Hora lliure</span>"'
+  + '+"<span><i class=\'l2\'></i>La que has triat</span>"'
+  + '+"<span><i class=\'l3\'></i>Sense opcions</span></div>";'
+  + 'if(COLS.length>3)h+="<div class=\'rellisca\'>Si no hi caben tots els dies, rellisca la graella cap als costats amb el dit.</div>";'
+  + 'h+="<div id=\'sota\'></div>";'
   + 'app.innerHTML=h;'
-  + 'document.getElementById("tornar").addEventListener("click",pintaDies);'
-  + 'app.querySelectorAll("button.h").forEach(function(b){b.addEventListener("click",function(){'
-  + 'var s=l.filter(function(x){return x.slotId===b.getAttribute("data-s");})[0];if(s)formulari(s);});});}'
+  + 'var cont=document.querySelector(".w");if(cont)cont.classList.add("ample");'
+  + 'var a=document.getElementById("ant");if(a)a.addEventListener("click",function(){if(SET>0){SET--;SEL=null;pintaSetmana();}});'
+  + 'var g=document.getElementById("seg");if(g)g.addEventListener("click",function(){if(SET<SETMANES.length-1){SET++;SEL=null;pintaSetmana();}});'
+  + 'app.querySelectorAll("button.p").forEach(function(b){b.addEventListener("click",function(){'
+  + 'var id=b.getAttribute("data-s");var s=null;'
+  + 'ORDRE.forEach(function(d){(PERDIA[d]||[]).forEach(function(x){if(x.slotId===id)s=x;});});'
+  + 'if(s){SEL=id;formulari(s);}});});}'
+  /* ⚠ EL FORMULARI VA SOTA LA GRAELLA, NO AL SEU LLOC.
+
+     Si la substituís, l'hora triada deixaria de veure's i no es podria
+     comparar amb les altres («i si millor la del dijous?»). Posant-lo a
+     sota, la pastilla es queda marcada d'un altre color —que és el que es
+     demanava— i la graella continua a la vista. */
   + 'function formulari(s){TRIA=s;'
-  + 'app.innerHTML="<h1>"+esc(INFO.titol)+"</h1>"'
-  + '+"<div class=\'tria\'>"+esc(dataText(s.data))+" &middot; "+esc(normHora(s.inici))+" - "+esc(normHora(s.fi))+"</div>"'
+  + 'app.querySelectorAll("button.p").forEach(function(b){'
+  + 'b.classList.toggle("triat",b.getAttribute("data-s")===s.slotId);});'
+  + 'var sota=document.getElementById("sota");'
+  + 'if(!sota){app.innerHTML="<h1>"+esc(INFO.titol)+"</h1>";sota=document.createElement("div");'
+  + 'sota.id="sota";app.appendChild(sota);}'
+  + 'sota.innerHTML='
+  + '"<div class=\'tria\' style=\'margin-top:18px\'>"+esc(dataText(s.data))+" &middot; "+esc(normHora(s.inici))+" - "+esc(normHora(s.fi))+"</div>"'
   + '+(INFO.lloc?"<div class=\'hint\'>On: "+esc(INFO.lloc)+"</div>":"")'
   /* ⚠ EL NOM I EL CORREU QUE ES PERDIEN.
 
@@ -2412,8 +2680,16 @@ function _reuPaginaHtml_(calId) {
   + '+"<div style=\'margin-top:16px;display:flex;gap:9px;flex-direction:column\'>"'
   + '+"<button class=\'btn\' id=\'ok\'>Reservar aquesta hora</button>"'
   + '+"<button class=\'btn btn2\' id=\'no\'>Triar-ne una altra</button></div>";'
-  + 'document.getElementById("no").addEventListener("click",function(){carrega();});'
+  /* «Triar-ne una altra» no torna a demanar-ho tot al servidor: les hores ja
+     les tenim i tornar-les a demanar són vint segons d'espera per res. Es
+     treu la marca i la graella es queda on era. */
+  + 'document.getElementById("no").addEventListener("click",function(){'
+  + 'TRIA=null;SEL=null;'
+  + 'app.querySelectorAll("button.p").forEach(function(b){b.classList.remove("triat");});'
+  + 'var st=document.getElementById("sota");if(st)st.innerHTML="";'
+  + 'try{app.scrollIntoView({block:"start",behavior:"smooth"});}catch(e){}});'
   + 'document.getElementById("ok").addEventListener("click",envia);'
+  + 'try{sota.scrollIntoView({block:"nearest",behavior:"smooth"});}catch(e){}'
   + 'document.getElementById("n").focus();}'
   + 'function envia(){var n=document.getElementById("n").value.trim();var e=document.getElementById("e").value.trim();'
   + 'var msg=document.getElementById("msg");'
@@ -2441,7 +2717,8 @@ function _reuPaginaHtml_(calId) {
   + '}).withFailureHandler(function(){b.disabled=false;b.textContent="Reservar aquesta hora";'
   + 'msg.innerHTML="<div class=\'err\'>No s\'ha pogut reservar. Comprova la connexió i torna-ho a provar.</div>";'
   + '}).reuPublicReserva(CAL,TRIA.slotId,n,e);}'
-  + 'function fet(r){app.innerHTML="<div class=\'ok\'><div class=\'tic\'>\\u2705</div>"'
+  + 'function fet(r){var cw=document.querySelector(".w");if(cw)cw.classList.remove("ample");'
+  + 'app.innerHTML="<div class=\'ok\'><div class=\'tic\'>\\u2705</div>"'
   + '+"<h1 style=\'margin-top:8px\'>Hora reservada</h1>"'
   // Les hores també passen pel normHora aquí: aquesta pantalla la veu la
   // família just després de reservar, i és l'última impressió que s'endú.
@@ -7268,7 +7545,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v351';
+var BACKEND_VERSIO = 'v356';
 
 var MAX_CELA = 45000;
 

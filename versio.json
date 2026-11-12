@@ -1,11 +1,11 @@
 {
-  "versio": "v355",
+  "versio": "v356",
   "data": "2026-11-12",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A 1r, direcció ha refet objectius de Medi, Matemàtiques i Català. Si ja n havies marcat, torna a mirar aquestes tres: la pantalla t ho avisa en vermell.",
-    "El Medi de 1r és nou de dalt a baix: de 7 objectius a 5, i cap no és dels d abans.",
-    "A Matemàtiques ha marxat Comptar de 2 en 2 : els de sota han pujat una casella.",
-    "I a 1r ja són definitius Català, Castellà, Medi, Matemàtiques, Cultura Religiosa i Educació Física: allà l avís groc ja no hi surt."
+    "La pàgina que reben les famílies per reservar hora ja no és una llista interminable: ara és una graella de la setmana, com el planning.",
+    "Hi veuen els dies a dalt i les hores a l esquerra, les lliures en verd i els dies i les hores sense cap opció ratllats de gris. Es passa de setmana amb les fletxes.",
+    "Hi caben les hores de fora de l horari laboral i les deu opcions que hi pugui haver dins d una mateixa hora.",
+    "I carrega molt més de pressa: abans preguntava al teu calendari una vegada per cada hora lliure i ara ho fa d un sol cop. Si tot i així triga, la pàgina ho explica a la família."
   ]
 }
