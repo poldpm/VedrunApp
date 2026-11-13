@@ -55,6 +55,22 @@
 
 const MILLORES = [
   {
+    id: 'la-meva-llibreta',
+    titol: 'La meva llibreta',
+    ras: 'Un lloc dins l\'app per apuntar-te el que no vols oblidar: el que es diu a les reunions, els acords, el que has de tenir en compte.',
+    mes: [
+      'S\'obre i s\'escriu, com una llibreta de paper: un quadre sempre a punt, amb el dia posat sol. El que escrius es queda tal com ho escrius, línia per línia.',
+      'Tens un cercador: escrius «bus» i et surten totes les anotacions que en parlen, siguin de quan siguin. Això és el que la llibreta de paper no fa.',
+      'De qualsevol línia en pots fer una tasca o un event del calendari amb un botó: s\'obre la finestra de sempre amb el text ja posat i només hi has de dir el dia.',
+      'Hi pots posar etiquetes teves (reunió, sortides, famílies) per filtrar, però no cal: si no en poses, igual de bé.',
+      'Es desa al teu full, com tota la resta: ho escrius al mòbil a la reunió i ho tens a l\'ordinador a la tarda.',
+    ],
+    data: '2026-11-13',
+    /* Com se sap si ja la té: l'interruptor del seu `js/personal.js`. El codi
+       arriba a totes les apps amb el sync, però neix apagat. */
+    interruptor: 'EINES_LLIBRETA',
+  },
+  {
     id: 'incidencies-familia',
     titol: 'Avisar la família d\'una incidència',
     ras: 'Escrius en dues línies què ha passat i el correu per a la família surt redactat, a punt de revisar i enviar.',

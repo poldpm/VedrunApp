@@ -1,9 +1,11 @@
 {
-  "versio": "v361",
-  "data": "2026-11-12",
+  "versio": "v362",
+  "data": "2026-11-13",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A 2n, direcció ha refet els 6 objectius del Teatre (dins de Tallers): continuen sent 6, però tots diuen una altra cosa. Si ja n havies marcat, torna a mirar-los: la pantalla t ho avisa.",
-    "I el 1r trimestre de 2n ja és definitiu sencer: a cap assignatura no hi surt l avís groc de provisionals."
+    "Eina nova, a demanar: La meva llibreta. Un lloc per apuntar-te el que no vols oblidar (el que es diu a les reunions, els acords), per dies i amb cercador.",
+    "De qualsevol línia en pots fer una tasca o un event del calendari amb un botó: s obre la finestra de sempre amb el text ja posat.",
+    "Es desa al teu full: ho escrius al mòbil a la reunió i ho tens a l ordinador a la tarda.",
+    "Si et fa servei, la pots demanar a Possibles actualitzacions, a l Inici."
   ]
 }

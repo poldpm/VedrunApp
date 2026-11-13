@@ -6701,3 +6701,112 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .temp-rellotge { width: 100%; max-width: 220px; margin: 0 auto; }
   .temp-card-num { flex-basis: 100%; }
 }
+
+/* ============================================================
+   LA MEVA LLIBRETA (eina opcional)
+   ------------------------------------------------------------
+   Una llibreta, no una paret de targetes: text seguit, per dies,
+   que es llegeix de dalt a baix. Per això no hi ha graella ni
+   colors: hi ha ratlles i aire.
+   ============================================================ */
+.llib-escriu {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md, 12px); padding: 12px; margin-bottom: 14px;
+}
+.llib-area {
+  width: 100%; min-height: 90px; resize: vertical; font: inherit; font-size: 14.5px;
+  line-height: 1.6; color: var(--text-main); background: transparent;
+  border: 0; outline: none; padding: 2px 2px 8px;
+}
+.llib-area::placeholder { color: var(--text-muted); }
+.llib-escriu-peu {
+  display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+  border-top: 1px solid var(--border); padding-top: 10px;
+}
+.llib-camp { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--text-sub); font-weight: 700; }
+.llib-camp-ample { flex: 1; min-width: 140px; }
+.llib-camp input {
+  font: inherit; font-size: 14px; font-weight: 400; padding: 8px 10px; min-height: 40px;
+  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text-main);
+}
+.llib-camp input:focus { outline: 2px solid var(--crimson); outline-offset: 1px; border-color: var(--crimson); }
+.llib-opc { font-weight: 400; color: var(--text-muted); }
+.llib-escriu-peu .btn { margin-left: auto; }
+
+.llib-barra { margin-bottom: 10px; }
+.llib-cerca {
+  width: 100%; font: inherit; font-size: 14px; padding: 10px 12px; min-height: 42px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text-main);
+}
+.llib-cerca:focus { outline: 2px solid var(--crimson); outline-offset: 1px; border-color: var(--crimson); }
+
+.llib-etiquetes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.llib-etiq {
+  font: inherit; font-size: 12.5px; padding: 5px 11px; cursor: pointer;
+  background: var(--surface); color: var(--text-sub);
+  border: 1px solid var(--border); border-radius: 999px;
+}
+.llib-etiq:hover { border-color: var(--crimson); color: var(--garnet-text); }
+.llib-etiq.actiu { background: var(--crimson); border-color: var(--crimson); color: #fff; font-weight: 700; }
+
+.llib-compte { font-size: 12.5px; color: var(--text-muted); margin: 0 0 8px; }
+.llib-dia {
+  font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700;
+  color: var(--garnet-text, var(--crimson)); margin: 18px 0 8px;
+  padding-bottom: 5px; border-bottom: 1px solid var(--border);
+}
+.llib-dia:first-child { margin-top: 0; }
+
+.llib-anot {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--crimson-100, #F6D6DF);
+  border-radius: var(--r-sm); padding: 10px 12px; margin-bottom: 10px;
+}
+.llib-linia {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 3px 0; border-bottom: 1px dashed transparent;
+}
+.llib-linia:hover { border-bottom-color: var(--border); }
+.llib-text { flex: 1; font-size: 14.5px; line-height: 1.55; color: var(--text-main); white-space: pre-wrap; word-break: break-word; }
+/* ⚠ Els botonets es veuen SEMPRE, no només en passar-hi el ratolí: al mòbil
+   no hi ha ratolí, i amagar-los els faria desaparèixer justament on més es
+   fa servir la llibreta (a la reunió, amb el telèfon). */
+.llib-accions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.llib-mini {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; cursor: pointer;
+  background: transparent; color: var(--text-muted);
+  border: 1px solid transparent; border-radius: var(--r-sm);
+}
+.llib-mini:hover { background: var(--surface-tint); color: var(--crimson); border-color: var(--border); }
+.llib-mini:focus-visible { outline: 2px solid var(--crimson); outline-offset: 1px; }
+.llib-ja {
+  font-size: 11px; font-weight: 700; color: #15603A; background: #E8F6EE;
+  border: 1px solid #BBE3CC; border-radius: 999px; padding: 2px 7px; white-space: nowrap;
+}
+
+.llib-etiq-anot { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.llib-etiq-mini {
+  font: inherit; font-size: 11.5px; padding: 2px 9px; cursor: pointer;
+  background: var(--surface-tint); color: var(--text-sub);
+  border: 1px solid var(--border); border-radius: 999px;
+}
+.llib-etiq-mini:hover { border-color: var(--crimson); color: var(--garnet-text); }
+
+.llib-peu { display: flex; gap: 4px; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--border); }
+.llib-peu-btn {
+  font: inherit; font-size: 12px; font-weight: 700; padding: 4px 9px; cursor: pointer;
+  background: transparent; color: var(--text-sub); border: 1px solid transparent; border-radius: var(--r-sm);
+}
+.llib-peu-btn:hover { background: var(--surface-tint); border-color: var(--border); color: var(--garnet-text); }
+.llib-peu-del:hover { color: #9B1C2E; border-color: #F0C9CF; background: #FDF2F4; }
+
+.llib-buit { text-align: center; color: var(--text-muted); padding: 30px 14px; line-height: 1.6; }
+.llib-buit svg { margin-bottom: 10px; }
+
+@media (max-width: 560px) {
+  .llib-escriu-peu { gap: 8px; }
+  .llib-escriu-peu .btn { width: 100%; margin-left: 0; }
+  .llib-camp, .llib-camp-ample { width: 100%; }
+}

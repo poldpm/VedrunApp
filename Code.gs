@@ -3896,6 +3896,8 @@ function handleRequest(e) {
       case 'loadSeients':            result = loadSeients(ss, (body&&body.grup) || p.grup); break;
       case 'savePostits':            result = savePostits(ss, body.postits, body.base); break;
       case 'loadPostits':            result = loadPostits(ss); break;
+      case 'saveLlibreta':           result = saveLlibreta(ss, body.llibreta, body.base); break;
+      case 'loadLlibreta':           result = loadLlibreta(ss); break;
       case 'saveHorari':             result = saveHorari(ss, body.horari); break;
       case 'loadHorari':             result = loadHorari(ss); break;
       case 'saveHorariAssigs':       result = saveHorariAssigs(ss, body.assigs); break;
@@ -7576,7 +7578,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v357';
+var BACKEND_VERSIO = 'v362';
 
 var MAX_CELA = 45000;
 
@@ -8093,6 +8095,21 @@ function savePostits(ss, postits, base) {
 function loadPostits(ss) {
   var p = sheetGetJSON(ss, '_AppData', 'postits');
   return { ok: true, postits: p ? JSON.parse(p) : [], base: Date.now() };
+}
+
+/* ---- LA MEVA LLIBRETA (eina opcional) ----
+   Les anotacions de la mestra: el que s'apunta a les reunions i el que ha de
+   tenir en compte. Es fusionen ANOTACIÓ PER ANOTACIÓ, com els post-its i les
+   tasques: escriure al mòbil durant la reunió i a l'ordinador a la tarda no
+   s'ha de trepitjar. Veure `js/llibreta.js`. */
+function saveLlibreta(ss, llibreta, base) {
+  if (typeof llibreta === 'string') { try { llibreta = JSON.parse(llibreta); } catch (e) { llibreta = []; } }
+  var r = _fusionaPerId_(ss, 'llibreta', llibreta || [], base);
+  return { ok: true, ts: r.ts };
+}
+function loadLlibreta(ss) {
+  var l = sheetGetJSON(ss, '_AppData', 'llibreta');
+  return { ok: true, llibreta: l ? JSON.parse(l) : [], base: Date.now() };
 }
 
 /* ---- HORARI (plantilla setmanal) ---- */

@@ -499,3 +499,52 @@ d'apartat i a tancar l'app.
 **Depèn de:** **només pantalla.** No parla mai amb el servidor ni desa res al
 full de càlcul, i això és a posta: es fa servir amb el projector engegat i la
 connexió que hi hagi. La mestra no ha d'enganxar res.
+
+## `la-meva-llibreta` — La meva llibreta
+
+**Què fa:** una llibreta dins l'app: anotacions per dies, amb cercador, i de
+qualsevol línia se'n pot fer una tasca o un event del calendari.
+
+**Fitxers:**
+- `js/llibreta.js` — l'eina sencera (IIFE, `window.Llibreta`). Carrega,
+  desa, pinta, cerca, filtra per etiquetes i fa el pas a Tasques i Calendari.
+- `index.html` — l'entrada amagada del menú d'Eines (`navLlibreta`), la
+  pàgina `page-llibreta` i la finestra d'editar una anotació.
+- `css/main.css` — l'apartat «LA MEVA LLIBRETA».
+- `js/app.js` — la redirecció de `showPage` si no la té, la crida a
+  `Llibreta.obrePagina()`, `Llibreta.aplicaInterficie()` i la descripció de
+  la targeta a `EINES_DESC`.
+- `Code.gs` — `saveLlibreta` / `loadLlibreta` i els dos `case`.
+- `js/personal.js` de la mestra — `window.EINES_LLIBRETA = true;`
+
+**Com funciona:** cada anotació és `{ id, data, text, etiq[], ts, tasques[],
+events[] }` i viu a `_AppData`, clau `llibreta`. Es desa amb
+`_fusionaPerId_`, igual que els post-its i les tasques: la fusió va per
+anotació, o sigui que el mòbil i l'ordinador no es trepitgen.
+
+El text es desa TAL COM S'ESCRIU. Per ensenyar-lo i per fer-ne tasques es
+parteix per salts de línia i es treu el pic del davant (`- `, `· `, `• `):
+la tasca ha de dir «Demanar el bus», no «- Demanar el bus».
+
+El pas a Tasques i al Calendari **no crea res sol**: obre `openTasca(null)` o
+`openCal2Event(null, data)` —les finestres de sempre— amb el títol i la
+descripció posats, i la mestra hi acaba de dir la data o la categoria. Així
+acaba a Tasques i al Calendari de debò, sense una tercera llista a part.
+
+**Paranys:**
+- **El zero no és el problema aquí; el problema és la posició.** Què ha sortit
+  de quina línia es recorda pel TEXT de la línia (`tasques[]`, `events[]`), no
+  per l'índex: si després es retoca l'anotació i les línies ballen, la marca
+  «✓ tasca» segueix la línia i no una altra.
+- **Els botonets de cada línia es veuen sempre**, no amb el ratolí a sobre: la
+  llibreta es fa servir amb el telèfon a la reunió, i allà no hi ha ratolí.
+- **El `BACKEND_MINIM` NO es puja.** L'acció és nova, però només la necessita
+  qui tingui l'eina encesa: pujar-lo posaria la franja groga de «servidor
+  endarrerit» a les altres sis mestres per una eina que no tenen. Ho diu la
+  mateixa pàgina de la llibreta quan el servidor encara no coneix l'acció
+  (veure `_servidorVell`).
+- La cerca passa per `_net()`: sense accents i en minúscules. Qui busca una
+  cosa seva no es recorda de com la va accentuar.
+
+**Depèn de:** també `Code.gs` (en Pol enganxa la biblioteca un sol cop i
+arriba a totes alhora; cap mestra no ha de fer res).

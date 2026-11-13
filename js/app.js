@@ -255,6 +255,11 @@ function showPage(pageId, _fromPop) {
       !(typeof Aules !== 'undefined' && Aules.hiEs && Aules.hiEs())) {
     pageId = 'home';
   }
+  /* La meva llibreta: una altra eina que només té qui l'ha demanada. */
+  if (pageId === 'llibreta' &&
+      !(typeof Llibreta !== 'undefined' && Llibreta.hiEs && Llibreta.hiEs())) {
+    pageId = 'home';
+  }
   if (_fromPop && pageId !== _demanat) {
     try { history.replaceState({ page: pageId }, '', '#' + pageId); } catch (e) {}
   }
@@ -312,6 +317,7 @@ function showPage(pageId, _fromPop) {
   if (pageId === 'rubaval') RubAvalUI.obrePagina();
   if (pageId === 'eines')        renderEines();
   if (pageId === 'aules')        { if (typeof Aules !== 'undefined') Aules.obrePagina(); }
+  if (pageId === 'llibreta')     { if (typeof Llibreta !== 'undefined') Llibreta.obrePagina(); }
   if (pageId === 'temporitzador') { if (typeof Temporitzador !== 'undefined') Temporitzador.obre(); }
   if (pageId === 'grups')        initGrups();
   if (pageId === 'seients')      initSeients();
@@ -488,6 +494,7 @@ const EINES_DESC = {
   rubaval:    'Els teus criteris, amb el pes que vulguis. La nota va al registre.',
   aules:      'Quines aules auxiliars s\u00f3n buides ara, i fins a quina hora.',
   temporitzador: 'Un compte enrere gran, per projectar: «cinc minuts i recollim».',
+  llibreta:   'El que no vols oblidar, apuntat per dies. Es busca, i d\'una línia en surt una tasca o un event.',
 };
 
 function renderEines() {
@@ -5557,6 +5564,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // carrega l'últim de tots i per tant ja hi és quan s'arriba aquí).
   try { if (typeof RubAvalUI !== 'undefined') RubAvalUI.aplicaInterficie(); } catch (e) {}
   try { if (typeof Aules !== 'undefined') Aules.aplicaInterficie(); } catch (e) {}
+  try { if (typeof Llibreta !== 'undefined') Llibreta.aplicaInterficie(); } catch (e) {}
   try { if (typeof Temporitzador !== 'undefined') Temporitzador.aplicaInterficie(); } catch (e) {}
   updateHomeCounters(); // inicialitza data sidebar
   // Mostra el nom del perfil al menú des del cache local (immediat)
