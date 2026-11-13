@@ -1,10 +1,13 @@
 {
-  "versio": "v363",
+  "versio": "v364",
   "data": "2026-11-13",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "A La meva llibreta, els guionets que escrius davant de les frases ja no desapareixen: es veu tal com ho escrius.",
-    "I els dos botonets (tasca i calendari) ja no surten a cada línia: ara n hi ha un parell per anotació, al títol.",
-    "Valen per l anotació sencera: el títol va al títol de la tasca i la resta a la descripció. Una llista de set materials és una tasca amb els set a dins, no set tasques."
+    "Repàs a fons de tota l app. No hi ha res de nou per aprendre: és perquè tot el que escrius es quedi on l has escrit.",
+    "Una nota, una creu del registre o una observació acabada de desar ja no desapareix de la pantalla quan l app es posa al dia sola. Passava si el servidor anava lent: al full hi era, però a la pantalla marxava una estona.",
+    "Si obres una assignatura d un altre grup i de seguida en obres una altra (o tornes a Alumnes), ja no et poden quedar a la pantalla els alumnes de la primera.",
+    "Al generador de comentaris, cada alumne porta només les SEVES observacions. En una assignatura d un altre grup s hi podien colar les d un altre nen.",
+    "Especialistes i direcció: les observacions i el registre del grup que teniu triat ja no es buiden sols cada pocs minuts, i triar dos grups seguits de pressa ja no els barreja.",
+    "L app va més lleugera: ja no ho torna a demanar tot al servidor cada cop que tornes a la pestanya."
   ]
 }

@@ -350,7 +350,11 @@ async function _grupviewDesaObs() {
     }
     // Que es vegi també a la pàgina d'Observacions si hi tenim el mateix grup
     const _bo = _grupviewObs[String(rowId)][key];
-    if (typeof observacions !== 'undefined' && observacions && observacions[a.id]) observacions[a.id][key] = _bo;
+    /* …i NOMÉS si aquell número és d'aquest mateix nen. Abans n'hi havia prou
+       que el número existís, i l'observació s'apuntava (a la pantalla) al nen
+       d'una altra classe que té el mateix número (auditoria del 13/11/2026). */
+    if (typeof observacions !== 'undefined' && observacions && observacions[a.id] &&
+        typeof _obsAmo !== 'undefined' && String(_obsAmo[a.id]) === String(rowId)) observacions[a.id][key] = _bo;
     if (typeof MATERIES !== 'undefined' && !MATERIES[_grupviewObsKey(nomAssig)]) {
       MATERIES[_grupviewObsKey(nomAssig)] = nomAssig + ' · ' + _grupviewGrup;
     }

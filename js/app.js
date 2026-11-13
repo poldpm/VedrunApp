@@ -190,6 +190,55 @@ try {
 } catch (e) {}
 let students      = [];
 let observacions  = {};   // { studentId: { '1_matematiques': text, ... } }
+
+/* ⚠ LES OBSERVACIONS D'UN NEN SORTIEN A UN ALTRE NEN, D'UNA ALTRA CLASSE
+   (auditoria del 13/11/2026).
+
+   `observacions` va pel NÚMERO de l'alumne a la llista (0, 1, 2…), i de
+   llistes n'hi ha moltes: la tutoria, cada assignatura d'un altre grup, el
+   grup que tria una especialista. Les observacions es carreguen per a UNA
+   llista; si després la pantalla passa a una altra (el generador de
+   comentaris d'una assignatura d'un altre grup, per exemple), el nen número
+   0 d'ara es trobava les observacions del nen número 0 d'abans. Reproduït a
+   l'app d'una especialista: el generador de «Música · 2n A» feia servir, per
+   al primer nen de 2n A, les observacions del primer nen de 3r A. I d'allà
+   anaven al comentari que llegeix la família.
+
+   Ara cada cop que s'omple `observacions` s'apunta DE QUI és cada número
+   (el codi permanent del nen al full, `rowId`). Qui les llegeix passa per
+   `_obsDe()`, que les torna només si són del nen que hi ha ARA en aquell
+   número. Si no se sap de qui són (la còpia d'arrencada del navegador, un
+   full sense codis), es fa com sempre: no s'amaga res que abans es veiés. */
+let _obsAmo = {};         // número d'alumne → rowId del nen de qui són
+function _obsRowIdDAra(studentId) {
+  const p = (typeof personal !== 'undefined' && personal) ? personal[studentId] : null;
+  if (p && p.rowId !== undefined && p.rowId !== null && p.rowId !== '') return String(p.rowId);
+  const st = (typeof students !== 'undefined' && students)
+    ? students.find(x => String(x.id) === String(studentId)) : null;
+  if (st && st.rowId !== undefined && st.rowId !== null && st.rowId !== '') return String(st.rowId);
+  return null;
+}
+function _obsSonDAquestNen(studentId) {
+  const amo = _obsAmo[studentId];
+  if (amo === undefined || amo === null) return true;        // no se sap: com sempre
+  const ara = _obsRowIdDAra(studentId);
+  return ara === null || String(amo) === ara;
+}
+/* Les observacions de l'alumne que hi ha ARA en aquest número. */
+function _obsDe(studentId) {
+  const o = observacions ? observacions[studentId] : null;
+  if (!o) return {};
+  return _obsSonDAquestNen(studentId) ? o : {};
+}
+/* Abans d'ESCRIURE-hi: si el que hi ha en aquest número és d'un altre nen,
+   es treu (no és seu), i el número queda apuntat a nom del nen d'ara. */
+function _obsPrepara(studentId) {
+  if (!_obsSonDAquestNen(studentId)) delete observacions[studentId];
+  if (!observacions[studentId]) observacions[studentId] = {};
+  const ara = _obsRowIdDAra(studentId);
+  if (ara !== null) _obsAmo[studentId] = ara;
+  return observacions[studentId];
+}
 let personal      = {};   // { studentId: { tutor1, correu1, tutor2, correu2, telefons, obs } }
 /* Les caselles de text del registre que encara no han sortit cap al full.
    Es buiden totes de cop quan es canvia de grup, de pantalla o es tanca. */
@@ -1169,7 +1218,7 @@ async function savePersonalDrawer(noTanquis) {
 function openObsDrawer(studentId) {
   currentObsStudentId = studentId;
   const s   = students.find(x => x.id === studentId);
-  const obs = observacions[studentId] || {};
+  const obs = _obsDe(studentId);
   const tot = Object.values(obs).filter(v => v && v.trim()).length;
   const nAct = _comentarisDe(studentId).length;
   document.getElementById('obsDrawerName').textContent = s ? nomAlumne(s) : '—';
@@ -1941,8 +1990,17 @@ async function appsScriptGet(params, _retry = true) {
   const jaHiVa = _getEnMarxa.get(clau);
   if (jaHiVa) return jaHiVa;
 
+  /* ⚠ Una resposta demanada ABANS d'un desat no es pot guardar (13/11/2026).
+     Desar buida el guardat, però una lectura que ja viatjava tornava després
+     i s'hi quedava un minut sencer: durant aquell minut, tornar a demanar el
+     mateix donava la foto d'abans del desat —sense l'observació o la creu
+     que s'acabava de posar. */
+  const _t0 = Date.now();
   const p = _appsScriptGetXarxa(params, _retry, _fons).then(r => {
-    if (esLectura && r && r.ok) _getGuardat.set(clau, { ts: Date.now(), dades: r });
+    if (esLectura && r && r.ok &&
+        !(typeof _hiHaEscripturaDesDe === 'function' && _hiHaEscripturaDesDe(_t0))) {
+      _getGuardat.set(clau, { ts: Date.now(), dades: r });
+    }
     return r;
   }).finally(() => { _getEnMarxa.delete(clau); });
 
@@ -2124,6 +2182,55 @@ const _POST_SENSE_VEL = new Set(['saveGrupGenere', 'saveGrupPersonal', 'savePers
   'desaCaselles', 'updateNota', 'setNoEntregat', 'updateRegistreCell', 'updateActitudBatch',
   'saveNotaComentari', 'publicaNotesResum', 'syncAssoliments']);
 
+/* ⚠ EL QUE S'ACABAVA DE DESAR DESAPAREIXIA DE LA PANTALLA
+   (auditoria del 13/11/2026; en Pol: «que totes les observacions es guardin»).
+
+   L'app es posa al dia sola: cada tres minuts i cada cop que es torna a la
+   pestanya demana al servidor «com està tot?». La resposta triga uns segons,
+   i és una FOTO del full feta al moment de demanar-la. Si en aquells segons
+   la mestra apuntava una observació (o marcava una creu, o escrivia una
+   nota) i el desat acabava abans que arribés la foto, la foto —que encara
+   no ho portava— es posava a sobre i allò desapareixia de la pantalla. Al
+   full hi era; a l'app, no, fins al refresc següent. I qui veu que una
+   observació li ha desaparegut la torna a escriure, i llavors hi és dues
+   vegades.
+
+   Fins ara només es protegia el que encara era A LA CUA. El forat era el
+   que ja havia sortit de la cua: desat de debò, però després de la foto.
+
+   Ara cada escriptura deixa un segell d'hora (quan surt i quan torna), i
+   una lectura que s'ha demanat abans d'aquell segell es dona per vella: no
+   s'aplica, i es torna a demanar quan ja no s'escrigui res. Les notes tenen
+   el seu segell per assignatura, perquè desar a Mates no faci repetir la
+   lectura de Català. */
+let _escriptEnMarxa = 0;          // escriptures que encara viatgen
+let _escriptTs = 0;               // l'últim cop que en va sortir o en va tornar una
+const _escriptNotes = {};         // «matèria|trimestre|grup» → { enMarxa, ts }
+const _ESCRIU_NOTES = new Set(['desaCaselles', 'addNotaItem', 'deleteNotaItem', 'updateNota',
+                               'setNoEntregat', 'saveNotaComentari']);
+function _notesClauEscript(b) {
+  return (b.materia || '') + '|' + String(b.trimestre) + '|' + (b.grup || '');
+}
+/* «>» i no «>=»: una escriptura que ha ACABAT en el mateix mil·lisegon en
+   què es demana la lectura és d'abans de la lectura, no de després. Amb
+   «>=», dues crides seguides en un ordinador ràpid es donaven per barrejades
+   una de cada tantes vegades (ho va caçar `comprova-espera.js`). */
+function _hiHaEscripturaDesDe(t0) { return _escriptEnMarxa > 0 || _escriptTs > t0; }
+/* Les observacions, a part: tornar a llegir les d'un grup només s'ha de
+   repetir si s'ha desat una OBSERVACIÓ, no qualsevol cosa (en arrencar l'app
+   hi ha desats de manteniment que durarien uns quants segons d'espera). */
+const _ESCRIU_OBS = new Set(['saveGrupObs', 'saveObservacio', 'deleteObservacio', 'obsAlFullLot', 'obsArreglaGrups']);
+const _escriptObs = { enMarxa: 0, ts: 0 };
+function _obsEscritDesDe(t0) { return _escriptObs.enMarxa > 0 || _escriptObs.ts > t0; }
+function _notesEscritDesDe(ctx, t0) {
+  const e = ctx && _escriptNotes[_notesClauEscript(ctx)];
+  return !!(e && (e.enMarxa > 0 || e.ts > t0));
+}
+function _notesEscrivint(ctx) {
+  const e = ctx && _escriptNotes[_notesClauEscript(ctx)];
+  return !!(e && e.enMarxa > 0);
+}
+
 async function appsScriptPost(body, _retry = true) {
   const accio = body && body.action;
   const nomesLlegeix = Object.prototype.hasOwnProperty.call(_POST_NOMES_LLEGEIX, accio);
@@ -2133,7 +2240,23 @@ async function appsScriptPost(body, _retry = true) {
              : _POST_SENSE_VEL.has(accio) ? false
              : (Object.prototype.hasOwnProperty.call(_POST_TEXT_PROPI, accio) ? _POST_TEXT_PROPI[accio]
              : 'Desant…');
-  return _ambSenyalDEspera(() => _appsScriptPostFetch(body, _retry), text);
+  if (nomesLlegeix) return _ambSenyalDEspera(() => _appsScriptPostFetch(body, _retry), text);
+
+  // El segell (veure el comentari de sobre): en sortir i en tornar.
+  const deNotes = _ESCRIU_NOTES.has(accio) && body.tipus !== 'registre' && body.materia;
+  const en = deNotes ? (_escriptNotes[_notesClauEscript(body)] ||
+                        (_escriptNotes[_notesClauEscript(body)] = { enMarxa: 0, ts: 0 })) : null;
+  const eo = _ESCRIU_OBS.has(accio) ? _escriptObs : null;
+  _escriptEnMarxa++; _escriptTs = Date.now();
+  if (en) { en.enMarxa++; en.ts = Date.now(); }
+  if (eo) { eo.enMarxa++; eo.ts = Date.now(); }
+  try {
+    return await _ambSenyalDEspera(() => _appsScriptPostFetch(body, _retry), text);
+  } finally {
+    _escriptEnMarxa--; _escriptTs = Date.now();
+    if (en) { en.enMarxa--; en.ts = Date.now(); }
+    if (eo) { eo.enMarxa--; eo.ts = Date.now(); }
+  }
 }
 
 /* ⚠ EL REINTENT NO POT FER LA FEINA DUES VEGADES.
@@ -2229,7 +2352,7 @@ function _loadMainFromCache() {
     if (c.students)   students      = c.students;
     if (c.registreItems) registreItems = c.registreItems;
     if (c.registreData)  registreData  = c.registreData;
-    if (c.observacions)  observacions  = c.observacions;
+    if (c.observacions)  { observacions = c.observacions; _obsAmo = {}; }
     if (c.personal)      personal      = c.personal;
     return !!c.students;
   } catch(e) { return false; }
@@ -2342,6 +2465,7 @@ async function loadAll() {
   //    grup de tutoria. Substitueix 5-7 crides encadenades → molt més ràpid.
   try {
     const weekIds = [getPlanWeekId(-1), getPlanWeekId(0), getPlanWeekId(1)];
+    const _t0Boot = Date.now();
     let _peticio = appsScriptGet({ action: 'bootstrap', weekIds: JSON.stringify(weekIds) });
     /* Arrencada amb l'app buida: es tapa. Ningú no ha clicat res —o sigui que
        el vel no sortiria sol— però és el moment en què més fàcil és pensar que
@@ -2426,7 +2550,15 @@ async function loadAll() {
       return;
     }
     if (boot.ok) {
+      /* Si mentre arribava s'ha desat res (el que havia quedat a la cua de
+         l'altre dia surt just en arrencar), aquesta foto és d'abans: s'ha
+         d'aplicar igualment —és la primera—, però se'n demana una de nova
+         de seguida. Veure `_hiHaEscripturaDesDe`. ⚠ Es mira ABANS d'aplicar:
+         aplicar-la ja engega les seves pròpies escriptures de manteniment, i
+         comptar-les faria demanar-ho tot dues vegades a cada arrencada. */
+      const _fotoVella = _hiHaEscripturaDesDe(_t0Boot);
       _applyBootstrap(boot);
+      if (_fotoVella) _refrescTornaHi();
     } else {
       // Resposta rebuda però amb error del backend
       updateSync('error', 'Error');
@@ -2636,8 +2768,21 @@ function _startBackgroundRefresh() {
   // Refresc periòdic cada 3 minuts (prou per mantenir-ho al dia sense saturar)
   _bgRefreshTimer = setInterval(_backgroundRefresh, 180000);
   // Refresc quan la pestanya torna a ser visible (tornes a l'app)
+  /* ⚠ CADA COP QUE ES TORNAVA A LA PESTANYA ES DEMANAVA TOT (13/11/2026).
+
+     Una mestra que va i ve entre l'app, el ClickEdu i el Drive torna a la
+     pestanya desenes de vegades en una hora, i cada tornada demanava tot el
+     full al servidor: uns segons de feina de Google, la ratlla de dalt
+     movent-se i la pantalla repintant-se, per unes dades que tenien dos
+     segons. Si el que hi ha és de fa menys d'un minut, ja val. El que hagi
+     quedat pendent de desar sí que es torna a provar de seguida: tornar a
+     la pestanya sol voler dir tornar a tenir connexió. */
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) _backgroundRefresh();
+    if (document.hidden) return;
+    try { if (typeof _caselles !== 'undefined' && _caselles.length) _casellesEnvia(); } catch (e) {}
+    try { if (typeof _pendentsTe === 'function' && _pendentsTe()) _pendentsProva(); } catch (e) {}
+    if (_recentFullLoad()) return;
+    _backgroundRefresh();
   });
 }
 
@@ -2681,6 +2826,23 @@ function _finalitzaRefresc(resposta) {
   updateSync('ok', 'Sincronitzat'); updateStatSync();
 }
 
+/* Torna a demanar el refresc que s'acaba de descartar per vell, quan ja no
+   hi hagi res escrivint-se. Tres intents com a molt: si la mestra no para
+   d'escriure, el que té a la pantalla ja és el més nou que hi ha, i el
+   refresc de cada tres minuts ja hi tornarà. */
+let _bgTornades = 0, _bgTornaTemps = null;
+function _refrescTornaHi(esperes) {
+  if (_bgTornaTemps) return;
+  if (!esperes && _bgTornades >= 3) { _bgTornades = 0; return; }
+  if (!esperes) _bgTornades++;
+  _bgTornaTemps = setTimeout(() => {
+    _bgTornaTemps = null;
+    // Encara s'està desant: s'espera una mica més (mig minut com a molt).
+    if (_escriptEnMarxa > 0 && (esperes || 0) < 20) { _refrescTornaHi((esperes || 0) + 1); return; }
+    _backgroundRefresh();
+  }, 1500);
+}
+
 async function _backgroundRefresh() {
   if (!config.scriptUrl || _bgRefreshing || document.hidden) return;
   // No refresquis mentre l'usuari està editant (evita sobreescriure el seu treball)
@@ -2689,8 +2851,18 @@ async function _backgroundRefresh() {
   try {
     // Una sola crida consolidada (bootstrap): ho porta tot i respecta el grup de tutoria
     const weekIds = [getPlanWeekId(-1), getPlanWeekId(0), getPlanWeekId(1)];
+    const _t0 = Date.now();
     const boot = await appsScriptGet({ action: 'bootstrap', weekIds: JSON.stringify(weekIds) }, false);
+    /* La foto és d'abans d'una cosa que s'ha desat mentre viatjava: no es
+       posa (trauria de la pantalla el que la mestra acaba de fer) i es torna
+       a demanar d'aquí a un moment. Veure `_hiHaEscripturaDesDe`. */
+    if (boot && boot.ok && _hiHaEscripturaDesDe(_t0)) {
+      _bgRefreshing = false;
+      _refrescTornaHi();
+      return;
+    }
     if (boot && boot.ok) {
+      _bgTornades = 0;
       _applyBootstrap(boot);
       // Només es desa al cache si el bootstrap ha arribat de debò. Si falla,
       // `students` pot ser mitja classe (venim d'una assignatura desdoblada)
@@ -2855,7 +3027,7 @@ function renderAlumnesList() {
 
   const _alFrag = document.createDocumentFragment();
   _llista.forEach(s => {
-    const obs      = observacions[s.id] || {};
+    const obs      = _obsDe(s.id);
     const obsCount = Object.values(obs).filter(v => v && v.trim()).length;
     const pd       = personal[s.id] || {};
     const hasMedic = pd.obs && pd.obs.trim();
@@ -2922,7 +3094,7 @@ function renderPanelStudents(list) {
   if (!list.length) { setEmptyState(config.scriptUrl ? 'Cap alumne. Afegeix-ne un!' : 'Configura la connexió'); return; }
   document.getElementById('emptyMsg').style.display = 'none';
   list.forEach((s, idx) => {
-    const obs      = observacions[s.id] || {};
+    const obs      = _obsDe(s.id);
     const obsCount = Object.values(obs).filter(v => v && v.trim()).length;
     const pd       = personal[s.id] || {};
     const hasData  = pd.tutor1 || pd.correu1 || pd.tutor2 || pd.correu2 || pd.telefons || pd.obs || pd.especific || pd.pi || pd.am;
@@ -2982,7 +3154,7 @@ async function renderFitxa(studentId) {
   }
 
   const pd  = personal[studentId] || {};
-  const obs = observacions[studentId] || {};
+  const obs = _obsDe(studentId);
 
   // Àrea d'avisos (mèdic + PI/AM + específics)
   const alert = document.getElementById('fitxaAlert');
@@ -3594,12 +3766,18 @@ async function deleteStudent(id, jaPreguntat) {
     const nou = nouId[vell];
     if (nou !== undefined) personalNou[nou] = personal[vell];
   });
+  const amoNou = {};
   Object.keys(observacions || {}).forEach(vell => {
     const nou = nouId[vell];
     if (nou !== undefined) obsNou[nou] = observacions[vell];
   });
+  Object.keys(_obsAmo || {}).forEach(vell => {
+    const nou = nouId[vell];
+    if (nou !== undefined) amoNou[nou] = _obsAmo[vell];
+  });
   personal = personalNou;
   observacions = obsNou;
+  _obsAmo = amoNou;
 
   students = queden.map((s, i) => ({ ...s, id: i }));
   renderPanelStudents(students);
@@ -3655,7 +3833,7 @@ function renderObsGrid() {
   if (!students.length) { _pintaEstatBuitAlumnes(empty); empty.style.display='block'; return; }
   empty.style.display = 'none';
   students.forEach(s => {
-    const obs   = observacions[s.id] || {};
+    const obs   = _obsDe(s.id);
     const count = Object.values(obs).filter(v => v&&v.trim()).length;
     /* ⚠ Les apuntades corregint també compten. Si no, un nen que només en
        tingui d'aquestes es veu «Sense observacions» i ningú no hi entra:
@@ -3702,7 +3880,7 @@ function renderObsDrawerContent(studentId) {
   const empty = document.getElementById('obsDrawerEmpty');
   if (!list) return;
   list.querySelectorAll('.obs-entry,.obs-trim-label').forEach(el => el.remove());
-  const obs      = observacions[studentId] || {};
+  const obs      = _obsDe(studentId);
   const entrades = Object.entries(obs).filter(([,v]) => v&&v.trim());
   const comentaris = _comentarisDe(studentId);
   if (!entrades.length && !comentaris.length) { empty.style.display='block'; return; }
@@ -3834,10 +4012,15 @@ function _obsGrupsDelsAlumnes(grupFallback) {
    no s'han pogut llegir: qui crida ho ha de DIR, perquè una lectura
    fallada i un grup sense observacions es veuen igual a la pantalla i no
    són gens el mateix. */
+let _obsCarregaId = 0;
+let _obsCarregatDe = '';       // de quins nens són les observacions que hi ha ara
 async function _carregaObsDelsAlumnes(grupFallback) {
-  observacions = {};
+  /* Cada càrrega amb el seu número: si mentrestant se n'ha demanat una altra
+     (un altre grup), aquesta, quan arribi, ja no escriu res. Abans escrivia
+     dins de les observacions del grup NOU fent servir els números d'alumne
+     del grup VELL (auditoria del 13/11/2026). */
+  const meu = ++_obsCarregaId;
   const grups = _obsGrupsDelsAlumnes(grupFallback);
-  if (!grups.length) return [];
 
   // Grup + fila → quin alumne de la pantalla és
   const dePerGrup = {};
@@ -3847,20 +4030,57 @@ async function _carregaObsDelsAlumnes(grupFallback) {
     dePerGrup[(p.grupOrigen || grupFallback || '') + '#' + p.rowId] = st.id;
   });
 
+  /* Si són els MATEIXOS nens que ja hi havia (la posada al dia de cada tres
+     minuts, tornar a entrar a la pàgina), les observacions que es veuen es
+     queden a la pantalla fins que arribin les noves: buidar-les abans feia
+     un parpelleig de «sense observacions» a cada refresc. Si són uns altres
+     nens, sí que es buiden d'entrada: millor res que les d'un altre grup. */
+  const signatura = grups.join('|') + '§' + Object.keys(dePerGrup).sort().join(',');
+  const elsMateixos = signatura === _obsCarregatDe;
+  if (!elsMateixos) { observacions = {}; _obsAmo = {}; _obsCarregatDe = ''; }
+  if (!grups.length) return [];
+
   const fallats = [];
-  const respostes = await Promise.all(grups.map(g =>
-    appsScriptGet({ action: 'getGrupObs', grup: g })
-      .then(r => ({ grup: g, r: r }))
-      .catch(e => ({ grup: g, err: e }))
-  ));
+  /* Mentre viatja la lectura es pot desar alguna cosa (una observació
+     acabada d'apuntar): llavors la resposta és d'abans i la trauria de la
+     pantalla. Es torna a demanar —dos cops com a molt— quan ja no s'estigui
+     desant cap observació. Veure `_obsEscritDesDe`. */
+  let respostes = [];
+  for (let volta = 0; ; volta++) {
+    const _t0 = Date.now();
+    respostes = await Promise.all(grups.map(g =>
+      appsScriptGet({ action: 'getGrupObs', grup: g })
+        .then(r => ({ grup: g, r: r }))
+        .catch(e => ({ grup: g, err: e }))
+    ));
+    if (meu !== _obsCarregaId) return [];     // ha arribat tard: ja en manen unes altres
+    if (volta >= 2 || typeof _obsEscritDesDe !== 'function' || !_obsEscritDesDe(_t0)) break;
+    for (let i = 0; i < 20 && _escriptObs.enMarxa > 0; i++) await new Promise(r => setTimeout(r, 500));
+    if (meu !== _obsCarregaId) return [];
+  }
+  const noves = {};
   respostes.forEach(({ grup, r, err }) => {
     if (err || !r || r.ok === false) { fallats.push(grup); return; }
     if (!r.obs) return;
     Object.keys(r.obs).forEach(rowId => {
       const id = dePerGrup[grup + '#' + rowId];
-      if (id !== undefined) observacions[id] = r.obs[rowId];
+      if (id !== undefined) noves[id] = r.obs[rowId];
     });
   });
+  /* D'un grup que no s'ha pogut llegir es conserva el que ja es tenia: una
+     lectura fallada no pot fer veure que aquells nens no tenen res. */
+  if (fallats.length && elsMateixos) {
+    Object.keys(dePerGrup).forEach(k => {
+      const g = k.slice(0, k.lastIndexOf('#'));
+      const id = dePerGrup[k];
+      if (fallats.indexOf(g) !== -1 && observacions[id] !== undefined) noves[id] = observacions[id];
+    });
+  }
+  observacions = noves;
+  // De qui és cada número (veure `_obsDe`): de TOTS els nens, en tinguin o no.
+  _obsAmo = {};
+  Object.keys(dePerGrup).forEach(k => { _obsAmo[dePerGrup[k]] = k.slice(k.lastIndexOf('#') + 1); });
+  _obsCarregatDe = fallats.length ? '' : signatura;
   return fallats;
 }
 
@@ -3917,7 +4137,7 @@ async function _saveObservacioFer() {
   const text      = document.getElementById('obsText').value.trim();
   if (!text) { showToast('Escriu què vols apuntar', 'error'); document.getElementById('obsText').focus(); return; }
   const key = trimestre+'_'+materia;
-  if (!observacions[studentId]) observacions[studentId]={};
+  _obsPrepara(studentId);     // que el que hi hagi en aquest número sigui d'AQUEST nen
   const cur = observacions[studentId][key]||'';
   const nouText = cur ? cur+' · '+text : text;
   observacions[studentId][key] = nouText;
@@ -3980,7 +4200,7 @@ function editObservacio(studentId, materia, trimestre) {
   document.getElementById('obsMateria').value   = materia;
   document.getElementById('obsTrimestre').value = String(trimestre);
   const key = trimestre+'_'+materia;
-  document.getElementById('obsText').value = (observacions[studentId]||{})[key]||'';
+  document.getElementById('obsText').value = _obsDe(studentId)[key]||'';
   _obsTextOriginal = document.getElementById('obsText').value || '';
   const btn = document.getElementById('saveObsBtn');
   btn.textContent = 'Substituir';
@@ -4038,7 +4258,7 @@ async function _replaceObservacioFer(studentId, materia, trimestre) {
 
   if (esMou) {
     const _nomDesti = (students.find(x => String(x.id) === String(studentId)) || {}).nom || 'aquest alumne';
-    const jaHiHa = ((observacions[studentId] || {})[keyDesti] || '').trim();
+    const jaHiHa = (_obsDe(studentId)[keyDesti] || '').trim();
     if (jaHiHa && !confirm('«' + _nomDesti + '» ja té una observació aquí:\n\n' + jaHiHa +
                            '\n\nVols substituir-la per la que estàs escrivint?')) return;
     // Es treu de l'origen: si no, quedaria a tots dos llocs.
@@ -4049,7 +4269,7 @@ async function _replaceObservacioFer(studentId, materia, trimestre) {
   }
 
   const key = keyDesti;
-  if (!observacions[studentId]) observacions[studentId]={};
+  _obsPrepara(studentId);
   /* El que hi havia abans de tocar-hi res: si el desat no arriba al full, s'hi
      torna a posar (segona auditoria, 8/9/2026 — veure el `catch` de sota). */
   const _abansDesti = observacions[studentId][key];
@@ -4119,7 +4339,13 @@ function _obsRepassaFull() {
   if (fet) return;
 
   const items = [];
+  /* Si la llista que hi ha ara a la pantalla no és la d'aquestes
+     observacions (s'està mirant una assignatura d'un altre grup), no es fa
+     ara: s'enviaria el text d'un nen amb el nom d'un altre. Ja es farà a la
+     propera càrrega, que no es dona per feta (veure `_obsDe`). */
+  let _desquadrat = false;
   students.forEach(s => {
+    if (!_obsSonDAquestNen(s.id)) { _desquadrat = true; return; }
     const obs = observacions[s.id];
     if (!obs || !s.nom) return;
     Object.keys(obs).forEach(clau => {
@@ -4127,6 +4353,7 @@ function _obsRepassaFull() {
       if (text) items.push({ nom: s.nom, clau, text });
     });
   });
+  if (_desquadrat) return;
   /* Sense res a repassar, es dona per fet igualment: si no, es tornaria a
      mirar a cada càrrega per sempre. */
   if (!items.length) {
@@ -4183,7 +4410,7 @@ async function _obsRecarregaGrup() {
   });
   Object.keys(ro.obs).forEach(rowId => {
     const id = rowIdToId[String(rowId)];
-    if (id !== undefined) observacions[id] = ro.obs[rowId];
+    if (id !== undefined) { observacions[id] = ro.obs[rowId]; _obsAmo[id] = String(rowId); }
   });
   if (typeof _paintAllViews === 'function') _paintAllViews();
 }
@@ -4197,8 +4424,8 @@ async function deleteObservacioMateria(studentId, materia, trimestre, senseDeman
   const key = trimestre+'_'+materia;
   /* El que hi havia: si l esborrat no arriba al full, s hi torna a posar
      (segona auditoria, 8/9/2026 — veure el `catch` de sota). */
-  const _abans = (observacions[studentId] || {})[key];
-  if (observacions[studentId]) delete observacions[studentId][key];
+  const _abans = _obsDe(studentId)[key];
+  if (observacions[studentId] && _obsSonDAquestNen(studentId)) delete observacions[studentId][key];
   refreshObsViews(studentId);
   if (config.scriptUrl) {
     try {
@@ -5738,8 +5965,23 @@ function _clauEntrada(e) {
    (_ensureGrupStudents / _loadDesdobStudents), i per això **el desdoblament
    s'hi aplica**: si la mestra només té mig grup d'Anglès a 3r A, aquí veu
    aquell mig grup, no la classe sencera. */
+/* ⚠ DOS GRUPS TRIATS DE PRESSA ES BARREJAVEN (auditoria del 13/11/2026).
+
+   Aquesta funció fa tres o quatre viatges al servidor, un darrere l'altre,
+   i no mirava mai si mentrestant la mestra ja havia triat un altre grup.
+   Reproduït amb el servidor lent a l'app d'una especialista: triar «Música ·
+   3r A» i, abans que arribi, «Música · 2n A» → el desplegable deia 2n A, els
+   nens eren els de 2n A, i les COLUMNES i el registre on s'escrivia eren els
+   de 3r A. Una creu marcada allà anava al registre de l'altre grup.
+
+   És el mateix remei que ja té `_dirCarregaGrup`: cada càrrega porta el seu
+   número, i després de cada espera es mira si encara és l'última. */
+let _rolCarregaId = 0;
+
 async function _rolCarregaGrupTreball(clau, pagina) {
   if (!clau || !config.scriptUrl) return;
+  const meu = ++_rolCarregaId;
+  const encaraMana = () => meu === _rolCarregaId;
   const esObs  = pagina === 'observacions';
   const esAlum = pagina === 'alumnes';
   const hint  = document.getElementById(esAlum ? 'dirGrupEstat' : esObs ? 'obsGrupHint' : 'regGrupHint');
@@ -5771,9 +6013,11 @@ async function _rolCarregaGrupTreball(clau, pagina) {
       await _ensureGrupStudents(e.grup, e.key);
     }
   } catch(err) {
+    if (!encaraMana()) return;
     if (hint) hint.textContent = 'No s\'han pogut carregar els alumnes: ' + err.message;
     return;
   }
+  if (!encaraMana()) return;     // ja n'han triat un altre
 
   if (!students.length) {
     if (hint) hint.textContent = 'Aquest grup encara no té alumnes al full compartit.';
@@ -5805,6 +6049,7 @@ async function _rolCarregaGrupTreball(clau, pagina) {
      passarien a dir-se com un grup que no és cap classe. */
   if (esAlum) {
     const fallats = await _carregaObsDelsAlumnes(grupReal);
+    if (!encaraMana()) return;
     if (fallats.length) {
       showToast('No s’han pogut llegir les observacions de ' + fallats.join(', ') +
                 '. El que veus no vol dir que estigui buit: torna-ho a provar.', 'error');
@@ -5828,6 +6073,7 @@ async function _rolCarregaGrupTreball(clau, pagina) {
     } catch (err) {
       _obsFallats = ['?'];
     }
+    if (!encaraMana()) return;
     /* Una lectura fallada i un grup sense observacions es veuen igual a la
        pantalla: si no es digués, la mestra es pensaria que no n'hi ha cap
        quan potser n'hi ha un curs sencer escrites per tot el claustre. */
@@ -5845,6 +6091,7 @@ async function _rolCarregaGrupTreball(clau, pagina) {
     // Registres d'aula: cada assignatura de cada grup té la seva pestanya
     try {
       const _rrBrut = await appsScriptGet({ action: 'getRegistre', grup: _clauRegistre });
+      if (!encaraMana()) return;
       /* ⚠ `appsScriptGet` NO llança mai: quan el servidor falla torna
          `{ ok:false }` (js/app.js, «return { ok:false, … _networkError }»).
          Sense aquesta línia, el catch de sota —que és l'avís que es va
@@ -6137,6 +6384,8 @@ async function _dirCarregaGrup(grup) {
      els alumnes de l'altre: hi hauries pogut escriure dades a qui no toca. */
   _tutoriaAlumnes = [];
   students = []; personal = {}; observacions = {};
+  _obsAmo = {};
+  _obsCarregatDe = '';     // el que hi hagués d'un altre camí ja no val
   /* Ha arribat: ARA sí que aquest és el grup on som. */
   _direccioGrup = grup;
   _tutoriaGrup = grup;
@@ -6166,7 +6415,7 @@ async function _dirCarregaGrup(grup) {
       const rowIdToId = {};
       students.forEach(st => {
         const rid = personal[st.id] && personal[st.id].rowId;
-        if (rid !== undefined) rowIdToId[String(rid)] = st.id;
+        if (rid !== undefined) { rowIdToId[String(rid)] = st.id; _obsAmo[st.id] = String(rid); }
       });
       Object.keys(ro.obs).forEach(rowId => {
         const id = rowIdToId[String(rowId)];
@@ -10817,18 +11066,41 @@ function _applyBootstrap(boot) {
   }
 
   // 3) Registre i observacions
-  if (boot.registre) { const _rr = _registreRemap(boot.registre); registreItems = _rr.items; registreData = _rr.data; }
+  /* ⚠ A DIRECCIÓ I A LES ESPECIALISTES, AQUEST REFRESC ELS BUIDAVA EL GRUP
+     (auditoria del 13/11/2026).
+
+     El registre i les observacions que porta aquesta resposta són els del
+     full PERSONAL de la mestra (o els de la seva tutoria). Però qui no té
+     tutoria treballa amb el grup que ha triat, i el que té a la pantalla
+     —les columnes del registre d'aquell grup, les observacions d'aquells
+     nens— ha vingut per un altre camí. Posar-hi a sobre el full personal,
+     que per a elles és buit, les hi esborrava de la memòria cada tres
+     minuts i cada cop que tornaven a la pestanya: a Alumnes i a les fitxes
+     els nens quedaven «sense observacions» fins que es tornava a triar el
+     grup, i el generador de comentaris treballava sense tenir-les.
+
+     Ara, per a elles, el del grup triat no es toca: el posa al dia qui el
+     va portar (`_rolCarregaGrupTreball`, `_dirCarregaGrup`). */
+  const _senseTutoria = (typeof esEspecialista === 'function' && esEspecialista()) || _rolDireccio();
+  const _registreDeGrup = _senseTutoria && typeof _registreGrup === 'function' && !!_registreGrup();
+  if (boot.registre && !_registreDeGrup) { const _rr = _registreRemap(boot.registre); registreItems = _rr.items; registreData = _rr.data; }
   // Observacions: prioritza les compartides del full "Grups" (per rowId → id)
   if (boot.grupObs && boot.grupAlumnes && boot.grupAlumnes.length) {
     observacions = {};
+    _obsCarregatDe = '';
+    _obsAmo = {};
     const rowIdToId = {};
-    boot.grupAlumnes.forEach(a => { rowIdToId[String(a.rowId)] = a.id; });
+    boot.grupAlumnes.forEach(a => {
+      rowIdToId[String(a.rowId)] = a.id;
+      if (a.rowId !== undefined && a.rowId !== null && a.rowId !== '') _obsAmo[a.id] = String(a.rowId);
+    });
     Object.keys(boot.grupObs).forEach(rowId => {
       const id = rowIdToId[String(rowId)];
       if (id !== undefined) observacions[id] = boot.grupObs[rowId];
     });
-  } else if (boot.observacions) {
+  } else if (boot.observacions && !_senseTutoria) {
     observacions = boot.observacions;
+    _obsAmo = {};
   }
 
   /* Les observacions d'abans de la v303 no són a la columna «Observacions»
@@ -12391,10 +12663,20 @@ function _comentCarregaContext(matKey) {
       ? _obsGrupsDelsAlumnes((typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null)
       : [];
     grups.forEach(function (g) {
+      /* Només s'atura si ja n'hi ha una de camí. Abans es demanaven UN sol
+         cop per sessió: una observació apuntada després (per ella mateixa o
+         per una companya) no entrava al comentari fins que es recarregava
+         l'app. Tornar-les a demanar no costa res: les lectures es guarden un
+         minut i qualsevol desat les fa caducar (auditoria del 13/11/2026). */
       if (_comentObsDemanades[g]) return;
       _comentObsDemanades[g] = true;
       appsScriptGet({ action: 'getGrupObs', grup: g }).then(function (r) {
+        _comentObsDemanades[g] = false;
         if (!r || r.ok === false || !r.obs) return;
+        // Les d'aquest grup, de nou: una d'esborrada no s'ha de quedar.
+        Object.keys(_comentObsPropies).forEach(function (k) {
+          if (k.indexOf(g + '#') === 0) delete _comentObsPropies[k];
+        });
         Object.keys(r.obs).forEach(function (rowId) {
           _comentObsPropies[g + '#' + rowId] = r.obs[rowId];
         });
@@ -12408,8 +12690,11 @@ function _comentCarregaContext(matKey) {
    pantalla ja les ha carregades a `observacions`, d'allà; si no, de la
    còpia del generador. */
 function _comentObsDeLAlumne(studentId) {
-  if (typeof observacions !== 'undefined' && observacions) {
-    var d = observacions[String(studentId)] || observacions[studentId];
+  /* Per `_obsDe`, no per `observacions[...]` a pèl: aquí la llista és la de
+     l'assignatura, que sovint NO és la llista per a la qual es van carregar
+     les observacions de l'app, i el mateix número és un altre nen. */
+  if (typeof _obsDe === 'function') {
+    var d = _obsDe(studentId);
     if (d && Object.keys(d).length) return d;
   }
   var p = (typeof personal !== 'undefined') ? personal[studentId] : null;

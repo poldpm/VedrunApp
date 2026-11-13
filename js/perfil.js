@@ -69,7 +69,18 @@ function _perfilMigrar(p) {
       const curs = k.split(' ')[0];
       if (['1r','2n','3r','4t','5è','6è'].indexOf(curs) === -1) return;
       if (!p.altres[curs]) p.altres[curs] = [];
-      (p.classes[k] || []).forEach(a => { if (p.altres[curs].indexOf(a) === -1) p.altres[curs].push(a); });
+      /* La línia («3r B») és escrita a la clau i aquí es perdia: després el
+         selector, sense saber res, es quedava amb la PRIMERA («3r A»). És el
+         mateix forat que es va tapar una mica més avall el 8/9/2026 per a les
+         claus d'«altres»; aquest camí se'n va escapar (auditoria 13/11/2026). */
+      const linia = String(k).trim().split(/\s+/)[1] || '';
+      (p.classes[k] || []).forEach(a => {
+        if (p.altres[curs].indexOf(a) === -1) p.altres[curs].push(a);
+        if (linia) {
+          const mk = (typeof _desdobMapKey === 'function') ? _desdobMapKey(curs, a) : (curs + '|' + a);
+          if (!p.desdobGrup[mk]) p.desdobGrup[mk] = curs + ' ' + linia;
+        }
+      });
       delete p.classes[k];
     });
   }
@@ -1398,12 +1409,34 @@ async function _alumnesAmbDesdob(grup, materia, viuEncara) {
   return { r, alumnes, dubtos, matNom: materia ? _assigNomNet(materia) : '' };
 }
 
+/* ⚠ LA LLISTA D'UN GRUP QUE ARRIBAVA TARD I ES POSAVA A SOBRE D'UN ALTRE
+   (auditoria del 13/11/2026).
+
+   Una càrrega d'alumnes només es donava per caducada si després se'n
+   demanava UNA ALTRA al servidor (`_grupCarregaId`). Però hi ha dues maneres
+   de canviar de llista sense demanar res: obrir una assignatura que ja es
+   té guardada, i tornar a Alumnes, Registres, Observacions o la portada (que
+   reposen la tutoria de memòria). En cap de les dues el número es movia, o
+   sigui que la resposta lenta de l'assignatura d'abans, quan arribava,
+   encara «manava» i es posava a la pantalla.
+
+   Reproduït amb el servidor lent: obrir Música de 3r A, i abans que
+   contesti obrir Anglès de 2n A (guardada) → el títol deia «Anglès · 2n A»
+   amb els nens de 3r A a sota, i les notes que s'hi posessin anaven a
+   aquells nens. O anar a Alumnes → la llista de la tutoria amb els de 3r A.
+
+   Ara una càrrega només s'aplica si, a més de ser l'última demanada, la
+   pantalla ENCARA espera aquella llista (`_llistaDAssignatura`). */
+function _carregaEncaraMana(meu, llista) {
+  return meu === _grupCarregaId && _llistaDAssignatura === llista;
+}
+
 async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
   const meu = ++_grupCarregaId;
   try {
     /* Qui decideix quins alumnes són d'aquesta assignatura és `_alumnesAmbDesdob`,
        que també fa servir el generador de grups: veure el seu comentari. */
-    const res = await _alumnesAmbDesdob(grup, materia, () => meu === _grupCarregaId);
+    const res = await _alumnesAmbDesdob(grup, materia, () => _carregaEncaraMana(meu, clau));
     if (!res) return;                        // ha arribat tard: no toquis res
     const r = res.r;
     let alumnes = res.alumnes;
@@ -1433,7 +1466,7 @@ async function _refreshGrupStudents(grup, materia, clau, cacheKey) {
     const encaraHiSom = !grupAra || grupAra === grup;
     const grupBuitDeDebo = haRespost && !alumnes.length && r.existeix !== false && encaraHiSom;
 
-    if (meu !== _grupCarregaId) return;      // ha arribat tard: no toquis res
+    if (!_carregaEncaraMana(meu, clau)) return;   // ha arribat tard: no toquis res
     if (alumnes.length || grupBuitDeDebo) {
       alumnes.forEach(a => { if (!a.grupOrigen) a.grupOrigen = grup; });
       _aplicaGrupStudents(alumnes);
@@ -1793,14 +1826,15 @@ function _desdobProblema(curs, assig) {
 // si no, carrega la classe sencera (getGrupAlumnes).
 async function _loadDesdobStudents(curs, assig) {
   if (!config.scriptUrl) return;
-  _llistaDAssignatura = 'altres|' + _desdobMapKey(curs, assig);  // veure `_aplicaTutoriaAlumnes`
+  const llista = 'altres|' + _desdobMapKey(curs, assig);
+  _llistaDAssignatura = llista;                                  // veure `_aplicaTutoriaAlumnes`
   /* Número de càrrega, com a `_refreshGrupStudents`: si mentrestant se'n
      demana una altra (un altre grup del desdoblament, una altra assignatura),
      aquesta, quan arribi, ja no mana. Sense això, clicar dos grups seguits
      podia deixar a la pantalla el primer amb el nom del segon. */
   const meu = ++_grupCarregaId;
   await _desdobCarregaGrups(curs, assig);
-  if (meu !== _grupCarregaId) return;
+  if (!_carregaEncaraMana(meu, llista)) return;   // veure `_carregaEncaraMana`
   const o = _desdobOpcions(curs, assig);
   const grup = _desdobGrupActual(curs, assig);
   if (!grup) {
@@ -1858,7 +1892,7 @@ async function _loadDesdobStudents(curs, assig) {
       alumnes = (resposta && resposta.ok && resposta.alumnes) ? resposta.alumnes : [];
       alumnes.forEach(a => { a.grupOrigen = grup; });
     }
-    if (meu !== _grupCarregaId) return;      // ha arribat tard: ja en manen una altra
+    if (!_carregaEncaraMana(meu, llista)) return;   // ha arribat tard: ja en manen una altra
     if (alumnes.length) {
       _aplicaGrupStudents(alumnes);
       _grupStudentsCarregat = clau;

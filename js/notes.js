@@ -92,8 +92,15 @@ async function prefetchAllNotes() {
         const c = JSON.parse(raw);
         if (c && Date.now() - c.ts < CACHE_MS) continue;
       }
+      const _t0 = Date.now();
       const r = await appsScriptGet({ action: 'getNotes', materia: mat, trimestre: trim, grup: grup, _fons: true });
-      if (r.ok) {
+      /* Si mentre arribava s'ha desat (o s'està desant) alguna nota d'aquesta
+         assignatura, aquesta resposta és d'abans: guardar-la trauria del
+         guardat el que la mestra acaba d'escriure (veure `_loadNotesBackground`). */
+      const _ctxP = { materia: mat, trimestre: String(trim), grup: grup };
+      const _vella = (typeof _notesEscritDesDe === 'function' && _notesEscritDesDe(_ctxP, _t0)) ||
+                     (typeof _casellesDe === 'function' && _casellesDe('notes', _ctxP).length > 0);
+      if (r.ok && !_vella) {
         const entry = { items: r.items || [], valors: r.valors || {}, noEntregats: r.noEntregats || {}, comentaris: r.comentaris || {}, rowNoms: r.rowNoms || [], ts: Date.now() };
         // La MATEIXA clau que fa servir `_cacheKey()` en obrir l assignatura,
         // o el cache es quedaria en un calaix que ningu no obre mai.
@@ -584,6 +591,21 @@ function _remapValorsPerNom(valors, rowNoms) {
    repetir-ho a cada assignatura només faria nosa. */
 let _remapAvisat = false;
 
+/* Torna a demanar les notes quan ja no se n'estigui desant cap d'aquesta
+   assignatura (ni en viatge ni esperant torn). Mira-ho cada segon, un minut
+   com a molt: si la mestra no para, ja es posarà al dia el pròxim cop. */
+function _notesTornaHi(ctx, voltes) {
+  setTimeout(() => {
+    if (notesContext !== ctx) return;
+    const cua = _notesCtxCua();
+    const ocupat = (typeof _notesEscrivint === 'function' && _notesEscrivint(cua)) ||
+                   (typeof _casellesDe === 'function' &&
+                    (_casellesDe('notes', cua).length || _casellesDe('notesItem', cua).length));
+    if (ocupat && voltes < 60) { _notesTornaHi(ctx, voltes + 1); return; }
+    _loadNotesBackground();
+  }, voltes ? 1000 : 400);
+}
+
 function _notesEsVeuen() {
   const w = document.getElementById('notesTableWrap');
   return !!(w && w.style.display !== 'none' && notesItems && notesItems.length);
@@ -611,6 +633,30 @@ async function _loadNotesBackground() {
     if (ctx.alumnes) { try { await ctx.alumnes; } catch (e) {} }
     // Mentre s'esperava, la mestra ha obert una altra cosa: això ja no toca.
     if (notesContext !== ctx) return;
+    /* ⚠ LA NOTA ACABADA D'ESCRIURE QUE DESAPAREIXIA (auditoria 13/11/2026).
+
+       En obrir una assignatura la taula surt de seguida (del guardat) i al
+       darrere es demana la del full, que triga uns segons. Si en aquells
+       segons la mestra escrivia una nota i es desava abans que arribés la
+       resposta, la resposta —una foto d'abans de la nota— es posava a sobre:
+       la casella quedava buida, a la pantalla i al guardat. Al full hi era.
+       Reproduït: escriure un 7 als 0,3 s d'obrir, amb una resposta de 2,5 s.
+
+       Ara una resposta demanada abans de l'última nota desada d'AQUESTA
+       assignatura no s'aplica. Es torna a demanar quan la mestra pari
+       d'escriure (quatre cops com a molt); mentrestant el que es veu és el
+       que ella ha escrit, que és el més nou que hi ha. */
+    if (typeof _notesEscritDesDe === 'function' && _notesEscritDesDe(_notesCtxCua(), _t0)) {
+      if ((ctx._tornades || 0) < 4) {
+        ctx._tornades = (ctx._tornades || 0) + 1;
+        _notesTornaHi(ctx, 0);
+        return;
+      }
+      /* Quatre intents i encara s'hi escriu: si la taula ja es veu, es
+         queda com està (és el més nou que hi ha). Només s'aplica una
+         resposta dubtosa quan si no la pantalla es quedaria buida. */
+      if (_notesEsVeuen()) { _hideNotesLoading(); return; }
+    }
     let newItems  = sortCarpetaLast(r.items || []);
 
     /* ⚠ UNA COLUMNA ACABADA DE CREAR NO POT DESAPARÈIXER DE LA TAULA.
