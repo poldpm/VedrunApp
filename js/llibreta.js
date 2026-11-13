@@ -108,15 +108,25 @@
   }
 
   /* ---- Les línies d'una anotació ----
-     El que s'escriu es desa tal com s'escriu. Per ensenyar-ho i per fer-ne
-     tasques, es parteix per salts de línia i es treu el pic del davant
-     («- », «· », «• ») si n'hi ha: la línia que anirà a la tasca ha de
-     dir «Demanar el bus», no «- Demanar el bus». */
+     ⚠ ES VEU TAL COM S'ESCRIU, GUIONETS INCLOSOS (13/11/2026).
+
+     La primera versió treia el pic del davant («- », «· », «• ») també per
+     ENSENYAR-HO, i l'Aida, el mateix dia: «poso guionets davant de les
+     frases, però em desapareixen». I tenia raó: una llibreta ha de dir el
+     que hi has escrit. El pic només es treu per al TÍTOL de la tasca o de
+     l'event, que allà sí que ha de dir «Demanar el bus» i no «- Demanar el
+     bus». Veure `_treuPic`. */
   function _linies(text) {
-    return String(text || '').split('\n').map(function (l) {
-      return l.replace(/^\s*[-–—·•*]\s*/, '').trim();
-    }).filter(function (l) { return l.length > 0; });
+    return String(text || '').split('\n').map(function (l) { return l.trim(); })
+      .filter(function (l) { return l.length > 0; });
   }
+  function _treuPic(l) {
+    return String(l || '').replace(/^\s*[-–—·•*>]+\s*/, '').trim();
+  }
+  /* Per comparar una línia amb el que ja s'ha convertit en tasca o event:
+     sense pic, sense accents i en minúscules. Sense treure el pic, les
+     marques desades amb la versió d'abans deixarien de quadrar. */
+  function _netLin(l) { return _net(_treuPic(l)); }
 
   /* ---- Carregar i desar ---- */
   function _cache() {
@@ -255,31 +265,47 @@
     cont.innerHTML = h;
   }
 
+  /* ⚠ ELS DOS BOTONETS VAN NOMÉS AL TÍTOL, NO A CADA LÍNIA (13/11/2026).
+
+     La primera versió en posava dos a CADA línia. L'Aida, amb una anotació
+     de set materials per a la tapa de Nadal, es va trobar catorze icones en
+     una pantalla: «que la icona de task i calendar no surtin a totes les
+     línies, només en el títol».
+
+     Ara n'hi ha un parell per anotació, a la primera línia, i valen per
+     l'anotació SENCERA: el títol de la tasca és aquella primera línia i la
+     resta hi va a la descripció. Per a una llista de material és el que
+     toca —una tasca «Per a la tapa de Nadal» amb els set materials a dins—
+     i no set tasques soltes. */
   function _pintaAnotacio(a) {
-    var fetes = (a.tasques || []).map(_net);
-    var evs = (a.events || []).map(_net);
+    var fetes = (a.tasques || []).map(_netLin);
+    var evs = (a.events || []).map(_netLin);
     var linies = _linies(a.text);
+    var cap = linies[0] || '';
+    var jaT = fetes.indexOf(_netLin(cap)) !== -1;
+    var jaE = evs.indexOf(_netLin(cap)) !== -1;
     var h = '<article class="llib-anot" data-id="' + _esc(a.id) + '">';
 
     h += '<div class="llib-linies">';
     linies.forEach(function (l, i) {
-      var jaT = fetes.indexOf(_net(l)) !== -1;
-      var jaE = evs.indexOf(_net(l)) !== -1;
-      h += '<div class="llib-linia">' +
-        '<span class="llib-text">' + _esc(l) + '</span>' +
-        '<span class="llib-accions">' +
+      h += '<div class="llib-linia' + (i === 0 ? ' llib-cap' : '') + '">' +
+        '<span class="llib-text">' + _esc(l) + '</span>';
+      if (i === 0) {
+        h += '<span class="llib-accions">' +
           (jaT ? '<span class="llib-ja" title="Ja n\'has fet una tasca">✓ tasca</span>' : '') +
           (jaE ? '<span class="llib-ja" title="Ja ho has posat al calendari">✓ calendari</span>' : '') +
-          '<button type="button" class="llib-mini" title="Fer-ne una tasca" aria-label="Fer una tasca d\'aquesta línia" ' +
-            'onclick="llibretaTasca(\'' + _esc(a.id) + '\',' + i + ')">' +
+          '<button type="button" class="llib-mini" title="Fer-ne una tasca" aria-label="Fer una tasca d\'aquesta anotació" ' +
+            'onclick="llibretaTasca(\'' + _esc(a.id) + '\')">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">' +
             '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>' +
-          '<button type="button" class="llib-mini" title="Posar-ho al calendari" aria-label="Posar aquesta línia al calendari" ' +
-            'onclick="llibretaEvent(\'' + _esc(a.id) + '\',' + i + ')">' +
+          '<button type="button" class="llib-mini" title="Posar-ho al calendari" aria-label="Posar aquesta anotació al calendari" ' +
+            'onclick="llibretaEvent(\'' + _esc(a.id) + '\')">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">' +
             '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>' +
             '<line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>' +
-        '</span></div>';
+        '</span>';
+      }
+      h += '</div>';
     });
     h += '</div>';
 
@@ -404,47 +430,56 @@
     } catch (e) { _avis('No s\'ha pogut copiar', 'error'); }
   }
 
-  /* ---- D'una línia a una tasca / a un event ----
+  /* ---- D'una anotació a una tasca / a un event ----
      S'obre la finestra DE SEMPRE de cada eina, amb el text ja posat. No es
      crea res sense que ella ho desi: una tasca que apareix sola a Tasques
      sense haver-hi dit ni la data ni la categoria és una tasca que després
-     ningú no sap d'on surt. */
+     ningú no sap d'on surt.
+
+     El TÍTOL és la primera línia (sense el pic) i la RESTA va a la
+     descripció: una anotació de «Per a la tapa de Nadal» amb set materials
+     ha de ser UNA tasca amb els set materials a dins, no set tasques. */
   function _marca(a, quin, linia) {
     var llista = a[quin] = a[quin] || [];
-    if (llista.map(_net).indexOf(_net(linia)) === -1) llista.push(linia);
+    if (llista.map(_netLin).indexOf(_netLin(linia)) === -1) llista.push(linia);
     _desa();
     _pinta();
   }
 
-  function _tasca(id, i) {
+  /* El text que acompanya la tasca o l'event: la resta de línies i d'on surt. */
+  function _cos(a) {
+    var resta = _linies(a.text).slice(1);
+    var deOn = 'De la llibreta, ' + (_dataText(a.data) || '').replace(' · avui', '') + '.';
+    return resta.length ? resta.join('\n') + '\n\n' + deOn : deOn;
+  }
+
+  function _tasca(id) {
     var a = _troba(id);
     if (!a) return;
-    var l = _linies(a.text)[i];
-    if (!l) return;
+    var cap = _linies(a.text)[0];
+    if (!cap) return;
     if (typeof openTasca !== 'function') { _avis('Les tasques no hi són en aquesta app', 'error'); return; }
     openTasca(null);
     var t = byId('tascaTitol'), d = byId('tascaDesc'), dat = byId('tascaData');
-    if (t) t.value = l.slice(0, 120);
-    /* A la descripció, d'on surt: d'aquí a un mes, «Reunió de cicle del 13 de
-       novembre» explica la tasca molt millor que la línia sola. */
-    if (d) d.value = 'De la llibreta, ' + (_dataText(a.data) || '').replace(' · avui', '') + '.';
+    if (t) t.value = _treuPic(cap).slice(0, 120);
+    if (d) d.value = _cos(a);
     if (dat && !dat.value && a.data >= _avui()) dat.value = a.data;
-    _marca(a, 'tasques', l);
+    _marca(a, 'tasques', cap);
   }
 
-  function _event(id, i) {
+  function _event(id) {
     var a = _troba(id);
     if (!a) return;
-    var l = _linies(a.text)[i];
-    if (!l) return;
+    var cap = _linies(a.text)[0];
+    if (!cap) return;
     if (typeof openCal2Event !== 'function') { _avis('El calendari no hi és en aquesta app', 'error'); return; }
     /* La data de l'anotació és la del dia que ho va escriure, no la del que
        ha de passar: s'hi posa com a punt de partida i ella la canvia. */
     openCal2Event(null, a.data || _avui());
     var t = byId('cal2EvTitol'), d = byId('cal2EvDesc');
-    if (t) t.value = l.slice(0, 120);
-    if (d) d.value = 'De la llibreta, ' + (_dataText(a.data) || '').replace(' · avui', '') + '.';
-    _marca(a, 'events', l);
+    if (t) t.value = _treuPic(cap).slice(0, 120);
+    if (d) d.value = _cos(a);
+    _marca(a, 'events', cap);
   }
 
   /* ---- La pàgina ---- */
@@ -487,6 +522,7 @@
     aplicaInterficie: aplicaInterficie,
     obrePagina: obrePagina,
     linies: _linies,
+    treuPic: _treuPic,
     // per al banc de proves
     posa: function (l) { _anot = l || []; _carregat = true; },
     totes: function () { return _anot; },

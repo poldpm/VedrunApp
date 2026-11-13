@@ -1,11 +1,10 @@
 {
-  "versio": "v362",
+  "versio": "v363",
   "data": "2026-11-13",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Eina nova, a demanar: La meva llibreta. Un lloc per apuntar-te el que no vols oblidar (el que es diu a les reunions, els acords), per dies i amb cercador.",
-    "De qualsevol línia en pots fer una tasca o un event del calendari amb un botó: s obre la finestra de sempre amb el text ja posat.",
-    "Es desa al teu full: ho escrius al mòbil a la reunió i ho tens a l ordinador a la tarda.",
-    "Si et fa servei, la pots demanar a Possibles actualitzacions, a l Inici."
+    "A La meva llibreta, els guionets que escrius davant de les frases ja no desapareixen: es veu tal com ho escrius.",
+    "I els dos botonets (tasca i calendari) ja no surten a cada línia: ara n hi ha un parell per anotació, al títol.",
+    "Valen per l anotació sencera: el títol va al títol de la tasca i la resta a la descripció. Una llista de set materials és una tasca amb els set a dins, no set tasques."
   ]
 }

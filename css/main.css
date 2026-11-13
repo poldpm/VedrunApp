@@ -6769,6 +6769,10 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 }
 .llib-linia:hover { border-bottom-color: var(--border); }
 .llib-text { flex: 1; font-size: 14.5px; line-height: 1.55; color: var(--text-main); white-space: pre-wrap; word-break: break-word; }
+/* La primera línia fa de títol de l'anotació: és on van els dos botonets i
+   és el que anirà a la tasca o a l'event. Es marca una mica perquè es vegi
+   que la resta en pengen. */
+.llib-cap .llib-text { font-weight: 700; }
 /* ⚠ Els botonets es veuen SEMPRE, no només en passar-hi el ratolí: al mòbil
    no hi ha ratolí, i amagar-los els faria desaparèixer justament on més es
    fa servir la llibreta (a la reunió, amb el telèfon). */
