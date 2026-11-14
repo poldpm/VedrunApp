@@ -1,8 +1,11 @@
 {
-  "versio": "v366",
+  "versio": "v367",
   "data": "2026-11-14",
   "titol": "Novetats d aquesta versió",
   "canvis": [
+    "Convocar reunions: quan una família et reserva una hora, ara t arriba un correu amb qui és, quin dia i a quina hora (si hi respons, li arriba a la família). Abans no t avisava de res i només ho veies entrant a l eina.",
+    "A l Inici de l app hi surt un requadre blau amb les reserves noves que encara no has vist. La primera vegada hi surten totes les que encara han de venir: mira-les.",
+    "Cada reunió reservada porta dos recordatoris al teu Google Calendar: un correu el dia abans i un avís al mòbil mitja hora abans.",
     "Si fas servir l app en dos aparells (l ordinador i el mòbil), el planning ja no es barreja: el que esborres en un no torna a sortir des de l altre, i cada setmana es torna a llegir del full quan hi vas. El «Per agendar», les categories de les tasques i els enllaços de l Inici també passen ara d un aparell a l altre.",
     "Si treballaves sense connexió i, en tornar, la sessió de Google havia caducat, el que havies fet es podia perdre. Ara s espera que tornis a entrar i llavors ho puja.",
     "Distribució de l aula: per treure un nen del seu lloc, tria l i toca la llista d «Alumnes sense lloc». Treure una fila de taules o tornar un nen a la llista ara es desa de debò, i el «ja han segut junts» segueix cada nen encara que arribi un alumne nou a la classe.",

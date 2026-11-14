@@ -384,7 +384,7 @@ function showPage(pageId, _fromPop) {
   if (pageId === 'grups')        initGrups();
   if (pageId === 'seients')      initSeients();
   if (pageId === 'postits')      initPostits();
-  if (pageId === 'reunions')     { if (typeof initReunions === 'function') initReunions(); }
+  if (pageId === 'reunions')     { if (typeof initReunions === 'function') initReunions(); try { _reuAvisEntesos(); } catch (e) {} }
   if (pageId === 'perfil')       initPerfil();
   if (pageId === 'calendari')    { renderCalendari(); }
   if (pageId === 'tasques')      renderTasques();
@@ -9899,8 +9899,93 @@ function renderHome() {
   _renderHomeAvui();
   _renderHomeRecordatoris();
   _renderHomeSetmana();
+  try { _reuAvisPinta(); } catch (e) {}
   updateTasquesBadge();
 }
+
+/* ============================================================
+   RESERVES DE REUNIONS: L'AVÍS DE L'INICI
+   ------------------------------------------------------------
+   ⚠ En Pol, 14/11/2026: «em reserven hores de reunió i no rebo ni correus
+   ni res… si no entro a dins de l'eina no ho veig». Ara el servidor li
+   envia un correu a cada reserva (veure `_reuAvisaMestra_` al Code.gs), i a
+   l'app, en obrir-la, a l'Inici hi surten les reserves que encara no ha
+   vist, amb un avís a sobre. «Entesos» o obrir l'eina les dona per vistes.
+   La primera vegada surten totes les que encara han de venir: és just el
+   que ell s'havia perdut.
+   ============================================================ */
+const _REU_VISTES = 'reu_reserves_vistes', _REU_AVISADES = 'reu_reserves_avisades', _REU_CACHE = 'reu_properes';
+let _reuProperes = null;
+function _reuClau(x) { return x.calId + '|' + x.slotId + '|' + (x.reservat || ''); }
+function _reuLlegeix(k) { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function _reuAvui() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function _reuEncaraVenen() {
+  const llista = _reuProperes || _reuLlegeix(_REU_CACHE);
+  const avui = _reuAvui();
+  return llista.filter(x => x && x.data && x.data >= avui);
+}
+function _reuNoves() {
+  const vistes = new Set(_reuLlegeix(_REU_VISTES));
+  return _reuEncaraVenen().filter(x => !vistes.has(_reuClau(x)));
+}
+function _reuDiaCurt(data) {
+  const m = String(data || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return String(data || '');
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return ['dg', 'dl', 'dm', 'dc', 'dj', 'dv', 'ds'][d.getDay()] + ' ' + (+m[3]) + '/' + (+m[2]);
+}
+function _reuAvisAplica(llista) {
+  _reuProperes = Array.isArray(llista) ? llista : [];
+  try { localStorage.setItem(_REU_CACHE, JSON.stringify(_reuProperes)); } catch (e) {}
+  const noves = _reuNoves();
+  const avisades = new Set(_reuLlegeix(_REU_AVISADES));
+  const perAvisar = noves.filter(x => !avisades.has(_reuClau(x)));
+  if (perAvisar.length) {
+    const x = perAvisar[0];
+    showToast(perAvisar.length === 1
+      ? '📅 Reunió reservada: ' + x.nom + ', ' + _reuDiaCurt(x.data) + ' a les ' + x.inici + '. La tens a l\'Inici.'
+      : '📅 Tens ' + perAvisar.length + ' reunions noves reservades. Les tens a l\'Inici.', 'success');
+    const ara = new Set(_reuEncaraVenen().map(_reuClau));
+    const queden = [...avisades].filter(k => ara.has(k)).concat(perAvisar.map(_reuClau));
+    try { localStorage.setItem(_REU_AVISADES, JSON.stringify(queden)); } catch (e) {}
+  }
+  try { _reuAvisPinta(); } catch (e) {}
+}
+function _reuAvisPinta() {
+  let el = document.getElementById('homeReunionsNoves');
+  const noves = _reuNoves();
+  if (!noves.length) { if (el) el.remove(); return; }
+  if (!el) {
+    const hero = document.querySelector('#page-home .hero');
+    if (!hero) return;
+    el = document.createElement('div');
+    el.id = 'homeReunionsNoves';
+    el.className = 'reu-avis';
+    el.setAttribute('role', 'status');
+    hero.insertAdjacentElement('afterend', el);
+  }
+  const n = noves.length;
+  el.innerHTML =
+    '<div class="reu-avis-cap">📅 <strong>' + (n === 1 ? 'Tens una reunió nova reservada' : 'Tens ' + n + ' reunions noves reservades') + '</strong></div>' +
+    '<ul class="reu-avis-llista">' + noves.slice(0, 6).map(x =>
+      '<li><strong>' + escapeHtml(x.nom || 'Algú') + '</strong> — ' + escapeHtml(_reuDiaCurt(x.data)) + ', ' + escapeHtml(x.inici || '') +
+      (x.titol ? ' <span class="reu-avis-titol">· ' + escapeHtml(x.titol) + '</span>' : '') +
+      (x.alCalendari ? '' : ' <span class="reu-avis-no">(no és al teu calendari: apunta-la)</span>') + '</li>').join('') + '</ul>' +
+    (n > 6 ? '<p class="reu-avis-mes">…i ' + (n - 6) + ' més.</p>' : '') +
+    '<div class="reu-avis-botons">' +
+      '<button type="button" class="btn btn-primary btn-sm" onclick="_reuAvisVeure()">Veure-les</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="_reuAvisEntesos()">Entesos</button>' +
+    '</div>';
+}
+/* Les dona per vistes (totes les que encara han de venir). */
+function _reuAvisEntesos() {
+  try { localStorage.setItem(_REU_VISTES, JSON.stringify(_reuEncaraVenen().map(_reuClau))); } catch (e) {}
+  _reuAvisPinta();
+}
+function _reuAvisVeure() { _reuAvisEntesos(); showPage('reunions'); }
 
 /* --- AVUI: horari del dia del planning --- */
 function _renderHomeAvui() {
@@ -11561,6 +11646,8 @@ function _processAppData(r) {
   if (typeof _calSeedEscola === 'function') _calSeedEscola();
   // Els ajustos propis (enllaços de la portada, «per agendar»)
   if (r.ajustos && !_pendentsTe('saveAjustosPropis')) _ajustosAplica(r.ajustos);
+  // Les reunions reservades per les famílies (avís de l'Inici)
+  if (Array.isArray(r.reunionsProperes)) { try { _reuAvisAplica(r.reunionsProperes); } catch (e) {} }
   try { _ajustosDemanaSiCal(r); } catch (e) {}
   // Assoliments
   if (r.assim) Object.entries(r.assim).forEach(([key, val]) => {

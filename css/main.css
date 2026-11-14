@@ -7020,3 +7020,13 @@ textarea.modal-input[rows="6"], textarea.modal-input[rows="7"], textarea.modal-i
   max-width: 140px; overflow: hidden; text-overflow: ellipsis;
 }
 .import-preview-taula th { background: var(--surface-alt); color: var(--text-sub); font-weight: 600; }
+
+/* 20. Reserves de reunions noves: l'avís de l'Inici (14/11/2026) */
+.reu-avis { background: #EFF6FF; border: 1px solid #BFDBFE; border-left: 4px solid #3B82F6; border-radius: 12px; padding: 12px 14px; margin: 12px 0; }
+.reu-avis-cap { font-size: 14.5px; color: #1E3A8A; margin-bottom: 6px; }
+.reu-avis-llista { margin: 0 0 8px; padding-left: 18px; font-size: 13.5px; line-height: 1.6; color: #1F2937; }
+.reu-avis-titol { color: #4B5563; }
+.reu-avis-no { color: #B91C1C; font-weight: 600; }
+.reu-avis-mes { margin: 0 0 8px; font-size: 13px; color: #4B5563; }
+.reu-avis-botons { display: flex; gap: 8px; flex-wrap: wrap; }
+.reu-avis-botons .btn { min-height: 36px; }

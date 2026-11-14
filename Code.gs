@@ -2020,7 +2020,16 @@ function _reuCreaEvent_(cal, data, inici, fi, nom, email) {
                  (email ? '\nCorreu: ' + email : '') +
                  (cal.descripcio ? '\n\n' + cal.descripcio : ''),
     start: { dateTime: data + 'T' + inici + ':00', timeZone: tz },
-    end:   { dateTime: data + 'T' + fi + ':00',    timeZone: tz }
+    end:   { dateTime: data + 'T' + fi + ':00',    timeZone: tz },
+    /* ⚠ SENSE RECORDATORI, LA REUNIÓ PASSAVA DE LLARG (en Pol, 14/11/2026:
+       «si no em presento a les reunions em portarà molts problemes»). Un
+       event que es crea al teu propi calendari no avisa de res si no porta
+       recordatoris: un correu el dia abans i un avís al mòbil mitja hora
+       abans. */
+    reminders: { useDefault: false, overrides: [
+      { method: 'email', minutes: 24 * 60 },
+      { method: 'popup', minutes: 30 }
+    ] }
   };
   if (cal.lloc) ev.location = cal.lloc;
   if (email && cal.avisar) ev.attendees = [{ email: email }];
@@ -2048,6 +2057,20 @@ function _reuCreaEvent_(cal, data, inici, fi, nom, email) {
                  error: 'L\'event és al teu calendari, però NO s\'ha pogut convidar ' +
                         (email || 'la família') + ': ' + msg.slice(0, 150) };
       } catch (e2) { msg += ' | i sense convidat també falla: ' + String((e2 && e2.message) || e2); }
+    }
+    /* I si el que no li agrada són els recordatoris, val més l'event sense
+       recordatoris que cap event: el correu de la reserva ja li diu igual. */
+    if (ev.reminders) {
+      try {
+        var creat3 = _gRetry_(function () {
+          var nu = {};
+          Object.keys(ev).forEach(function (k) { if (k !== 'attendees' && k !== 'reminders') nu[k] = ev[k]; });
+          return Calendar.Events.insert(nu, 'primary', { sendUpdates: 'none' });
+        });
+        return { gEventId: creat3.id,
+                 error: 'L\'event és al teu calendari, però sense recordatoris' +
+                        (ev.attendees ? ' ni invitació a la família' : '') + ': ' + msg.slice(0, 150) };
+      } catch (e3) { msg += ' | i sense recordatoris també falla: ' + String((e3 && e3.message) || e3); }
     }
     return { error: (msg + '  [' + ev.start.dateTime + ' → ' + ev.end.dateTime +
                      ', zona ' + tz + ']').slice(0, 400) };
@@ -2338,8 +2361,96 @@ function reuPublicInfo(calId) {
 }
 
 function reuPublicReserva(calId, slotId, nom, email) {
-  try { return _reuReserva_(calId, slotId, nom, email); }
+  var r;
+  try { r = _reuReserva_(calId, slotId, nom, email); }
   catch (e) { return { ok: false, error: 'Hi ha hagut un problema. Torna-ho a provar.' }; }
+  /* Fora del pany: el correu triga un segon i la família que reserva després
+     no ha d'esperar-lo. Si el correu falla, la reserva ja és feta igual. */
+  if (r && r.ok && !r.jaEraTeva) {
+    try { _reuAvisaMestra_(r, String(nom || '').trim(), String(email || '').trim()); } catch (e) {}
+  }
+  return r;
+}
+
+/* ============================================================
+   AVISAR LA MESTRA DE CADA RESERVA
+   ------------------------------------------------------------
+   ⚠ NO SE N'ASSABENTAVA FINS QUE NO OBRIA L'EINA (en Pol, 14/11/2026:
+   «em reserven hores de reunió i no rebo ni correus ni res… si no entro a
+   dins de l'eina no ho veig»). La reserva es desava i l'event anava al seu
+   calendari, però un event que es crea al teu propi calendari no t'envia
+   cap correu. Ara, a cada reserva nova, li arriba un correu; si li respon,
+   la resposta va a la família.
+   ============================================================ */
+function _reuDiaLlarg_(data) {
+  var m = String(data || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return String(data || '');
+  var d = new Date(+m[1], +m[2] - 1, +m[3], 12, 0, 0);
+  return _ESM_DIES[d.getDay()] + ' ' + (+m[3]) + ' ' +
+         (/^[aeiouà]/.test(_ESM_MESOS[d.getMonth()]) ? 'd\'' : 'de ') + _ESM_MESOS[d.getMonth()];
+}
+function _reuAvisaMestra_(r, nom, email) {
+  var a = _loginAmo();
+  if (!a || a.indexOf('@') === -1) return false;
+  var dia = _reuDiaLlarg_(r.data);
+  var esc = function (t) { return String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var calTxt = r.alCalendari
+    ? 'Ja la tens al teu Google Calendar, amb un recordatori el dia abans i mitja hora abans.'
+    : '⚠ No s\'ha pogut posar al teu Google Calendar: apunta-te-la a mà. A l\'app, a Convocar reunions, la veuràs marcada.';
+  var html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#2A2124;line-height:1.55">' +
+    '<p><strong>' + esc(nom) + '</strong> ha reservat una hora' + (r.titol ? ' de <strong>' + esc(r.titol) + '</strong>' : '') + '.</p>' +
+    '<table style="border-collapse:collapse;margin:8px 0 14px">' +
+    '<tr><td style="padding:3px 14px 3px 0;color:#7E6070">Dia</td><td style="padding:3px 0"><strong>' + esc(dia) + '</strong></td></tr>' +
+    '<tr><td style="padding:3px 14px 3px 0;color:#7E6070">Hora</td><td style="padding:3px 0"><strong>' + esc(r.inici) + ' – ' + esc(r.fi) + '</strong></td></tr>' +
+    (r.lloc ? '<tr><td style="padding:3px 14px 3px 0;color:#7E6070">Lloc</td><td style="padding:3px 0">' + esc(r.lloc) + '</td></tr>' : '') +
+    '<tr><td style="padding:3px 14px 3px 0;color:#7E6070">Correu</td><td style="padding:3px 0">' + esc(email) + '</td></tr>' +
+    '</table>' +
+    '<p>' + esc(calTxt) + '</p>' +
+    '<p style="color:#7E6070;font-size:13px">Si li respons aquest correu, la resposta li arriba a la família.</p>' +
+    '</div>';
+  MailApp.sendEmail({
+    to: a,
+    replyTo: email || a,
+    subject: 'Reunió reservada: ' + nom + ' · ' + dia + ' a les ' + r.inici,
+    htmlBody: html,
+    body: nom + ' ha reservat una hora' + (r.titol ? ' de «' + r.titol + '»' : '') + '.\n\n' +
+          'Dia: ' + dia + '\nHora: ' + r.inici + ' – ' + r.fi + (r.lloc ? '\nLloc: ' + r.lloc : '') +
+          '\nCorreu: ' + email + '\n\n' + calTxt,
+    name: 'Reunions · Vedruna Escorial Vic'
+  });
+  return true;
+}
+
+/* Les reserves que encara han de venir, per a l'avís de l'Inici. Només es
+   llegeix: si el full no hi és, no es crea. */
+function _reuProperes_(ss) {
+  var sh = ss.getSheetByName(REU_HORES);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var v = sh.getRange(2, 1, sh.getLastRow() - 1, REU_CAP_HORES.length).getValues();
+  var tz = _gTz_();
+  var avui = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var titols = {};
+  try {
+    var shc = ss.getSheetByName(REU_CALS);
+    if (shc && shc.getLastRow() >= 2) {
+      shc.getRange(2, 1, shc.getLastRow() - 1, 2).getValues()
+        .forEach(function (f) { titols[String(f[0])] = String(f[1] || ''); });
+    }
+  } catch (e) {}
+  var out = [];
+  for (var i = 0; i < v.length; i++) {
+    if (String(v[i][5]) !== 'ocupat') continue;
+    var d = _reuTxtData_(v[i][2]);
+    if (!d || d < avui) continue;
+    var res = v[i][9];
+    res = (res instanceof Date) ? Utilities.formatDate(res, tz, 'yyyy-MM-dd HH:mm') : String(res || '');
+    out.push({ calId: String(v[i][0]), slotId: String(v[i][1]), data: d,
+               inici: _reuTxtHora_(v[i][3]), fi: _reuTxtHora_(v[i][4]),
+               nom: String(v[i][6] || ''), titol: titols[String(v[i][0])] || '',
+               reservat: res, alCalendari: !!String(v[i][8] || '') });
+  }
+  out.sort(function (a, b) { return (a.data + a.inici) < (b.data + b.inici) ? -1 : 1; });
+  return out.slice(0, 60);
 }
 
 /* La pagina que es veu quan l enllac ha arribat tallat. Ha de dir que fer, no
@@ -7641,7 +7752,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v366';
+var BACKEND_VERSIO = 'v367';
 
 var MAX_CELA = 45000;
 
@@ -8625,6 +8736,8 @@ function bootstrap(ss, weekIds) {
      portada). Es desaven però aquí no es tornaven: en un altre aparell no hi
      eren, i el primer canvi d'allà els esborrava (auditoria del 14/11/2026). */
   result.ajustos   = appDataBundle.ajustos || null;
+  // Les reunions que les famílies han reservat i encara han de venir (avís de l'Inici)
+  try { result.reunionsProperes = _reuProperes_(ss); } catch (e) {}
   /* L'hora d'AQUÍ, del servidor. El navegador s'apunta «fins aquí ho he
      vist» per saber, en desar, què havia vist i què no; si ho apuntava amb el
      seu propi rellotge i aquell rellotge anava avançat o endarrerit, la
