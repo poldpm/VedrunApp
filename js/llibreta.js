@@ -311,8 +311,11 @@
 
     if ((a.etiq || []).length) {
       h += '<div class="llib-etiq-anot">' + a.etiq.map(function (e) {
-        return '<button type="button" class="llib-etiq-mini" onclick="llibretaFiltra(\'' +
-               _esc(String(e).replace(/'/g, '')) + '\')">' + _esc(e) + '</button>';
+        /* L'etiqueta viatja en un atribut, sencera: abans se li treia
+           l'apòstrof per ficar-la dins del clic, i «l'AFA» o «d'aula» no
+           filtraven res (14/11/2026). */
+        return '<button type="button" class="llib-etiq-mini" data-etiq="' + _esc(e) +
+               '" onclick="llibretaFiltra(this.dataset.etiq)">' + _esc(e) + '</button>';
       }).join('') + '</div>';
     }
 
@@ -335,7 +338,7 @@
       totes.map(function (e) {
         var act = _net(e) === _net(_filtre);
         return '<button type="button" class="llib-etiq' + (act ? ' actiu' : '') +
-               '" onclick="llibretaFiltra(\'' + _esc(String(e).replace(/'/g, '')) + '\')">' + _esc(e) + '</button>';
+               '" data-etiq="' + _esc(e) + '" onclick="llibretaFiltra(this.dataset.etiq)">' + _esc(e) + '</button>';
       }).join('');
   }
 
@@ -439,6 +442,53 @@
      El TÍTOL és la primera línia (sense el pic) i la RESTA va a la
      descripció: una anotació de «Per a la tapa de Nadal» amb set materials
      ha de ser UNA tasca amb els set materials a dins, no set tasques. */
+  /* ⚠ ES MARCAVA «✓ TASCA» NOMÉS D'OBRIR EL QUADRE (14/11/2026). Si la mestra
+     el tancava sense desar, l'anotació quedava marcada com si la tasca
+     existís, i no n'hi havia cap. Ara s'apunta què s'està fent
+     (`_perMarcar`) i només es marca quan la tasca o l'event s'han DESAT de
+     debò: es mira si, en prémer «Desar», n'hi ha un més que abans. */
+  var _perMarcar = null;
+  function _quantes(quin) {
+    try {
+      if (quin === 'tasques') return (JSON.parse(localStorage.getItem('tasques') || '[]') || []).length;
+      var n = 0;
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('cal2_events_') === 0) n += (JSON.parse(localStorage.getItem(k) || '[]') || []).length;
+      }
+      return n;
+    } catch (e) { return 0; }
+  }
+  function _vigilaDesar(nomDesa, nomTanca, quin) {
+    var desa = window[nomDesa], tanca = window[nomTanca];
+    if (typeof desa !== 'function' || desa._llibreta) return;
+    var nou = function () {
+      var p = (_perMarcar && _perMarcar.quin === quin) ? _perMarcar : null;
+      var abans = p ? _quantes(quin) : 0;
+      var r = desa.apply(this, arguments);
+      if (p && _perMarcar === p && _quantes(quin) > abans) {
+        _perMarcar = null;
+        var a = _troba(p.id);
+        if (a) _marca(a, quin, p.cap);
+      }
+      return r;
+    };
+    nou._llibreta = true;
+    window[nomDesa] = nou;
+    if (typeof tanca === 'function' && !tanca._llibreta) {
+      var nouT = function () {
+        var r = tanca.apply(this, arguments);
+        // Si s'ha tancat sense desar, ja no hi ha res per marcar. (Amb un
+        // instant de marge: «Desar» també tanca el quadre, i ha de poder
+        // mirar-ho abans.)
+        setTimeout(function () { if (_perMarcar && _perMarcar.quin === quin) _perMarcar = null; }, 0);
+        return r;
+      };
+      nouT._llibreta = true;
+      window[nomTanca] = nouT;
+    }
+  }
+
   function _marca(a, quin, linia) {
     var llista = a[quin] = a[quin] || [];
     if (llista.map(_netLin).indexOf(_netLin(linia)) === -1) llista.push(linia);
@@ -454,6 +504,7 @@
   }
 
   function _tasca(id) {
+    _vigilaDesar('saveTasca', 'closeTasca', 'tasques');
     var a = _troba(id);
     if (!a) return;
     var cap = _linies(a.text)[0];
@@ -464,10 +515,11 @@
     if (t) t.value = _treuPic(cap).slice(0, 120);
     if (d) d.value = _cos(a);
     if (dat && !dat.value && a.data >= _avui()) dat.value = a.data;
-    _marca(a, 'tasques', cap);
+    _perMarcar = { id: id, quin: 'tasques', cap: cap };
   }
 
   function _event(id) {
+    _vigilaDesar('saveCal2Event', 'closeCal2Event', 'events');
     var a = _troba(id);
     if (!a) return;
     var cap = _linies(a.text)[0];
@@ -479,7 +531,7 @@
     var t = byId('cal2EvTitol'), d = byId('cal2EvDesc');
     if (t) t.value = _treuPic(cap).slice(0, 120);
     if (d) d.value = _cos(a);
-    _marca(a, 'events', cap);
+    _perMarcar = { id: id, quin: 'events', cap: cap };
   }
 
   /* ---- La pàgina ---- */

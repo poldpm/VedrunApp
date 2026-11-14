@@ -295,11 +295,46 @@ function _horariFilaEsPati(cols) {
    mira si la fila enganxada també ho és: si ho és, es consumeix i no
    s'escriu enlloc; si no, vol dir que l'horari enganxat no en porta i es
    passa de llarg sense gastar cap fila. Les dues maneres queden alineades. */
+/* ⚠ UN HORARI COPIAT TAL COM ÉS S'IMPORTAVA DESPLAÇAT (14/11/2026).
+
+   Es donava per fet que el text enganxat eren exactament les files de
+   classe, sense res més. Però un horari copiat d'un full de càlcul porta la
+   fila dels dies a dalt i la columna de les hores a l'esquerra, i no porta
+   cap fila per al migdia. Resultat: «Dilluns, Dimarts…» es convertien en les
+   assignatures de primera hora, «8:50» en l'assignatura del dilluns, i la
+   cinquena hora de classe anava a parar al migdia. I la previsualització
+   només deia «30 caselles detectades».
+
+   Ara es treu la fila dels dies, es treu la columna de les hores, se salta
+   el migdia quan l'horari té sis hores de classe (o quan la fila diu
+   «dinar»), i la previsualització ensenya la graella tal com quedarà. */
+const HORARI_FRANJA_MIGDIA = 'f6';
+function _horariNormTxt(t) {
+  return String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
 function _parseImportHorari(text) {
   const dies = PLAN_DIES.map(d => d.id);
   const totes = PLAN_FRANGES.map(f => f.id);      // amb el pati inclòs
-  const files = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length)
-                    .map(l => l.split(/\t|,|;/).map(c => c.trim()));
+  let files = text.split(/\r?\n/).filter(l => l.trim().length)
+                  .map(l => l.split(/\t|,|;/).map(c => c.trim()));
+  const esDia  = t => /^(dl|dm|dc|dj|dv|dilluns|dimarts|dimecres|dijous|divendres|lunes|martes|miercoles|jueves|viernes)\.?$/.test(_horariNormTxt(t));
+  const esHora = t => /^\d{1,2}\s*[:.h]\s*\d{2}/.test(_horariNormTxt(t)) || /^(hora|hores|horari|franja)$/.test(_horariNormTxt(t));
+  // 1) La fila dels dies, fora.
+  if (files.length && files[0].filter(esDia).length >= 3) files.shift();
+  // 2) La columna de les hores, fora (si la majoria de files comencen amb una hora).
+  if (files.length && files.filter(f => esHora(f[0])).length >= Math.ceil(files.length / 2)) {
+    files = files.map(f => f.slice(1));
+  }
+  files = files.filter(f => f.some(c => c));
+  // 3) El migdia: amb sis hores de classe no hi és; i si una fila diu «dinar», és ell.
+  const esDinar = f => {
+    const t = f.filter(Boolean).map(_horariNormTxt);
+    return t.length > 0 && t.every(x => /dinar|menjador|migdia|comedor/.test(x));
+  };
+  const lectives = files.filter(f => !_horariFilaEsPati(f) && !esDinar(f)).length;
+  const horesDeClasse = totes.filter(x => x !== HORARI_FRANJA_PATI && x !== HORARI_FRANJA_MIGDIA).length;
+  const saltaMigdia = lectives <= horesDeClasse;
+
   const nou = {};
   let f = 0;
   for (let s = 0; s < totes.length && f < files.length; s++) {
@@ -307,6 +342,10 @@ function _parseImportHorari(text) {
     if (franja === HORARI_FRANJA_PATI) {
       if (_horariFilaEsPati(files[f])) f++;       // l'horari en porta: es descarta
       continue;                                    // el pati no s'omple mai
+    }
+    if (franja === HORARI_FRANJA_MIGDIA) {
+      if (esDinar(files[f])) { f++; continue; }    // la fila del dinar: es descarta
+      if (saltaMigdia) continue;                   // sis hores de classe: el migdia no hi és
     }
     files[f].forEach((assig, j) => {
       if (j >= dies.length) return;
@@ -329,7 +368,21 @@ function _renderImportPreview() {
   if (!text.trim()) { preview.innerHTML = ''; return; }
   const parsed = _parseImportHorari(text);
   const n = Object.keys(parsed).length;
-  preview.innerHTML = `<strong>${n}</strong> caselles detectades.`;
+  /* La graella tal com quedarà: així es veu ABANS d'importar si cada fila ha
+     anat a la seva hora. Abans només hi deia un número. */
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (x => String(x));
+  let h = `<p><strong>${n}</strong> ${n === 1 ? 'casella detectada' : 'caselles detectades'}. Així quedarà:</p>` +
+          '<div class="import-preview-wrap"><table class="import-preview-taula"><thead><tr><th></th>' +
+          PLAN_DIES.map(d => '<th>' + esc(d.nom.slice(0, 2)) + '</th>').join('') + '</tr></thead><tbody>';
+  PLAN_FRANGES.forEach(fr => {
+    if (fr.id === HORARI_FRANJA_PATI) return;
+    const buida = PLAN_DIES.every(d => !parsed[d.id + '_' + fr.id]);
+    if (fr.id === HORARI_FRANJA_MIGDIA && buida) return;
+    h += '<tr><th>' + esc(fr.hora.split('–')[0].trim()) + '</th>' +
+         PLAN_DIES.map(d => '<td>' + esc(parsed[d.id + '_' + fr.id] || '—') + '</td>').join('') + '</tr>';
+  });
+  h += '</tbody></table></div>';
+  preview.innerHTML = h;
 }
 
 function aplicarImportHorari() {
@@ -371,6 +424,13 @@ async function aplicarHorariAlPlanning() {
   const fora = _horariDiesDeVacances(setmanes);
 
   try {
+    /* El que s'acabi d'escriure al planning i encara no hagi pujat, que pugi
+       ABANS: després es treu la còpia d'aquí i es torna a llegir del full, i
+       el que no hi fos encara s'hauria perdut (14/11/2026). */
+    try {
+      if (typeof _debounceBuida === 'function') _debounceBuida();
+      if (typeof _planCua !== 'undefined') await Promise.all(Object.keys(_planCua).map(w => _planCua[w]));
+    } catch (e) {}
     // Una sola crida: el backend ho aplica a totes les setmanes de cop
     let r = await appsScriptPost({ action: 'aplicarHorariPlanning', horari: _horari, weekIds: setmanes, fora: fora });
 
@@ -470,6 +530,16 @@ async function aplicarHorariAlPlanning() {
           for (const p of _sufixos) { if (k.indexOf(p) === 0) { _fora.push(k); break; } }
         }
         _fora.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+        /* ⚠ I LA FOTO DE LA SETMANA, TAMBÉ (14/11/2026). Des que el planning
+           es desa per diferències, de cada setmana es guarda «què hi havia al
+           full l'última vegada». Si es treuen les caselles i es deixa la
+           foto, el que falta es llegeix com «la mestra ho ha esborrat»: el
+           que havia escrit a mà s'amagava, i en desar qualsevol altra cosa
+           d'aquella setmana, s'esborrava del full. Sense foto, la setmana es
+           torna a llegir sencera, que és el que es vol aquí. */
+        setmanes.forEach(w => {
+          try { localStorage.removeItem('plan_sync_' + w); localStorage.removeItem('plan_base_' + w); } catch (e) {}
+        });
       } catch (e) {}
 
       // Refresca la setmana visible del planning des del núvol

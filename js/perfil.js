@@ -609,14 +609,35 @@ function _perfilRenderTutorSel() {
   cont.innerHTML = `<div class="perfil-tutor-cursos">${cursos}</div>${liniesHtml}`;
 }
 
+/* ⚠ EN CANVIAR DE TUTORIA, LES ASSIGNATURES ES QUEDAVEN A LA CLASSE VELLA
+   (14/11/2026). Només es canviaven el curs i la línia: la llista
+   d'assignatures seguia penjada de «2n B», que ja no sortia enlloc de la
+   pàgina. Es desava «Perfil desat ✓» i el menú seguia dient «Català 2n B»,
+   amb els nens de l'any passat. Ara les assignatures segueixen la tutoria:
+   passen a la classe nova i la vella no en queda cap. */
+let _perfilTutorAbans = null;
 function _perfilSetTutorCurs(curs) {
+  if (_perfil.tutorCurs && _perfil.tutorLinia) _perfilTutorAbans = _grupKey(_perfil.tutorCurs, _perfil.tutorLinia);
   _perfil.tutorCurs = curs;
   _perfil.tutorLinia = null; // reinicia la línia en canviar de curs
   _perfilRenderTutorSel();
   _perfilRenderGrups();
 }
 function _perfilSetTutorLinia(linia) {
+  const abans = (_perfil.tutorCurs && _perfil.tutorLinia)
+    ? _grupKey(_perfil.tutorCurs, _perfil.tutorLinia) : _perfilTutorAbans;
   _perfil.tutorLinia = linia;
+  const ara = _grupKey(_perfil.tutorCurs, linia);
+  _perfilTutorAbans = null;
+  if (abans && abans !== ara && _perfil.classes && _perfil.classes[abans]) {
+    const velles = _perfil.classes[abans] || [];
+    if (!(_perfil.classes[ara] || []).length) _perfil.classes[ara] = velles.slice();
+    delete _perfil.classes[abans];
+    if (velles.length && typeof showToast === 'function') {
+      showToast('Les assignatures que tenies a ' + abans + ' han passat a ' + ara +
+                '. Repassa-les abans de desar.', 'success');
+    }
+  }
   _perfilRenderTutorSel();
   _perfilRenderGrups();
 }

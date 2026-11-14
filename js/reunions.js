@@ -472,8 +472,8 @@ async function _reuEsborraFer(calId) {
   if (!c) return;
   const n = (c.reserves || []).length;
   let avis = 'Vols esborrar «' + c.titol + '»?\n\nL\'enllaç deixarà de funcionar.';
-  if (n) avis += '\n\nATENCIÓ: hi ha ' + n + ' hora' + (n > 1 ? 'es' : '') + ' reservada' + (n > 1 ? 'es' : '') +
-    ' i també s\'esborrarà' + (n > 1 ? 'n' : '') + ' del teu Google Calendar. Les famílies no rebran cap avís.';
+  if (n) avis += '\n\nATENCIÓ: hi ha ' + (n > 1 ? n + ' hores reservades i també s\'esborraran' : '1 hora reservada i també s\'esborrarà') +
+    ' del teu Google Calendar. Les famílies no rebran cap avís.';
   if (!confirm(avis)) return;
   const r = await appsScriptPost({ action: 'reunionsEsborra', calId });
   /* ⚠ Amb una convocatòria que ja no hi era —esborrada des d'un altre
@@ -549,14 +549,17 @@ function _reuPintaAfegir() {
        Amb durada 0, `x += 0` no avança i la pestanya es quedava penjada.
        Amb la franja sencera la resposta és sempre una: l'estona. */
     const dur = parseInt(_reuAfegirCal ? _reuAfegirCal.durada : 15, 10);
-    const buf = 0;
+    /* El descans entre reunions també compta: amb 10 minuts de descans, en
+       una hora hi caben 3 reunions de 15 i no 4. El rètol deia «4 hores» i
+       se'n creaven 3 (14/11/2026). */
+    const buf = Math.max(0, parseInt(_reuAfegirCal ? _reuAfegirCal.buffer : 0, 10) || 0);
     c.innerHTML = _reuAfegirEstones.map((e, i) => {
       const m = h => (+h.split(':')[0]) * 60 + (+h.split(':')[1]);
       let n = 0;
       if (!(dur > 0)) n = m(e.fi) > m(e.inici) ? 1 : 0;
       else for (let x = m(e.inici); x + dur <= m(e.fi); x += dur + buf) n++;
       return `<span class="reu-chip">${_reuDataText(e.data)} · ${e.inici}–${e.fi}
-        <em class="reu-chip-n">${n} hore${n === 1 ? '' : 's'}</em>
+        <em class="reu-chip-n">${n} ${n === 1 ? 'hora' : 'hores'}</em>
         <button onclick="_reuTreuEstona(${i})" aria-label="Treure">×</button></span>`;
     }).join('');
   }
@@ -573,7 +576,7 @@ async function _desaReuAfegirFer() {
     const r = await appsScriptPost({ action: 'reunionsAfegeixHores', calId: _reuAfegirCal.id, hores: _reuAfegirEstones });
     if (r && r.ok) {
       tancaReuAfegir();
-      let msg = r.afegides + ' hore' + (r.afegides === 1 ? '' : 's') + ' afegide' + (r.afegides === 1 ? 's' : 's');
+      let msg = r.afegides === 1 ? '1 hora afegida' : (r.afegides + ' hores afegides');
       if (r.jaHiEren) msg += ' · ' + r.jaHiEren + ' ja hi eren';
       if (r.xoquen) msg += ' · ' + r.xoquen + ' xoquen amb el teu calendari';
       showToast(msg + ' ✓', 'success');

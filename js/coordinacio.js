@@ -142,7 +142,10 @@ async function _esmDesa() {
        tot seguit: el missatge sortia i s'esborrava en el mateix instant. La
        mestra no veia res i, a sobre, se li buidava el que havia escrit
        (auditoria 6/9/2026). Es recorda i es torna a posar després. */
-    _esmUltimError = 'No s\'ha pogut desar: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '') + '. Torna-ho a provar.';
+    /* `errorHuma` ja acaba amb un punt i sovint amb «torna-ho a provar»:
+       afegir-hi «. Torna-ho a provar.» feia «…una estona.. Torna-ho a provar.» */
+    var _txtErr = (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || '').replace(/[.\s]+$/, '');
+    _esmUltimError = 'No s\'ha pogut desar: ' + _txtErr + (/torna-ho a provar/i.test(_txtErr) ? '.' : '. Torna-ho a provar.');
     _esmEstat(_esmUltimError, 'error');
     return false;
   }

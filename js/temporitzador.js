@@ -412,10 +412,29 @@
   function pantallaCompleta() {
     var el = byId('page-temporitzador');
     if (!el) return;
+    /* ⚠ A L'IPHONE EL BOTÓ NO FEIA RES (14/11/2026). El Safari de l'iPhone no
+       té pantalla completa per a les pàgines; el botó no feia res ni deia
+       res. Ara, quan no n'hi ha (o el navegador la rebutja), la pàgina del
+       temporitzador ocupa tota la finestra, que és el que es pot fer, i es
+       diu com sortir-ne. */
+    var ompla = function () {
+      var posat = el.classList.toggle('temp-ompla');
+      document.body.style.overflow = posat ? 'hidden' : '';
+      if (posat && typeof showToast === 'function') {
+        showToast('En aquest aparell no hi ha pantalla completa de debò: l\'he fet tan gran com es pot. ' +
+                  'Torna a tocar «Pantalla completa» per sortir-ne.', 'info');
+      }
+    };
     try {
+      if (el.classList.contains('temp-ompla')) { ompla(); return; }
       if (document.fullscreenElement) { document.exitFullscreen(); return; }
-      if (el.requestFullscreen) el.requestFullscreen().catch(function () {});
-    } catch (e) {}
+      if (el.requestFullscreen) {
+        var p = el.requestFullscreen();
+        if (p && typeof p.catch === 'function') p.catch(function () { ompla(); });
+      } else {
+        ompla();
+      }
+    } catch (e) { try { ompla(); } catch (x) {} }
   }
 
   /* ---- Les pintades ---- */
@@ -438,6 +457,28 @@
                     'Pots tenir-ne uns quants alhora.</p>';
       return;
     }
+    /* Si s'està escrivint el nom d'un temporitzador i un ALTRE arriba a zero,
+       aquí es repinta tot i el cursor marxava a mig escriure (14/11/2026).
+       Es recorda on era i s'hi torna després de pintar. */
+    var _actiu = document.activeElement, _onEra = null;
+    if (_actiu && _actiu.classList && _actiu.classList.contains('temp-nom')) {
+      var _carta = _actiu.closest ? _actiu.closest('.temp-card') : null;
+      if (_carta) _onEra = { id: _carta.getAttribute('data-id'), valor: _actiu.value,
+                             ini: _actiu.selectionStart, fi: _actiu.selectionEnd };
+    }
+    setTimeout(function () {
+      if (!_onEra) return;
+      var cartes = w.querySelectorAll('.temp-card');
+      for (var i = 0; i < cartes.length; i++) {
+        if (cartes[i].getAttribute('data-id') !== _onEra.id) continue;
+        var camp = cartes[i].querySelector('.temp-nom');
+        if (!camp) return;
+        camp.value = _onEra.valor;
+        camp.focus();
+        try { camp.setSelectionRange(_onEra.ini, _onEra.fi); } catch (e) {}
+        return;
+      }
+    }, 0);
     w.innerHTML = _llista.map(function (t) {
       var ms = _restant(t);
       var acabat = (ms <= 0);

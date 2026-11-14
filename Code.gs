@@ -3890,7 +3890,7 @@ function handleRequest(e) {
       case 'syncAssoliments':        result = syncAssoliments(ss, body.trimestre, body.data); break;
 
       // Planning
-      case 'savePlanning':           result = savePlanning(ss, body.weekId, body.data, body.base); break;
+      case 'savePlanning':           result = savePlanning(ss, body.weekId, body.data, body.base, body.parcial, body.esborra); break;
       case 'loadPlanning':           result = loadPlanning(ss, (body&&body.weekId)||p.weekId); break;
       case 'saveSeients':            result = saveSeients(ss, body.layout, body.history, body.markers, (body&&body.grup)||p.grup, body.desats); break;
       case 'loadSeients':            result = loadSeients(ss, (body&&body.grup) || p.grup); break;
@@ -7641,7 +7641,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v365';
+var BACKEND_VERSIO = 'v366';
 
 var MAX_CELA = 45000;
 
@@ -7761,7 +7761,7 @@ function sheetGetAll(ss, nom) {
 
    Les marques de temps viuen dins del mateix valor, a `__ts`, perquè no
    calgui cap pestanya nova al full de ningú. */
-function savePlanning(ss, weekId, data, base) {
+function savePlanning(ss, weekId, data, base, parcial, esborra) {
   if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { data = {}; } }
   data = data || {};
 
@@ -7782,6 +7782,30 @@ function savePlanning(ss, weekId, data, base) {
   var ara = Date.now();
   var nBase = Number(base || 0);
   var nou = {};
+
+  /* ⚠ NOMÉS EL QUE HA CANVIAT (auditoria del 14/11/2026).
+     Fins ara el navegador enviava la setmana sencera i aquí es donava per
+     bona cada casella que arribava: una casella VELLA d'un aparell que feia
+     dies que no es posava al dia trepitjava la que s'havia canviat des de
+     l'altre, i una d'esborrada tornava. Amb `parcial`, el navegador envia
+     només el que ell ha tocat (`data`) i el que ha esborrat (`esborra`), i
+     la resta de la setmana no es toca. Un navegador d'abans no ho envia i es
+     fa com sempre. */
+  if (parcial) {
+    Object.keys(vell).forEach(function (k) { nou[k] = vell[k]; });
+    Object.keys(data).forEach(function (k) {
+      if (k === '__ts') return;
+      nou[k] = data[k];
+      ts[k] = ara;
+    });
+    (Array.isArray(esborra) ? esborra : []).forEach(function (k) {
+      delete nou[k];
+      delete ts[k];
+    });
+    nou.__ts = ts;
+    sheetSetJSON(ss, '_AppData_Planning', weekId, JSON.stringify(nou));
+    return { ok: true, ts: ara };
+  }
 
   Object.keys(data).forEach(function (k) {
     if (k === '__ts') return;
@@ -8597,6 +8621,15 @@ function bootstrap(ss, weekIds) {
   result.calEvents = appDataBundle.calEvents;
   result.assim     = appDataBundle.assim;
   result.actitud   = appDataBundle.actitud;
+  /* Els ajustos propis (per agendar, categories de tasques, enllaços de la
+     portada). Es desaven però aquí no es tornaven: en un altre aparell no hi
+     eren, i el primer canvi d'allà els esborrava (auditoria del 14/11/2026). */
+  result.ajustos   = appDataBundle.ajustos || null;
+  /* L'hora d'AQUÍ, del servidor. El navegador s'apunta «fins aquí ho he
+     vist» per saber, en desar, què havia vist i què no; si ho apuntava amb el
+     seu propi rellotge i aquell rellotge anava avançat o endarrerit, la
+     comparació amb les hores d'aquí no valia res. */
+  result.ara = Date.now();
 
   // 6) Seients (de la lectura única de _AppData; evita 3 lectures redundants)
   try {
@@ -14408,7 +14441,7 @@ function _aulesDelFull(sh) {
 function getAulesLliures(refresca) {
   var id = _aulesFullId();
   if (!id) {
-    return { ok: false, error: 'L\'horari de les aules encara no esta connectat. Digues-ho a en Pol.' };
+    return { ok: false, error: 'L\'horari de les aules encara no està connectat. Digues-ho a en Pol.' };
   }
   var cache = null, clau = 'aules_' + id.slice(-16);
   try {

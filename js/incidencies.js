@@ -112,9 +112,18 @@
     if (typeof _perfil === 'undefined' || !_perfil) return;
     try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch (e) {}
     try {
-      if (typeof config !== 'undefined' && config && config.scriptUrl &&
-          typeof appsScriptPost === 'function') {
-        appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }).catch(function () {});
+      /* ⚠ SI DESAR FALLAVA, LA INCIDÈNCIA ES PERDIA SENSE DIR RES (14/11/2026).
+         Anava amb una crida a pèl i l'error s'empassava: el correu a la
+         família sortia, però la incidència no quedava a la fitxa del nen, i
+         a dalt hi deia «Sincronitzat». Ara va per la cua de sempre: si no
+         arriba, es diu, es compta a «canvis sense desar» i es torna a
+         provar sola. */
+      if (typeof config !== 'undefined' && config && config.scriptUrl) {
+        if (typeof _desaAlFull === 'function') {
+          _desaAlFull({ action: 'saveProfile', profile: JSON.stringify(_perfil) });
+        } else if (typeof appsScriptPost === 'function') {
+          appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }).catch(function () {});
+        }
       }
     } catch (e) {}
   }
@@ -457,8 +466,12 @@
      de finestres), i per això hi ha el `mailto:` com a reserva: amb
      ell s'obre el programa de correu que tingui posat.
      ============================================================ */
+  /* Dos clics seguits a «Obrir el Gmail» obrien dos correus i apuntaven la
+     incidència dues vegades a la fitxa (14/11/2026). Dos segons de marge. */
+  var _enviantFins = 0;
   function envia() {
     if (_alumneObert === null) return;
+    if (Date.now() < _enviantFins) return;
     var studentId = _alumneObert;
 
     var adr = correus(studentId);
@@ -482,6 +495,7 @@
               '&su=' + encodeURIComponent(assumpte) +
               '&body=' + encodeURIComponent(cos);
 
+    _enviantFins = Date.now() + 2000;
     var f = null;
     try { f = window.open(url, '_blank'); } catch (e) {}
     if (!f) {

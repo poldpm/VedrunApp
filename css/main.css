@@ -7001,3 +7001,22 @@ textarea.modal-input[rows="6"], textarea.modal-input[rows="7"], textarea.modal-i
   .tq-check { position: relative; }
   .tq-check::after { content: ''; position: absolute; inset: -10px; }
 }
+
+/* 18. EL TEMPORITZADOR «A PANTALLA COMPLETA» ON NO N'HI HA (l'iPhone): la
+   pàgina ocupa tota la finestra, per damunt del menú (veure
+   `pantallaCompleta` a js/temporitzador.js). */
+#page-temporitzador.temp-ompla {
+  position: fixed; inset: 0; z-index: 900;
+  background: var(--bg, #F6F3F4); overflow: auto;
+  padding: 16px; margin: 0; max-width: none;
+}
+
+/* 19. La previsualització d'«Importar ràpid» de l'horari: la graella tal com
+   quedarà (abans només hi deia quantes caselles). */
+.import-preview-wrap { overflow-x: auto; margin-top: 6px; }
+.import-preview-taula { border-collapse: collapse; font-size: 12px; width: 100%; }
+.import-preview-taula th, .import-preview-taula td {
+  border: 1px solid var(--border); padding: 4px 6px; text-align: left; white-space: nowrap;
+  max-width: 140px; overflow: hidden; text-overflow: ellipsis;
+}
+.import-preview-taula th { background: var(--surface-alt); color: var(--text-sub); font-weight: 600; }

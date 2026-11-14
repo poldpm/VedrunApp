@@ -65,9 +65,22 @@ const TRIM_LABELS = { '1':'1r Trimestre', '2':'2n Trimestre', '3':'3r Trimestre'
 
 /* --- Debounce helper (agrupa crides ràpides al servidor) --- */
 const _debounceTimers = {};
+/* `_debounceFns` té les funcions que encara ESPEREN torn: així, si la pàgina
+   se'n va (es recarrega, es tanca, el mòbil passa a una altra app), es poden
+   fer córrer de cop en lloc de perdre-les (veure `_buidaElQueEspera`). */
+const _debounceFns = {};
 function debounce(key, fn, ms = 1200) {
   clearTimeout(_debounceTimers[key]);
-  _debounceTimers[key] = setTimeout(fn, ms);
+  _debounceFns[key] = fn;
+  _debounceTimers[key] = setTimeout(() => { delete _debounceFns[key]; fn(); }, ms);
+}
+function _debounceBuida() {
+  Object.keys(_debounceFns).forEach(k => {
+    clearTimeout(_debounceTimers[k]);
+    const f = _debounceFns[k];
+    delete _debounceFns[k];
+    try { f(); } catch (e) {}
+  });
 }
 
 /* --- State --- */
@@ -357,7 +370,7 @@ function showPage(pageId, _fromPop) {
   /* L'inici també és de la classe sencera: si no, en tornar de les notes
      d'una assignatura, els comptadors i el panell d'alumnes eren d'aquella. */
   if (pageId === 'home')         { if (typeof _restoreTutoriaStudents === 'function') _restoreTutoriaStudents(); renderHome(); }
-  if (pageId === 'planning')     renderPlanning();
+  if (pageId === 'planning')   { renderPlanning(); if (typeof _planRefrescaVisible === 'function') _planRefrescaVisible(); }
   if (pageId === 'assoliments')  { _initAssolimentsPage(); }
   if (pageId === 'comentaris')   { initComentaris(); renderComentRubrica(); }
   /* Rúbriques d'avaluació: és una eina que només té qui l'ha demanada
@@ -1024,6 +1037,8 @@ function _hiHaFeinaAMigDesar() {
 function _buidaElQueEspera() {
   try { if (typeof _regPendents !== 'undefined') Array.from(_regPendents).forEach(function (f) { try { f(); } catch (e) {} }); } catch (e) {}
   try { if (typeof _notesBuidaTecles === 'function') _notesBuidaTecles(); } catch (e) {}
+  // El planning, les tasques, els assoliments… que esperaven el seu segon.
+  try { _debounceBuida(); } catch (e) {}
   try {
     if (_fitxaDesaTemps && currentPersonalStudentId !== null) {
       clearTimeout(_fitxaDesaTemps); _fitxaDesaTemps = null; _fitxaDesaAra();
@@ -2914,6 +2929,23 @@ function _refrescTornaHi(esperes) {
     if (_escriptEnMarxa > 0 && (esperes || 0) < 20) { _refrescTornaHi((esperes || 0) + 1); return; }
     _backgroundRefresh();
   }, 1500);
+}
+
+/* La llista d'alumnes s'ha quedat sense aplicar perquè hi havia un quadre
+   obert: quan es tanqui, es torna a demanar (es mira cada tres segons, un
+   minut com a molt). */
+let _alumnesEsperant = null;
+function _alumnesQuanAcabi() {
+  if (_alumnesEsperant) return;
+  let voltes = 0;
+  _alumnesEsperant = setInterval(() => {
+    voltes++;
+    if (voltes > 20) { clearInterval(_alumnesEsperant); _alumnesEsperant = null; return; }
+    if (typeof _isEditing === 'function' && _isEditing()) return;
+    clearInterval(_alumnesEsperant); _alumnesEsperant = null;
+    _lastFullLoadTs = 0;
+    _backgroundRefresh();
+  }, 3000);
 }
 
 async function _backgroundRefresh() {
@@ -5259,6 +5291,7 @@ function _pendentClau(body) {
 function _pendentsCarrega() {
   try { _pendents = JSON.parse(localStorage.getItem(_PENDENTS_CLAU) || '[]') || []; }
   catch (e) { _pendents = []; }
+  try { _envolRecupera(); } catch (e) {}
   _pendentsPinta();
   /* ⚠ EL QUE HAVIA QUEDAT PENDENT D AHIR NO PUJAVA MAI.
 
@@ -5291,13 +5324,66 @@ function _pendentsPinta() {
 }
 
 /* Desa al full. Si no pot, s'ho apunta i ho tornarà a provar sol. */
+/* ⚠ TANCAR L'APP UN SEGON DESPRÉS DE «GUARDAR» PERDIA EL CANVI (14/11/2026).
+
+   Un desat només entrava a la cua de pendents DESPRÉS de fallar. Però mentre
+   viatja (un segon i mig, o més) no és enlloc més que a la memòria: si en
+   aquell moment es recarregava o es tancava la pestanya —o, al mòbil, es
+   passava a una altra app i el sistema la matava—, el canvi no arribava al
+   full, la cua era buida i el rètol deia «Sincronitzat». En tornar a obrir,
+   el full manava i allò havia desaparegut. Passava al planning i a les
+   tasques, entre d'altres.
+
+   Ara tot desat s'apunta al navegador ABANS de sortir (`vedruna_envol`) i
+   se'n treu quan el servidor contesta. Si l'app es tanca pel mig, el proper
+   cop que s'obre el troba i el torna a enviar. No es pot fer dues vegades:
+   viatja amb el mateix codi d'operació i el servidor el reconeix. */
+const _ENVOL_CLAU = 'vedruna_envol';
+function _envolLlegeix() {
+  try { return JSON.parse(localStorage.getItem(_ENVOL_CLAU) || '{}') || {}; } catch (e) { return {}; }
+}
+function _envolPosa(clau, body) {
+  try {
+    const e = _envolLlegeix();
+    e[clau] = { body: body, ts: Date.now() };
+    localStorage.setItem(_ENVOL_CLAU, JSON.stringify(e));
+  } catch (x) {}
+}
+function _envolTreu(clau, body) {
+  try {
+    const e = _envolLlegeix();
+    if (!e[clau]) return;
+    // Només si és AQUEST enviament: mentrestant en pot haver sortit un de més nou.
+    if (body && e[clau].body && e[clau].body.opId && body.opId && e[clau].body.opId !== body.opId) return;
+    delete e[clau];
+    if (Object.keys(e).length) localStorage.setItem(_ENVOL_CLAU, JSON.stringify(e));
+    else localStorage.removeItem(_ENVOL_CLAU);
+  } catch (x) {}
+}
+/* En arrencar: el que es va quedar a mig camí passa a la cua de pendents. */
+function _envolRecupera() {
+  const e = _envolLlegeix();
+  const claus = Object.keys(e);
+  if (!claus.length) return;
+  claus.forEach(clau => {
+    if (!e[clau] || !e[clau].body) return;
+    if (_pendents.some(p => p.clau === clau)) return;          // ja n'hi ha un de més nou esperant
+    _pendents.push({ clau: clau, body: e[clau].body, ts: e[clau].ts || Date.now() });
+  });
+  try { localStorage.removeItem(_ENVOL_CLAU); } catch (x) {}
+  _pendentsGuarda();
+}
+
 async function _desaAlFull(body, opcions) {
   opcions = opcions || {};
   if (!config.scriptUrl) return { ok: false, _senseConnexio: true };
   const clau = _pendentClau(body);
+  try { _posaOpId(body); } catch (e) {}
+  _envolPosa(clau, body);
   try {
     const r = await appsScriptPost(body);
     if (r && r.ok === false) throw new Error(r.error || 'el servidor no ho ha pogut desar');
+    _envolTreu(clau, body);
     const hiEra = _pendents.length;
     _pendents = _pendents.filter(p => p.clau !== clau);
     if (_pendents.length !== hiEra) _pendentsGuarda();
@@ -5308,6 +5394,7 @@ async function _desaAlFull(body, opcions) {
     _pendents = _pendents.filter(p => p.clau !== clau);
     _pendents.push({ clau, body, ts: Date.now() });
     _pendentsGuarda();
+    _envolTreu(clau, body);
     if (!opcions.callat) {
       showToast('Això encara no s\'ha desat al full. Ho tornaré a provar sol quan torni la connexió.', 'error');
     }
@@ -5321,6 +5408,7 @@ let _pendentsProvant = false;
 async function _pendentsProva() {
   if (_pendentsProvant || !_pendents.length || !config.scriptUrl) return;
   _pendentsProvant = true;
+  let _desatsDeDebo = 0;
   try {
     const cua = _pendents.slice();
     for (const p of cua) {
@@ -5362,7 +5450,14 @@ async function _pendentsProva() {
            és en català i sol dir què s'ha de fer) i la resta continua. */
         /* …tret que sigui una fallada passatgera de Google: llavors es deixa
            a la cua i s'hi torna més tard (veure `_esFalladaPassatgera`). */
-        if (typeof _esFalladaPassatgera === 'function' && _esFalladaPassatgera(r)) break;
+        /* ⚠ I AMB LA SESSIÓ CADUCADA ES LLENÇAVA TOT EL QUE ESPERAVA (14/11/2026).
+           L'endemà d'haver treballat sense connexió, la credencial de Google
+           ja ha caducat: la cua es provava sense credencial, la resposta era
+           «cal entrar amb el compte de l'escola», i això es prenia per un «no»
+           definitiu: es treia de la cua —el planning, les tasques, la fitxa…—
+           i al final deia «Ja s'ha desat tot» sense haver desat res. La cua de
+           les caselles ja ho feia bé (`_esTornaraAProvar`); aquesta, no. */
+        if (typeof _esTornaraAProvar === 'function' && _esTornaraAProvar(r)) break;
         if (r && r.ok !== false) _excepcionsSeguides = 0;
         if (r && r.ok === false) {
           _pendents = _pendents.filter(x => x.clau !== p.clau);
@@ -5374,11 +5469,13 @@ async function _pendentsProva() {
         }
         _pendents = _pendents.filter(x => x.clau !== p.clau);
         _pendentsGuarda();
+        _desatsDeDebo++;
       } catch (e) { break; }
     }
     if (!_pendents.length) {
       updateSync('ok', 'Sincronitzat'); updateStatSync();
-      showToast('Ja s\'ha desat tot el que havia quedat pendent ✓', 'success');
+      // Només si de debò n'ha pujat algun: si tots s'han hagut de llençar, no és veritat.
+      if (_desatsDeDebo) showToast('Ja s\'ha desat tot el que havia quedat pendent ✓', 'success');
       if (_pendentsTimer) { clearInterval(_pendentsTimer); _pendentsTimer = null; }
     }
   } finally { _pendentsProvant = false; }
@@ -5815,9 +5912,19 @@ function updateStatSync() {
    Això torna un enllaç buit si no és http o https, i escapa el que quedi. */
 function _enllacSegur(u) {
   if (u === undefined || u === null) return '';
-  const net = String(u).trim();
+  let net = String(u).trim();
   if (!net) return '';
-  if (!/^https?:\/\//i.test(net)) return '';
+  /* ⚠ UN ENLLAÇ ESCRIT SENSE «https://» OBRIA L'APP EN UNA ALTRA PESTANYA
+     (14/11/2026). «www.youtube.com/watch?v=…» —que és com l'escriu tothom—
+     es desava tal qual, es pintava com a enllaç i, com que aquí es tornava
+     buit, en clicar-hi s'obria l'app mateixa. Ara, si té pinta d'adreça, se
+     li posa el «https://» al davant. Els altres «esquemes» (javascript:,
+     data:…) segueixen fora. */
+  if (!/^https?:\/\//i.test(net)) {
+    if (/^(javascript|data|vbscript|file|blob|about):/i.test(net)) return '';
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?([\/?#].*)?$/i.test(net)) net = 'https://' + net;
+    else return '';
+  }
   return escapeHtml(net);
 }
 
@@ -6806,9 +6913,12 @@ function planCalEvents(diaId, franja) {
     if (!_evTocaDia(ev, ds)) return false;
     // Sense hora → es mostra a la primera franja del dia
     if (!ev.hora) return esPrimera;
-    const m = ev.hora.match(/(\d{1,2}):(\d{2})/);
-    if (!m) return esPrimera;
-    const min = parseInt(m[1]) * 60 + parseInt(m[2]);
+    /* L'hora és text lliure, i la gent l'escriu com la diu: «15h», «9.30»,
+       «a les 15», «9,30h». Només s'entenia «15:00», i tota la resta anava a
+       parar a la PRIMERA hora del matí (14/11/2026). */
+    const m = String(ev.hora).match(/(\d{1,2})(?:\s*[:.,hH]\s*(\d{2}))?/);
+    if (!m || parseInt(m[1]) > 23) return esPrimera;
+    const min = parseInt(m[1]) * 60 + (m[2] ? parseInt(m[2]) : 0);
     // Dins d'aquesta franja
     if (ini !== null && fi !== null && min >= ini && min < fi) return true;
     // Fora de l'horari escolar → a la primera (si és abans) o última franja (si és després)
@@ -7514,21 +7624,34 @@ function savePlanNoteWeek() {
   syncPlanningWeek();
 }
 
-async function planningPrevWeek() {
-  _planWeekOffset--;
-  const wKey = getPlanWeekId(_planWeekOffset);
+/* En anar a una setmana: si el navegador ja en té alguna cosa, es pinta de
+   seguida i es demana al darrere (i es repinta si ha canviat); si no en té
+   res, s'espera. Abans, una setmana que «ja es tenia» no es tornava a
+   demanar mai (veure «El planning entre dos aparells»). */
+async function _planVesASetmana() {
+  const desp = _planWeekOffset;
+  const wKey = getPlanWeekId(desp);
   const hasLocal = Array.from({length: localStorage.length}, (_, i) => localStorage.key(i)).some(k => k && k.startsWith('plan_' + wKey + '_'));
-  if (!hasLocal) await loadPlanningWeekFromSheets(wKey);
+  if (!hasLocal) { await loadPlanningWeekFromSheets(wKey); renderPlanning(); return; }
   renderPlanning();
+  _planRefrescaVisible();
 }
-async function planningNextWeek() {
-  _planWeekOffset++;
-  const wKey = getPlanWeekId(_planWeekOffset);
-  const hasLocal = Array.from({length: localStorage.length}, (_, i) => localStorage.key(i)).some(k => k && k.startsWith('plan_' + wKey + '_'));
-  if (!hasLocal) await loadPlanningWeekFromSheets(wKey);
-  renderPlanning();
+/* Torna a demanar la setmana que es veu i, si ha canviat, la torna a pintar
+   (sense tancar res que la mestra tingui obert). */
+function _planRefrescaVisible() {
+  if (!config.scriptUrl) return;
+  const desp = _planWeekOffset, wKey = getPlanWeekId(desp);
+  loadPlanningWeekFromSheets(wKey).then(canviat => {
+    const obert = document.querySelector('#planCellOverlay.open, #planNoteOverlay.open, #planNoteDayOverlay.open, #planComentOverlay.open');
+    if (canviat && _planWeekOffset === desp && _currentPage === 'planning' && !obert) renderPlanning();
+  }).catch(() => {});
 }
-function planningThisWeek()  { _planWeekOffset = 0; renderPlanning(); }
+async function planningPrevWeek() { _planWeekOffset--; await _planVesASetmana(); }
+async function planningNextWeek() { _planWeekOffset++; await _planVesASetmana(); }
+/* «Avui» també torna a demanar la setmana: si no, després d'aplicar l'horari
+   —que treu la còpia d'aquí perquè es llegeixi fresca— es veia buida fins que
+   es tornava a obrir l'app. */
+function planningThisWeek()  { _planWeekOffset = 0; return _planVesASetmana(); }
 
 
 /* ============================================================
@@ -7778,19 +7901,67 @@ function _ajustosDesa() {
   if (!config.scriptUrl) return;
   _desaAlFull({ action: 'saveAjustosPropis', data: _ajustosPlega() }, { callat: true });
 }
+/* ⚠ «PER AGENDAR», LES CATEGORIES DE TASQUES I ELS ENLLAÇOS PROPIS NO
+   TORNAVEN MAI DEL FULL (auditoria del 14/11/2026).
+
+   Es desaven bé, però la crida d'arrencada no els portava (al servidor hi
+   faltava una línia) i aquí no es demanaven per cap altre camí. En un altre
+   aparell, o després de netejar el navegador, no hi eren; i el primer canvi
+   fet des d'allà els esborrava del full.
+
+   Ara tornen (amb el servidor nou, dins l'arrencada; amb el d'abans, es
+   demanen a part un cop). Dues regles perquè ningú no hi perdi res:
+     · la PRIMERA vegada que un aparell rep els del full, es sumen als que
+       ja tenia (podien ser seus i no haver pujat mai) i es puja la suma;
+     · a partir de llavors mana el full, també quan una llista és buida
+       (abans una llista buida s'ignorava: treure l'últim element no
+       arribava mai als altres aparells). */
 function _ajustosAplica(a) {
   if (!a) return;
   try {
-    if (a.enllacos && Object.keys(a.enllacos).length) {
-      localStorage.setItem('enllacos_propis', JSON.stringify(a.enllacos));
+    const primer = !localStorage.getItem('ajustos_vistos');
+    const llegeix = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+    let sumat = false;
+    const suma = (delFull, dAqui) => {
+      const out = (delFull || []).slice();
+      const hiSon = new Set(out.map(x => JSON.stringify(x)));
+      (dAqui || []).forEach(x => { const k = JSON.stringify(x); if (!hiSon.has(k)) { out.push(x); hiSon.add(k); sumat = true; } });
+      return out;
+    };
+    if (a.enllacos && typeof a.enllacos === 'object') {
+      const dAqui = llegeix('enllacos_propis') || {};
+      const nous = primer ? Object.assign({}, dAqui, a.enllacos) : a.enllacos;
+      if (primer && Object.keys(dAqui).some(k => !(k in a.enllacos))) sumat = true;
+      if (Object.keys(nous).length || !primer) localStorage.setItem('enllacos_propis', JSON.stringify(nous));
       if (window.rubriques && typeof window.rubriques.pintaEnllacos === 'function') window.rubriques.pintaEnllacos();
     }
-    if (a.agendar && a.agendar.length) localStorage.setItem('cal2_agendar', JSON.stringify(a.agendar));
+    if (Array.isArray(a.agendar)) {
+      localStorage.setItem('cal2_agendar', JSON.stringify(primer ? suma(a.agendar, llegeix('cal2_agendar')) : a.agendar));
+    }
     if (Array.isArray(a.tasquesCats)) {
-      localStorage.setItem(TQ_CATS_CLAU, JSON.stringify(a.tasquesCats));
+      localStorage.setItem(TQ_CATS_CLAU, JSON.stringify(primer ? suma(a.tasquesCats, llegeix(TQ_CATS_CLAU)) : a.tasquesCats));
       if (typeof tqRenderFiltres === 'function') tqRenderFiltres();
     }
+    localStorage.setItem('ajustos_vistos', '1');
+    if (sumat && typeof _ajustosDesa === 'function') _ajustosDesa();
   } catch (e) {}
+}
+/* Amb un servidor d'abans, l'arrencada no porta els ajustos: es demanen a
+   part, un cop per sessió. */
+let _ajustosDemanats = false;
+function _ajustosDemanaSiCal(boot) {
+  if (_ajustosDemanats || !config.scriptUrl) return;
+  if (boot && Object.prototype.hasOwnProperty.call(boot, 'ajustos')) return;     // ja han vingut
+  _ajustosDemanats = true;
+  appsScriptGet({ action: 'loadAjustosPropis' }).then(r => {
+    const a = r && r.ok ? (r.data || r.ajustos || null) : null;
+    if (a && !_pendentsTe('saveAjustosPropis')) {
+      _ajustosAplica(a);
+      try { if (_currentPage === 'calendari') renderCalendari(); } catch (e) {}
+    } else if (r && r.ok && !a) {
+      try { localStorage.setItem('ajustos_vistos', '1'); } catch (e) {}
+    }
+  }).catch(() => { _ajustosDemanats = false; });
 }
 
 /* --- Render --- */
@@ -7850,8 +8021,14 @@ async function _loadGCalEvents(year, month) {
       try { localStorage.setItem('gcal_' + gcalKey, JSON.stringify(r.events)); } catch(e) {}
       // Re-renderitza la graella NOMÉS si encara estem veient aquest mes
       if (_cal2Year === year && _cal2Month === month) {
-        const localEvents = cal2LoadEvents(year)
-          .filter(e => { const p=(e.data||'').split('-'); return parseInt(p[0])===year && parseInt(p[1])===month+1; })
+        /* ⚠ LES COLÒNIES QUE DESAPAREIXIEN DEL MES (14/11/2026). Aquí es
+           tornaven a buscar els events del mes mirant només el DIA D'INICI, i
+           `renderCalendari` mira si el TOQUEN: una sortida del 30 de novembre
+           al 2 de desembre es pintava al desembre i, un segon després —quan
+           contestava el Google Calendar—, se n'anava. Ara és la mateixa
+           expressió als dos llocs. */
+        const localEvents = [...cal2LoadEvents(year - 1), ...cal2LoadEvents(year)]
+          .filter(e => _evTocaMes(e, year, month))
           .sort((a,b) => a.data.localeCompare(b.data));
         const allEvents = _mergeEvents(localEvents, r.events);
         _renderCal2Grid(year, month, allEvents);
@@ -8103,8 +8280,8 @@ function saveCal2Event() {
      auditoria, 8/9/2026). */
   const _any = parseInt(String(data).split('-')[0], 10);
   if (!(_any >= 2000 && _any <= 2100)) {
-    showToast('L any «' + _any + '» no sembla bo. Repassa la data: si el deso aixi, ' +
-              'l event anira a parar a un racó del calendari on no el trobaras.', 'error');
+    showToast('L\'any «' + _any + '» no sembla bo. Repassa la data: si el deso així, ' +
+              'l\'event anirà a parar a un racó del calendari on no el trobaràs.', 'error');
     const _d = document.getElementById('cal2EvData'); if (_d) _d.focus();
     return;
   }
@@ -8232,7 +8409,7 @@ function deleteCal2Cat(i) {
   const usats = _cal2QuantsEvents(cat.id);
   if (usats > 0) {
     const msg = 'Hi ha ' + usats + ' event' + (usats > 1 ? 's' : '') + ' amb la categoria "' + cat.nom + '".\n\n' +
-      'Si l\'esborres, aquests events NO es perden, pero es quedaran sense categoria (en gris).\n\n' +
+      'Si l\'esborres, aquests events NO es perden, però es quedaran sense categoria (en gris).\n\n' +
       'Vols eliminar-la igualment?';
     if (!confirm(msg)) return;
   }
@@ -9092,7 +9269,7 @@ function _updateGrupsHint() {
   if (_grupsNum > total) _grupsNum = total;
   if (_grupsQuants > total) _grupsQuants = total;
   const nGrups  = _grupsNGrups(total);
-  let hint = `${total} alumnes → ${nGrups} grup${nGrups!==1?'s':''}`;
+  let hint = `${total} alumne${total!==1?'s':''} → ${nGrups} grup${nGrups!==1?'s':''}`;
   /* ⚠ LA PISTA NO DEIA EL QUE PASSAVA DE DEBÒ.
 
      Trobat a l'auditoria del 6/9/2026: sempre deia «(N−1 de 3 i 1 de 2)»,
@@ -9398,11 +9575,29 @@ function _generarHeterogenis(alumnes, aleatoritzar, presents, nGrupsVol) {
   // quedin equilibrats: cada grup rep alternativament dels forts i dels fluixos
   /* La columna on comença la serpentina també canvia a cada intent: si no,
      dos intents amb la mateixa nota tornarien a caure igual. */
-  let dir = 1, col = aleatoritzar ? Math.floor(Math.random() * nGrups) : (g % nGrups);
+  /* ⚠ ELS GRUPS SORTIEN DESIGUALS: 4, 4, 4, 2, 2, 2 EN COMPTES DE SIS DE TRES
+     (14/11/2026). La serpentina començava en una columna a l'atzar, i la
+     primera passada (a mitges) donava un nen de més a les columnes de la
+     dreta; l'última passada, que tornava a començar pel mateix cantó, els
+     en donava un altre. Quatre de cada cinc vegades els grups es duien dos
+     nens de diferència, mentre a la pantalla hi deia «6 grups de 3».
+
+     Ara cada nen va SEMPRE a un dels grups que en té menys: les mides no es
+     poden separar més d'un. Entre els que van empatats es tria en
+     serpentina (una passada cap a la dreta, la següent cap a l'esquerra),
+     que és el que reparteix els nivells; i el punt de sortida segueix
+     canviant a cada intent, que és el que fa que «Regenerar» doni grups
+     diferents. */
+  const sortida = aleatoritzar ? Math.floor(Math.random() * nGrups) : (g % nGrups);
+  const ordreBase = Array.from({ length: nGrups }, (_, i) => (i + sortida) % nGrups);
+  let passada = 0, donats = 0;
   resta.forEach(idx => {
-    grups[col].push(idx);
-    if (dir === 1) { if (col === nGrups - 1) { dir = -1; } else col++; }
-    else { if (col === 0) { dir = 1; } else col--; }
+    const minim = Math.min.apply(null, grups.map(x => x.length));
+    const ordre = (passada % 2 === 0) ? ordreBase : ordreBase.slice().reverse();
+    const tria = ordre.find(c => grups[c].length === minim);
+    grups[tria].push(idx);
+    donats++;
+    if (donats >= nGrups) { donats = 0; passada++; }
   });
 
   return grups;
@@ -10981,38 +11176,145 @@ function _planningWeekData(weekId) {
   return data;
 }
 
+/* ============================================================
+   EL PLANNING ENTRE DOS APARELLS (auditoria del 14/11/2026)
+   ------------------------------------------------------------
+   La mestra fa el planning a l'ordinador de l'aula i el mira (i el retoca)
+   al mòbil. Fins ara això fallava de quatre maneres, totes sense cap avís:
+
+     · una setmana que el navegador ja «tenia» no es tornava a demanar mai:
+       el mòbil es quedava amb la versió vella per sempre;
+     · en desar s'enviava la setmana SENCERA, i el servidor es creia cada
+       casella que arribava: una casella vella del mòbil trepitjava la que
+       s'havia canviat a l'ordinador;
+     · una casella esborrada en un aparell es quedava a l'altre, i el seu
+       desat següent la tornava a pujar;
+     · una casella escrita des de l'altre aparell no es podia esborrar
+       (tornava), perquè en arrencar no s'apuntava «fins aquí ho he vist».
+
+   Ara cada setmana té una FOTO de l'última vegada que el navegador i el
+   full van quedar iguals (`plan_sync_<setmana>`):
+     · en DESAR s'envia només la diferència amb la foto —el que s'ha canviat
+       i el que s'ha esborrat—, i el servidor toca només allò;
+     · en REBRE una setmana, el que ve del full substitueix el que hi havia
+       (també el que ja no hi és), i a sobre s'hi torna a posar el que aquí
+       s'ha canviat i encara no ha pujat;
+     · en anar a una setmana, es torna a demanar sempre.
+   Amb un servidor d'abans (que no entén la diferència) es desa com sempre.
+   ============================================================ */
+function _planSyncGet(wid) {
+  try { return JSON.parse(localStorage.getItem('plan_sync_' + wid) || 'null'); } catch (e) { return null; }
+}
+function _planSyncSet(wid, data) {
+  try { localStorage.setItem('plan_sync_' + wid, JSON.stringify(data || {})); } catch (e) {}
+}
+/* Què hi ha al navegador que no és a la foto: { canvis: {clau: valor}, fora: [claus] }. */
+function _planDiferencia(wid, foto) {
+  const ara = _planningWeekData(wid);
+  const canvis = {}, fora = [];
+  Object.keys(ara).forEach(k => {
+    if (k === '__ts') return;
+    if (!foto || JSON.stringify(ara[k]) !== JSON.stringify(foto[k])) canvis[k] = ara[k];
+  });
+  if (foto) Object.keys(foto).forEach(k => { if (k !== '__ts' && !(k in ara)) fora.push(k); });
+  return { canvis, fora, ara };
+}
+/* Escriu una setmana al navegador, treient-ne tot el que hi hagués. */
+function _planEscriuSetmana(wid, data) {
+  const prefix = 'plan_' + wid + '_';
+  const treu = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith(prefix) || k === 'plan_notes_' + wid || k.startsWith('plan_daynote_' + wid + '_'))) treu.push(k);
+  }
+  treu.forEach(k => localStorage.removeItem(k));
+  Object.entries(data || {}).forEach(([subkey, val]) => {
+    if (subkey === '__ts' || val === undefined || val === null) return;
+    if (subkey === '_notes') localStorage.setItem('plan_notes_' + wid, val);
+    else if (subkey.startsWith('_daynote_')) localStorage.setItem('plan_daynote_' + wid + '_' + subkey.replace('_daynote_', ''), val);
+    else localStorage.setItem(prefix + subkey, typeof val === 'string' ? val : JSON.stringify(val));
+  });
+}
+/* Arriba una setmana del full. */
+function _planRepSetmana(wid, delFull) {
+  const net = {};
+  Object.keys(delFull || {}).forEach(k => { if (k !== '__ts') net[k] = delFull[k]; });
+  const foto = _planSyncGet(wid);
+  let final = net;
+  if (foto) {
+    // el que aquí s'ha tocat i encara no ha pujat, a sobre del que ve
+    const d = _planDiferencia(wid, foto);
+    final = Object.assign({}, net, d.canvis);
+    d.fora.forEach(k => { delete final[k]; });
+  } else if (_pendentsTe('savePlanning')) {
+    return;        // sense foto i amb un desat pendent: val més no tocar res
+  }
+  _planEscriuSetmana(wid, final);
+  _planSyncSet(wid, net);
+  try { localStorage.setItem('plan_base_' + wid, String(_araDelServidor())); } catch (e) {}
+}
+/* L'hora del SERVIDOR de l'última arrencada (veure `result.ara` al Code.gs),
+   o la d'aquí si el servidor encara no la diu. Serveix per apuntar «fins
+   aquí ho he vist» amb el mateix rellotge amb què el servidor compara. */
+let _araServidor = 0, _araServidorQuan = 0;
+function _araDelServidor() {
+  return _araServidor ? _araServidor + (Date.now() - _araServidorQuan) : Date.now();
+}
+
+const _planCua = {};      // setmana → l'últim desat (van un darrere l'altre)
 function syncPlanningWeek(weekId) {
   if (!config.scriptUrl) return;
   const wid = weekId || getPlanWeekId(_planWeekOffset);
   debounce('planning_' + wid, () => {
-    /* El  diu al servidor què havia vist aquest navegador d aquesta
-       setmana. Sense això, desar s emporta per davant el que hagi escrit
-       l altre dispositiu (auditoria 6/9/2026). */
-    const _base = localStorage.getItem('plan_base_' + wid) || '';
-    _desaAlFull({ action: 'savePlanning', weekId: wid, data: _planningWeekData(wid), base: _base })
-      .then(r => { if (r && r.ok && r.ts) { try { localStorage.setItem('plan_base_' + wid, String(r.ts)); } catch (e) {} } });
+    _planCua[wid] = (_planCua[wid] || Promise.resolve()).then(() => _planDesaAra(wid)).catch(() => {});
   }, 800);
+}
+async function _planDesaAra(wid) {
+  /* El  diu al servidor què havia vist aquest navegador d aquesta
+     setmana. Sense això, desar s emporta per davant el que hagi escrit
+     l altre dispositiu (auditoria 6/9/2026). */
+  const _base = localStorage.getItem('plan_base_' + wid) || '';
+  const _sapParcial = typeof _numVersio === 'function' && _backendVersio && _numVersio(_backendVersio) >= 366;
+  const foto = _planSyncGet(wid);
+  const d = _planDiferencia(wid, foto);
+  let cos;
+  if (_sapParcial) {
+    if (!Object.keys(d.canvis).length && !d.fora.length) return;
+    cos = { action: 'savePlanning', weekId: wid, data: d.canvis, esborra: d.fora, parcial: true, base: _base };
+  } else {
+    cos = { action: 'savePlanning', weekId: wid, data: d.ara, base: _base };
+  }
+  const r = await _desaAlFull(cos);
+  if (r && r.ok) {
+    if (r.ts) { try { localStorage.setItem('plan_base_' + wid, String(r.ts)); } catch (e) {} }
+    /* La foto passa a ser el que s'ha enviat (no el que hi hagi ara: si
+       mentrestant s'ha tocat una altra casella, ha de sortir al desat
+       següent). */
+    const novaFoto = Object.assign({}, foto || {}, d.canvis);
+    if (!_sapParcial) Object.keys(novaFoto).forEach(k => { if (!(k in d.ara)) delete novaFoto[k]; });
+    d.fora.forEach(k => { delete novaFoto[k]; });
+    _planSyncSet(wid, novaFoto);
+  }
 }
 
 async function loadPlanningWeekFromSheets(weekId) {
-  if (!config.scriptUrl) return;
+  if (!config.scriptUrl) return false;
   try {
-    const r = await appsScriptGet({ action: 'loadPlanning', weekId });
-    if (!r.ok || !r.data) return;
+    const _t0 = Date.now();
+    let r = await appsScriptGet({ action: 'loadPlanning', weekId });
+    /* Si mentre viatjava s'ha desat res, aquesta resposta és d'abans: es
+       torna a demanar quan ja no s'escrigui (veure `_hiHaEscripturaDesDe`). */
+    if (r && r.ok && _hiHaEscripturaDesDe(_t0)) {
+      for (let i = 0; i < 20 && _escriptEnMarxa > 0; i++) await new Promise(x => setTimeout(x, 400));
+      r = await appsScriptGet({ action: 'loadPlanning', weekId });
+    }
+    if (!r.ok || !r.data) return false;
+    const abans = JSON.stringify(_planningWeekData(weekId));
+    _planRepSetmana(weekId, r.data);
     // Des d ara, tot el que canviï al full serà posterior a aquest moment.
     if (r.base) { try { localStorage.setItem('plan_base_' + weekId, String(r.base)); } catch (e) {} }
-    const prefix = 'plan_' + weekId + '_';
-    Object.entries(r.data).forEach(([subkey, val]) => {
-      if (subkey === '_notes') {
-        localStorage.setItem('plan_notes_' + weekId, val);
-      } else if (subkey.startsWith('_daynote_')) {
-        const diaId = subkey.replace('_daynote_', '');
-        localStorage.setItem('plan_daynote_' + weekId + '_' + diaId, val);
-      } else {
-        localStorage.setItem(prefix + subkey, typeof val === 'string' ? val : JSON.stringify(val));
-      }
-    });
-  } catch(e) {}
+    return JSON.stringify(_planningWeekData(weekId)) !== abans;
+  } catch(e) { return false; }
 }
 
 /* --- TASQUES --- */
@@ -11212,16 +11514,15 @@ async function loadAllFromSheets() {
 // Processa les dades de planning/tasques/calendari/assoliments/actitud
 // (compartit entre loadAllFromSheets i _applyBootstrap)
 function _processAppData(r) {
+  if (r && r.ara) { _araServidor = Number(r.ara) || 0; _araServidorQuan = Date.now(); }
   // Planning (mai per damunt del que encara no s ha pogut pujar)
-  if (r.planning && !_pendentsTe('savePlanning')) {
-    Object.entries(r.planning).forEach(([weekId, data]) => {
-      const prefix = 'plan_' + weekId + '_';
-      Object.entries(data).forEach(([subkey, val]) => {
-        if (subkey === '_notes') localStorage.setItem('plan_notes_' + weekId, val);
-        else if (subkey.startsWith('_daynote_')) localStorage.setItem('plan_daynote_' + weekId + '_' + subkey.replace('_daynote_', ''), val);
-        else localStorage.setItem(prefix + subkey, typeof val === 'string' ? val : JSON.stringify(val));
-      });
-    });
+  if (r.planning) {
+    /* Les tres setmanes que es demanen sempre (l'anterior, aquesta i la
+       següent): si el full no en torna una, és que és BUIDA, i s'ha de
+       buidar aquí també (veure «El planning entre dos aparells»). */
+    const _setmanes = new Set(Object.keys(r.planning));
+    [-1, 0, 1].forEach(o => { try { _setmanes.add(getPlanWeekId(o)); } catch (e) {} });
+    _setmanes.forEach(weekId => { try { _planRepSetmana(weekId, r.planning[weekId] || {}); } catch (e) {} });
   }
   /* Tasques. Si n hi ha cap de pendent de pujar, NO es toca res: el que ve
      del servidor encara no la porta, i escriure-hi a sobre la faria
@@ -11240,7 +11541,7 @@ function _processAppData(r) {
      una versió del full. */
   if (r.tasques && !_pendentsTe('saveTasques')) {
     localStorage.setItem('tasques', JSON.stringify(r.tasques));
-    try { localStorage.setItem('tasques_base', String(Date.now())); } catch (e) {}
+    try { localStorage.setItem('tasques_base', String(_araDelServidor())); } catch (e) {}
   }
   // Calendari
   if (r.calCats && !_pendentsTe('saveCalendariCats')) localStorage.setItem('cal2_cats', JSON.stringify(r.calCats));
@@ -11254,12 +11555,13 @@ function _processAppData(r) {
   if (!_pendentsTe('saveCalendari')) {
     const _anys = new Set(Object.keys(r.calEvents || {}));
     _anys.add(String(new Date().getFullYear()));
-    _anys.forEach(y => { try { localStorage.setItem('cal_base_' + y, String(Date.now())); } catch (e) {} });
+    _anys.forEach(y => { try { localStorage.setItem('cal_base_' + y, String(_araDelServidor())); } catch (e) {} });
   }
   // Sembra el calendari escolar (un cop per mestre; una còpia nova ja el porta)
   if (typeof _calSeedEscola === 'function') _calSeedEscola();
   // Els ajustos propis (enllaços de la portada, «per agendar»)
   if (r.ajustos && !_pendentsTe('saveAjustosPropis')) _ajustosAplica(r.ajustos);
+  try { _ajustosDemanaSiCal(r); } catch (e) {}
   // Assoliments
   if (r.assim) Object.entries(r.assim).forEach(([key, val]) => {
     if (key.startsWith('obj_')) {
@@ -11273,7 +11575,7 @@ function _processAppData(r) {
           /* Un nivell TRET en un altre aparell també s'ha de treure aquí: si
              no, hi quedava marcat per sempre (i el desat següent el tornava a
              pujar). Només si aquí no hi ha res esperant per desar-se. */
-          else if (!_pendentsTe('saveAssimValors') && !_debounceTimers['assimVals_' + matTrim]) {
+          else if (!_pendentsTe('saveAssimValors') && !_debounceFns['assimVals_' + matTrim]) {
             localStorage.removeItem(`assim_${matTrim}_${sid}_${objId}`);
           }
         });
@@ -11336,7 +11638,16 @@ function _applyBootstrap(boot) {
 
   // 2) Alumnes: prioritza els del grup de tutoria (full "Grups").
   // Protecció: no toquis la llista d'alumnes si l'usuari està editant ara mateix.
-  const editant = (typeof _isEditing === 'function') && _isEditing();
+  /* ⚠ LA PRIMERA CÀRREGA ES SALTAVA LA LLISTA D'ALUMNES SI HI HAVIA UN QUADRE
+     OBERT (14/11/2026). «No toquis la llista si la mestra està editant» té
+     sentit quan ja n'hi ha una a la pantalla. Però si l'app arrencava amb el
+     perfil obert, o amb l'avís de «versió nova» al davant —que surt als 2,5 s,
+     just quan arriba la resposta—, la llista no s'aplicava i a Alumnes hi
+     deia «Encara no hi ha cap alumne», amb «Sincronitzat» a dalt. Si encara
+     no hi ha cap alumne, no hi ha res a protegir: s'aplica. I si s'ha hagut
+     de saltar, es torna a provar quan es tanqui el que hi havia obert. */
+  const editant = (typeof _isEditing === 'function') && _isEditing() && students.length > 0;
+  if (editant) { try { _alumnesQuanAcabi(); } catch (e) {} }
   /* Un grup de tutoria BUIT tambe s ha d aplicar: el servidor diu
      grupAlumnesOk quan ha pogut obrir el full de l escola. Si no es feia,
      una tutora que canviava de grup al setembre es quedava els alumnes del
@@ -11419,8 +11730,17 @@ function _applyBootstrap(boot) {
   if (boot.postits && Array.isArray(boot.postits)) {
     try {
       /* Mai per damunt d un post-it que encara no ha pogut pujar */
-      if (typeof _postits !== 'undefined' && !_pendentsTe('savePostits')) _postits = boot.postits;
-      localStorage.setItem('postits', JSON.stringify(boot.postits));
+      /* ⚠ I la còpia del navegador, tampoc (14/11/2026): l'`if` protegia la
+         llista en memòria però la línia de sota escrivia igualment al
+         navegador, que és d'on es llegeix en obrir l'app. Un post-it que
+         encara no havia pogut pujar desapareixia del tauler en reobrir-la.
+         I s'apunta «fins aquí ho he vist» (`postits_base`): sense això, un
+         post-it esborrat tornava si l'altre aparell havia desat res abans. */
+      if (!_pendentsTe('savePostits')) {
+        if (typeof _postits !== 'undefined') _postits = boot.postits;
+        localStorage.setItem('postits', JSON.stringify(boot.postits));
+        localStorage.setItem('postits_base', String(_araDelServidor()));
+      }
     } catch(e) {}
   }
   if (boot.horari && typeof boot.horari === 'object') {

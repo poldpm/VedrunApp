@@ -361,7 +361,38 @@ function _seientsMarkerDragEnd() {
 }
 
 /* ---- Historial de parelles ---- */
-function _pairKey(a, b) { return [a, b].sort().join('_'); }
+/* ⚠ L'HISTORIAL ANAVA PER LA POSICIÓ A LA LLISTA (14/11/2026).
+   «Aquests dos ja han segut junts» es guardava com a «0_1»: el primer i el
+   segon de la llista. Quan un alumne entrava a la classe o en marxava, tots
+   els números es corrien i l'avís ⚠ passava a altres nens: es marcava un
+   nen nou com si ja hagués segut amb algú, i es deixava de marcar els que
+   sí. El plànol ja es lliga pel codi permanent de cada nen; ara l'historial
+   també. Les parelles d'abans («0_1») es tradueixen al codi dels nens que
+   AVUI ocupen aquells números, un sol cop. */
+function _seientsCodiDe(id) {
+  try {
+    const p = (typeof personal !== 'undefined' && personal) ? personal[id] : null;
+    if (p && p.rowId !== undefined && p.rowId !== null && p.rowId !== '') return 'c' + p.rowId;
+    const st = (typeof students !== 'undefined') ? students.find(x => String(x.id) === String(id)) : null;
+    if (st && st.rowId !== undefined && st.rowId !== null && st.rowId !== '') return 'c' + st.rowId;
+  } catch (e) {}
+  return String(id);
+}
+function _pairKey(a, b) { return [_seientsCodiDe(a), _seientsCodiDe(b)].sort().join('_'); }
+/* Una clau d'abans («3_7», dos números de llista) → la d'ara. */
+function _seientsHistorialAlDia(h) {
+  if (!h || typeof h !== 'object') return {};
+  const out = {};
+  let canviat = false;
+  Object.keys(h).forEach(k => {
+    const m = /^(\d+)_(\d+)$/.exec(k);
+    if (!m) { out[k] = (out[k] || 0) + h[k]; return; }
+    const nova = _pairKey(parseInt(m[1], 10), parseInt(m[2], 10));
+    if (nova !== k) canviat = true;
+    out[nova] = (out[nova] || 0) + h[k];
+  });
+  return canviat ? out : h;
+}
 
 // Retorna les parelles de VEÏNS IMMEDIATS d'un grup (esquerra-dreta consecutius).
 // Un grup de 4 en quadrat es munta com dues files de 2, així que la veïnança
@@ -378,8 +409,22 @@ function _neighborPairs(g) {
   return pairs;
 }
 function _loadPairHistory() {
-  try { return JSON.parse(localStorage.getItem(_seientsLS('seients_history')) || '{}'); }
+  let h = {};
+  try { h = JSON.parse(localStorage.getItem(_seientsLS('seients_history')) || '{}') || {}; }
   catch(e) { return {}; }
+  /* Les parelles d'abans (per número de llista) passen al codi de cada nen
+     (veure `_pairKey`). Només amb la llista a la mà: sense alumnes no es pot
+     saber de qui era cada número. */
+  try {
+    if (typeof students !== 'undefined' && students.length) {
+      const alDia = _seientsHistorialAlDia(h);
+      if (alDia !== h) {
+        h = alDia;
+        localStorage.setItem(_seientsLS('seients_history'), JSON.stringify(h));
+      }
+    }
+  } catch (e) {}
+  return h;
 }
 function _savePairHistory(h) {
   try { localStorage.setItem(_seientsLS('seients_history'), JSON.stringify(h)); } catch(e) {}
@@ -686,7 +731,7 @@ function seientsAddRow() {
   else { grup.x = dreta; grup.y = 20; }
   _seientsLayout.push(grup);
   renderSeients();
-  _seientsSyncToSheets();
+  _seientsDesaTaulell();
 }
 function seientsDeleteGroup(gid) {
   // Esborrar una fila de taules també treu del plànol els alumnes que hi
@@ -697,7 +742,10 @@ function seientsDeleteGroup(gid) {
   if (!confirm('Vols esborrar aquesta fila de taules?' + detall)) return;
   _seientsLayout = _seientsLayout.filter(x => x.id !== gid);
   renderSeients();
-  _seientsSyncToSheets();
+  /* També a la còpia del navegador (14/11/2026): abans només s'enviava al
+     full, i en reobrir l'app la fila esborrada —amb els seus nens— tornava
+     a sortir de la còpia vella, i el desat següent la tornava a pujar. */
+  _seientsDesaTaulell();
 }
 /* Desa el taulell: al navegador I al full. Abans hi havia llocs que
    nomes feien una de les dues coses —repartir no en feia cap— i el
@@ -1304,7 +1352,9 @@ function _seientsAvisTria() {
   if (!_seientsTriat) { el.textContent = ''; el.style.display = 'none'; return; }
   const _s = students.find(x => String(x.id) === String(_seientsTriat.studentId));
   const nom = _s ? (typeof nomAlumne === 'function' ? nomAlumne(_s) : _s.nom) : 'aquest alumne';
-  el.textContent = 'Has triat ' + nom + '. Ara toca el lloc on el vols (o torna a tocar-lo per deixar-ho estar).';
+  el.textContent = 'Has triat ' + nom + '. Ara toca el lloc on el vols' +
+    (_seientsTriat.from === 'seat' ? ', o toca aquesta llista per treure\'l del seient' : '') +
+    ' (o torna a tocar-lo per deixar-ho estar).';
   el.style.display = '';
 }
 
@@ -1349,7 +1399,14 @@ function _seientsToca(ev, from, studentId, seatId) {
   }
 
   // Hi ha algú triat i s'ha tocat un lloc: es mou (o s'intercanvia)
-  if (!seatId) { _seientsTriat = null; renderSeients(); _seientsAvisTria(); return; }
+  if (!seatId) {
+    /* S'ha tocat la LLISTA. Si el triat era assegut, vol dir «torna'l a la
+       llista»; si era un altre nen de la llista, es tria el nou. */
+    if (_seientsTriat.from === 'seat') { _seientsTreuDelSeient(); return; }
+    if (studentId != null && studentId !== '') _seientsTriat = { from, studentId, seatId };
+    else _seientsTriat = null;
+    renderSeients(); _seientsAvisTria(); return;
+  }
   const desti = _findSeat(seatId);
   if (!desti) { _seientsTriat = null; _seientsAvisTria(); return; }
 
@@ -1424,7 +1481,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (s) s.studentId = null;
         _seientsDragData = null;
         renderSeients();
+        /* ⚠ No es desava (14/11/2026): el nen tornava a la llista a la
+           pantalla, deia «Sincronitzat», i en reobrir l'app tornava a ser
+           al seient. */
+        _seientsDesaTaulell();
       }
     });
+    /* Amb el dit: amb un nen ASSEGUT triat, tocar la llista (el requadre o
+       el seu títol) el torna a la llista. Abans no hi havia cap manera de
+       treure UN nen del seu lloc sense ratolí: només esborrar la fila o
+       buidar-ho tot. */
+    const _aLaLlista = ev => {
+      if (!_seientsTriat || _seientsTriat.from !== 'seat') return;
+      if (ev.target && ev.target.closest && ev.target.closest('.seients-pool-item')) return;  // un nen de la llista: ho fa `_seientsToca`
+      _seientsTreuDelSeient();
+    };
+    pool.addEventListener('click', _aLaLlista);
+    const _titol = pool.parentElement && pool.parentElement.querySelector('.seients-pool-title');
+    if (_titol) _titol.addEventListener('click', _aLaLlista);
   }
 });
+/* Torna a la llista el nen assegut que hi ha triat, i ho desa. */
+function _seientsTreuDelSeient() {
+  if (!_seientsTriat || _seientsTriat.from !== 'seat') return;
+  const s = _findSeat(_seientsTriat.seatId);
+  if (s) s.studentId = null;
+  _seientsTriat = null;
+  _seientsDesaTaulell();
+  renderSeients();
+  _seientsAvisTria();
+}

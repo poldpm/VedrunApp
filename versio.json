@@ -1,15 +1,16 @@
 {
-  "versio": "v365",
+  "versio": "v366",
   "data": "2026-11-14",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Al mòbil, les notes ja es poden posar bé: la columna dels noms és estreta, es veuen dues activitats alhora i els botons (comentari i NE) ja no tapen la casella. També s han arreglat una vintena de quadres i botons que al mòbil quedaven tallats o massa petits per al dit.",
-    "A les notes, la fletxa avall i l Enter baixen al nen següent (abans la fletxa restava mig punt a la nota). Els decimals, amb coma o amb punt. Un número més alt que el màxim ja no es converteix en un 10: no es desa i t ho diu. I si toques NE sense voler, en treure l hi torna la nota.",
-    "Observacions: si desar fallava i ho tornaves a provar, podia anar a un altre nen. Arreglat. I si una companya hi escriu mentre tu l edites, ja no li trepitges el que ha posat: t avisa.",
-    "La fitxa de l alumne ja no perd canvis si marques dues coses seguides i tanques, o si passes de pressa al nen següent.",
-    "Assoliments: els nivells que marques als objectius de direcció ara es desen de debò al full. Abans només es quedaven en aquell ordinador: en un altre aparell no hi eren.",
-    "El plànol de l aula es pot muntar amb el dit: les files de taules i els marcadors s arrosseguen també a la tauleta.",
-    "El manual, al mòbil, té índex i cercador (botó Índex, a baix a la dreta).",
-    "Obrir una assignatura és més ràpid: les notes ja vénen carregades d abans."
+    "Si fas servir l app en dos aparells (l ordinador i el mòbil), el planning ja no es barreja: el que esborres en un no torna a sortir des de l altre, i cada setmana es torna a llegir del full quan hi vas. El «Per agendar», les categories de les tasques i els enllaços de l Inici també passen ara d un aparell a l altre.",
+    "Si treballaves sense connexió i, en tornar, la sessió de Google havia caducat, el que havies fet es podia perdre. Ara s espera que tornis a entrar i llavors ho puja.",
+    "Distribució de l aula: per treure un nen del seu lloc, tria l i toca la llista d «Alumnes sense lloc». Treure una fila de taules o tornar un nen a la llista ara es desa de debò, i el «ja han segut junts» segueix cada nen encara que arribi un alumne nou a la classe.",
+    "Generador de grups: els heterogenis ja surten tots de la mateixa mida (abans podien sortir de 4 i de 2 quan havies demanat grups de 3).",
+    "Horari: «Importar ràpid» t ensenya la graella abans d importar i entén l horari copiat d un full de càlcul, encara que hi hagi la fila dels dies, la columna de les hores o el dinar.",
+    "Calendari: l hora es pot escriure com vulguis (9.30, 15h, a les 15) i al planning surt a la franja que toca. Els enllaços sense «https://» ja s obren bé.",
+    "La meva llibreta: el «✓ tasca» o «✓ al calendari» només surt quan de debò l has desat. I filtrar per una etiqueta amb apòstrof (l AFA) ja funciona.",
+    "El meu perfil: si canvies de tutoria, les assignatures passen soles a la classe nova. Temporitzador: a l iPhone, «Pantalla completa» el fa tan gran com es pot. Incidències: si no es pot desar, ho torna a provar, i un doble clic ja no obre dos correus.",
+    "I una colla de textos arreglats (hores, plurals i accents) i de petites coses que fallaven en obrir l app amb una finestra oberta."
   ]
 }
