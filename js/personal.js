@@ -779,6 +779,18 @@
   window.cpvCanviaCat = function (i, camp, valor) {
     if (!_esborrany[i]) return;
     _esborrany[i][camp] = camp === 'pes' ? (parseFloat(valor) || 0) : valor;
+    /* El nom que s'escriu ha de sortir a l'instant als desplegables de sota
+       («De quina categoria és cada activitat»): es quedaven dient «sense nom»
+       fins que s'afegia o es treia una categoria, i s'havia d'endevinar quina
+       era quina (auditoria del 14/11/2026). Només es toca el text de l'opció:
+       repintar el quadre li trauria el cursor de la casella. */
+    if (camp === 'nom') {
+      var _idCat = String(_esborrany[i].id);
+      var _opcions = document.querySelectorAll('#cpvCatsCos select option');
+      for (var _o = 0; _o < _opcions.length; _o++) {
+        if (_opcions[_o].value === _idCat) _opcions[_o].textContent = valor || 'sense nom';
+      }
+    }
     // Només es repinta el marcador de la suma: repintar-ho tot li trauria el
     // cursor de la casella mentre escriu.
     var suma = _esborrany.reduce(function (a, c) { return a + (parseFloat(c.pes) || 0); }, 0);

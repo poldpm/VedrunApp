@@ -82,8 +82,16 @@ async function prefetchAllNotes() {
   const trim  = (typeof getTrimestreProposat === 'function') ? getTrimestreProposat() : 1;
   // Carrega en sèrie suau (una rere l'altra) per no saturar Apps Script
   for (const e of entrades.slice(0, 6)) {
-    const mat = e.key;
-    const grup = e.altres ? null : (e.grup || null);
+    /* ⚠ ES PRECARREGAVA AMB UN NOM I ES BUSCAVA AMB UN ALTRE (14/11/2026).
+       Aquí es feia servir la clau del perfil («matematiques__2nb») i el menú
+       obre les notes amb la de la pàgina («matematiques», i el grup a part):
+       el que es precarregava no es trobava mai. Sis crides al servidor a
+       cada arrencada per no res, i la primera vegada que s'obria cada
+       assignatura calia esperar igualment. Ara és la MATEIXA clau que fa
+       servir `openNotes`. */
+    const mat = (typeof _navMateriaKey === 'function') ? _navMateriaKey(e) : e.key;
+    const _dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[mat] : null;
+    const grup = _dd ? null : (e.grup || null);
     const persistKey = 'notescache_' + mat + '_' + trim + (grup ? '_' + grup : '');
     try {
       // Si ja hi ha cache fresc, salta
@@ -387,6 +395,7 @@ function _esperaAlumnes(promesa) {
 }
 
 async function openNotes(materia, trimestre, grup) {
+  _notesBuidaTecles();      // el que quedi per desar, a l'assignatura on s'ha escrit
   const trimActual = getTrimestreActual();
   if (trimActual !== null && parseInt(trimestre) !== trimActual && !trimAlertSuprimida()) {
     const ok = await showTrimAlert(trimActual, parseInt(trimestre));
@@ -728,13 +737,44 @@ async function _loadNotesBackground() {
     _hideNotesLoading();
     updateSync('ok', 'Sincronitzat'); updateStatSync();
   } catch (e) {
-    _hideNotesLoading();
+    // La mestra ja mira una altra cosa: aquest error no és d'aquesta pantalla.
+    if (notesContext !== ctx) return;
     updateSync('error', 'Error');
-    showToast('Error carregant notes: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
+    showToast('No he pogut carregar les notes: ' + (typeof errorHuma === 'function' ? errorHuma(e) : (e && e.message) || ''), 'error');
+    /* Si ja hi havia una taula (del guardat o d'abans), es queda: el que hi
+       ha és més útil que res. Si no n'hi havia cap, es diu que NO s'ha pogut
+       carregar —no que no hi ha cap activitat (veure `syncNotes`). */
+    const _teColumnes = notesItems.some(i => !i.readonly);
+    if (_teColumnes) { _hideNotesLoading(); try { renderNotesTable(); } catch (x) {} }
+    else _notesMostraErrorCarrega();
   }
 }
 
-async function syncNotes() { _cacheDel(); _showNotesLoading(); await _loadNotesBackground(); }
+/* ⚠ «SINCRONITZAR» AMB UN MAL MOMENT DEL SERVIDOR FEIA VEURE QUE NO HI HAVIA RES
+   (14/11/2026). Abans d'anar a buscar res ja es llençava el guardat i
+   s'amagava la taula; si llavors la crida fallava, a la pantalla hi quedava
+   «Cap ítem de notes. Clica Nou ítem…», com si totes les activitats
+   haguessin desaparegut, i s'hi quedava encara que el servidor tornés. Una
+   mestra s'hauria posat a crear-les de nou.
+   Ara la taula que es veu es queda on és mentre es demana, i si no arriba es
+   diu que no s'ha pogut carregar —no que no hi ha res. */
+async function syncNotes() {
+  if (!_notesEsVeuen()) _showNotesLoading();
+  await _loadNotesBackground();
+}
+function _notesMostraErrorCarrega() {
+  const empty = document.getElementById('notesEmpty');
+  const wrap  = document.getElementById('notesTableWrap');
+  if (!empty) return;
+  empty.innerHTML =
+    '<div class="notes-error-carrega" role="alert">' +
+    '<p><strong>No s\'han pogut carregar les notes d\'aquesta assignatura.</strong><br>' +
+    'No vol dir que no n\'hi hagi: és que ara no he pogut parlar amb el full. ' +
+    'No creïs cap activitat fins que es carreguin.</p>' +
+    '<button class="btn btn-primary" type="button" onclick="syncNotes()">Tornar-ho a provar</button></div>';
+  empty.style.display = 'block';
+  if (wrap) wrap.style.display = 'none';
+}
 
 function _showNotesLoading() {
   const empty = document.getElementById('notesEmpty');
@@ -751,7 +791,7 @@ function _showNotesLoading() {
 function _hideNotesLoading() {
   // Si el contingut del empty és el spinner, el restaura al missatge original
   const empty = document.getElementById('notesEmpty');
-  if (empty && empty.querySelector('.notes-loading-spinner')) {
+  if (empty && (empty.querySelector('.notes-loading-spinner') || empty.querySelector('.notes-error-carrega'))) {
     empty.innerHTML = `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
       <p>Cap ítem de notes. Clica <strong>Nou ítem</strong> per afegir la primera prova o activitat.</p>`;
@@ -784,7 +824,9 @@ function openNewNotaModal() {
   document.getElementById('newNotaOverlay').classList.add('open');
   setTimeout(() => document.getElementById('notaItemNom').focus(), 100);
 }
+let _notaDemanaMax = false;      // la versió adaptada: el màxim no es pot deixar buit
 function closeNewNotaModal() {
+  _notaDemanaMax = false;
   document.getElementById('newNotaOverlay').classList.remove('open');
   _notaItemCat = '';
 }
@@ -823,6 +865,7 @@ function notesNovaAdaptada(itemId) {
   const item = notesItems.find(i => String(i.id) === String(itemId));
   if (!item) return;
   openNewNotaModal();
+  _notaDemanaMax = true;
   _notaItemCat = item.cat || '';
   document.getElementById('notaItemNom').value = item.nom + ' · adaptada';
   document.getElementById('notaItemMax').value = '';
@@ -902,8 +945,16 @@ async function addNotaItem() {
      10 quan n havia demanat una altra cosa (auditoria 6/9/2026). */
   const _maxCru = document.getElementById('notaItemMax').value.trim();
   const _pesCru = document.getElementById('notaItemPes').value.trim();
-  const maxPunts = _maxCru === '' ? 10 : parseFloat(_maxCru);
-  const pes      = _pesCru === '' ? 1  : parseFloat(_pesCru);
+  const maxPunts = _maxCru === '' ? 10 : parseFloat(_maxCru.replace(',', '.'));
+  const pes      = _pesCru === '' ? 1  : parseFloat(_pesCru.replace(',', '.'));
+  /* La versió adaptada buida a posta el camp del màxim perquè la mestra hi
+     digui de quants punts és; si el deixava buit, es feia sobre 10 sense dir
+     res (14/11/2026). */
+  if (_maxCru === '' && _notaDemanaMax) {
+    showToast('Digues sobre quants punts és la versió adaptada', 'error');
+    document.getElementById('notaItemMax').focus();
+    return;
+  }
   if (!nom) { showToast('Posa-li un nom a l activitat', 'error'); document.getElementById('notaItemNom').focus(); return; }
   /* ⚠ DUES ACTIVITATS AMB EL MATEIX NOM.
 
@@ -992,11 +1043,29 @@ async function updateNota(itemId, studentId, punts) {
      Si aquella casella venia de treure un NE, s'hi manté la marca: el servidor
      ha de saber que el buit és de debò i no un rebot. */
   const ctx = _notesCtxCua();
-  const clau = itemId + '|' + (_nom || studentId);
+  /* Si a la classe n'hi ha dos que es diuen igual, quin dels dos és (veure
+     `_ocurrenciaDelNom`): sense això, la nota del segon anava al primer. */
+  const _oc = _ocurrenciaDelNom(_st);
+  const clau = itemId + '|' + (_nom || studentId) + (_oc ? '#' + _oc : '');
   const abans = _casellesDe('notes', ctx).find(e => e.clau.endsWith('|' + clau));
   const canvi = { itemId, studentId, nom: _nom, punts };
+  if (_oc) canvi.oc = _oc;
   if (abans && abans.canvi.ne === false) canvi.ne = false;
   _casellesPosa('notes', ctx, clau, canvi);
+}
+
+/* Si a la llista n'hi ha més d'un amb aquest mateix nom i cognoms, quin és
+   aquest: 0 el primer, 1 el segon… El full no té res més que el nom per
+   saber de qui és cada fila, i dos nens que es diuen igual hi surten en el
+   mateix ordre que a la llista. Gairebé sempre torna 0. */
+function _ocurrenciaDelNom(st) {
+  if (!st || !st.nom) return 0;
+  let n = 0;
+  for (const s of students) {
+    if (s === st || String(s.id) === String(st.id)) return n;
+    if (s.nom === st.nom) n++;
+  }
+  return 0;
 }
 
 /* De quin full són les notes que es desen ara. El trimestre sempre com a
@@ -1013,9 +1082,26 @@ function _notesCtxCua() {
    reordenat, el número ja no seria el mateix nen. */
 function _notesAmbPendents() {
   if (typeof _casellesDe !== 'function' || !notesContext || !notesContext.materia) return;
+  /* ⚠ I LES COLUMNES QUE ENCARA NO HAN ARRIBAT AL FULL (14/11/2026).
+     Una columna creada sense connexió es veia… fins que se sortia de la
+     pàgina: en tornar-hi (o recarregant) ja no hi era, amb les seves notes.
+     Les dades arribaven al full quan tornava la connexió, però mentrestant
+     la mestra donava la feina per perduda i la tornava a fer. Ara, la
+     columna que encara és a la cua es torna a posar sempre a la taula. */
+  try {
+    const _cua = _casellesDe('notesItem', _notesCtxCua());
+    let _afegides = false;
+    _cua.forEach(e => {
+      const it = e.canvi && e.canvi.item;
+      if (!it || notesItems.some(x => String(x.id) === String(it.id))) return;
+      notesItems.push(it); _afegides = true;
+    });
+    if (_afegides && typeof sortCarpetaLast === 'function') notesItems = sortCarpetaLast(notesItems);
+  } catch (e) {}
   _casellesDe('notes', _notesCtxCua()).forEach(e => {
     const c = e.canvi;
-    const st = c.nom ? students.find(s => s.nom === c.nom) : null;
+    const _mateixNom = c.nom ? students.filter(s => s.nom === c.nom) : [];
+    const st = _mateixNom[c.oc || 0] || _mateixNom[0] || null;
     const id = st ? st.id : c.studentId;
     if (!notesValors[c.itemId]) notesValors[c.itemId] = {};
     if (!noEntregats[c.itemId]) noEntregats[c.itemId] = {};
@@ -1027,14 +1113,52 @@ function _notesAmbPendents() {
   });
 }
 
+/* El que hi ha escrit en una casella de nota, com a número. Torna '' si és
+   buida i `null` si no és una nota. La coma val com el punt: és com
+   s'escriu aquí, i no pot dependre de l'idioma del navegador. */
+function _notaLlegeix(text) {
+  const t = String(text === null || text === undefined ? '' : text).trim().replace(',', '.');
+  if (t === '') return '';
+  if (!/^-?(\d+\.?\d*|\.\d+)$/.test(t)) return null;
+  const n = parseFloat(t);
+  return isNaN(n) ? null : n;
+}
+
+/* ⚠ LA NOTA ESCRITA JUST ABANS DE CANVIAR D'ASSIGNATURA ES PERDIA (14/11/2026).
+   La casella espera mig segon abans de desar (per no enviar «7» i després
+   «7.5»). Si en aquell mig segon s'obria una altra assignatura o un altre
+   trimestre, el desat s'executava quan «l'assignatura d'ara» ja era la nova:
+   la nota anava a una columna que allà no existeix i sortia un avís tècnic
+   («Columna no trobada: 1794…»). Aquí hi ha les caselles que encara tenen una
+   nota per desar; `openNotes` les buida ABANS de canviar de lloc. */
+const _notesTecles = new Set();
+function _notesBuidaTecles() {
+  Array.from(_notesTecles).forEach(f => { try { f(); } catch (e) {} });
+  _notesTecles.clear();
+}
+
 /* ============================================================
    NO ENTREGAT
    ============================================================ */
+const _neAbans = {};      // «ítem|alumne» → la nota que hi havia abans de posar-hi NE
 async function toggleNoEntregat(item, studentId, inp, chip) {
   if (!noEntregats[item.id]) noEntregats[item.id] = {};
   const era = noEntregats[item.id][studentId] === true;
   const isNE = !era;
   noEntregats[item.id][studentId] = isNE;
+  /* ⚠ UN «NE» PREMUT PER ERROR ESBORRAVA LA NOTA (14/11/2026). El botó és al
+     costat de la casella; tocar-lo sense voler posava NE i, en desfer-ho, la
+     casella quedava buida: la nota que hi havia s'havia perdut. Ara es
+     recorda la nota d'abans i, en treure el NE, hi torna. */
+  const _clauNE = item.id + '|' + studentId;
+  let _notaDAbans = '';
+  if (isNE) {
+    const _v = (notesValors[item.id] || {})[studentId];
+    _neAbans[_clauNE] = (_v === undefined || _v === null) ? '' : _v;
+  } else {
+    _notaDAbans = _neAbans[_clauNE] === undefined ? '' : _neAbans[_clauNE];
+    delete _neAbans[_clauNE];
+  }
 
   // Botó: cerca des del td (és fill directe de td, fora de inner)
   const btnNE = chip.closest('td').querySelector('.ne-btn');
@@ -1053,12 +1177,17 @@ async function toggleNoEntregat(item, studentId, inp, chip) {
     if (!notesValors[item.id]) notesValors[item.id] = {};
     notesValors[item.id][studentId] = 0;
   } else {
-    chip.textContent = '—'; chip.style.background = 'transparent'; chip.style.color = 'var(--text-muted)';
     if (!notesValors[item.id]) notesValors[item.id] = {};
-    notesValors[item.id][studentId] = '';
+    notesValors[item.id][studentId] = _notaDAbans;
+    inp.value = _notaDAbans === '' ? '' : String(_notaDAbans);
+    const _n = _notaDAbans === '' ? null : sobre10(_notaDAbans, item.maxPunts);
+    const _q = _n !== null ? getQual(_n) : null;
+    chip.textContent = _n !== null ? _n.toFixed(2) : '—';
+    chip.style.background = _q ? _q.bg : 'transparent';
+    chip.style.color = _q ? _q.color : 'var(--text-muted)';
   }
   refreshStudentRow(studentId);
-  _notesCacheEscriu(item.id, studentId, isNE ? { ne: true } : { punts: '' });
+  _notesCacheEscriu(item.id, studentId, isNE ? { ne: true } : { punts: _notaDAbans });
 
   // A la cua de caselles, com les notes. Marcar NE deixa la casella en «NE»;
   // treure'l la deixa buida de debò (`ne:false` + buit).
@@ -1066,8 +1195,10 @@ async function toggleNoEntregat(item, studentId, inp, chip) {
     const _stNE = students.find(x => x.id === studentId);
     const _nomNE = _stNE ? _stNE.nom : '';
     const canvi = isNE ? { itemId: item.id, studentId, nom: _nomNE, ne: true }
-                       : { itemId: item.id, studentId, nom: _nomNE, ne: false, punts: '' };
-    _casellesPosa('notes', _notesCtxCua(), item.id + '|' + (_nomNE || studentId), canvi);
+                       : { itemId: item.id, studentId, nom: _nomNE, ne: false, punts: _notaDAbans };
+    const _ocNE = _ocurrenciaDelNom(_stNE);
+    if (_ocNE) canvi.oc = _ocNE;
+    _casellesPosa('notes', _notesCtxCua(), item.id + '|' + (_nomNE || studentId) + (_ocNE ? '#' + _ocNE : ''), canvi);
   }
 }
 
@@ -1238,19 +1369,35 @@ function renderNotesTable() {
         btnNE.textContent = 'NE';
 
         const inp = document.createElement('input');
-        inp.type='number'; inp.min='0'; inp.max=String(item.maxPunts); inp.step='0.5';
+        /* ⚠ ERA UNA CASELLA «DE NÚMERO», I FEIA TRES COSES QUE NINGÚ NO VOLIA
+           (auditoria del 14/11/2026):
+             · la fletxa avall —el que fa qui ve d'un full de càlcul per baixar
+               al nen següent— RESTAVA 0,5 a la nota i ho desava;
+             · en un navegador en anglès, «7,5» es llegia 75 i, com que passa
+               del màxim, es desava un 10;
+             · un 11 en una activitat sobre 10 es convertia en un 10 en sortir
+               de la casella i es desava. La mestra no havia escrit cap 10.
+           Ara és una casella de text que demana el teclat de números al
+           mòbil. La coma i el punt valen igual a tot arreu, les fletxes
+           pugen i baixen de NEN (com l'Enter), i el que no és una nota
+           vàlida no es desa ni es converteix en una altra: es diu, i en
+           sortir de la casella hi torna el que hi havia. */
+        inp.type = 'text'; inp.inputMode = 'decimal'; inp.autocomplete = 'off';
+        inp.setAttribute('enterkeyhint', 'next');
         inp.className='notes-input-punts';
         /* Qui fa servir un lector de pantalla sentia «casella de número» i
            prou: ni de quin nen ni de quina activitat (QA del 27/9/2026). El
            botó NE i les creus del registre ja ho deien. */
-        inp.setAttribute('aria-label', item.nom + ' — ' + s.nom);
+        inp.setAttribute('aria-label', item.nom + ' — ' + s.nom + ' (sobre ' + item.maxPunts + ')');
         /* ENTER BAIXA A L'ALUMNE SEGÜENT (i Shift+Enter puja). Passar les
            notes amb el teclat demanava tres tabulacions per nen —la casella,
            el botó NE i el del comentari—; amb Enter es va a la casella de la
            mateixa columna del nen de sota, que és com es passen les notes de
-           debò. Les fletxes es deixen com estaven (pugen i baixen el número). */
+           debò. Les fletxes amunt i avall fan el mateix. */
         inp.addEventListener('keydown', function (ev) {
-          if (ev.key !== 'Enter') return;
+          const avall = ev.key === 'Enter' ? !ev.shiftKey : ev.key === 'ArrowDown';
+          const amunt = ev.key === 'Enter' ? ev.shiftKey : ev.key === 'ArrowUp';
+          if (!avall && !amunt) return;
           ev.preventDefault();
           const totes = Array.prototype.slice.call(
             document.querySelectorAll('#notesTableWrap input.notes-input-punts'));
@@ -1258,11 +1405,12 @@ function renderNotesTable() {
           if (jo === -1) return;
           const cols = (typeof notesItems !== 'undefined')
             ? notesItems.filter(function (x) { return !x.readonly; }).length : 1;
-          const seguent = ev.shiftKey ? jo - cols : jo + cols;
+          const seguent = amunt ? jo - cols : jo + cols;
           const on = totes[seguent];
           if (on && !on.disabled) { on.focus(); if (on.select) on.select(); }
         });
-        inp.value       = (!isNE && val !== undefined && val !== '') ? val : '';
+        const _bo = (!isNE && val !== undefined && val !== '' && val !== null) ? String(val) : '';
+        inp.value       = _bo;
         inp.placeholder = isNE ? 'NE' : '—';
         inp.disabled    = isNE;
         if (isNE) inp.style.opacity = '0.4';
@@ -1277,22 +1425,44 @@ function renderNotesTable() {
         }
 
         btnNE.addEventListener('click', () => toggleNoEntregat(item, s.id, inp, chip));
-        let t;
+        /* Què hi diu la casella: '' (buida), un número, o `null` si no és una
+           nota (lletres, dos punts decimals…). */
+        const llegeix = () => _notaLlegeix(inp.value);
+        const queNoVal = v => (v === null) ? 'Aquí hi va un número (per exemple 7 o 7,5)'
+          : (v !== '' && v < 0) ? 'Una nota no pot ser negativa'
+          : (v !== '' && v > item.maxPunts) ? ('Màxim: ' + item.maxPunts + ' punts') : '';
+        let t = null, darrerBo = _bo, pendent = null;
+        const desaAra = () => {
+          if (t) { clearTimeout(t); t = null; }
+          if (pendent === null) return;
+          const v = pendent; pendent = null;
+          _notesTecles.delete(desaAra);
+          darrerBo = v === '' ? '' : String(v);
+          updateNota(item.id, s.id, v);
+        };
         inp.addEventListener('input', () => {
-          clearTimeout(t);
-          const v = parseFloat(inp.value.trim());
-          /* ⚠ També per sota de zero. Nomes es mirava el maxim, i un -5 entrava
-             tal qual al full com a nota, mitjana i nota arrodonida
-             (auditoria 6/9/2026). */
-          if (!isNaN(v) && v < 0) { inp.style.borderColor='#EF4444'; showToast('Una nota no pot ser negativa','error'); return; }
-          if (!isNaN(v) && v > item.maxPunts) { inp.style.borderColor='#EF4444'; showToast(`Màxim: ${item.maxPunts} punts`,'error'); return; }
+          if (t) { clearTimeout(t); t = null; }
+          const v = llegeix(), mal = queNoVal(v);
+          if (mal) {
+            pendent = null; _notesTecles.delete(desaAra);
+            inp.style.borderColor = '#EF4444';
+            showToast(mal + '. No s\'ha desat.', 'error');
+            return;
+          }
           inp.style.borderColor = '';
-          t = setTimeout(() => updateNota(item.id, s.id, inp.value.trim()==='' ? '' : v), 400);
+          pendent = v;
+          _notesTecles.add(desaAra);
+          t = setTimeout(desaAra, 400);
         });
         inp.addEventListener('blur', () => {
-          const v = parseFloat(inp.value.trim());
-          if (!isNaN(v) && v < 0) { inp.value = 0; inp.style.borderColor=''; updateNota(item.id, s.id, 0); return; }
-          if (!isNaN(v) && v > item.maxPunts) { inp.value = item.maxPunts; inp.style.borderColor=''; updateNota(item.id, s.id, item.maxPunts); }
+          /* En sortir de la casella es desa de seguida (sense esperar el mig
+             segon): si la mestra ha clicat una altra assignatura, la nota ha
+             d'anar a AQUESTA. I si el que hi ha no val, hi torna el que hi
+             havia: no s'inventa cap nota. */
+          const v = llegeix();
+          if (queNoVal(v)) { inp.value = darrerBo; inp.style.borderColor = ''; return; }
+          desaAra();
+          if (v !== '' && v !== null) inp.value = String(v);      // «7,5» es queda escrit «7.5»
         });
 
         // Comentari d'aquest alumne sobre AQUESTA activitat
@@ -1488,14 +1658,17 @@ function onActitudInput(inp) {
      veure la Imma el 18/10/2026 a les observacions. */
   const sid = String(inp.dataset.sid || '');
   const asp = inp.dataset.asp;
-  const val = parseFloat(inp.value);
   /* ⚠ EL PANEL D ACTITUD ACCEPTAVA NUMEROS QUE NO SON NOTES.
 
      Trobat a l auditoria del 6/9/2026: es podia escriure un negatiu; es
      desava, i la mitjana l ignorava en silenci (filtra `v >= 0`). La casella
      ja diu min=1 i max=10: aqui s hi ha de fer cas i no admetre res mes. */
-  if (!isNaN(val) && val > 10) { inp.value = 10; return; }
-  if (!isNaN(val) && val < 1 && inp.value !== '') { inp.value = 1; return; }
+  /* (I sense `return`: abans, en corregir un número fora de mida se sortia
+     d'aquí sense tornar a calcular, i la mitjana que es veia era la d'abans
+     de corregir-lo —i el canvi es feia sense dir res. 14/11/2026.) */
+  let val = parseFloat(String(inp.value).replace(',', '.'));
+  if (!isNaN(val) && val > 10) { val = 10; inp.value = 10; showToast('L\'actitud va de l\'1 al 10: hi he deixat un 10.', 'info'); }
+  if (!isNaN(val) && val < 1 && inp.value !== '') { val = 1; inp.value = 1; showToast('L\'actitud va de l\'1 al 10: hi he deixat un 1.', 'info'); }
 
   /* ⚠ LA MITJANA QUE ES VEIA MENTRE S'ESCRIVIA ERA FALSA.
 
@@ -1559,9 +1732,20 @@ async function _syncActitudToServer() {
      nom, no el número, perquè el full de l'escola es reordena sol (segona
      auditoria, 8/9/2026). */
   const noms = {};
+  /* ⚠ TREURE L'ACTITUD D'UN NEN NO LA TREIA DEL FULL (14/11/2026).
+     Només s'enviaven els nens QUE EN TENEN: si a un se li buidaven les
+     caselles, el servidor no se n'assabentava i al full s'hi quedava la
+     d'abans. La pantalla deia un 4 de nota final i el full —i per tant la
+     fitxa, i el que veu el tutor i la direcció— seguia dient un 8.
+     Ara hi van tots, i el que no en té viatja buit perquè el servidor li
+     buidi la casella. Un servidor d'abans no ho entén (hi escriuria «NaN»):
+     a aquell se li envia com sempre. */
+  const _sapBuidar = typeof _numVersio === 'function' && typeof _backendVersio !== 'undefined' &&
+                     _backendVersio && _numVersio(_backendVersio) >= 365;
   students.forEach(s => {
     const mitj = calcMitjanaActitud(getActitud(materia, trimestre, s.id));
     if (mitj !== null) { mitjanes[s.id] = mitj; noms[s.id] = s.nom; }
+    else if (_sapBuidar) { mitjanes[s.id] = ''; noms[s.id] = s.nom; }
   });
   if (!Object.keys(mitjanes).length) return;
   try {

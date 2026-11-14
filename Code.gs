@@ -3932,7 +3932,7 @@ function handleRequest(e) {
       case 'getDesdobGrups':         result = getDesdobGrups(ss, (body&&body.curs) || p.curs, (body&&body.assignatura) || p.assignatura); break;
       case 'getDesdobGrup':          result = getDesdobGrup(ss, (body&&body.curs) || p.curs, (body&&body.assignatura) || p.assignatura, (body&&body.grup) || p.grup); break;
       case 'getGrupObs':             result = getGrupObs(ss, (body&&body.grup) || p.grup); break;
-      case 'saveGrupObs':            result = saveGrupObs(ss, body.grup, body.rowId, body.materia, body.text, body.base, body.afegit, body.nomAlumne); break;
+      case 'saveGrupObs':            result = saveGrupObs(ss, body.grup, body.rowId, body.materia, body.text, body.base, body.afegit, body.nomAlumne, body.vist); break;
       case 'obsAlFullLot':           result = obsAlFullLot(ss, body.grup, body.items); break;
       case 'obsArreglaGrups':        result = obsArreglaGrups(ss, !!(body && body.enSec)); break;
 
@@ -3980,7 +3980,13 @@ function handleRequest(e) {
     return jsonResponse(result);
   } catch(err) {
     if (typeof _opTinc !== 'undefined' && _opTinc) { try { _opPany.releaseLock(); } catch (e) {} }
-    return jsonResponse({ ok:false, error:err.message });
+    /* `_excepcio` = això no és un «no» pensat, és que alguna cosa ha petat
+       (sovint Google: «Service Spreadsheets timed out»). El navegador ho ha
+       de saber distingir: a un «no» de debò («Pestanya no trobada») no s'hi
+       torna, però una fallada passatgera s'ha de tornar a provar. Sense
+       aquesta marca les tractava igual i llençava de la cua les notes que
+       encara no s'havien desat (auditoria del 14/11/2026). */
+    return jsonResponse({ ok:false, error:err.message, _excepcio:true });
   }
 }
 
@@ -4865,7 +4871,7 @@ function _appDataPrefix_(ss, nom, prefix) {
    algú hi ha escrit pel mig: llavors s'afegeix el tros nou al que hi ha ARA
    en comptes de substituir-ho tot, i es respon `fusionat:true` perquè el
    navegador ho pugui dir. Sense `base` (apps velles) es fa com abans. */
-function saveGrupObs(ss, grup, rowId, materia, text, base, afegit, nomAlumne) {
+function saveGrupObs(ss, grup, rowId, materia, text, base, afegit, nomAlumne, vist) {
   var gss = getGrupsSpreadsheet(ss) || ss;
 
   /* ⚠ UNA OBSERVACIÓ DESADA EN UN GRUP QUE NO ÉS EL DEL NEN ES PERDIA EN
@@ -4912,6 +4918,24 @@ function saveGrupObs(ss, grup, rowId, materia, text, base, afegit, nomAlumne) {
   }
   var fusionat = false;
   var ara = String(d[materia] || '').trim();
+  /* ⚠ EDITAR O ESBORRAR S'ENDUIA EL QUE UNA COMPANYA ACABAVA D'AFEGIR
+     (auditoria del 14/11/2026).
+
+     AFEGIR ja ho feia bé (`base` + `afegit`, aquí sota): si algú altre hi ha
+     escrit mentrestant, se sumen. Però SUBSTITUIR i ESBORRAR enviaven el text
+     nou i prou: la mestra A tenia el calaix obert, la B hi afegia una
+     observació, i quan l'A retocava una paraula o l'esborrava, la de la B
+     desapareixia, i a l'A li deia «actualitzada».
+
+     `vist` és el text que el navegador tenia al davant en començar. Si el
+     que hi ha ara no és allò, NO es desa: es torna el que hi ha i el
+     navegador ho ensenya, perquè decideixi ella amb tot al davant. Un
+     navegador d'abans no l'envia i tot va com sempre. */
+  if (vist !== undefined && vist !== null && !(afegit && String(afegit).trim()) &&
+      ara !== String(vist).trim()) {
+    return { ok:false, _conflicte:true, text: ara,
+             error: 'Mentre ho editaves, algú altre hi ha escrit. No s\'ha desat.' };
+  }
   if (base !== undefined && base !== null && afegit && String(afegit).trim()) {
     if (ara !== String(base).trim()) {
       // Algú hi ha escrit mentrestant: el seu text es queda i el nou s'hi suma.
@@ -6369,13 +6393,20 @@ function updateNotesLot(ss, materia, trimestre, grup, canvis) {
     var p = (m || '').split('|');
     if (_colIdNota_(m) !== null) colDe[String(_colIdNota_(m))] = i + 1;
   });
-  // Primera fila de cada nom, com `_trobaFilaAlumne`.
-  var filaDe = {};
+  /* ⚠ DOS NENS QUE ES DIUEN IGUAL (auditoria del 14/11/2026).
+     Aquí es guardava «la primera fila de cada nom», o sigui que en una classe
+     amb dos «Marc Puig Puig» les notes del segon s'escrivien a la fila del
+     primer i li trepitjaven les seves. L'app ja els ensenya com a «(1)» i
+     «(2)»: ara envia també quin dels dos és (`oc`: 0 el primer, 1 el segon…)
+     i aquí es guarden TOTES les files de cada nom, per ordre. Sense `oc`
+     (un navegador d'abans) es fa com sempre: la primera. */
+  var filesDe = {};
   for (var r = DATA_ROW; r <= lr; r++) {
     var v = (dades[r - 1][0] || '').toString().trim();
     if (!v) continue;
     var k = _normNom(v);
-    if (!(k in filaDe)) filaDe[k] = r;
+    if (!filesDe[k]) filesDe[k] = [];
+    filesDe[k].push(r);
   }
   var ultimaFila = lr;
   function filaBuida() { var f = []; for (var i = 0; i < lc; i++) f.push(''); return f; }
@@ -6388,7 +6419,8 @@ function updateNotesLot(ss, materia, trimestre, grup, canvis) {
 
     var rowP = -1;
     var clauNom = c.nom ? _normNom(c.nom) : '';
-    if (clauNom && filaDe[clauNom]) rowP = filaDe[clauNom];
+    var _oc = parseInt(c.oc, 10); if (isNaN(_oc) || _oc < 0) _oc = 0;
+    if (clauNom && filesDe[clauNom] && filesDe[clauNom][_oc]) rowP = filesDe[clauNom][_oc];
     if (rowP === -1 && c.nom) {
       // Com a `updateNota`: si l'alumne no hi és, se li fa la fila al final.
       var novaFila = Math.max(DATA_ROW, ultimaFila + 1);
@@ -6398,7 +6430,8 @@ function updateNotesLot(ss, materia, trimestre, grup, canvis) {
       try { sh.getRange(novaFila, 1, 2, 1).merge(); } catch (e) {}
       asseguraFila(novaFila + 1);
       dades[novaFila - 1][0] = c.nom;
-      filaDe[clauNom] = novaFila;
+      if (!filesDe[clauNom]) filesDe[clauNom] = [];
+      filesDe[clauNom].push(novaFila);
       ultimaFila = novaFila + 1;
       rowP = novaFila;
     }
@@ -6499,11 +6532,15 @@ function updateRegistreLot(ss, grup, canvis) {
       if (!isNaN(id)) colDe[String(id)] = i + 2;   // l'última, com updateRegistreCell
     });
   }
-  var filaDe = {};
+  // Totes les files de cada nom, per ordre (dos nens que es diuen igual:
+  // veure el mateix comentari a les notes, una mica més amunt).
+  var filesDe = {};
   if (lr >= 2) {
     sh.getRange(2, 1, lr - 1, 1).getValues().forEach(function (x, i) {
       var k = _normNomComp_(x[0]);
-      if (k && !(k in filaDe)) filaDe[k] = i + 2;
+      if (!k) return;
+      if (!filesDe[k]) filesDe[k] = [];
+      filesDe[k].push(i + 2);
     });
   }
   var resultats = [], escrites = 0;
@@ -6513,7 +6550,8 @@ function updateRegistreLot(ss, grup, canvis) {
     var fila = -1;
     if (c.nomAlumne) {
       var k = _normNomComp_(c.nomAlumne);
-      if (k && filaDe[k]) fila = filaDe[k];
+      var _oc = parseInt(c.oc, 10); if (isNaN(_oc) || _oc < 0) _oc = 0;
+      if (k && filesDe[k] && filesDe[k][_oc]) fila = filesDe[k][_oc];
       if (fila === -1) {
         resultats.push({ i: i, ok: false, _noTrobat: true,
           error: 'No he trobat "' + c.nomAlumne + '" al full de registres d\'aquest grup. No s\'ha desat res.' });
@@ -7326,6 +7364,13 @@ function updateActitudBatch(ss, materia, trimestre, mitjanes, grup, noms) {
   var col = -1;
   metas.forEach(function(m,i){ if(_esColActitud_(m)) col=i+1; });
 
+  /* Un valor buit vol dir «a aquest nen se li ha tret l'actitud» (veure més
+     avall). Si tots venen buits i la columna encara no existeix, no cal
+     fer-la només per deixar-la en blanc. */
+  var _algunValor = Object.keys(mitjanes || {}).some(function (k) {
+    return mitjanes[k] !== '' && mitjanes[k] !== null && mitjanes[k] !== undefined && !isNaN(parseFloat(mitjanes[k]));
+  });
+  if (col===-1 && !_algunValor) return { ok:true };
   if (col===-1) {
     var mCol = -1;
     hdrs.forEach(function(h,i){ if((h||'').toString().trim()==='Mitjana') mCol=i+1; });
@@ -7358,8 +7403,16 @@ function updateActitudBatch(ss, materia, trimestre, mitjanes, grup, noms) {
 
   // Escriu totes les mitjanes
   Object.keys(mitjanes).forEach(function(sid) {
+    /* ⚠ TREURE L'ACTITUD D'UN NEN (auditoria del 14/11/2026). Fins ara només
+       arribaven els nens que en tenen, i a qui se li buidava es quedava al
+       full amb la d'abans: la nota final del full no era la de la pantalla.
+       Ara un valor buit vol dir «treu-la»: es buida la casella i es torna a
+       calcular la mitjana. Si aquell nen no té fila, no cal dir res. */
+    var _buit = mitjanes[sid] === '' || mitjanes[sid] === null || mitjanes[sid] === undefined ||
+                isNaN(parseFloat(mitjanes[sid]));
     var rowP = _trobaFilaAlumne(sh, noms[sid]);
     if (rowP === -1) {
+      if (_buit) return;
       if (noms[sid] && teLlista) { saltats.push(noms[sid]); return; }
       rowP = _filaVellaDeSid_(sid);
       /* Sense fila, aquest alumne se salta: val més que falti la seva
@@ -7367,6 +7420,13 @@ function updateActitudBatch(ss, materia, trimestre, mitjanes, grup, noms) {
       if (rowP === -1) { saltats.push(noms[sid] || sid); return; }
     }
     var rowN = rowP+1;
+    if (_buit) {
+      var _hiHavia = sh.getRange(rowN, col).getValue();
+      if (_hiHavia === '' || _hiHavia === null) return;      // ja era buida: res a fer
+      sh.getRange(rowN, col).setValue('').setBackground(null);
+      recalcMitjana(sh, rowP, cap);
+      return;
+    }
     var mitjaVal = parseFloat(mitjanes[sid]);
     sh.getRange(rowP, col).setValue('').setHorizontalAlignment('center').setFontFamily('Nunito');
     var cellN = sh.getRange(rowN, col);
@@ -7486,7 +7546,10 @@ function syncAssoliments(ss, trimestre, data) {
     // Capçalera objectius. Es munta la fila sencera i s'escriu d'un cop:
     // abans es pintava casella per casella i cada una era un viatge a Google.
     var capVals = ['Alumne'];
-    objs.forEach(function(obj, i) { capVals.push(obj.nom || ('Obj.'+(i+1))); });
+    /* El text de l'objectiu és a `text` (els de direcció no tenen `nom`):
+       abans a la pestanya hi sortia «Obj.1, Obj.2…» i no es podia saber
+       quin era quin. */
+    objs.forEach(function(obj, i) { capVals.push(obj.nom || obj.text || ('Obj.'+(i+1))); });
     capVals.push('%');
     sh.getRange(row, 1, 1, nCols).setValues([capVals])
       .setFontWeight('bold').setBackground(GARNET_M).setFontColor('#7A1E2E').setFontFamily('Nunito');
@@ -7578,7 +7641,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v362';
+var BACKEND_VERSIO = 'v365';
 
 var MAX_CELA = 45000;
 
@@ -8323,8 +8386,27 @@ function loadAssimObjectius(ss, materia, trimestre) {
 
 function saveAssimValors(ss, materia, trimestre, data) {
   // data = { studentId: { objId: val } }
-  var json = typeof data === 'string' ? data : JSON.stringify(data);
-  sheetSetJSON(ss, '_AppData_Assim', 'vals_' + _assimKey(materia, trimestre), json);
+  /* ⚠ ES SUMA, NO ES SUBSTITUEIX (auditoria del 14/11/2026).
+
+     Abans s'escrivia el paquet que arribava i prou. Però el navegador només
+     pot enviar els alumnes que té a la pantalla: en una assignatura amb
+     grups (Tallers, un desdoblament), desar des d'un grup esborrava els
+     nivells de l'altre. Ara cada alumne que arriba es posa al dia —objectiu
+     per objectiu— i els que no arriben es queden com estaven. Un nivell
+     tret arriba com a `null` i es guarda així, perquè un altre aparell sàpiga
+     que s'ha tret. */
+  var nou = {};
+  try { nou = (typeof data === 'string' ? JSON.parse(data) : data) || {}; } catch (e) { nou = {}; }
+  var clau = 'vals_' + _assimKey(materia, trimestre);
+  var tot = {};
+  try { tot = JSON.parse(sheetGetJSON(ss, '_AppData_Assim', clau) || '{}') || {}; } catch (e) { tot = {}; }
+  Object.keys(nou).forEach(function (sid) {
+    var de = (tot[sid] && typeof tot[sid] === 'object') ? tot[sid] : {};
+    var n = nou[sid] || {};
+    Object.keys(n).forEach(function (objId) { de[objId] = n[objId]; });
+    tot[sid] = de;
+  });
+  sheetSetJSON(ss, '_AppData_Assim', clau, JSON.stringify(tot));
   return { ok: true };
 }
 

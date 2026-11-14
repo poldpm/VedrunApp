@@ -133,10 +133,37 @@
     body { font-size: 12px; }
     section { page-break-inside: avoid; }
   }
+  /* ⚠ AL MÒBIL EL MANUAL NO TENIA ÍNDEX NI CERCADOR (14/11/2026).
+     Per sota de 800 px l'índex s'amagava i prou: quedaven més de cent
+     pantalles de text seguit, sense manera de saltar a un apartat ni de
+     buscar una paraula, just a l'aparell on és més feixuc llegir. Ara l'índex
+     (amb el seu cercador) és un calaix que s'obre amb el botó «Índex» de baix
+     a la dreta i es tanca sol en triar un apartat. */
+  .toc-obre, .toc-vel { display: none; }
   @media (max-width: 800px) {
-    .toc { display: none; }
-    .content { padding: 28px 22px; }
+    .toc {
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 60;
+      width: min(86vw, 330px); height: 100vh; height: 100dvh;
+      transform: translateX(-102%); transition: transform 0.2s ease;
+      box-shadow: 8px 0 32px rgba(0,0,0,0.3);
+    }
+    .toc.oberta { transform: translateX(0); }
+    .toc-vel.oberta { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,0.4); }
+    .toc-obre {
+      display: inline-flex; align-items: center; gap: 8px;
+      position: fixed; right: 14px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); z-index: 50;
+      min-height: 48px; padding: 0 18px; border: 0; border-radius: 999px;
+      background: var(--garnet-deep); color: #fff; font: 700 15px/1 inherit; font-family: inherit;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3); cursor: pointer;
+    }
+    .toc-search { font-size: 16px; }             /* per sota de 16 px l'iPhone fa zoom sol */
+    .toc a { padding-top: 10px; padding-bottom: 10px; }
+    .content { padding: 28px 18px 90px; min-width: 0; overflow-wrap: break-word; }
+    /* Una taula ampla lliscava la pàgina sencera de costat: ara llisca ella. */
+    .content table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .layout { display: block; }
   }
+  @media print { .toc-obre, .toc-vel { display: none !important; } }
 
   /* Cercador de l'índex */
   .toc-search {
@@ -155,6 +182,8 @@
 <div class="layout">
 
   <!-- ÍNDEX -->
+  <button type="button" class="toc-obre" id="tocObre" aria-expanded="false">☰ Índex</button>
+  <div class="toc-vel" id="tocVel"></div>
   <nav class="toc">
     <div class="toc-brand">
       <div class="toc-brand-icon">
@@ -1058,6 +1087,9 @@
         <li>L'observació <strong>es mou</strong>: apareix on l'has enviada i <strong>desapareix d'on era</strong>. No en queden dues.</li>
         <li>Si al lloc on la portes ja n'hi havia una, <strong>et pregunta</strong> abans de substituir-la i te la deixa llegir.</li>
       </ul>
+      <div class="callout">
+        <strong>Si una companya hi ha escrit mentre tu l'editaves</strong> (les observacions les veu i les escriu tot el claustre), l'app <strong>no desa a sobre</strong>: t'avisa i et torna a obrir el quadre amb el que hi diu ara a dalt i el que havies escrit tu a sota. Deixa-ho com hagi de quedar i desa. El mateix si la volies esborrar: primer et deixa veure què hi han afegit.
+      </div>
       <div class="callout warn">
         Fins a la versió 218 aquells desplegables es veien actius i <strong>no servien de res</strong>: el text tornava al nen d'abans i s'emportava el que hi tenia. Si algun dia t'hi va passar, mira aquella observació.
       </div>
@@ -1088,6 +1120,18 @@
       </div>
       <div class="callout tip">
         <strong>Pots passar la llista amb la roda del ratolí sense por.</strong> Fins a la versió 218, si el punter es quedava damunt d'una casella que acabaves de tocar, la roda li canviava la nota —i la desava— sense que ho veiessis. Ara, en rodar, la casella deixa el focus i la pàgina baixa i prou. El mateix a la graella d'<a href="#actitud">Actitud</a>.
+      </div>
+      <div class="callout tip">
+        <strong>Passar les notes amb el teclat.</strong> Escrius la nota i prems <strong>Enter</strong> o la <strong>fletxa avall</strong>: baixes a la mateixa columna del nen següent (amb la fletxa amunt, puges). Els decimals els pots escriure amb <strong>coma o amb punt</strong> (7,5 o 7.5), és igual. Fins a la versió 364 la fletxa avall no baixava: restava mig punt a la nota i ho desava.
+      </div>
+      <div class="callout">
+        <strong>El que no és una nota no es desa.</strong> Si escrius un número més alt que el màxim de l'activitat (un 11 sobre 10), un negatiu o una lletra, la casella es posa vermella i t'ho diu; en sortir-ne hi torna el que hi havia. Abans un 11 es convertia en un 10 i es desava sense avisar.
+      </div>
+      <div class="callout tip">
+        <strong>Has tocat «NE» sense voler?</strong> Torna'l a tocar: la nota que hi havia hi torna. (Abans la casella quedava buida.)
+      </div>
+      <div class="callout tip">
+        <strong>Al mòbil</strong>, a cada casella hi tens la nota a dalt i, a sota, el botó del comentari a l'esquerra i <strong>NE</strong> a la dreta. La columna dels noms es fa estreta perquè es vegin dues activitats alhora; llisca cap als costats per veure la resta.
       </div>
       <div class="callout tip">
         <strong>El nom de l'alumne i el de l'activitat no marxen mai de la pantalla.</strong> La graella es desplaça ella: baixant per la classe, la fila de dalt amb el nom de cada prova es queda quieta, i anant cap a la dreta, la columna dels noms també. Així no has de recordar de quina columna estaves posant notes. Si la classe és llarga, la graella té la seva pròpia barra de desplaçament en comptes de fer créixer la pàgina.
@@ -1491,6 +1535,7 @@
 
       <h3>Muntar el plànol</h3>
       <p>Crea files de taules i arrossega-les pel taulell per reproduir la disposició real de la teva aula (files, illes, forma d'U…). Després col·loca els tres <strong>marcadors</strong> —la taula del mestre, la porta i les finestres— i arrossega'ls on toqui. Serveixen perquè l'app calculi distàncies reals.</p>
+      <p><strong>Amb el dit també</strong> (tauleta o mòbil): posa el dit a sobre d'una fila de taules o d'un marcador i arrossega'l. Per asseure un nen, en canvi, es fa tocant (el nen i després el seient), com s'explica més avall.</p>
       <div class="callout">
         El plànol i els marcadors <strong>es desen sols</strong>. Els tornaràs a trobar tal com els vas deixar, també si entres des d'un altre dispositiu.
       </div>
@@ -1977,6 +2022,25 @@
 </div>
 
 <script>
+/* L'índex al mòbil: un calaix (veure el CSS). */
+(function () {
+  var boto = document.getElementById('tocObre'), calaix = document.querySelector('nav.toc'),
+      vel = document.getElementById('tocVel');
+  if (!boto || !calaix || !vel) return;
+  function posa(obert) {
+    calaix.classList.toggle('oberta', obert);
+    vel.classList.toggle('oberta', obert);
+    boto.setAttribute('aria-expanded', obert ? 'true' : 'false');
+  }
+  boto.addEventListener('click', function () { posa(!calaix.classList.contains('oberta')); });
+  vel.addEventListener('click', function () { posa(false); });
+  calaix.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+    if (a) posa(false);
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') posa(false); });
+})();
+
 /* Cercador de l'índex: filtra els apartats que contenen la paraula.
    Busca dins el text sencer de cada secció, no només al títol. */
 (function () {

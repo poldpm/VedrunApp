@@ -548,11 +548,19 @@
   function desaEditor() {
     if (!_esborrany || !_entrada) return;
     _haProvatDesar = true;
-    var r = _esborrany;
+    /* ⚠ ES NETEJA UNA CÒPIA, NO L'ESBORRANY (14/11/2026).
+       Abans es netejava l'esborrany mateix: es treien les files buides i es
+       refeien els nivells, però les caselles de la pantalla seguien lligades
+       als objectes d'abans. Després d'un «Desar» que fallés (per exemple,
+       sense nom), el que la mestra escrivia ja no comptava: omplia els dos
+       criteris i li deia «no té cap criteri», o canviava un nivell i es
+       desava el vell —amb un «desada ✓». Ara l'esborrany no es toca fins que
+       es desa de debò. */
+    var r = JSON.parse(JSON.stringify(_esborrany));
     r.nom = (r.nom || '').trim();
-    r.criteris = r.criteris.filter(function (c) { return (c.nom || '').trim(); })
+    r.criteris = (r.criteris || []).filter(function (c) { return (c.nom || '').trim(); })
                            .map(function (c) { c.nom = c.nom.trim(); c.pes = Number(c.pes) || 0; return c; });
-    r.nivells = r.nivells.map(function (n) {
+    r.nivells = (r.nivells || []).map(function (n) {
       return { nom: (n.nom || '').trim(), punts: Number(n.punts) || 0 };
     });
     r.grup = _entrada.grup || null;
@@ -1120,6 +1128,25 @@
 
     construeixPassar();
     var jaHiEra = !!r.itemId;
+    /* ⚠ «CAP NOTA NO CANVIA»… I EN CANVIAVA UNA (14/11/2026).
+       Aquí es comparava amb el que la rúbrica havia enviat l'última vegada,
+       no amb el que hi ha ARA al registre. Si després d'haver-les passat la
+       mestra havia retocat una nota a mà al registre (un 2,5 que deixa en
+       9), en tornar-les a passar se li deia «cap nota no canvia» i el 9
+       tornava a ser un 2,5. Ara es mira què hi ha al registre i es diu, nen
+       per nen, quines notes quedaran diferents de com estan. */
+    var alRegistre = jaHiEra ? _notesDelRegistre(r.itemId) : null;
+    var trepitjades = [];
+    if (alRegistre) {
+      _avAlumnes.forEach(function (a) {
+        var n = c.notes[RubAval.clauAlumne(a)];
+        if (!n || n.nota === null) return;
+        var hiHa = alRegistre[_clauNomReg(a.nom)];
+        if (hiHa === undefined || hiHa === null || hiHa === '') return;
+        if (Math.abs(Number(hiHa) - Number(n.nota)) > 0.004) trepitjades.push({ nom: a.nom, abans: hiHa, ara: n.nota });
+      });
+    }
+    var canviats = alRegistre ? trepitjades : c.canviats;
     var body = byId('ravPassaBody');
     body.innerHTML =
       '<p style="margin:0 0 12px">' +
@@ -1137,9 +1164,9 @@
       (jaHiEra ? '<p class="modal-hint" style="margin:-8px 0 12px">El pes es canvia des del mateix registre de notes.</p>' : '') +
       '<ul class="rav-passa-llista">' +
         '<li><strong>' + ambNota + '</strong> alumne' + (ambNota === 1 ? '' : 's') + ' amb nota' +
-          (jaHiEra && c.canviats.length
-            ? ' · <span class="rav-passa-canvi">' + c.canviats.length +
-              (c.canviats.length === 1 ? ' canvia' : ' canvien') + ' de nota</span>'
+          (jaHiEra && canviats.length
+            ? ' · <span class="rav-passa-canvi">' + canviats.length +
+              (canviats.length === 1 ? ' canvia' : ' canvien') + ' de nota</span>'
             : '') + '</li>' +
         (c.buits.length
           ? '<li><strong>' + c.buits.length + '</strong> sense cap criteri avaluat: <strong>no se\'ls posarà res</strong>. ' +
@@ -1153,16 +1180,18 @@
          Dir-ho importa: si no, veient «cap canvi» podria pensar que prémer
          el botó no serveix de res, i justament és el que ha de fer si una
          nota s'hagués quedat pel camí (auditoria del 29/9/2026). */
-      (jaHiEra && !c.canviats.length
+      (jaHiEra && !canviats.length
         ? '<p class="modal-hint" style="margin:0 0 10px">Cap nota no canvia. Es tornaran a escriure ' +
           'totes igualment, o sigui que si alguna no hagués arribat al registre, hi arribarà ara.</p>'
         : '') +
-      (jaHiEra && c.canviats.length
+      (jaHiEra && canviats.length
         ? '<div class="grups-avis grups-avis-warn" style="margin-top:4px">' +
-            c.canviats.slice(0, 6).map(function (x) {
+            (alRegistre ? '<strong>Al registre ara hi ha una altra nota</strong> (potser l\'has retocada a mà). ' +
+                          'Si continues, quedarà la de la rúbrica:<br>' : '') +
+            canviats.slice(0, 8).map(function (x) {
               return esc(x.nom) + ': ' + String(x.abans).replace('.', ',') + ' → ' + String(x.ara).replace('.', ',');
             }).join('<br>') +
-            (c.canviats.length > 6 ? '<br>… i ' + (c.canviats.length - 6) + ' més' : '') +
+            (canviats.length > 8 ? '<br>… i ' + (canviats.length - 8) + ' més' : '') +
           '</div>'
         : '');
 
@@ -1174,6 +1203,28 @@
       passaAlRegistre(r, pes);
     };
     byId('ravPassaOverlay').classList.add('open');
+  }
+
+  /* Què hi ha ARA en una columna del registre de notes d'aquesta assignatura,
+     per nom d'alumne. Surt del guardat del navegador (el mateix que fa servir
+     la pàgina de notes); si no n'hi ha, torna null i es fa com abans. */
+  function _clauNomReg(nom) {
+    return String(nom || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+  function _notesDelRegistre(itemId) {
+    try {
+      var claus = (typeof _notaClausDe === 'function') ? _notaClausDe(_entrada.key) : [];
+      for (var i = 0; i < claus.length; i++) {
+        var raw = localStorage.getItem('notescache_' + claus[i].mat + '_' + _trim + (claus[i].grup ? '_' + claus[i].grup : ''));
+        if (!raw) continue;
+        var cau = JSON.parse(raw);
+        if (!cau || !cau.rowNoms || !cau.valors || !cau.valors[itemId]) continue;
+        var out = {}, vals = cau.valors[itemId], ne = (cau.noEntregats || {})[itemId] || {};
+        cau.rowNoms.forEach(function (nom, pos) { if (nom && !ne[pos]) out[_clauNomReg(nom)] = vals[pos]; });
+        return out;
+      }
+    } catch (e) {}
+    return null;
   }
 
   /* Espera que el registre acabi de carregar-se abans de tocar-hi res.

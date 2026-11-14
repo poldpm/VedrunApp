@@ -784,7 +784,18 @@
     if (!ov) {
       ov = el('div', 'modal-overlay');
       ov.id = 'estilOverlay';
-      ov.addEventListener('mousedown', function (ev) { if (ev.target === ov) ov.classList.remove('open'); });
+      /* Tocar a fora (o «Cancel·lar») tancava el quadre i llençava el que
+         s'hi acabava d'enganxar —tres comentaris sencers— sense dir res
+         (14/11/2026). Ara, si hi ha canvis sense desar, es pregunta. */
+      var _estTanca = function () {
+        var ara = JSON.stringify([document.getElementById('estExemples').value, document.getElementById('estLlarg').value,
+                                  document.getElementById('estTo').value, document.getElementById('estExtra').value]);
+        if (ov._inicial && ara !== ov._inicial &&
+            !confirm('Hi ha canvis sense desar. Vols tancar igualment i perdre\'ls?')) return;
+        ov.classList.remove('open');
+      };
+      ov._tanca = _estTanca;
+      ov.addEventListener('mousedown', function (ev) { if (ev.target === ov) _estTanca(); });
       var m = el('div', 'modal rub-modal');
       m.innerHTML =
         '<div class="modal-header">' +
@@ -796,30 +807,30 @@
         '<div class="modal-body">' +
           '<div class="modal-field">' +
             '<div class="modal-label">Comentaris teus d\'exemple</div>' +
-            '<textarea class="modal-input" id="estExemples" rows="8" placeholder="Enganxa aqui 2 o 3 comentaris que hagis escrit tu altres anys. No es copiaran: nomes serveixen perque la IA vegi com escrius (quines paraules fas servir, com comences, com dius les coses delicades)."></textarea>' +
-            '<div class="modal-hint"><strong>Aixo es el que mes canvia el resultat.</strong> Amb dos o tres exemples ' +
+            '<textarea class="modal-input" id="estExemples" rows="8" placeholder="Enganxa aquí 2 o 3 comentaris que hagis escrit tu altres anys. No es copiaran: només serveixen perquè la IA vegi com escrius (quines paraules fas servir, com comences, com dius les coses delicades)."></textarea>' +
+            '<div class="modal-hint"><strong>Això és el que més canvia el resultat.</strong> Amb dos o tres exemples ' +
             'teus, els comentaris deixen de sonar a manual i comencen a sonar a tu.</div>' +
           '</div>' +
           '<div class="modal-row">' +
             '<div class="modal-field">' +
               '<div class="modal-label">Llargada</div>' +
               '<select class="modal-input" id="estLlarg">' +
-                '<option value="curt">Curt (3-4 linies)</option>' +
-                '<option value="mitja">Mitja (5-7 linies)</option>' +
-                '<option value="llarg">Llarg (8-10 linies)</option>' +
+                '<option value="curt">Curt (3-4 línies)</option>' +
+                '<option value="mitja">Mitjà (5-7 línies)</option>' +
+                '<option value="llarg">Llarg (8-10 línies)</option>' +
               '</select>' +
             '</div>' +
             '<div class="modal-field">' +
               '<div class="modal-label">To</div>' +
               '<select class="modal-input" id="estTo">' +
-                '<option value="mixt">Professional pero proper</option>' +
-                '<option value="proper">Proper i calid</option>' +
+                '<option value="mixt">Professional però proper</option>' +
+                '<option value="proper">Proper i càlid</option>' +
                 '<option value="formal">Formal</option>' +
               '</select>' +
             '</div>' +
           '</div>' +
           '<div class="modal-field">' +
-            '<div class="modal-label">Alguna cosa mes a tenir en compte (opcional)</div>' +
+            '<div class="modal-label">Alguna cosa més a tenir en compte (opcional)</div>' +
             '<input class="modal-input" id="estExtra" placeholder="Ex: no facis servir mai la paraula &quot;alumne&quot;, digues sempre el nom">' +
           '</div>' +
         '</div>' +
@@ -829,8 +840,8 @@
         '</div>';
       ov.appendChild(m);
       document.body.appendChild(ov);
-      document.getElementById('estTancar').addEventListener('click', function () { ov.classList.remove('open'); });
-      document.getElementById('estCancel').addEventListener('click', function () { ov.classList.remove('open'); });
+      document.getElementById('estTancar').addEventListener('click', _estTanca);
+      document.getElementById('estCancel').addEventListener('click', _estTanca);
       document.getElementById('estDesar').addEventListener('click', function () {
         estilDesa({
           exemples: document.getElementById('estExemples').value,
@@ -846,6 +857,9 @@
     document.getElementById('estLlarg').value = e.llargada || 'mitja';
     document.getElementById('estTo').value = e.to || 'mixt';
     document.getElementById('estExtra').value = e.extra || '';
+    // El punt de partida: el que hi ha en obrir (veure `_estTanca`).
+    ov._inicial = JSON.stringify([document.getElementById('estExemples').value, document.getElementById('estLlarg').value,
+                                  document.getElementById('estTo').value, document.getElementById('estExtra').value]);
     ov.classList.add('open');
   }
 

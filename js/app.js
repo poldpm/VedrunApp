@@ -381,7 +381,7 @@ function showPage(pageId, _fromPop) {
 
 function showFitxa(studentId, _fromPop) {
   currentFitxaStudentId = studentId;
-  const s = students.find(x => x.id === studentId);
+  const s = students.find(x => String(x.id) === String(studentId));
   if (!s) return;
   document.getElementById('fitxaAvatar').textContent = getInitials(s.nom);
   document.getElementById('fitxaNom').textContent    = nomAlumne(s);
@@ -679,10 +679,16 @@ async function openPersonalDrawer(studentId) {
      5/9/2026: «quan obres el full de dades, ja comença amb el missatge
      desant». Hi quedava el de l'última vegada, i llavors no vol dir res:
      ni quan diu que desa ni quan diu que ja està. */
-  if (_fitxaDesaTemps) { clearTimeout(_fitxaDesaTemps); _fitxaDesaTemps = null; }
+  /* ⚠ Si quedava una desada per sortir del nen D'ABANS, es fa ara, abans de
+     canviar de nen (14/11/2026). Aquí s'aturava el rellotge i prou: passar al
+     calaix del nen següent dins del quart de segon perdia l'últim canvi. */
+  if (_fitxaDesaTemps) {
+    clearTimeout(_fitxaDesaTemps); _fitxaDesaTemps = null;
+    if (currentPersonalStudentId !== null) { try { _fitxaDesaAra(); } catch (e) {} }
+  }
   _fitxaEstat('');
   currentPersonalStudentId = studentId;
-  const s = students.find(x => x.id === studentId);
+  const s = students.find(x => String(x.id) === String(studentId));
   /* `nomAlumne()` i no `s.nom`: és qui hi posa el número quan la classe té dos
      «Clara Vidal Roca». La targeta i la fitxa ja ho feien; aquests tres llocs
      no, i es podia obrir la fitxa d'un nen creient que era la de l'altre
@@ -697,7 +703,7 @@ async function openPersonalDrawer(studentId) {
   document.body.style.overflow = 'hidden';
   if (!personal[studentId] && config.scriptUrl) {
     try {
-      const s2 = students.find(x => x.id === studentId);
+      const s2 = students.find(x => String(x.id) === String(studentId));
       const rowId = s2 ? (s2.rowId || studentId) : studentId;
       const r = await appsScriptGet({ action: 'getPersonal', studentId: rowId });
       if (r.ok) { personal[studentId] = r.dades; fillPersonalForm(r.dades); _fitxaOriginal = _fitxaFoto(); }
@@ -1006,8 +1012,29 @@ function _hiHaFeinaAMigDesar() {
   } catch (e) {}
   return false;
 }
+/* ⚠ EL QUE S'ACABA D'ESCRIURE, A LA CUA ABANS QUE LA PÀGINA MARXI (14/11/2026).
+
+   Les caselles esperen una mica abans de desar (per no enviar cada lletra).
+   Si en aquell instant es recarrega, es tanca la pestanya o —al mòbil— es
+   passa a una altra app, aquell últim valor no arribava enlloc: l'avís de
+   «segur que vols sortir?» no surt al mòbil, i a l'ordinador molta gent el
+   passa sense llegir. Ara, quan la pàgina s'amaga o se'n va, el que estava
+   esperant es posa de seguida a la cua —que es guarda al navegador— i surt
+   cap al full la propera vegada que s'obri l'app. */
+function _buidaElQueEspera() {
+  try { if (typeof _regPendents !== 'undefined') Array.from(_regPendents).forEach(function (f) { try { f(); } catch (e) {} }); } catch (e) {}
+  try { if (typeof _notesBuidaTecles === 'function') _notesBuidaTecles(); } catch (e) {}
+  try {
+    if (_fitxaDesaTemps && currentPersonalStudentId !== null) {
+      clearTimeout(_fitxaDesaTemps); _fitxaDesaTemps = null; _fitxaDesaAra();
+    }
+  } catch (e) {}
+}
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('pagehide', _buidaElQueEspera);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) _buidaElQueEspera(); });
   window.addEventListener('beforeunload', function (e) {
+    _buidaElQueEspera();
     if (!_hiHaFeinaAMigDesar()) return;
     e.preventDefault();
     e.returnValue = '';
@@ -1026,32 +1053,56 @@ function _fitxaCanviada() {
   _fitxaDesaTemps = setTimeout(function () { _fitxaDesaTemps = null; _fitxaDesaAra(); }, 250);
 }
 
+/* ⚠ EL DESAT AUTOMÀTIC DE LA FITXA PERDIA CANVIS (auditoria del 14/11/2026).
+
+   Dues maneres, totes dues amb el servidor trigant el que triga (un segon i
+   mig) i una mestra que va de pressa:
+     · marcar una casella, marcar-ne una altra i tancar: la segona desada
+       s'esperava que acabés la primera, i quan hi tornava el calaix ja era
+       tancat i no desava res;
+     · canviar el gènere i una casella, i obrir el nen següent: el gènere es
+       desava primer i, en acabar, la resta es LLEGIA DE LA PANTALLA —que ja
+       ensenyava l'altre nen. El canvi no es desava i la còpia del primer nen
+       quedava amb les dades del segon.
+
+   Ara, en el moment de desar es fa una FOTO del que hi ha escrit i de quin
+   nen és (`_fitxaPrenFoto`), sense esperar res. El que viatja és la foto, i
+   les fotos s'envien una darrere l'altra, en ordre (`_fitxaCua`). Tancar el
+   calaix o obrir-ne un altre ja no hi pot fer res. */
+let _fitxaEnMarxa = 0;
+let _fitxaCua = Promise.resolve();
 async function _fitxaDesaAra() {
   if (currentPersonalStudentId === null) return;
-  if (_fitxaDesant) { _fitxaCanviada(); return; }   // ja n'hi ha una en marxa
-  const _st = students.filter(function (x) { return x.id === currentPersonalStudentId; })[0];
+  const idMeu = currentPersonalStudentId;
+  const _st = students.filter(function (x) { return x.id === idMeu; })[0];
   const _nom = _st ? _st.nom : '';
-  _fitxaDesant = true;
+  const _encaraHiSoc = () => currentPersonalStudentId === idMeu;
+  _fitxaEnMarxa++; _fitxaDesant = true;
   try {
     await savePersonalDrawer(true);                 // true = no tanquis la finestra
     /* Sense connexió, el canvi es queda al navegador i prou. Dir «Desat ✓»
        seria mentir-li: quan obrís l'app en un altre lloc no hi seria. */
-    _fitxaEstat(config.scriptUrl ? 'Desat ✓' : 'Desat només en aquest ordinador',
-                config.scriptUrl ? 'ok' : 'mal');
+    if (_encaraHiSoc() && _fitxaEnMarxa <= 1 && !_fitxaDesaTemps) {
+      _fitxaEstat(config.scriptUrl ? 'Desat ✓' : 'Desat només en aquest ordinador',
+                  config.scriptUrl ? 'ok' : 'mal');
+    }
   } catch (e) {
     /* Si no s'ha pogut desar s'ha de veure AQUÍ i quedar-s'hi: un toast que
        marxa sol, en una pantalla que es desa sola, no el llegirà ningú. */
-    _fitxaEstat('No s\'ha pogut desar', 'mal');
-    /* ...però si ja ha tancat la finestra, aquell rètol no el veurà mai. Com
-       que ara es desa en segon pla, la resposta pot arribar amb el calaix
-       tancat: llavors sí que s'ha de cridar. Callar seria el pitjor: hauria
-       tancat convençuda que ja estava. */
+    if (_encaraHiSoc()) _fitxaEstat('No s\'ha pogut desar', 'mal');
+    /* ...però si ja ha tancat la finestra (o ja mira un altre nen), aquell
+       rètol no el veurà mai. Com que ara es desa en segon pla, la resposta
+       pot arribar amb el calaix tancat: llavors sí que s'ha de cridar.
+       Callar seria el pitjor: hauria tancat convençuda que ja estava. */
     const _obert = document.getElementById('personalOverlay');
-    if ((!_obert || !_obert.classList.contains('open')) && typeof showToast === 'function') {
+    if ((!_obert || !_obert.classList.contains('open') || !_encaraHiSoc()) && typeof showToast === 'function') {
       showToast('No s\'ha pogut desar el canvi de ' + (_nom || 'l\'alumne') +
                 '. Torna a obrir la seva fitxa.', 'error');
     }
-  } finally { _fitxaDesant = false; }
+  } finally {
+    _fitxaEnMarxa = Math.max(0, _fitxaEnMarxa - 1);
+    if (!_fitxaEnMarxa) _fitxaDesant = false;
+  }
 }
 
 /* EL GÈNERE VA AL FULL DE GRUPS, COM TOTA LA RESTA DE LA FITXA.
@@ -1083,21 +1134,25 @@ async function _desaGenereAlGrup(id, genere) {
   if (!r || !r.ok) throw new Error((r && r.error) || 'no s\'ha pogut desar el gènere');
 }
 
-async function savePersonalDrawer(noTanquis) {
+/* La FOTO del calaix: què hi ha escrit ARA i de quin nen és. Tot el que es
+   llegeix de la pantalla es llegeix aquí, d'una tirada i sense esperar res
+   (veure el comentari de `_fitxaDesaAra`). També posa al dia la còpia del
+   navegador, que per això no cal esperar el servidor. */
+function _fitxaPrenFoto() {
   const id    = currentPersonalStudentId;
+  let genereNou;                       // undefined = no ha canviat
   const gSel = document.getElementById("pGenere");
   if (gSel) {
     const st = students.filter(function (x) { return x.id === id; })[0];
     if (st && st.genere !== gSel.value) {
       st.genere = gSel.value;
+      genereNou = st.genere;
       /* També a la còpia de la llista del grup: si no, el primer cop que es
          torni a pintar la pantalla hi tornaria a sortir el d'abans. */
       if (typeof _tutoriaAlumnes !== 'undefined' && _tutoriaAlumnes) {
         const ta = _tutoriaAlumnes.filter(function (x) { return x.id === id; })[0];
         if (ta) ta.genere = st.genere;
       }
-      if (config.scriptUrl) await _desaGenereAlGrup(id, st.genere);
-      _saveMainToCache();
     }
   }
   /* ⚠ Els contactes de la família NO viatgen: surten del full de la
@@ -1160,11 +1215,29 @@ async function savePersonalDrawer(noTanquis) {
     if (_abans === null || dif('sm', 'sp', 'sf', 'sx', 'inc')) _canviat.seient = dades.seient;
   }
   _fitxaOriginal = _ara;   // el que hi ha ara passa a ser el punt de partida
+  return { id: id, genereNou: genereNou, dades: dades, canviat: _canviat, abans: _abans };
+}
+
+async function savePersonalDrawer(noTanquis) {
+  const foto = _fitxaPrenFoto();
+  const id = foto.id;
   // Tanca la finestra… si no s'està desant sol (llavors ha de quedar oberta)
   if (!noTanquis) closePersonalDrawer();
   // Refresca fitxa si és oberta
   if (currentFitxaStudentId === id) renderFitxa(id);
   renderAlumnesList();
+  /* Les fotos surten una darrere l'altra, en l'ordre en què s'han fet. */
+  const meva = _fitxaCua.then(function () { return _fitxaEnvia(foto, noTanquis); });
+  _fitxaCua = meva.catch(function () {});
+  return meva;
+}
+
+async function _fitxaEnvia(foto, noTanquis) {
+  const id = foto.id, dades = foto.dades, _canviat = foto.canviat, _abans = foto.abans;
+  if (foto.genereNou !== undefined) {
+    if (config.scriptUrl) await _desaGenereAlGrup(id, foto.genereNou);
+    _saveMainToCache();
+  }
   if (config.scriptUrl) {
     try {
       const s2 = students.find(x => x.id === id);
@@ -1194,7 +1267,7 @@ async function savePersonalDrawer(noTanquis) {
         /* No ha anat, però queda a la cua: es diu clar i s'apunta que la
            foto de partida no val, perquè el proper desat hi torni a incloure
            el que encara no ha pujat. */
-        _fitxaOriginal = _abans;
+        if (currentPersonalStudentId === id) _fitxaOriginal = _abans;
         showToast('Això encara no ha arribat al full. Ho tornaré a provar sol; ' +
                   'no cal que ho tornis a escriure.', 'error');
         if (noTanquis) throw new Error(r.error || 'pendent');
@@ -1217,7 +1290,7 @@ async function savePersonalDrawer(noTanquis) {
    ============================================================ */
 function openObsDrawer(studentId) {
   currentObsStudentId = studentId;
-  const s   = students.find(x => x.id === studentId);
+  const s   = students.find(x => String(x.id) === String(studentId));
   const obs = _obsDe(studentId);
   const tot = Object.values(obs).filter(v => v && v.trim()).length;
   const nAct = _comentarisDe(studentId).length;
@@ -1254,7 +1327,7 @@ function openAddObsModal(studentId) {
   if (typeof _perfilRenderObsSelector === 'function') _perfilRenderObsSelector();
   const sel = document.getElementById('obsAlumne');
   sel.innerHTML = students.map(s =>
-    `<option value="${s.id}" ${s.id === studentId ? 'selected' : ''}>${escapeHtml(nomAlumne(s))}</option>`
+    `<option value="${s.id}" ${String(s.id) === String(studentId) ? 'selected' : ''}>${escapeHtml(nomAlumne(s))}</option>`
   ).join('');
   document.getElementById('obsText').value      = '';
   /* ⚠ «General» és cosa del tutor: a l'app de les especialistes aquella opció
@@ -2964,10 +3037,16 @@ function _pintaEstatBuitAlumnes(el) {
    És, a més, la manera de veure que en falta algun per triar. */
 /* Un nom preparat per comparar-lo: sense accents, sense majuscules i sense
    els espais de mes. Aixi «julia serra» troba la «Júlia  Serra». */
+/* Per buscar un nom: sense accents ni majúscules, i sense els signes que
+   cada teclat escriu a la seva manera. El mòbil posa l'apòstrof corbat (’)
+   i el nom del full porta el recte ('): «d’abadal» no trobava «d'Abadal».
+   Tampoc «gal.la» ni «galla» trobaven «Gal·la» (14/11/2026). */
 function _normCerca(t) {
   return String(t == null ? '' : t)
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/\s+/g, ' ').trim();
+    .toLowerCase()
+    .replace(/[\u2019\u2018\u00b4'`·.\-]/g, '')
+    .replace(/\s+/g, ' ').trim();
 }
 
 function _alumnesCompteText() {
@@ -3014,7 +3093,12 @@ function renderAlumnesList() {
   if (_cercaBox) _cercaBox.style.display = _esVeu ? '' : 'none';
   if (!_esVeu && _campCerca) _campCerca.value = '';
   const _q = _normCerca((_campCerca || {}).value || '');
-  const _llista = _q ? students.filter(s => _normCerca(s.nom).indexOf(_q) !== -1) : students;
+  /* …i també sense espais: «o brien» ha de trobar «O'Brien». */
+  const _qJunt = _q.replace(/ /g, '');
+  const _llista = _q ? students.filter(s => {
+    const n = _normCerca(s.nom);
+    return n.indexOf(_q) !== -1 || n.replace(/ /g, '').indexOf(_qJunt) !== -1;
+  }) : students;
 
   if (!students.length) { _pintaEstatBuitAlumnes(empty); empty.style.display = 'block'; return; }
   if (!_llista.length) {
@@ -3135,7 +3219,7 @@ function renderPanelStudents(list) {
    FITXA ALUMNE
    ============================================================ */
 async function renderFitxa(studentId) {
-  const s  = students.find(x => x.id === studentId);
+  const s  = students.find(x => String(x.id) === String(studentId));
   if (!s) return;
 
   // El grup de la fitxa: abans l'HTML portava un grup escrit a pèl, o sigui
@@ -3146,7 +3230,7 @@ async function renderFitxa(studentId) {
   // Carrega dades personals si no les tenim (normalment ja carregades per loadAll)
   if (!personal[studentId] && config.scriptUrl) {
     try {
-      const s2 = students.find(x => x.id === studentId);
+      const s2 = students.find(x => String(x.id) === String(studentId));
       const rowId = s2 ? (s2.rowId !== undefined ? s2.rowId : studentId) : studentId;
       const r = await appsScriptGet({ action: 'getPersonal', studentId: rowId });
       if (r.ok) personal[studentId] = r.dades;
@@ -3567,7 +3651,7 @@ function loadFitxaAssoliments(studentId, container) {
      res: es diu on s'omple. */
 
   // Id estable de l'alumne (rowId)
-  const st = students.find(x => x.id === studentId);
+  const st = students.find(x => String(x.id) === String(studentId));
   const rowId = (st && st.rowId !== undefined && st.rowId !== null && st.rowId !== '') ? st.rowId : studentId;
   const _norm = s => (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   const grupKey = tutorGrup ? _norm(tutorGrup).replace(/[^a-z0-9]/g,'') : '';
@@ -4196,7 +4280,7 @@ async function _saveObservacioFer() {
 }
 function editObservacio(studentId, materia, trimestre) {
   const sel = document.getElementById('obsAlumne');
-  sel.innerHTML = students.map(s=>`<option value="${s.id}" ${s.id===studentId?'selected':''}>${escapeHtml(nomAlumne(s))}</option>`).join('');
+  sel.innerHTML = students.map(s=>`<option value="${s.id}" ${String(s.id)===String(studentId)?'selected':''}>${escapeHtml(nomAlumne(s))}</option>`).join('');
   document.getElementById('obsMateria').value   = materia;
   document.getElementById('obsTrimestre').value = String(trimestre);
   const key = trimestre+'_'+materia;
@@ -4256,16 +4340,20 @@ async function _replaceObservacioFer(studentId, materia, trimestre) {
                 String(trimestre) !== String(origenTrim);
   const keyDesti = trimestre + '_' + materia;
 
+  /* ⚠ MOURE UNA OBSERVACIÓ LA PODIA FER DESAPARÈIXER DELS DOS LLOCS (14/11/2026).
+
+     Abans s'esborrava primer de l'origen i després s'escrivia a la
+     destinació. Si entre les dues crides queia la connexió, ja no era a
+     l'origen i encara no era a la destinació; el quadre es tornava a obrir
+     amb el text, i si la mestra el tancava, l'observació s'havia perdut.
+     Ara és a l'inrevés: primer s'escriu on ha d'anar i, NOMÉS si això ha
+     anat bé, es treu d'on era. El pitjor que pot passar és que quedi als dos
+     llocs, i es diu. */
   if (esMou) {
     const _nomDesti = (students.find(x => String(x.id) === String(studentId)) || {}).nom || 'aquest alumne';
     const jaHiHa = (_obsDe(studentId)[keyDesti] || '').trim();
     if (jaHiHa && !confirm('«' + _nomDesti + '» ja té una observació aquí:\n\n' + jaHiHa +
                            '\n\nVols substituir-la per la que estàs escrivint?')) return;
-    // Es treu de l'origen: si no, quedaria a tots dos llocs.
-    const keyOrigen = origenTrim + '_' + origenMat;
-    if (observacions[origenId]) delete observacions[origenId][keyOrigen];
-    try { await deleteObservacioMateria(origenId, origenMat, origenTrim, true); } catch (e) {}
-    refreshObsViews(origenId);
   }
 
   const key = keyDesti;
@@ -4273,6 +4361,7 @@ async function _replaceObservacioFer(studentId, materia, trimestre) {
   /* El que hi havia abans de tocar-hi res: si el desat no arriba al full, s'hi
      torna a posar (segona auditoria, 8/9/2026 — veure el `catch` de sota). */
   const _abansDesti = observacions[studentId][key];
+  const _textDAbans = _obsTextOriginal;       // el que hi havia al quadre en obrir-lo
   observacions[studentId][key] = text;
   resetSaveObsBtn(); closeAddObsModal(true); refreshObsViews(studentId);
   if (config.scriptUrl) {
@@ -4284,10 +4373,38 @@ async function _replaceObservacioFer(studentId, materia, trimestre) {
       const _nomAl = (students.find(x => String(x.id) === String(studentId)) || {}).nom || '';
       const rowId = (personal[studentId] && personal[studentId].rowId) || studentId;
       let r;
-      if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text, nomAlumne: _nomAl });
+      /* `vist` = el text que aquest navegador tenia al davant en començar a
+         editar. Si al full ja n'hi ha un altre (una companya hi ha afegit una
+         observació mentrestant), el servidor NO el trepitja: ho diu
+         (`_conflicte`) i torna el que hi ha ara. Abans el retoc d'una
+         s'enduia el que l'altra acabava d'escriure, i deia «actualitzada». */
+      if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text, nomAlumne: _nomAl,
+                                           vist: _abansDesti === undefined ? '' : _abansDesti });
       else r = await appsScriptPost({action:'saveObservacio',studentId,materia,trimestre:String(trimestre),text,replace:true,nomAlumne:_nomAl});
+      if (r && r._conflicte) {
+        observacions[studentId][key] = r.text || '';
+        if (!observacions[studentId][key]) delete observacions[studentId][key];
+        refreshObsViews(studentId);
+        showToast('No ho he desat: mentre ho editaves, algú altre hi ha escrit. Et torno a obrir el quadre: ' +
+                  'a dalt hi tens el que hi diu ara i a sota el que havies escrit tu. Deixa-ho com hagi de quedar i desa.', 'error');
+        try {
+          editObservacio(studentId, materia, trimestre);
+          const _ta = document.getElementById('obsText');
+          _ta.value = (r.text ? r.text + '\n\n' : '') + text;
+        } catch (x) {}
+        return;
+      }
       if(!r.ok) throw new Error(r.error);
-      showToast('Observació actualitzada','success');
+      if (esMou) {
+        // Ara sí: ja és a la destinació, es treu de l'origen.
+        const tret = await deleteObservacioMateria(origenId, origenMat, origenTrim, true);
+        refreshObsViews(origenId);
+        showToast(tret === false
+          ? 'L\'observació ja és al lloc nou, però no s\'ha pogut treure d\'on era: ara és als dos llocs. Esborra la d\'abans quan puguis.'
+          : 'Observació moguda', tret === false ? 'error' : 'success');
+      } else {
+        showToast('Observació actualitzada','success');
+      }
     }
     catch(e){
       /* ⚠ SUBSTITUIR AMB EL SERVIDOR CAIGUT PERDIA EL TEXT ESCRIT.
@@ -4306,9 +4423,15 @@ async function _replaceObservacioFer(studentId, materia, trimestre) {
       refreshObsViews(studentId);
       showToast('NO s\'ha desat el canvi: ' + errorHuma(e) + ' El text el tens aquí sota, torna-ho a provar.', 'error');
       try {
-        editObservacio(studentId, materia, trimestre);
+        /* Es torna a obrir on era (l'origen), amb el que havia triat i
+           escrit. I «el text d'abans» segueix sent el d'abans: si ara tanca
+           el quadre, se li pregunta, perquè el que hi ha escrit NO s'ha desat. */
+        editObservacio(origenId, origenMat, origenTrim);
+        if (_selA) document.getElementById('obsAlumne').value = String(studentId);
+        if (_selM) document.getElementById('obsMateria').value = materia;
+        if (_selT) document.getElementById('obsTrimestre').value = trimestre;
         document.getElementById('obsText').value = text;
-        _obsTextOriginal = text;
+        _obsTextOriginal = _textDAbans;
       } catch (x) {}
     }
   }
@@ -4437,9 +4560,22 @@ async function deleteObservacioMateria(studentId, materia, trimestre, senseDeman
          casella del nen que ara ocupa aquella posició. */
       const _nomAl = (students.find(x => String(x.id) === String(studentId)) || {}).nom || '';
       let r;
-      if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text: '', nomAlumne: _nomAl });
+      if (grup) r = await appsScriptPost({ action:'saveGrupObs', grup, rowId, materia: key, text: '', nomAlumne: _nomAl,
+                                           vist: _abans === undefined ? '' : _abans });
       else r = await appsScriptPost({action:'deleteObservacio',studentId,materia,trimestre:String(trimestre),nomAlumne:_nomAl});
+      /* Algú hi ha afegit text mentrestant (veure `vist` a `_replaceObservacioFer`):
+         no s'esborra el que aquesta mestra no ha vist. Torna a sortir, amb el
+         que hi diu ara. */
+      if (r && r._conflicte) {
+        if (!observacions[studentId]) observacions[studentId] = {};
+        observacions[studentId][key] = r.text || _abans;
+        refreshObsViews(studentId);
+        showToast('No l\'he esborrada: mentre tant algú altre hi ha afegit text. Mira com ha quedat i, ' +
+                  'si encara la vols esborrar, torna-ho a fer.', 'error');
+        return false;
+      }
       if (r && r.ok === false) throw new Error(r.error || 'no s\'ha pogut esborrar');
+      return true;
     } catch(e){
       /* ⚠ S'ESBORRAVA DE LA PANTALLA I ES QUEDAVA AL FULL COMPARTIT.
 
@@ -4455,13 +4591,26 @@ async function deleteObservacioMateria(studentId, materia, trimestre, senseDeman
       }
       showToast('NO s\'ha esborrat: ' + errorHuma(e) +
                 ' Segueix al full, i per això torna a sortir aquí.', 'error');
+      return false;
     }
   }
 }
+/* ⚠ EL NÚMERO DE L'ALUMNE DE VEGADES ÉS UN NÚMERO I DE VEGADES UN TEXT (14/11/2026).
+
+   Des que desar una observació llegeix l'alumne del desplegable (18/10), el
+   codi arriba aquí com a TEXT («3»), i mitja app el comparava amb `===`
+   contra el número 3. Dues coses es trencaven sense fer soroll:
+     · en afegir una observació des del calaix o de la fitxa, deia «desada»
+       però el calaix seguia dient «Sense observacions» fins que es tancava i
+       es tornava a obrir (i qui no la veu la torna a escriure);
+     · si el desat fallava, el quadre es tornava a obrir amb el text… i amb
+       el PRIMER alumne de la llista triat: en reintentar, l'observació
+       anava a un altre nen.
+   Ara es compara sempre com a text. */
 function refreshObsViews(studentId) {
   if (!document.getElementById('page-observacions').classList.contains('page-hidden')) renderObsGrid();
-  if (currentObsStudentId === studentId) renderObsDrawerContent(studentId);
-  if (currentFitxaStudentId === studentId && !document.getElementById('page-fitxa').classList.contains('page-hidden')) renderFitxa(studentId);
+  if (currentObsStudentId !== null && String(currentObsStudentId) === String(studentId)) renderObsDrawerContent(currentObsStudentId);
+  if (currentFitxaStudentId !== null && String(currentFitxaStudentId) === String(studentId) && !document.getElementById('page-fitxa').classList.contains('page-hidden')) renderFitxa(currentFitxaStudentId);
   if (!document.getElementById('page-alumnes').classList.contains('page-hidden')) renderAlumnesList();
 }
 function resetSaveObsBtn() {
@@ -4574,8 +4723,12 @@ async function updateRegistreCell(itemId,studentId,value) {
   const _st = students.find(s => String(s.id) === String(studentId));
   const nomAlumne = _st ? _st.nom : '';
   if (!config.scriptUrl) return;
-  _casellesPosa('registre', { grup: _registreGrup() }, itemId + '|' + (nomAlumne || studentId),
-                { itemId, studentId, value, nomAlumne });
+  // Dos nens que es diuen igual: quin dels dos (veure `_ocurrenciaDelNom`).
+  const _oc = (typeof _ocurrenciaDelNom === 'function') ? _ocurrenciaDelNom(_st) : 0;
+  const _canvi = { itemId, studentId, value, nomAlumne };
+  if (_oc) _canvi.oc = _oc;
+  _casellesPosa('registre', { grup: _registreGrup() }, itemId + '|' + (nomAlumne || studentId) + (_oc ? '#' + _oc : ''),
+                _canvi);
 }
 
 /* El que hi ha apuntat i encara no ha arribat al full es pinta a sobre del
@@ -4583,9 +4736,20 @@ async function updateRegistreCell(itemId,studentId,value) {
    la mestra acaba de marcar. */
 function _registreAmbPendents() {
   if (typeof _casellesDe !== 'function' || typeof _registreGrup !== 'function') return;
+  /* I les columnes que encara són a la cua (creades sense connexió): que no
+     desapareguin de la taula en recarregar. Veure `_notesAmbPendents`. */
+  try {
+    _casellesDe('registreItem', { grup: _registreGrup() }).forEach(e => {
+      const it = e.canvi && e.canvi.item;
+      if (!it || registreItems.some(x => String(x.id) === String(it.id))) return;
+      registreItems.push(it);
+      if (!registreData[it.id]) registreData[it.id] = {};
+    });
+  } catch (e) {}
   _casellesDe('registre', { grup: _registreGrup() }).forEach(e => {
     const c = e.canvi;
-    const st = c.nomAlumne ? students.find(s => s.nom === c.nomAlumne) : null;
+    const _mateixNom = c.nomAlumne ? students.filter(s => s.nom === c.nomAlumne) : [];
+    const st = _mateixNom[c.oc || 0] || _mateixNom[0] || null;
     const id = st ? st.id : c.studentId;
     if (!registreData[c.itemId]) registreData[c.itemId] = {};
     registreData[c.itemId][id] = c.value;
@@ -5196,6 +5360,10 @@ async function _pendentsProva() {
            Si el servidor contesta i diu que no —això no és un problema de
            xarxa—, es treu de la cua, es diu QUÈ ha dit ell (el seu missatge
            és en català i sol dir què s'ha de fer) i la resta continua. */
+        /* …tret que sigui una fallada passatgera de Google: llavors es deixa
+           a la cua i s'hi torna més tard (veure `_esFalladaPassatgera`). */
+        if (typeof _esFalladaPassatgera === 'function' && _esFalladaPassatgera(r)) break;
+        if (r && r.ok !== false) _excepcionsSeguides = 0;
         if (r && r.ok === false) {
           _pendents = _pendents.filter(x => x.clau !== p.clau);
           _pendentsGuarda();
@@ -5393,8 +5561,34 @@ function _casellesTreu(enviades) {
    «el full no hi és» i la cua s'esborrava. Una mestra que passés notes amb
    l'app oberta de feia una hora les hauria perdudes totes, amb un avís que
    li deia de refrescar la pàgina. */
+/* ⚠ UNA FALLADA PASSATGERA DE GOOGLE NO ÉS UN «NO» (auditoria del 14/11/2026).
+
+   El servidor contesta `ok:false` en dos casos que no tenen res a veure:
+   quan diu que no de debò («Pestanya no trobada», «Alumne no trobat») i quan
+   alguna cosa ha petat —gairebé sempre Google mateix: «Service Spreadsheets
+   timed out», «Lock timeout»…—. La cua els tractava igual: es treia allò de
+   la cua, sortia un avís de vuit segons i les notes (fins a seixanta d'un
+   cop) es quedaven pintades a la pantalla sense haver arribat mai al full.
+
+   Ara el segon cas es torna a provar com si fos un tall de xarxa. Es coneix
+   per la marca `_excepcio` del servidor nou i, amb un servidor d'abans, pel
+   text de l'error. Per si mai fos un error que es repeteix sempre igual, al
+   sisè intent seguit es deixa de provar i es diu (com abans). */
+let _excepcionsSeguides = 0;
+function _esFalladaPassatgera(r) {
+  if (!r || r.ok !== false) return false;
+  const txt = String(r.error || '');
+  const passatger = r._excepcio === true ||
+    /timed out|time-?out|temps d.espera|Service (Spreadsheets|Documents|Drive|invoked)|too many|try again|Lock|simult|Internal error|We.re sorry|Exception/i.test(txt);
+  if (!passatger) return false;
+  _excepcionsSeguides++;
+  return _excepcionsSeguides <= 5;
+}
+
 function _esTornaraAProvar(r) {
   if (!r) return false;
+  if (_esFalladaPassatgera(r)) return true;
+  if (r.ok !== false) _excepcionsSeguides = 0;
   if (r._authError) return true;             // l'avís de clau ja surt sol
   /* El servidor diu que aquesta app no és de qui hi ha entrat. Demanar-li
      la credencial un altre cop no arreglaria res —tornaria a ser la
@@ -5447,6 +5641,14 @@ async function _casellesEnviaTros(tros) {
     _casellesTreu(tros);
     showToast('No s\'han pogut desar ' + tros.length + (tros.length === 1 ? ' canvi' : ' canvis') +
               ': ' + (r.error || 'el full no hi és') + '. Refresca la pàgina.', 'error');
+    /* I la pantalla no pot seguir ensenyant-les com si hi fossin: es torna a
+       llegir el full, i el que no s'ha desat deixa de veure's (14/11/2026:
+       es quedaven pintades fins que es tornava a entrar a la pàgina). */
+    try {
+      if (primer.tipus === 'registre') _registreRefrescaFons(primer.ctx && primer.ctx.grup);
+      else if (typeof _cacheDel === 'function' && typeof notesContext !== 'undefined' && notesContext &&
+               notesContext.materia === primer.ctx.materia) { _cacheDel(); _loadNotesBackground(); }
+    } catch (e) {}
     return 'fet';
   }
   const res = Array.isArray(r.resultats) ? r.resultats : [];
@@ -9219,8 +9421,33 @@ function _generarHeterogenis(alumnes, aleatoritzar, presents, nGrupsVol) {
    Abans nomes es mirava el cache local: si el mestre no havia obert les
    notes d'aquella assignatura, no hi havia nivell i no es deia enlloc.
    ============================================================ */
-function notaAlumneMateria(nomAlumne, matKey) {
+/* ⚠ LA NOTA NO ARRIBAVA MAI AL GENERADOR DE COMENTARIS (14/11/2026).
+   El generador hi passa la clau del perfil («catala__2nb», «musica__3ra»),
+   però les notes es guarden amb la clau de la pàgina de notes («catala» i el
+   grup a part). No coincidien mai, la funció tornava «cap nota» i el
+   comentari s'escrivia sense saber si el nen anava bé o malament. A més,
+   feia la mitjana dels tres trimestres en comptes del que s'està comentant.
+   Ara es busquen totes les maneres en què aquella assignatura es pot dir, i
+   amb `trim` es mira només aquell trimestre. */
+function _notaClausDe(matKey) {
+  const claus = [{ mat: matKey, grup: null }];
+  try {
+    const e = (typeof _perfilEntradesAmbGrup === 'function')
+      ? _perfilEntradesAmbGrup().find(x => x.key === matKey) : null;
+    if (e && typeof _navMateriaKey === 'function') {
+      const nav = _navMateriaKey(e);
+      const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[nav] : null;
+      claus.unshift({ mat: nav, grup: dd ? null : (e.grup || null) });
+    }
+  } catch (e) {}
+  const base = String(matKey).split('__')[0];
+  if (base !== matKey) claus.push({ mat: base, grup: null });
+  return claus;
+}
+function notaAlumneMateria(nomAlumne, matKey, trim) {
   if (!nomAlumne || !matKey) return null;
+  const _trims = (trim === undefined || trim === null) ? [1, 2, 3] : [parseInt(trim, 10)];
+  const _claus = _notaClausDe(matKey);
   var _pos = (typeof _fitxaPosPerNom === 'function')
     ? _fitxaPosPerNom
     : function (nom, rowNoms) {
@@ -9231,9 +9458,13 @@ function notaAlumneMateria(nomAlumne, matKey) {
 
   // 1) Resum del full: mitjana dels trimestres que tinguin nota
   try {
-    if (typeof _notesResumCache !== 'undefined' && _notesResumCache && _notesResumCache[matKey]) {
-      var per = _notesResumCache[matKey], vals = [];
-      [1, 2, 3].forEach(function (t) {
+    var _clauResum = null;
+    if (typeof _notesResumCache !== 'undefined' && _notesResumCache) {
+      _claus.forEach(function (c) { if (!_clauResum && _notesResumCache[c.mat]) _clauResum = c.mat; });
+    }
+    if (_clauResum) {
+      var per = _notesResumCache[_clauResum], vals = [];
+      _trims.forEach(function (t) {
         var d = per[t];
         if (!d || !Array.isArray(d.rowNoms)) return;
         var idx = _pos(nomAlumne, d.rowNoms);
@@ -9249,8 +9480,13 @@ function notaAlumneMateria(nomAlumne, matKey) {
   try {
     var _norm = function (x) { return (x || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); };
     var mitjanes = [];
-    [1, 2, 3].forEach(function (trim) {
-      var raw = localStorage.getItem('notescache_' + matKey + '_' + trim);
+    _trims.forEach(function (trim) {
+      var raw = null;
+      _claus.forEach(function (c) {
+        if (raw) return;
+        raw = localStorage.getItem('notescache_' + c.mat + '_' + trim + (c.grup ? '_' + c.grup : '')) ||
+              localStorage.getItem('notescache_' + c.mat + '_' + trim);
+      });
       if (!raw) return;
       var c = JSON.parse(raw);
       if (!c || !c.items || !c.rowNoms) return;
@@ -10112,7 +10348,11 @@ function assimValSet(sid, objId, val, mat, trim) {
   const t = (trim === undefined) ? _assimTrim : trim;
   if (val === null) localStorage.removeItem(assimValKey(sid, objId, mat, t));
   else localStorage.setItem(assimValKey(sid, objId, mat, t), JSON.stringify(val));
-  _assimSaveValsToSheets(_assimClauMat(mat), t);  // dades ocultes (sync)
+  /* Quins objectius i quins alumnes: es miren ARA, no d'aquí a un segon quan
+     surti el desat (veure `_assimSaveValsToSheets`). */
+  let _objs = null;
+  try { _objs = assimObjLoad(mat, t); } catch (e) { _objs = null; }
+  _assimSaveValsToSheets(_assimClauMat(mat), t, _objs);  // dades ocultes (sync)
   _autoSyncAssimSheet(t);                         // full visible bonic
 }
 
@@ -10658,14 +10898,28 @@ function _buildAssimSheetData(trim) {
       } catch (e) { /* si no n'hi ha, es queden només els seus */ }
     }
     if (!objectius.length) return;
-    const alumnes = students.map(s => {
-      const sid = (typeof _assimSid === 'function') ? _assimSid(s) : s.id;
+    /* ⚠ CADA ASSIGNATURA AMB ELS SEUS ALUMNES, NO AMB ELS DE LA PANTALLA
+       (auditoria del 14/11/2026). Aquí es feia servir `students` —el grup que
+       es mira ara— per a TOTES les assignatures: marcant un nivell a «Música
+       · 3r A», la secció de «Música · 2n A» de la pestanya es refeia amb els
+       nens de 3r A i sense cap nivell. Ara cada assignatura fa servir la
+       llista que tenia l'últim cop que s'hi va marcar res; la que es mira
+       ara, la de la pantalla; i una de la qual no se sap la llista no
+       s'envia (val més no tocar-la que escriure-hi els nens d'un altre grup). */
+    let llista = _assimAlumnesRecordats(mat, trim);
+    const esLaDAra = (typeof _assimClauMat === 'function') && mat === _assimClauMat() && String(trim) === String(_assimTrim);
+    if (esLaDAra && students.length &&
+        !(typeof _llistaDAssignatura !== 'undefined' && _llistaDAssignatura === null && llista && llista.length)) {
+      llista = students.map(s => ({ sid: (typeof _assimSid === 'function') ? _assimSid(s) : s.id, id: s.id, nom: s.nom }));
+    }
+    if (!llista || !llista.length) return;
+    const alumnes = llista.map(a => {
       const vals = {};
       objectius.forEach(obj => {
-        const v = localStorage.getItem(`assim_${mat}_${trim}_${sid}_${obj.id}`);
+        const v = localStorage.getItem(`assim_${mat}_${trim}_${a.sid}_${obj.id}`);
         vals[obj.id] = v !== null ? JSON.parse(v) : null;
       });
-      return { id: s.id, nom: s.nom, vals };
+      return { id: a.id, nom: a.nom, vals };
     });
     data[mat] = { objectius, alumnes };
   });
@@ -10825,18 +11079,55 @@ function _assimSaveObjToSheets(materia, trimestre) {
   _desaAlFull({ action: 'saveAssimObjectius', materia, trimestre, data });
 }
 
-function _assimSaveValsToSheets(materia, trimestre) {
+/* ⚠ ELS NIVELLS DELS OBJECTIUS OFICIALS NOMÉS ES DESAVEN AL NAVEGADOR
+   (auditoria del 14/11/2026).
+
+   Aquí es recorrien els objectius de `assim_obj_…`, que són NOMÉS els que
+   la mestra ha afegit pel seu compte. Els de direcció —que són gairebé tots—
+   no hi són, o sigui que els seus nivells no viatjaven mai al full: vivien
+   en aquell navegador i prou. En obrir l'app en un altre aparell (o després
+   d'esborrar les dades del navegador) no hi eren, i el primer clic d'allà
+   refeia la pestanya visible sense ells.
+
+   Ara hi van TOTS els objectius que es veuen (oficials i propis). I dues
+   coses més que feien mal amb el servidor lent:
+     · els alumnes i els objectius es miren en el moment de marcar, no un
+       segon després, quan surt el desat i la pantalla pot ser d'un altre grup;
+     · s'envien només els alumnes d'aquesta llista, i el servidor els SUMA al
+       que ja té: abans substituïa tot el paquet de l'assignatura, i en una
+       assignatura amb grups (Tallers, un desdoblament) desar-ne un esborrava
+       de l'altre. */
+function _assimRecordaAlumnes(materia, trimestre) {
+  const llista = students.map(s => ({ sid: _assimSid(s), id: s.id, nom: s.nom }));
+  if (llista.length) {
+    try { localStorage.setItem(`assim_al_${materia}_${trimestre}`, JSON.stringify(llista)); } catch (e) {}
+  }
+  return llista;
+}
+function _assimAlumnesRecordats(materia, trimestre) {
+  try { return JSON.parse(localStorage.getItem(`assim_al_${materia}_${trimestre}`) || 'null'); }
+  catch (e) { return null; }
+}
+const _assimPerDesar = {};      // «matèria_trim» → { sid → alumne } que encara no han sortit
+function _assimSaveValsToSheets(materia, trimestre, objsAra) {
   if (!config.scriptUrl) return;
+  const clau = materia + '_' + trimestre;
+  const llista = _assimRecordaAlumnes(materia, trimestre);
+  const propis = JSON.parse(localStorage.getItem(`assim_obj_${materia}_${trimestre}`) || '[]');
+  const objs = (objsAra && objsAra.length) ? objsAra : propis;
+  if (!_assimPerDesar[clau]) _assimPerDesar[clau] = { alumnes: {}, objs: {} };
+  llista.forEach(a => { _assimPerDesar[clau].alumnes[a.sid] = true; });
+  objs.forEach(o => { _assimPerDesar[clau].objs[o.id] = true; });
   // Debounce: agrupa marcatges ràpids en una sola crida
-  debounce('assimVals_' + materia + '_' + trimestre, () => {
-    const objs = JSON.parse(localStorage.getItem(`assim_obj_${materia}_${trimestre}`) || '[]');
+  debounce('assimVals_' + clau, () => {
+    const paquet = _assimPerDesar[clau] || { alumnes: {}, objs: {} };
+    delete _assimPerDesar[clau];
     const data = {};
-    students.forEach(s => {
-      const sid = _assimSid(s);
+    Object.keys(paquet.alumnes).forEach(sid => {
       data[sid] = {};
-      objs.forEach(obj => {
-        const v = localStorage.getItem(`assim_${materia}_${trimestre}_${sid}_${obj.id}`);
-        data[sid][obj.id] = v !== null ? JSON.parse(v) : null;
+      Object.keys(paquet.objs).forEach(objId => {
+        const v = localStorage.getItem(`assim_${materia}_${trimestre}_${sid}_${objId}`);
+        data[sid][objId] = v !== null ? JSON.parse(v) : null;
       });
     });
     _desaAlFull({ action: 'saveAssimValors', materia, trimestre, data });
@@ -10979,6 +11270,12 @@ function _processAppData(r) {
       Object.entries(parsed).forEach(([sid, vals]) => {
         if (vals) Object.entries(vals).forEach(([objId, v]) => {
           if (v !== null) localStorage.setItem(`assim_${matTrim}_${sid}_${objId}`, JSON.stringify(v));
+          /* Un nivell TRET en un altre aparell també s'ha de treure aquí: si
+             no, hi quedava marcat per sempre (i el desat següent el tornava a
+             pujar). Només si aquí no hi ha res esperant per desar-se. */
+          else if (!_pendentsTe('saveAssimValors') && !_debounceTimers['assimVals_' + matTrim]) {
+            localStorage.removeItem(`assim_${matTrim}_${sid}_${objId}`);
+          }
         });
       });
     }
@@ -12374,7 +12671,7 @@ function _comentPrompt(rubrica, alumne, esborrany) {
   }
 
   // La nota real, com a context
-  var nota = (typeof notaAlumneMateria === 'function') ? notaAlumneMateria(alumne.nom, _comentAssig) : null;
+  var nota = (typeof notaAlumneMateria === 'function') ? notaAlumneMateria(alumne.nom, _comentAssig, _trim) : null;
   if (nota !== null && !isNaN(nota)) {
     var qual = (typeof qualificacioText === 'function') ? qualificacioText(nota) : null;
     parts.push('\nCONTEXT: la seva nota mitjana en aquesta area es ' + (Math.round(nota * 10) / 10) +

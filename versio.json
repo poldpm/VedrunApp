@@ -1,13 +1,15 @@
 {
-  "versio": "v364",
-  "data": "2026-11-13",
+  "versio": "v365",
+  "data": "2026-11-14",
   "titol": "Novetats d aquesta versió",
   "canvis": [
-    "Repàs a fons de tota l app. No hi ha res de nou per aprendre: és perquè tot el que escrius es quedi on l has escrit.",
-    "Una nota, una creu del registre o una observació acabada de desar ja no desapareix de la pantalla quan l app es posa al dia sola. Passava si el servidor anava lent: al full hi era, però a la pantalla marxava una estona.",
-    "Si obres una assignatura d un altre grup i de seguida en obres una altra (o tornes a Alumnes), ja no et poden quedar a la pantalla els alumnes de la primera.",
-    "Al generador de comentaris, cada alumne porta només les SEVES observacions. En una assignatura d un altre grup s hi podien colar les d un altre nen.",
-    "Especialistes i direcció: les observacions i el registre del grup que teniu triat ja no es buiden sols cada pocs minuts, i triar dos grups seguits de pressa ja no els barreja.",
-    "L app va més lleugera: ja no ho torna a demanar tot al servidor cada cop que tornes a la pestanya."
+    "Al mòbil, les notes ja es poden posar bé: la columna dels noms és estreta, es veuen dues activitats alhora i els botons (comentari i NE) ja no tapen la casella. També s han arreglat una vintena de quadres i botons que al mòbil quedaven tallats o massa petits per al dit.",
+    "A les notes, la fletxa avall i l Enter baixen al nen següent (abans la fletxa restava mig punt a la nota). Els decimals, amb coma o amb punt. Un número més alt que el màxim ja no es converteix en un 10: no es desa i t ho diu. I si toques NE sense voler, en treure l hi torna la nota.",
+    "Observacions: si desar fallava i ho tornaves a provar, podia anar a un altre nen. Arreglat. I si una companya hi escriu mentre tu l edites, ja no li trepitges el que ha posat: t avisa.",
+    "La fitxa de l alumne ja no perd canvis si marques dues coses seguides i tanques, o si passes de pressa al nen següent.",
+    "Assoliments: els nivells que marques als objectius de direcció ara es desen de debò al full. Abans només es quedaven en aquell ordinador: en un altre aparell no hi eren.",
+    "El plànol de l aula es pot muntar amb el dit: les files de taules i els marcadors s arrosseguen també a la tauleta.",
+    "El manual, al mòbil, té índex i cercador (botó Índex, a baix a la dreta).",
+    "Obrir una assignatura és més ràpid: les notes ja vénen carregades d abans."
   ]
 }

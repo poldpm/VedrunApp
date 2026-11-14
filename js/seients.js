@@ -291,11 +291,29 @@ function _seientsPersistMarkers() {
   }
 }
 
+/* ⚠ LES FILES I ELS MARCADORS NOMÉS ES PODIEN MOURE AMB RATOLÍ (14/11/2026).
+
+   Asseure un nen amb el dit ja funcionava (tocar el nen i tocar el seient),
+   però moure una fila de taules, la taula de la mestra, la porta o les
+   finestres anava només amb `mousedown/mousemove/mouseup`: amb el dit, la
+   fila no es movia i el que es movia era la pàgina. A la tauleta —que és on
+   es fa el plànol— no es podia col·locar res.
+
+   Ara les mateixes funcions entenen també el dit. `_seientsPunt` torna on és
+   el punter, vingui d'un ratolí o d'un dit. Amb el dit, la fila no es mou
+   fins que el dit s'ha desplaçat una mica: un toc segueix sent un toc. */
+function _seientsPunt(e) {
+  const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+  return t || e;
+}
+
 // Drag dels marcadors pel canvas
 function _seientsMarkerDragStart(e, tipus) {
-  e.preventDefault();
+  const esDit = e.type === 'touchstart';
+  if (!esDit) e.preventDefault();
   const marker = _seientsMarkers.find(m => m.tipus === tipus);
   if (!marker) return;
+  const p0 = _seientsPunt(e);
   const canvas = document.getElementById('seientsCanvas');
   const rect = canvas.getBoundingClientRect();
   // Cachegem rect + element + marcador a l'inici (com el drag de grups): així el
@@ -304,18 +322,26 @@ function _seientsMarkerDragStart(e, tipus) {
     tipus, marker, rect,
     el: canvas.querySelector(`[data-marker="${tipus}"]`),
     raf: 0,
-    offsetX: e.clientX - rect.left - marker.x,
-    offsetY: e.clientY - rect.top - marker.y,
+    offsetX: p0.clientX - rect.left - marker.x,
+    offsetY: p0.clientY - rect.top - marker.y,
   };
-  document.addEventListener('mousemove', _seientsMarkerDragMove);
-  document.addEventListener('mouseup', _seientsMarkerDragEnd);
+  if (esDit) {
+    document.addEventListener('touchmove', _seientsMarkerDragMove, { passive: false });
+    document.addEventListener('touchend', _seientsMarkerDragEnd);
+    document.addEventListener('touchcancel', _seientsMarkerDragEnd);
+  } else {
+    document.addEventListener('mousemove', _seientsMarkerDragMove);
+    document.addEventListener('mouseup', _seientsMarkerDragEnd);
+  }
 }
 function _seientsMarkerDragMove(e) {
   const d = _seientsMarkerDrag;
   if (!d) return;
+  if (e.type === 'touchmove' && e.cancelable) e.preventDefault();   // que no es mogui la pàgina
+  const p = _seientsPunt(e);
   const rect = d.rect, marker = d.marker;
-  marker.x = Math.max(0, Math.min(rect.width - 40, e.clientX - rect.left - d.offsetX));
-  marker.y = Math.max(0, Math.min(rect.height - 30, e.clientY - rect.top - d.offsetY));
+  marker.x = Math.max(0, Math.min(rect.width - 40, p.clientX - rect.left - d.offsetX));
+  marker.y = Math.max(0, Math.min(rect.height - 30, p.clientY - rect.top - d.offsetY));
   if (!d.raf && typeof requestAnimationFrame === 'function') {
     d.raf = requestAnimationFrame(() => {
       d.raf = 0;
@@ -328,6 +354,9 @@ function _seientsMarkerDragEnd() {
   _seientsMarkerDrag = null;
   document.removeEventListener('mousemove', _seientsMarkerDragMove);
   document.removeEventListener('mouseup', _seientsMarkerDragEnd);
+  document.removeEventListener('touchmove', _seientsMarkerDragMove);
+  document.removeEventListener('touchend', _seientsMarkerDragEnd);
+  document.removeEventListener('touchcancel', _seientsMarkerDragEnd);
   _seientsPersistMarkers();
 }
 
@@ -1135,11 +1164,12 @@ function renderSeients() {
     }).join('');
     html += `<div class="seients-group ${g.orient === 'v' ? 'vertical' : ''}" data-group="${g.id}"
       style="left:${g.x}px; top:${g.y}px"
-      onmousedown="_seientsGroupMouseDown(event,'${g.id}')">
+      onmousedown="_seientsGroupMouseDown(event,'${g.id}')"
+      ontouchstart="_seientsGroupMouseDown(event,'${g.id}')">
       <div class="seients-group-handle" title="Arrossega per moure">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>
       </div>
-      <div class="seients-group-del" onmousedown="event.stopPropagation()" onclick="seientsDeleteGroup('${_idJs(g.id)}')" title="Treure fila">×</div>
+      <div class="seients-group-del" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="seientsDeleteGroup('${_idJs(g.id)}')" title="Treure fila">×</div>
       ${seatsHtml}
     </div>`;
   });
@@ -1149,10 +1179,11 @@ function renderSeients() {
     const info = _MARKER_INFO[m.tipus] || { emoji:'📍', nom:m.tipus };
     markersHtml += `<div class="seients-marker seients-marker-${m.tipus}" data-marker="${m.tipus}"
       style="left:${m.x}px;top:${m.y}px"
-      onmousedown="_seientsMarkerDragStart(event,'${m.tipus}')" title="${info.nom} — arrossega per moure">
+      onmousedown="_seientsMarkerDragStart(event,'${m.tipus}')"
+      ontouchstart="_seientsMarkerDragStart(event,'${m.tipus}')" title="${info.nom} — arrossega per moure">
       <span class="seients-marker-emoji">${info.emoji}</span>
       <span class="seients-marker-nom">${info.nom}</span>
-      <span class="seients-marker-del" onmousedown="event.stopPropagation()" onclick="seientsRemoveMarker('${_idJs(m.tipus)}')" title="Treure">×</span>
+      <span class="seients-marker-del" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="seientsRemoveMarker('${_idJs(m.tipus)}')" title="Treure">×</span>
     </div>`;
   });
   // Preserva l'element buit
@@ -1205,13 +1236,25 @@ function _seientsGroupMouseDown(ev, gid) {
   const canvas = document.getElementById('seientsCanvas');
   const groupEl = ev.currentTarget;
   const rect = canvas.getBoundingClientRect();
-  const offsetX = ev.clientX - rect.left - g.x + canvas.scrollLeft;
-  const offsetY = ev.clientY - rect.top - g.y + canvas.scrollTop;
-  groupEl.classList.add('dragging-group');
+  /* Amb el dit també (veure `_seientsPunt`). Un toc sense moure's no és
+     arrossegar: així tocar un seient buit segueix asseient-hi el nen triat. */
+  const esDit = ev.type === 'touchstart';
+  const p0 = _seientsPunt(ev);
+  const offsetX = p0.clientX - rect.left - g.x + canvas.scrollLeft;
+  const offsetY = p0.clientY - rect.top - g.y + canvas.scrollTop;
+  let mogut = !esDit;
+  if (mogut) groupEl.classList.add('dragging-group');
 
   function onMove(e) {
-    let nx = e.clientX - rect.left - offsetX + canvas.scrollLeft;
-    let ny = e.clientY - rect.top - offsetY + canvas.scrollTop;
+    const p = _seientsPunt(e);
+    if (!mogut) {
+      if (Math.abs(p.clientX - p0.clientX) + Math.abs(p.clientY - p0.clientY) < 8) return;
+      mogut = true;
+      groupEl.classList.add('dragging-group');
+    }
+    if (e.type === 'touchmove' && e.cancelable) e.preventDefault();   // que no es mogui la pàgina
+    let nx = p.clientX - rect.left - offsetX + canvas.scrollLeft;
+    let ny = p.clientY - rect.top - offsetY + canvas.scrollTop;
     nx = Math.max(0, nx);
     ny = Math.max(0, ny);
     g.x = nx; g.y = ny;
@@ -1221,13 +1264,23 @@ function _seientsGroupMouseDown(ev, gid) {
   function onUp() {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+    document.removeEventListener('touchcancel', onUp);
     groupEl.classList.remove('dragging-group');
+    if (!mogut) return;                    // només ha estat un toc: res a desar
     localStorage.setItem(_seientsLS('seients_layout'), JSON.stringify(_seientsLayout));
     _seientsSyncToSheets();
   }
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-  ev.preventDefault();
+  if (esDit) {
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+    document.addEventListener('touchcancel', onUp);
+  } else {
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    ev.preventDefault();
+  }
 }
 
 /* ---- Drag & drop d'alumnes ---- */
