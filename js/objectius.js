@@ -349,9 +349,14 @@ const OBJECTIUS_OFICIALS = {
     provisional: true,
     /* En negre al document, repassades (llegit amb `eines/objectius-colors.js`
        el 9/11/2026 a la tarda). A Anglès els objectius van mig negres i mig
-       vermells i el títol encara és vermell: es queda provisional. */
-    definitius: ['Medi', 'Matemàtiques', 'Cultura Religiosa'],
+       vermells i el títol encara és vermell: es queda provisional.
+       16/11/2026: direcció ha refet Català i l'ha passat a negre. */
+    definitius: ['Català', 'Medi', 'Matemàtiques', 'Cultura Religiosa'],
     canvis: {
+      'Català': {
+        data: '16 de novembre',
+        que: 'Direcció ha refet la llista: de 13 objectius a 17. N’ha tret els dels diàlegs i el de la erra i la B/V, i n’ha posat de nous (text instructiu, recepta, descripció de persones, poema, separació sil·làbica, ortografia).',
+      },
       'Música': {
         data: '10 de novembre',
         que: 'Direcció ha refet la llista sencera: de 11 objectius a 7, i tots amb una altra redacció.',
@@ -364,17 +369,21 @@ const OBJECTIUS_OFICIALS = {
     assigs: {
       'Català': [
         'Expressar-se oralment amb correcció i coherència.',
-        'Representar diàlegs.',
+        'Comprendre d’un text narratiu en tercera persona.',
+        'Comprendre i analitzar el text instructiu.',
+        'Redactar les instruccions per fer una recepta.',
         'Aprendre l’abecedari.',
         'Saber ordenar paraules per ordre alfabètic.',
+        'Aprendre a utilitzar el diccionari.',
         'Llegir amb la fluïdesa, la precisió i l’entonació adequades.',
         'Comprendre textos de tipologia diversa adequats a l’edat.',
         'Comprendre el llibre de lectura a casa.',
         'Utilitzar la lectura com a mitjà per ampliar el vocabulari i fixar l’ortografia correcta.',
-        'Escriure diàlegs respectant la seva estructura i tenint cura dels aspectes normatius, la cal·ligrafia, l’ordre i la presentació.',
-        'Ús del guionet en els diàlegs.',
-        'Aprendre a utilitzar el diccionari.',
-        'Aplicar les normes ortogràfiques dels sons de la erra i la diferència entre la B/V.',
+        'Escriure la presentació i descripció de persones, amb comprensió i cohesió.',
+        'Descriure personatges fantàstics de la cultura popular catalana.',
+        'Anàlisi, comprensió i creació d’un poema.',
+        'Comprendre la separació sil.làbica',
+        'Aplicar les normes ortogràfiques dels signes de puntuació, les paraules agudes, planes i esdrúixoles i els elements de l’oració. També ús de la vocal neutra i àtona.',
         'Realitzar correctament dictats preparats.',
       ],
       'Castellà': [
