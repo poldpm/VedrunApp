@@ -509,6 +509,8 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 4t de Primària ---------- */
   '4t|1': {
     provisional: true,
+    /* 16/11/2026: direcció ha passat Castellà a negre. */
+    definitius: ['Castellà'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
