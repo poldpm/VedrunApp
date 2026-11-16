@@ -66,9 +66,10 @@ const OBJECTIUS_OFICIALS = {
   '1r|1': {
     provisional: true,
     /* En negre al document, repassades (llegit amb `eines/objectius-colors.js`
-       el 12/11/2026). Hi falten Anglès —títol i objectius encara vermells— i
-       l'artística, que va mig i mig. */
-    definitius: ['Català', 'Castellà', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Educació Física'],
+       el 12/11/2026). Hi falta Anglès —títol i objectius encara vermells—.
+       16/11/2026: l'artística (Música i Tallers) ja és negra, i a Robòtica
+       n'hi ha dos de nous al final. */
+    definitius: ['Català', 'Castellà', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Educació Física', 'Música', 'Tallers'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
@@ -177,6 +178,8 @@ const OBJECTIUS_OFICIALS = {
         'Fomentar el pensament creatiu.',
         'Treballar i desenvolupar la motricitat fina.',
         'Adquirir el coneixement de vocabulari específic.',
+        'Programar amb SCRATCH JR i mtiny',
+        'Seguir les instruccions i programar amb LEGO SPIKE ESSENTIAL',
       ],
     },
   },
