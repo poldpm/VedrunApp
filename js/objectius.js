@@ -529,11 +529,28 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 4t de Primària ---------- */
   '4t|1': {
     provisional: true,
-    /* 16/11/2026: direcció ha passat Castellà a negre. */
-    definitius: ['Castellà'],
+    /* 16/11/2026: direcció ha passat Castellà a negre.
+       18/11/2026: tot a negre menys Educació Física. */
+    definitius: ['Català', 'Castellà', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Música', 'Tallers'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
+      'Català': {
+        data: '18 de novembre',
+        que: 'Direcció ha refet la llista sencera: d’11 objectius a 16, i gairebé tots nous. Les marques d’abans han quedat a l’objectiu que no toca.',
+      },
+      'Castellà': {
+        data: '18 de novembre',
+        que: 'Direcció ha tret «Escriure i comprendre endevinalles i jocs de paraules», que era l’11è: els dos de sota han pujat una casella. I n’ha posat un de nou al final, «Identificar errors ortogràfics».',
+      },
+      'Medi': {
+        data: '18 de novembre',
+        que: 'Direcció hi ha posat «Conèixer els elements principals de les comarques de muntanya, interior i litoral» com a 9è objectiu: els cinc de sota han baixat una casella.',
+      },
+      'Tallers': {
+        data: '18 de novembre',
+        que: 'Direcció ha tret el Taller de dibuix i hi ha posat el taller «Stories come alive»: les marques d’aquests dos i les de Robòtica han quedat a l’objectiu que no toca.',
+      },
       'Música': {
         data: '10 de novembre',
         que: 'Direcció ha refet la llista sencera: d’11 objectius a 8, i tots amb una altra redacció.',
@@ -541,11 +558,16 @@ const OBJECTIUS_OFICIALS = {
     },
     assigs: {
       'Català': [
-        'Utilitzar adjectius, frases fetes i comparacions per a descriure persones.',
-        'Identificar comparacions i metàfores a través de la descripció de persones.',
-        'Escriure comparacions i metàfores.',
-        'Conèixer les parts d’una oració (subjecte, predicat…).',
-        'Conèixer les normes ortogràfiques de la b/v.',
+        'Comprendre i produir textos d’experiències personals.',
+        'Conèixer les normes ortogràfiques de les síl·labes, diftongs, hiats i els dígrafs.',
+        'Utilitzar i comprendre l\'estructura i l\'organització d\'un diccionari per cercar termes amb agilitat i eficàcia.',
+        'Reconèixer i diferenciar les característiques principals de la llengua oral i de la llengua escrita en diferents situacions comunicatives.',
+        'Conèixer les parts d’un text, el paràgraf, l’oració, la paraula i el punt.',
+        'Comprendre i produir textos descriptius del paisatge de manera ordenada, detallada i coherent.',
+        'Utilitzar adjectius, frases fetes i comparacions per a descriure paisatges.',
+        'Conèixer les normes ortogràfiques de l’accentuació.',
+        'Comprendre el concepte de polisèmia i identificar paraules polisèmiques en diferents contextos comunicatius.',
+        'Identificar i classificar els diferents tipus d\'oracions segons la intenció comunicativa del parlant (declaratives, interrogatives, exclamatives i imperatives).',
         'Utilitzar un vocabulari precís i adequat al tema del qual es parla.',
         'Llegir amb la fluïdesa i l’entonació adequades.',
         'Comprendre textos de diferents tipologies.',
@@ -564,9 +586,9 @@ const OBJECTIUS_OFICIALS = {
         'Escriure el menú d’un restaurant.',
         'Identificar els elements de la carta d’un restaurant.',
         'Preparar i representar una conversa imaginària en un restaurant.',
-        'Escriure i comprendre endevinalles i jocs de paraules.',
         'Completar frases.',
         'Realitzar correctament dictats preparats.',
+        'Identificar errors ortogràfics.',
       ],
       'Anglès': [
         'Desenvolupar habilitats per la comprensió i producció orals.',
@@ -576,7 +598,7 @@ const OBJECTIUS_OFICIALS = {
         'Comprendre les instruccions de la mestra.',
         'Repassar el vocabulari treballat als cursos previs, com per exemple l’enumeració, mesos de l’any o l’abecedari.',
         'Introduir nous continguts referents al vocabulari: malalties, adjectius per la descripció de persones, activitats diàries, les hores i les parts del dia.',
-        'Treballar el vocabulari i cançons relacionat amb l’obra de teatre Tarzan.',
+        'Treballar el vocabulari i cançons relacionat amb l’obra de teatre Magic Mindy.',
         'Conèixer les tradicions i vocabulari de Halloween.',
         'Treballar el vocabulari sobre la festivitat del Nadal i el Bonfire Night.',
         'Entendre els enunciats dels exercicis.',
@@ -591,6 +613,7 @@ const OBJECTIUS_OFICIALS = {
         'Conèixer els municipis que envolten Vic.',
         'Conèixer les comarques que envolten Osona.',
         'Conèixer les muntanyes més rellevants d’Osona.',
+        'Conèixer els elements principals de les comarques de muntanya, interior i litoral.',
         'Recordar els diferents paisatges: de costa, d’interior i de muntanya.',
         'Debatre els acords i desacords amb els membres de l’equip de manera respectuosa.',
         'Ampliar el coneixement de vocabulari específic.',
@@ -669,16 +692,15 @@ const OBJECTIUS_OFICIALS = {
         'Reproduir el propi rostre amb diferents tècniques i materials.',
         'Editar una fotografia amb finalitat artística amb un senzill programa d’edició.',
         'Desenvolupar la imaginació i la creativitat.',
-        '# Taller de dibuix',
-        'Fomentar la creativitat i la confiança en les pròpies habilitats artístiques a través de diferents tècniques de dibuix.',
-        'Fomentar la imaginació dels alumnes.',
-        'Introduir tècniques bàsiques de dibuix.',
-        'Desenvolupar la motricitat fina i la coordinació ull-mà.',
-        'Aprendre a observar i representar la realitat.',
-        'Desenvolupar l’observació i la representació del que ens envolta.',
-        'Aprendre a expressar emocions i idees a través del traç i el color.',
-        'Gaudir del procés creatiu.',
-        'Tenir cura de la presentació de la feina i posar-hi esforç.',
+        '# Taller: Stories come alive',
+        'Comprendre la idea global de contes en anglès',
+        'Expressar-se oralment en anglès',
+        'Utilitzar el nou vocabulari',
+        'Ser creatius en l’elaboració de titelles',
+        'Iniciar-se en el món de la costura',
+        'Cooperar i treballar adequadament en grup',
+        'Preparar-se el text que han de dir',
+        'Expressar-se correctament oralment davant d’un grup d’alumnes',
         '# Taller: Robòtica',
         'Conèixer els tipus de forces i la seva utilitat.',
         'Reconèixer i diferenciar les màquines simples de les compostes.',
@@ -696,9 +718,31 @@ const OBJECTIUS_OFICIALS = {
   /* ---------- 5è de Primària ---------- */
   '5è|1': {
     provisional: true,
+    /* 18/11/2026: direcció ha passat a negre aquestes cinc. */
+    definitius: ['Català', 'Castellà', 'Medi', 'Matemàtiques', 'Educació Física'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
+      'Català': {
+        data: '18 de novembre',
+        que: 'Direcció ha refet la llista: de 12 objectius a 16. N’ha tret «Conèixer alguns accents diacrítics», n’ha posat de nous al mig i ha passat «Realitzar correctament dictats…» al final: les marques del 7è en avall han quedat a l’objectiu que no toca.',
+      },
+      'Castellà': {
+        data: '18 de novembre',
+        que: 'Direcció ha canviat «Utilitzar els adjectius descriptius», que era el 7è, per dos objectius nous («Utilitzar prefixes i sufixes» i «Utilitzar adjectius qualificatius»): els de sota han baixat una casella. I n’ha posat tres de nous al final.',
+      },
+      'Medi': {
+        data: '18 de novembre',
+        que: 'Direcció ha tret els quatre objectius dels núvols, el temps i l’univers (del 6è al 9è) i hi ha posat els de l’aparell respiratori i el circulatori: les marques del 6è en avall han quedat a l’objectiu que no toca.',
+      },
+      'Matemàtiques': {
+        data: '18 de novembre',
+        que: 'Direcció ha tret «Identificar nombres romans», que era el 3r: els de sota han pujat una casella. I n’ha posat un de nou al final, «Conèixer i jugar amb la probabilitat dels nombres».',
+      },
+      'Educació Física': {
+        data: '18 de novembre',
+        que: 'Direcció hi ha posat «Planificar, redactar i dur a terme un joc propi…» com a 12è objectiu: el de sota, «Gaudir dels jocs…», ha baixat una casella.',
+      },
       'Música': {
         data: '10 de novembre',
         que: 'Direcció ha refet la llista sencera: de 9 objectius a 7, i tots amb una altra redacció. Ja no hi surt la cantata.',
@@ -712,12 +756,16 @@ const OBJECTIUS_OFICIALS = {
         'Comprendre el contingut de textos de tipologia diversa.',
         'Comprendre els llibres de lectura llegits a classe i a casa.',
         'Escriure textos tenint cura de la seva estructura, els aspectes normatius, la cal·ligrafia, l’ordre i la presentació.',
-        'Realitzar correctament dictats preparats i sense preparar.',
         'Repassar la separació sil·làbica i la síl·laba tònica.',
         'Diferenciar un hiat d’un diftong i saber-ho separar per síl·labes.',
-        'Classificar les paraules segons la síl·laba tònica en agudes, planes o - esdrúixoles.',
+        'Conèixer i saber separar correctament els dígrafs.',
+        'Classificar les paraules segons la síl·laba tònica en agudes, planes o esdrúixoles.',
         'Conèixer les normes ortogràfiques sobre l’accentuació bàsica.',
-        'Conèixer alguns accents diacrítics.',
+        'Identificar manlleus i barbarismes.',
+        'Conèixer i diferenciar noms propis, noms comuns, noms concrets i noms abstractes.',
+        'Classificar el gènere i el nombre dels noms.',
+        'Reconèixer i utilitzar prefixos i sufixos en la creació de paraules noves.',
+        'Realitzar correctament dictats preparats i sense preparar.',
       ],
       'Castellà': [
         'Llegir de forma expressiva textos de tipologia diversa.',
@@ -726,11 +774,15 @@ const OBJECTIUS_OFICIALS = {
         'Respondre preguntes, tant orals com escrites, sobre diferents tipus de textos.',
         'Produir textos seguint una pauta establerta (descripció i notícia).',
         'Trobar sinònims i antònims de diferents paraules donades.',
-        'Utilitzar els adjectius descriptius.',
+        'Utilitzar prefixes i sufixes.',
+        'Utilitzar adjectius qualificatius.',
         'Escriure correctament el singular, plural i els invariables.',
         'Realitzar dictats preparats.',
         'Utilitzar el diccionari bilingüe per buscar la traducció del vocabulari sobre els oficis.',
         'Entendre i escriure correctament les paraules relacionades amb els oficis.',
+        'Classificar noms propis i comus amb el corresponent nombre i genere.',
+        'Diferenciar les paraules que s’escriuen amb r i rr.',
+        'Conèixer les paraules homòfones.',
       ],
       'Anglès': [
         'Entendre enunciats i instruccions del mestre.',
@@ -755,16 +807,13 @@ const OBJECTIUS_OFICIALS = {
         'Reconèixer i diferenciar la cèl·lula vegetal, la cèl·lula animal i el bacteri.',
         'Entendre i identificar les funcions de diversos aparells meteorològics: termòmetre, higròmetre, baròmetre, pluviòmetre, penell i anemòmetre.',
         'Reconèixer els factors climàtics: temperatura, humitat, pressió atmosfèrica, precipitació i vent. Saber què ens indiquen.',
-        'Identificar diferents classes de núvols.',
-        'Llegir i interpretar dades del temps atmosfèric.',
-        'Distingir els diferents cossos de l’univers.',
-        'Localitzar la Terra i els altres planetes.',
+        'Saber el funcionament de l’aparell respiratori i els seus òrgans.',
+        'Treballar i conèixer l’aparell circulatori.',
         'Promoure el valor democràtic. Emprenedoria.',
       ],
       'Matemàtiques': [
         'Resoldre problemes utilitzant diferents operacions matemàtiques.',
         'Utilitzar les propietats de la suma per desenvolupar estratègies de càlcul mental.',
-        'Identificar nombres romans.',
         'Resoldre situacions quotidianes mitjançant càlculs numèrics.',
         'Situar nombres en la recta numèrica.',
         'Resoldre sumes i restes amb unitats de temps.',
@@ -773,6 +822,7 @@ const OBJECTIUS_OFICIALS = {
         'Calcular fraccions emprant les regles de 3.',
         'Aproximar divisions utilitzant els decimals.',
         'Fer servir les fraccions, els percentatges i els decimals per expressar quantitats.',
+        'Conèixer i jugar amb la probabilitat dels nombres.',
       ],
       'Cultura Religiosa': [
         'Conèixer l’espai geogràfic d’Israel pel qual es va moure Jesús.',
@@ -797,6 +847,7 @@ const OBJECTIUS_OFICIALS = {
         'Experimentar el joc com a objecte de plaer i recreació.',
         'Realitzar jocs de diverses tipologies.',
         'Conèixer jocs diversos i complir amb les seves normes.',
+        'Planificar, redactar i dur a terme un joc propi i les seves variants.',
         'Gaudir dels jocs duts a terme sense tindre en compte els resultats.',
       ],
       'Música': [
@@ -849,11 +900,16 @@ const OBJECTIUS_OFICIALS = {
     /* En negre al document, repassades (9/11/2026). La resta hi són en
        vermell; a Cultura religiosa els objectius són negres però el títol
        encara és vermell, i mentre els dos colors no es posin d'acord compta
-       com a provisional. */
-    definitius: ['Anglès', 'Matemàtiques'],
+       com a provisional.
+       18/11/2026: Català i Educació Física, a negre. */
+    definitius: ['Català', 'Anglès', 'Matemàtiques', 'Educació Física'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
+      'Català': {
+        data: '18 de novembre',
+        que: 'Direcció ha refet la llista: de 16 objectius a 21. N’ha tret els dos del correu electrònic i el de la notícia i n’ha posat de nous al mig: les marques del 6è en avall han quedat a l’objectiu que no toca.',
+      },
       'Música': {
         data: '10 de novembre',
         que: 'Direcció ha refet la llista sencera: de 9 objectius a 7, i tots amb una altra redacció.',
@@ -866,17 +922,22 @@ const OBJECTIUS_OFICIALS = {
         'Llegir i analitzar de forma comprensiva i expressiva diferents tipus de textos.',
         'Comprendre el contingut de textos de tipologia diversa.',
         'Escriure textos tenint cura de la seva estructura, dels aspectes normatius, de la cal·ligrafia, de l’ordre i de la presentació.',
-        'Analitzar diferents missatges de correu electrònic.',
-        'Planificar, redactar i revisar un missatge de correu electrònic.',
         'Desenvolupar l’aplicació de les normes d’accentuació en paraules agudes, planes i esdrúixoles.',
         'Reconèixer i utilitzar correctament les vocals àtones en les seves produccions escrites.',
-        'Analitzar les parts i les característiques d’una notícia i escriure’n una de forma coherent i clara',
+        'Classificar paraules segons la síl·laba tònica.',
+        'Aplicar les normes d’accentuació.',
+        'Conèixer i aplicar la normativa referent a l’accent diacrític.',
         'Comprendre les característiques del còmic i escriure’n de propis utilitzant el llenguatge visual i escrit adequat.',
         'Entendre la funció del text instructiu i escriure instruccions clares per explicar les normes d’un joc o una activitat.',
-        'Analitzar poemes identificant-hi la rima, el ritme i els recursos poètics més rellevants',
+        'Reconèixer el subjecte i el predicat d’una oració.',
+        'Trobar sinònims i antònims d’una paraula.',
+        'Crear un conjunt de diapositives (powerpoint) per realitzar una presentació.',
+        'Analitzar poemes identificant-hi la rima, el ritme i els recursos poètics més rellevants.',
         'Realitzar correctament dictats preparats i sense preparar.',
         'Revisar i valorar l’ortografia dels textos lliures que escriure.',
         'Comprendre els llibres de lectura llegits a classe i a casa.',
+        'Conèixer diferents tipologies de narracions breus: llegenda, faula i el conte així com la seva estructura i característiques principals.',
+        'Descriure una imatge.',
       ],
       'Castellà': [
         'Comprendre textos de tipologia diversa.',
