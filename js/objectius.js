@@ -81,6 +81,10 @@ const OBJECTIUS_OFICIALS = {
         data: '12 de novembre',
         que: 'Direcció ha tret l’objectiu «Comptar de 2 en 2», que era el tercer: tots els de sota han pujat una casella.',
       },
+      'Educació Física': {
+        data: '18 de novembre',
+        que: 'Direcció ha tret els objectius «Experimentar postures en equilibri i desequilibri» i «Realitzar salts i rodaments…», que eren el 6è i el 7è: els cinc de sota han pujat dues caselles.',
+      },
       'Català': {
         data: '12 de novembre',
         que: 'Al lloc de «Aprendre a redactar missatges breus i notes» (el desè) ara hi ha «Iniciar-se en l’ús de la lletra lligada»: no és el mateix i val més tornar-lo a mirar.',
@@ -147,8 +151,6 @@ const OBJECTIUS_OFICIALS = {
         'Representar el seu propi cos de forma global i segmentària.',
         'Identificar els dos segments corporals dreta i esquerra.',
         'Afirmar els segments dominants dins el procés de lateralització.',
-        'Experimentar postures en equilibri i desequilibri.',
-        'Realitzar salts i rodaments prenent consciència de la posició del cos.',
         'Començar a buscar estratègies per tal de cooperar amb els companys/es en els jocs d’equip.',
         'Assumir el resultat del joc sense crear conflictes ni enfadar-se.',
         'Escoltar les normes i consignes dels jocs per poder realitzar correctament les activitats proposades.',
