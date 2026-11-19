@@ -901,14 +901,15 @@ const OBJECTIUS_OFICIALS = {
        vermell; a Cultura religiosa els objectius són negres però el títol
        encara és vermell, i mentre els dos colors no es posin d'acord compta
        com a provisional.
-       18/11/2026: Català i Educació Física, a negre. */
+       18/11/2026: Català i Educació Física, a negre.
+       19/11/2026: Català, refet una altra vegada. */
     definitius: ['Català', 'Anglès', 'Matemàtiques', 'Educació Física'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
       'Català': {
-        data: '18 de novembre',
-        que: 'Direcció ha refet la llista: de 16 objectius a 21. N’ha tret els dos del correu electrònic i el de la notícia i n’ha posat de nous al mig: les marques del 6è en avall han quedat a l’objectiu que no toca.',
+        data: '19 de novembre',
+        que: 'Direcció ha refet la llista dues vegades (18 i 19 de novembre): ara són 20 objectius, tots amb una redacció nova. Els cinc primers volen dir el mateix que abans; del 6è en avall, les marques d’abans han quedat a l’objectiu que no toca.',
       },
       'Música': {
         data: '10 de novembre',
@@ -917,27 +918,26 @@ const OBJECTIUS_OFICIALS = {
     },
     assigs: {
       'Català': [
-        'Entendre i analitzar el contingut d’una audició.',
-        'Respectar els torns de paraula i interactuar amb els companys de manera ordenada i respectuosa.',
-        'Llegir i analitzar de forma comprensiva i expressiva diferents tipus de textos.',
-        'Comprendre el contingut de textos de tipologia diversa.',
-        'Escriure textos tenint cura de la seva estructura, dels aspectes normatius, de la cal·ligrafia, de l’ordre i de la presentació.',
-        'Desenvolupar l’aplicació de les normes d’accentuació en paraules agudes, planes i esdrúixoles.',
-        'Reconèixer i utilitzar correctament les vocals àtones en les seves produccions escrites.',
-        'Classificar paraules segons la síl·laba tònica.',
-        'Aplicar les normes d’accentuació.',
-        'Conèixer i aplicar la normativa referent a l’accent diacrític.',
-        'Comprendre les característiques del còmic i escriure’n de propis utilitzant el llenguatge visual i escrit adequat.',
-        'Entendre la funció del text instructiu i escriure instruccions clares per explicar les normes d’un joc o una activitat.',
-        'Reconèixer el subjecte i el predicat d’una oració.',
-        'Trobar sinònims i antònims d’una paraula.',
-        'Crear un conjunt de diapositives (powerpoint) per realitzar una presentació.',
-        'Analitzar poemes identificant-hi la rima, el ritme i els recursos poètics més rellevants.',
-        'Realitzar correctament dictats preparats i sense preparar.',
-        'Revisar i valorar l’ortografia dels textos lliures que escriure.',
-        'Comprendre els llibres de lectura llegits a classe i a casa.',
-        'Conèixer diferents tipologies de narracions breus: llegenda, faula i el conte així com la seva estructura i característiques principals.',
-        'Descriure una imatge.',
+        'Comprendre, interpretar i extreure informació rellevant de textos orals i audicions de tipologia diversa.',
+        'Participar en converses i interaccions orals respectant els torns de paraula, expressant les pròpies idees amb claredat i escoltant activament els altres.',
+        'Llegir en veu alta amb fluïdesa, entonació i expressivitat, adequant el ritme i la pronunciació al tipus de text.',
+        'Comprendre, interpretar i analitzar textos escrits de tipologies diverses, identificant-ne les idees principals, la informació rellevant i la intencionalitat.',
+        'Produir textos escrits de diferents tipologies, adequant-ne el contingut, l\'estructura i el vocabulari a la situació comunicativa.',
+        'Aplicar les normes ortogràfiques i gramaticals en les produccions escrites, tenint cura de la cal·ligrafia, l\'ordre i la presentació.',
+        'Identificar la síl·laba tònica de les paraules i classificar-les en agudes, planes i esdrúixoles.',
+        'Aplicar correctament les normes generals d\'accentuació i la normativa de l\'accent diacrític.',
+        'Reconèixer i utilitzar correctament les vocals àtones en les produccions escrites.',
+        'Conèixer les característiques del còmic i elaborar-ne de propis combinant adequadament el llenguatge verbal i visual.',
+        'Identificar la funció i l\'estructura dels textos instructius i redactar instruccions clares, ordenades i precises.',
+        'Reconèixer i identificar el subjecte i el predicat d\'una oració, comprenent-ne la funció.',
+        'Identificar i utilitzar sinònims i antònims per enriquir el vocabulari i millorar les produccions orals i escrites.',
+        'Elaborar presentacions digitals amb diapositives, organitzant la informació i seleccionant els recursos visuals adequats per comunicar-la oralment.',
+        'Comprendre i analitzar textos poètics, identificant-ne la rima, el ritme i els principals recursos literaris.',
+        'Aplicar les normes ortogràfiques en dictats preparats i no preparats, així com en les produccions escrites pròpies.',
+        'Revisar i millorar els textos propis, detectant i corregint errors ortogràfics, gramaticals i de puntuació.',
+        'Comprendre, interpretar i valorar les lectures realitzades a l\'aula i a casa, expressant opinions i reflexions sobre el contingut.',
+        'Reconèixer les característiques i l\'estructura de diferents narracions breus, com la llegenda, la faula i el conte.',
+        'Descriure imatges de manera ordenada i detallada, utilitzant vocabulari precís i expressions adequades.',
       ],
       'Castellà': [
         'Comprendre textos de tipologia diversa.',
