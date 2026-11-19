@@ -911,6 +911,10 @@ const OBJECTIUS_OFICIALS = {
         data: '19 de novembre',
         que: 'Direcció ha refet la llista dues vegades (18 i 19 de novembre): ara són 20 objectius, tots amb una redacció nova. Els cinc primers volen dir el mateix que abans; del 6è en avall, les marques d’abans han quedat a l’objectiu que no toca.',
       },
+      'Castellà': {
+        data: '19 de novembre',
+        que: 'Direcció hi ha posat «Preparar i fer una exposició oral» com a 7è objectiu: els de sota han baixat una casella. També ha canviat el de la H per un de la C i la Z, i n’ha posat dos de nous al final (prefixos i sufixos, i determinants).',
+      },
       'Música': {
         data: '10 de novembre',
         que: 'Direcció ha refet la llista sencera: de 9 objectius a 7, i tots amb una altra redacció.',
@@ -946,12 +950,15 @@ const OBJECTIUS_OFICIALS = {
         'Fer dictats preparats i no preparats per posar en pràctica la normativa ortogràfica treballada.',
         'Llegir de forma expressiva textos de tipologia diversa.',
         'Participar a les converses de l’aula tot respectant el torn de paraula i les intervencions dels companys/es.',
+        'Preparar i fer una exposició oral.',
         'Utilitzar el vocabulari adequat a la situació comunicativa plantejada.',
         'Utilitzar el diccionari bilingüe per buscar la traducció del vocabulari sobre fruites i verdures.',
         'Entendre i escriure correctament les paraules relacionades amb les fruites i verdures.',
         'Escriure correctament paraules que porten les lletres G i J.',
-        'Conèixer l’ús de l’ortografia H i aplicar-la correctament.',
+        'Escriure correctament paraules que porten les lletres C i Z.',
         'Escriure correctament paraules amb les lletres B, V.',
+        'Utilitzar prefixes i sufixes.',
+        'Identificar els determinants i conèixer la seva classificació.',
       ],
       'Anglès': [
         'Entendre enunciats i instruccions de la mestra.',
