@@ -783,8 +783,9 @@
     /* ⚠ Igual que a les notes: la llista d'un altre grup fora abans de
        res, que aquí es posen nivells alumne per alumne (6/10/2026). */
     if (typeof _netejaAlumnesSiSonDUnAltre === 'function') {
-      _netejaAlumnesSiSonDUnAltre(e.altres ? null : e.grup,
-                                  e.altres ? { curs: curs, assig: e.nom } : null);
+      var _rot = e.altres || e.rotatori;     // el Tallers de la tutoria també roda
+      _netejaAlumnesSiSonDUnAltre(_rot ? null : e.grup,
+                                  _rot ? { curs: curs, assig: e.nom } : null);
     }
     try {
       if (!e.altres && typeof _desdobCarregaGrups === 'function') {
@@ -792,7 +793,7 @@
       }
       var teDesdob = !e.altres && typeof _desdobOpcions === 'function' &&
                      _desdobOpcions(curs, e.nom).desdob;
-      if (e.altres || teDesdob) {
+      if (e.altres || e.rotatori || teDesdob) {
         if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(curs, e.nom);
       } else {
         var tutor = (typeof _grupDeTreball === 'function') ? _grupDeTreball() : null;

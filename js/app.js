@@ -6316,7 +6316,8 @@ async function _rolCarregaGrupTreball(clau, pagina) {
     }
     const _teDesdob = !e.altres && typeof _desdobOpcions === 'function' &&
                       _desdobOpcions(_curs, e.nom).desdob;
-    if (e.altres || _teDesdob) {
+    // El Tallers de la tutoria és rotatori encara que no hi hagi grups fets.
+    if (e.altres || e.rotatori || _teDesdob) {
       if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(_curs, e.nom);
     } else if (typeof _ensureGrupStudents === 'function') {
       await _ensureGrupStudents(e.grup, e.key);
@@ -9632,7 +9633,7 @@ function _notaClausDe(matKey) {
     if (e && typeof _navMateriaKey === 'function') {
       const nav = _navMateriaKey(e);
       const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[nav] : null;
-      claus.unshift({ mat: nav, grup: dd ? null : (e.grup || null) });
+      claus.unshift({ mat: nav, grup: dd ? (dd.grupFix || null) : (e.grup || null) });
     }
   } catch (e) {}
   const base = String(matKey).split('__')[0];
@@ -10402,7 +10403,9 @@ function _assimClauMat(mat) {
   const m = (mat === undefined || mat === null) ? _assimMateria : mat;
   const g = (typeof _grupDeTreball === 'function') ? (_grupDeTreball() || '') : '';
   if (!g || typeof m !== 'string') return m;
-  const esDAltreCurs = (typeof _assigDesdobMap !== 'undefined') && !!_assigDesdobMap[m];
+  /* El Tallers de la pròpia tutoria (`grupFix`) no és d'un altre curs: la
+     seva clau ja porta el grup i es desa on s'ha desat sempre. */
+  const esDAltreCurs = (typeof _assigDesdobMap !== 'undefined') && !!_assigDesdobMap[m] && !_assigDesdobMap[m].grupFix;
   const jaPortaGrup = m.indexOf('__') !== -1 && !esDAltreCurs;
   if (jaPortaGrup) return m;
   return m + '@' + g.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -13264,8 +13267,7 @@ function initComentaris() {
     if (entrades.length) {
       entrades.forEach(e => {
         if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
-        if (e.altres) { if (typeof _assigDesdobMap !== 'undefined') _assigDesdobMap[e.key] = { curs: e.curs, assig: e.nom, rotatori: e.rotatori }; }
-        else if (typeof _assigGrupMap !== 'undefined') _assigGrupMap[e.key] = e.grup;
+        if (typeof _registraEntrada === 'function') _registraEntrada(e);
         if (typeof _assigNomMap !== 'undefined') _assigNomMap[e.key] = e.nom;
       });
       if (!entrades.some(e => e.key === _comentAssig)) _comentAssig = entrades[0].key;

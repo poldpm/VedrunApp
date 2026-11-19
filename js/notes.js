@@ -91,7 +91,7 @@ async function prefetchAllNotes() {
        servir `openNotes`. */
     const mat = (typeof _navMateriaKey === 'function') ? _navMateriaKey(e) : e.key;
     const _dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[mat] : null;
-    const grup = _dd ? null : (e.grup || null);
+    const grup = _dd ? (_dd.grupFix || null) : (e.grup || null);
     const persistKey = 'notescache_' + mat + '_' + trim + (grup ? '_' + grup : '');
     try {
       // Si ja hi ha cache fresc, salta
@@ -404,7 +404,10 @@ async function openNotes(materia, trimestre, grup) {
 
   // Desdoblament rotatori (p. ex. Tallers 3r): grup actual, barrejant classes
   const dd = (typeof _assigDesdobMap !== 'undefined') ? _assigDesdobMap[materia] : null;
-  notesContext = { materia, trimestre, grup: dd ? null : (grup || notesContext.grup || null), desdob: dd || null };
+  /* Amb desdoblament no hi ha grup a la pestanya, menys al Tallers de la
+     pròpia tutoria, que es continua desant amb el grup de la classe
+     (`grupFix`, veure `_ddDeEntrada`). */
+  notesContext = { materia, trimestre, grup: dd ? (dd.grupFix || null) : (grup || notesContext.grup || null), desdob: dd || null };
 
   // La casella de compartir amb el tutor: és per assignatura+grup
   if (typeof initCompartirNotes === 'function') { try { initCompartirNotes(); } catch (e) {} }

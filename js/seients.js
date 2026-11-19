@@ -120,7 +120,7 @@ async function _seientsCarregaGrups() {
                      _desdobOpcions(curs, e.nom).desdob;
 
     let grup = null, desdob = false;
-    if (e.altres || teDesdob) {
+    if (e.altres || e.rotatori || teDesdob) {
       grup = (typeof _desdobGrupActual === 'function') ? _desdobGrupActual(curs, e.nom) : null;
       desdob = true;
     } else {

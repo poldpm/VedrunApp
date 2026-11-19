@@ -1203,7 +1203,8 @@ function perfilRenderNavAssigs() {
   entrades.forEach(e => {
     const key = _navMateriaKey(e);
     if (typeof MATERIES !== 'undefined' && !MATERIES[key]) MATERIES[key] = e.altres ? (e.nom + ' · ' + e.curs) : e.nom;
-    if (e.altres) _assigDesdobMap[key] = { curs: e.curs, assig: e.nom, rotatori: e.rotatori };
+    const dd = _ddDeEntrada(e);
+    if (dd) _assigDesdobMap[key] = dd;
   });
 }
 
@@ -1544,10 +1545,33 @@ function _restoreTutoriaStudents() {
 // Retorna [{nom, grup, key, label}] on key inclou el grup i label el mostra
 function _perfilEntradesAmbGrup() {
   const entrades = [];
+  /* ⚠ EL TALLERS DE LA PRÒPIA TUTORIA NOMÉS ENSENYAVA LA CLASSE.
+
+     En Pol, 19/11/2026: «la Mireia és tutora de 2n B i fa tallers a segon,
+     per tant tindrà tots els grups de tallers de 2n, no només el seu, i ha de
+     poder posar notes a tots… ara, com que té marcat que és tutora, només li
+     deixa posar notes en el seu grup». I: «que no li passi a ningú».
+
+     El Tallers marcat a la targeta de la tutoria era una assignatura més de
+     la classe: la llista de nens era la de 2n B i no hi havia selector de
+     grup. A Tallers de 1r (un altre curs) sí que n'hi havia. Ara el de la
+     tutoria també és rotatori (`rotatori` i el seu `curs`) i surt el
+     selector, igual que als altres cursos.
+
+     El que NO canvia és ON es desa: la clau i el grup de l'entrada són els
+     d'abans, i el grup de la tutoria viatja com a `grupFix` (veure
+     `_ddDeEntrada`). Les notes, els assoliments i les observacions que ja hi
+     hagués es continuen llegint d'allà mateix; si s'hagués canviat la clau,
+     ho haurien deixat de veure de cop. */
+  const tutorKey0 = (typeof _perfilTutorGrupKey === 'function') ? _perfilTutorGrupKey() : null;
   if (_perfil && _perfil.classes) {
     Object.keys(_perfil.classes).forEach(grup => {
       (_perfil.classes[grup] || []).forEach(nom => {
-        entrades.push({ nom, grup });
+        if (tutorKey0 && grup === tutorKey0 && _esRotatori(nom)) {
+          entrades.push({ nom, grup, curs: String(grup).split(' ')[0], rotatori: true });
+        } else {
+          entrades.push({ nom, grup });
+        }
       });
     });
   }
@@ -1578,6 +1602,36 @@ function _perfilEntradesAmbGrup() {
     const label = esTutoria ? e.nom : (e.nom + ' · ' + e.grup);
     return { nom: e.nom, grup: e.grup, key, label, altres: !!e.altres, curs: e.curs || null, rotatori: !!e.rotatori };
   });
+}
+
+/* El que va al mapa de desdoblaments (`_assigDesdobMap`) per a una entrada:
+   d'on surten els NENS. Null vol dir «la classe del grup, com sempre».
+   · Un altre curs: el grup de desdoblament o de la rotació, com fins ara.
+   · El Tallers de la pròpia tutoria: també la rotació, però amb `grupFix`,
+     el grup de la tutoria, que és on s'han desat sempre les seves coses.
+   Tots els llocs que registren entrades passen per aquí, perquè no se'n
+   torni a quedar cap enrere. */
+function _ddDeEntrada(e) {
+  if (!e) return null;
+  if (e.altres) return { curs: e.curs, assig: e.nom, rotatori: e.rotatori };
+  if (e.rotatori && e.curs) return { curs: e.curs, assig: e.nom, rotatori: true, grupFix: e.grup };
+  return null;
+}
+
+/* El grup amb què es DESA (la pestanya del full): sense desdoblament, el de
+   l'entrada; amb desdoblament, cap —excepte el Tallers de la tutoria, que
+   continua sent el de la seva classe. Veure `_ddDeEntrada`. */
+function _grupDeDesat(dd, grup) {
+  return dd ? (dd.grupFix || null) : (grup || null);
+}
+
+/* Registra una entrada als mapes de les pantalles (Notes, Observacions,
+   Assoliments, Comentaris): d'on surten els nens i de quin grup és. */
+function _registraEntrada(e, clau) {
+  const k = clau || e.key;
+  const dd = _ddDeEntrada(e);
+  if (dd && typeof _assigDesdobMap !== 'undefined') _assigDesdobMap[k] = dd;
+  if (!e.altres && typeof _assigGrupMap !== 'undefined') _assigGrupMap[k] = e.grup;
 }
 
 /* El grup dels nens que hi ha ARA a la pantalla.
@@ -1649,8 +1703,7 @@ function _perfilRenderObsSelector() {
     // Registra al mapa MATERIES perquè es mostri bé el títol amb grup
     if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
     // Guarda el grup (o el desdoblament) associat a la clau
-    if (e.altres) _assigDesdobMap[e.key] = { curs: e.curs, assig: e.nom, rotatori: e.rotatori };
-    else _assigGrupMap[e.key] = e.grup;
+    _registraEntrada(e);
     _assigNomMap[e.key] = e.nom;
     html += `<option value="${e.key}">${escapeHtml(e.label)}</option>`;
   });
@@ -1696,8 +1749,7 @@ function _perfilRenderAssimSelector() {
   cont.innerHTML = entrades.map((e) => {
     if (typeof MATERIES !== 'undefined' && !MATERIES[e.key]) MATERIES[e.key] = e.label;
     if (typeof ASSIM_MATERIES !== 'undefined' && !ASSIM_MATERIES[e.key]) ASSIM_MATERIES[e.key] = e.label;
-    if (e.altres) _assigDesdobMap[e.key] = { curs: e.curs, assig: e.nom, rotatori: e.rotatori };
-    else _assigGrupMap[e.key] = e.grup;
+    _registraEntrada(e);
     _assigNomMap[e.key] = e.nom;
     return `<button class="trim-sel-btn${e.key === actiu ? ' active' : ''}" data-mat="${e.key}" onclick="selectAssimMateria('${_idJs(e.key)}',this)">${escapeHtml(e.label)}</button>`;
   }).join('');
@@ -1759,6 +1811,13 @@ function _desdobGrupActual(curs, assig) {
   if (_perfil.desdobGrup && _perfil.desdobGrup[k]) return _perfil.desdobGrup[k];
   if (_desdobGrupsCache[k] === undefined) return null; // encara no carregat
   const o = _desdobOpcions(curs, assig);
+  /* El Tallers del curs de la tutoria, sense grups de tallers fets: de
+     primer, la classe de la tutora. Si no, a la tutora de 2n B li sortien
+     els nens de 2n A sense haver triat res. */
+  if (!o.desdob && _esRotatori(assig) && _perfil && _perfil.tutorCurs === curs && _perfil.tutorLinia) {
+    const propi = curs + ' ' + _perfil.tutorLinia;
+    if (o.grups.indexOf(propi) !== -1) return propi;
+  }
   return o.grups.length ? o.grups[0] : null;
 }
 
