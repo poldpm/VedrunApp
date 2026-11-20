@@ -1,12 +1,12 @@
 {
-  "versio": "v376",
-  "data": "2026-11-19",
+  "versio": "v377",
+  "data": "2026-11-20",
   "titol": "Novetats d aquesta versió",
   "canvis": [
+    "Assoliments de 5è: direcció ha corregit la redacció d’un objectiu de Castellà del 1r trimestre (noms comuns, gènere). Les marques que ja tenies no es mouen.",
     "Tallers: si fas Tallers al teu propi curs i n’ets la tutora, ara també hi tens el selector de grup (a les notes, als assoliments i al generador de grups), com als altres cursos. Pots canviar de grup de tallers i posar notes a tots, no només als teus tutoritzats. Les notes que ja hi tenies continuen on eren.",
     "Assoliments de 6è: direcció ha posat un objectiu nou de Castellà al 7è lloc («Preparar i fer una exposició oral»), ha canviat el de la H per un de la C i la Z, i n’ha afegit dos al final. Si ja havies marcat Castellà de 6è, repassa-ho: les marques del 7è en avall han baixat una casella. Castellà de 6è encara és provisional.",
     "Assoliments de 6è: direcció ha tornat a refer els objectius de Català del 1r trimestre, ara amb una redacció nova (n’hi ha 20). Els cinc primers volen dir el mateix; si ja havies marcat Català de 6è, repassa la resta, que les marques poden haver quedat a l’objectiu que no toca.",
-    "Assoliments de 4t, 5è i 6è: direcció ha repassat els objectius del 1r trimestre i gairebé tots ja són els definitius. N’ha tret i n’ha posat alguns al mig (a 4t: Català, Castellà, Medi i Tallers; a 5è: Català, Castellà, Medi, Matemàtiques i Educació Física; a 6è: Català). Si ja els havies marcat, repassa-ho: en obrir cada assignatura tocada hi surt un avís que diu què ha canviat.",
-    "Assoliments de 3r: direcció ha repassat els objectius del 1r trimestre. Castellà ja és definitiu. A Català, Castellà i Matemàtiques n’ha tret i n’ha posat algun al mig: si ja els havies marcat, repassa-ho, que algunes marques poden haver quedat a l’objectiu que no toca. A Cultura Religiosa només ha canviat la redacció."
+    "Assoliments de 4t, 5è i 6è: direcció ha repassat els objectius del 1r trimestre i gairebé tots ja són els definitius. N’ha tret i n’ha posat alguns al mig (a 4t: Català, Castellà, Medi i Tallers; a 5è: Català, Castellà, Medi, Matemàtiques i Educació Física; a 6è: Català). Si ja els havies marcat, repassa-ho: en obrir cada assignatura tocada hi surt un avís que diu què ha canviat."
   ]
 }

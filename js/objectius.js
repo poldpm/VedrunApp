@@ -780,7 +780,7 @@ const OBJECTIUS_OFICIALS = {
         'Realitzar dictats preparats.',
         'Utilitzar el diccionari bilingüe per buscar la traducció del vocabulari sobre els oficis.',
         'Entendre i escriure correctament les paraules relacionades amb els oficis.',
-        'Classificar noms propis i comus amb el corresponent nombre i genere.',
+        'Classificar noms propis i comuns amb el corresponent nombre i gènere.',
         'Diferenciar les paraules que s’escriuen amb r i rr.',
         'Conèixer les paraules homòfones.',
       ],
