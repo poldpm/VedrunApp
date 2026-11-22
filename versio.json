@@ -1,12 +1,14 @@
 {
-  "versio": "v379",
+  "versio": "v380",
   "data": "2026-11-22",
   "titol": "Novetats d aquesta versió",
   "canvis": [
+    "El perfil ja no es pot quedar buit en obrir l’app en un aparell nou. Si al full t’arriba buit i aquell aparell en té una còpia, l’app te la ensenya i te la torna a desar si és la teva.",
+    "Configuració → Diagnòstic: si alguna cosa no va, fes-ne una foto per a en Pol. Hi surt la versió, el navegador, com ha arribat el perfil i els darrers errors.",
+    "Si una part de l’app falla en obrir-se, la resta es carrega igualment, i ja no diu «No es pot connectar» quan no és la connexió.",
     "Generador de comentaris: a Tallers (i a les assignatures desdoblades) hi ha el selector de grup sota els botons d’assignatura. Tries el grup i et surten la llista i tota la informació dels seus alumnes. És el mateix grup de Notes i d’Assoliments.",
     "Assoliments: cada casella porta els quatre nivells (MBA, AS, AAJ, NA). Amb un sol toc poses el que vols, i si tornes a tocar el que hi ha, es buida. Ja no cal anar clicant fins a trobar-lo.",
     "Assoliments: en marcar ja no surt la targeta de «Desant…» entre toc i toc. Es desa sol, i el puntet de dalt et diu si ha anat bé.",
-    "Notes: ja no surt l’avís vermell «al full hi ha notes de… que ara no són a la teva llista» (per exemple, els nens del grup de tallers d’abans). Aquelles notes continuen al full.",
-    "Assoliments de 5è: direcció ha corregit la redacció d’un objectiu de Castellà del 1r trimestre (noms comuns, gènere). Les marques que ja tenies no es mouen."
+    "Notes: ja no surt l’avís vermell «al full hi ha notes de… que ara no són a la teva llista» (per exemple, els nens del grup de tallers d’abans). Aquelles notes continuen al full."
   ]
 }

@@ -206,11 +206,16 @@ function _milloresDesa(clau, d) {
      connexió en aquell moment. */
   try { localStorage.setItem(clau, JSON.stringify(d)); } catch (e) {}
   if (c) {
-    try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch (e) {}
     /* En segon pla: això no ha de fer esperar ningú, i si falla es tornarà a
-       enviar el proper cop que es desi el perfil. */
-    if (typeof config !== 'undefined' && config.scriptUrl && typeof appsScriptPost === 'function') {
-      appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }).catch(function () {});
+       enviar el proper cop que es desi el perfil.
+       ⚠ Per `_perfilDesaSol` (js/perfil.js), i no a pèl: va ser això el que va
+       deixar buit el perfil de la Mireia (22/11/2026). Marcar l'avís de
+       l'inici en un aparell nou, abans que arribés el perfil, enviava el
+       perfil BUIT de la memòria i trepitjava el bo del full. */
+    if (typeof _perfilDesaSol === 'function') {
+      _perfilDesaSol('millores');
+    } else {
+      try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch (e) {}
     }
   }
 }

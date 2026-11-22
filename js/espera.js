@@ -1,4 +1,49 @@
 /* ============================================================
+   ELS ERRORS D'AQUEST NAVEGADOR (22/11/2026)
+   ------------------------------------------------------------
+   Va aquí, al principi del primer fitxer que es carrega, perquè ha
+   de ser a punt abans que res pugui fallar.
+
+   La Mireia va obrir l'app en un MacBook i li sortia mig buida. Per
+   saber què havia passat només hi havia les seves fotos: l'app no
+   guardava enlloc els errors que passaven al navegador de cada
+   mestra. Ara se'n guarden els 20 últims d'aquesta pestanya
+   (`sessionStorage`: es queden si recarrega, i no es barregen amb
+   les altres apps) i es veuen a Configuració → Diagnòstic, que és
+   el que es demana de fotografiar.
+   ============================================================ */
+(function () {
+  var llista = [];
+  try { llista = JSON.parse(sessionStorage.getItem('vedruna_diag') || '[]') || []; } catch (e) { llista = []; }
+  function dosXifres(n) { return ('0' + n).slice(-2); }
+  function apunta(text) {
+    try {
+      var d = new Date();
+      llista.push(dosXifres(d.getHours()) + ':' + dosXifres(d.getMinutes()) + ':' + dosXifres(d.getSeconds()) +
+                  ' · ' + String(text).slice(0, 300));
+      if (llista.length > 20) llista = llista.slice(-20);
+      try { sessionStorage.setItem('vedruna_diag', JSON.stringify(llista)); } catch (e) {}
+    } catch (e) {}
+  }
+  window.diagApunta = apunta;
+  window.diagErrors = function () { return llista.slice(); };
+  if (typeof window.addEventListener !== 'function') return;   // bancs de proves sense DOM
+  window.addEventListener('error', function (e) {
+    var t = e && e.target;
+    if (t && t !== window && (t.src || t.href)) {          // un fitxer que no ha arribat
+      apunta('No s\'ha pogut carregar ' + String(t.src || t.href).split('/').pop().split('?')[0]);
+      return;
+    }
+    var lloc = (e && e.filename) ? ' (' + String(e.filename).split('/').pop().split('?')[0] + ':' + e.lineno + ')' : '';
+    apunta(((e && e.message) || 'error') + lloc);
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e && e.reason;
+    apunta('Sense resposta: ' + ((r && r.message) || r || 'sense motiu'));
+  });
+})();
+
+/* ============================================================
    QUAN L'APP ESTÀ TREBALLANT, QUE ES VEGI — espera.js
    ------------------------------------------------------------
    El problema d'en Pol, 5/9/2026: cliques una cosa, l'app se'n va a

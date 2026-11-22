@@ -7058,3 +7058,11 @@ textarea.modal-input[rows="6"], textarea.modal-input[rows="7"], textarea.modal-i
 .reu-avis-mes { margin: 0 0 8px; font-size: 13px; color: #4B5563; }
 .reu-avis-botons { display: flex; gap: 8px; flex-wrap: wrap; }
 .reu-avis-botons .btn { min-height: 36px; }
+
+/* Configuració → Diagnòstic (22/11/2026): el que es fotografia per a en Pol. */
+.cfg-diag-text {
+  margin: 10px 0 8px; padding: 10px 12px; border-radius: 8px;
+  background: var(--surface-alt); color: var(--text-main);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto;
+}

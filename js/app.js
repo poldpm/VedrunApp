@@ -1401,7 +1401,7 @@ function closeAddObsModal(forcat) {
 /* ============================================================
    CONFIG / REGISTRE MODALS
    ============================================================ */
-function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); _avisaTokenDExemple(); _cfgPintaBackend(); _cfgPintaOrigenUrl(); _cfgPintaJo(); _cfgPintaApp(); _cfgPintaGemini(); }
+function openConfig() { document.getElementById('cfgScriptUrl').value = config.scriptUrl || ''; const gk = document.getElementById('cfgGeminiKey'); if(gk) gk.value = config.geminiKey || ''; document.getElementById('configOverlay').classList.add('open'); _renderNotifStatus(); _loadGrupsSheetCfg(); _avisaTokenDExemple(); _cfgPintaBackend(); _cfgPintaOrigenUrl(); _cfgPintaJo(); _cfgPintaApp(); _cfgPintaGemini(); _cfgPintaDiagnostic(); }
 
 /* ── QUI ETS ───────────────────────────────────────────────────────────
    El primer que es veu en obrir Configuració. Abans el primer de tot era
@@ -1580,6 +1580,70 @@ function _cfgPintaBackend() {
   el.innerHTML = 'Servidor: <strong>' + escapeHtml(_backendVersio) + '</strong>' +
     (prouNou ? ' · correcte ✓'
              : ' · massa antic (li cal la ' + escapeHtml(minim) + ' o més nova)');
+}
+
+/* ── DIAGNÒSTIC (22/11/2026) ──────────────────────────────────────────
+   La Mireia va obrir l'app en un MacBook i li sortia mig buida; per saber
+   què passava només hi havia fotos. Aquí hi ha el que cal per entendre-ho
+   d'una ullada: quina app i quina versió, quin navegador, com ha arribat el
+   perfil i els darrers errors d'aquesta pestanya (els recull js/espera.js). */
+function _diagNavegador() {
+  const ua = (navigator && navigator.userAgent) || '';
+  let nav = 'Altre navegador', m;
+  if ((m = ua.match(/Edg\/(\d+)/))) nav = 'Edge ' + m[1];
+  else if ((m = ua.match(/(?:Chrome|CriOS)\/(\d+)/))) nav = 'Chrome ' + m[1];
+  else if ((m = ua.match(/(?:Firefox|FxiOS)\/(\d+)/))) nav = 'Firefox ' + m[1];
+  else if ((m = ua.match(/Version\/(\d+(?:\.\d+)?).*Safari/))) nav = 'Safari ' + m[1];
+  const so = /iPhone|iPad|iPod/.test(ua) ? 'iPhone o iPad' : /Android/.test(ua) ? 'Android'
+           : /Macintosh|Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows'
+           : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : '';
+  return nav + (so ? ' · ' + so : '');
+}
+function _diagText() {
+  const l = [];
+  const v = (typeof VERSIO_APP !== 'undefined') ? VERSIO_APP : ((window.versioApp && window.versioApp.actual) || '?');
+  l.push('App: ' + v + ' · Servidor: ' + (_backendVersio || 'encara no ho sé'));
+  l.push('Adreça: ' + location.host + location.pathname);
+  l.push('Navegador: ' + _diagNavegador());
+  let pf = 'BUIT';
+  try {
+    if (typeof _perfilEsBuit === 'function' ? !_perfilEsBuit(_perfil) : (_perfil && _perfil.nom)) {
+      let n = 0;
+      [_perfil.classes, _perfil.altres].forEach(o => { if (o && typeof o === 'object') Object.keys(o).forEach(k => { n += (o[k] || []).length; }); });
+      pf = ((_perfil.nom || '') + ' ' + (_perfil.cognom || '')).trim() +
+           (_perfil.tutorCurs ? ' · tutora de ' + _perfil.tutorCurs + ' ' + (_perfil.tutorLinia || '') : '') +
+           ' · ' + n + ' assignatures';
+    }
+    if (typeof _perfilCarregat !== 'undefined' && !_perfilCarregat) pf += ' (encara no ha arribat del full)';
+  } catch (e) { pf = '? (' + e.message + ')'; }
+  l.push('Perfil: ' + pf);
+  l.push('Alumnes a la pantalla: ' + ((typeof students !== 'undefined' && students) ? students.length : 0));
+  l.push('Connexió: ' + (navigator.onLine === false ? 'sense' : 'sí') +
+         ' · Canvis sense desar: ' + ((typeof _pendents !== 'undefined' && _pendents) ? _pendents.length : 0));
+  const errs = (typeof diagErrors === 'function') ? diagErrors() : [];
+  l.push('');
+  l.push(errs.length ? 'Darrers errors:' : 'Cap error en aquesta pestanya.');
+  errs.slice(-12).forEach(e => l.push('  ' + e));
+  return l.join('\n');
+}
+function _cfgPintaDiagnostic() {
+  const el = document.getElementById('cfgDiagText');
+  if (el) el.textContent = _diagText();
+}
+async function cfgCopiaDiagnostic() {
+  const text = _diagText();
+  _cfgPintaDiagnostic();
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Diagnòstic copiat: enganxa\'l al missatge per a en Pol', 'success');
+  } catch (e) {
+    const el = document.getElementById('cfgDiagText');
+    if (el && window.getSelection) {
+      const r = document.createRange(); r.selectNodeContents(el);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    }
+    showToast('No l\'he pogut copiar sol: ja està seleccionat, fes Copia (Ctrl+C o ⌘C)', 'info');
+  }
 }
 
 /* L'avís del token d'exemple, dins de Configuració. Es pinta un sol cop i es
@@ -2726,7 +2790,7 @@ async function loadAll() {
     // Activa el refresc automàtic en segon pla (només un cop)
     _startBackgroundRefresh();
   } catch (e) {
-    updateSync('error', 'Sense connexió');
+    updateSync('error', 'Error');
     /* ⚠ SI L ARRENCADA FALLAVA, L APP NO S HI TORNAVA MAI.
 
        Trobat a la segona auditoria (8/9/2026): `_startBackgroundRefresh()`
@@ -2742,8 +2806,13 @@ async function loadAll() {
     /* Amb cache no es fa l'error gran (l'app ja va), pero SI que s'avisa que
        el que es veu es del darrer cop: la pantalla plena no ha de fer creure
        que la connexio va be. */
-    if (!students.length) _mostraErrorConnexio('network', e && e.message);
-    else _avisDadesVelles('network');
+    /* ⚠ AIXÒ NO ÉS LA CONNEXIÓ (22/11/2026). Les fallades de xarxa no arriben
+       aquí (`appsScriptGet` no llança: torna `_networkError`); el que arriba
+       aquí és una part de l'app que ha petat. Dir «No es pot connectar» feia
+       buscar el problema on no era. */
+    if (typeof diagApunta === 'function') diagApunta('En arrencar: ' + ((e && e.message) || e));
+    if (!students.length) _mostraErrorConnexio('app', e && e.message);
+    else _avisDadesVelles('app');
   }
 }
 
@@ -2764,6 +2833,11 @@ function _mostraErrorConnexio(tipus, detall) {
       titol = 'Error del servidor';
       missatge = (detall || 'El servidor ha respost amb un error.') +
         ' Si parla de permisos, potser no tens accés al full de grups o desdoblaments: cal que el propietari te\'ls comparteixi.';
+      break;
+    case 'app':
+      titol = 'Una part de l\'app ha fallat';
+      missatge = 'No és la connexió' + (detall ? ' (' + detall + ')' : '') +
+        '. Ves a Configuració → Diagnòstic, fes-ne una foto i envia-la a en Pol.';
       break;
     default:
       titol = 'Error';
@@ -2803,6 +2877,8 @@ function _avisDadesVelles(quin) {
   const bt = banner.querySelector('.setup-banner-text');
   const text = quin === 'auth'
     ? "Ara mateix el servidor no et deixa entrar. El que veus és <strong>del darrer cop</strong> i el que escriguis no s'hi desarà."
+    : quin === 'app'
+    ? "Una part de l'app ha fallat en obrir-se (no és la connexió). El que veus pot ser <strong>del darrer cop</strong>. Ves a Configuració → Diagnòstic i envia'n una foto a en Pol."
     : "No s'arriba al servidor. El que veus és <strong>del darrer cop</strong>: pots consultar-ho, però el que escriguis quedarà esperant aquí fins que torni.";
   if (bt) bt.innerHTML = text + ' <a onclick="reintentaConnexio()">Torna-ho a provar →</a>';
   banner.style.display = 'block';
@@ -10514,13 +10590,11 @@ function assimTriaBloc(bloc) {
   if (!_perfil.assimBloc || typeof _perfil.assimBloc !== 'object') _perfil.assimBloc = {};
   if (bloc) _perfil.assimBloc[_assimBlocClau()] = bloc;
   else delete _perfil.assimBloc[_assimBlocClau()];
-  try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch (e) {}
   /* No s'espera el servidor: triar el teu taller ha de ser instantani. Si el
      desat falla, al navegador ja hi és i es tornarà a desar al proper canvi.
-     Mateix criteri que `_desdobSetGrup`. */
-  if (config.scriptUrl) {
-    appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }).catch(function () {});
-  }
+     Mateix criteri que `_desdobSetGrup`, i per la mateixa porta: si el perfil
+     encara no ha arribat del full, no s'hi envia un de buit. */
+  if (typeof _perfilDesaSol === 'function') _perfilDesaSol('assimBloc');
   renderAssoliments();
 }
 
@@ -11774,10 +11848,21 @@ function _applyBootstrap(boot) {
   }
 
   // 1) Perfil (i menú d'assignatures)
-  if (boot.profile) {
-    _perfil = (typeof _perfilMigrar === 'function')
-      ? _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{} }, boot.profile))
-      : boot.profile;
+  /* Per `_perfilArribaDelFull` (js/perfil.js): un perfil BUIT del full no
+     trepitja el bo d'aquest aparell, i el que l'app hagi desat sola mentre
+     no arribava s'hi afegeix. Veure «EL PERFIL BUIT QUE ESBORRAVA EL BO».
+     ⚠ Dins d'un try (22/11/2026): si pintar el perfil fallava, l'error se
+     n'emportava també els alumnes i l'horari de sota, i l'app deia «No es
+     pot connectar». Ara es diu al Diagnòstic i la resta es carrega igual. */
+  try {
+  const _pfFull = boot.profile
+    ? ((typeof _perfilMigrar === 'function')
+        ? _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{} }, boot.profile))
+        : boot.profile)
+    : null;
+  const _pf = (typeof _perfilArribaDelFull === 'function') ? _perfilArribaDelFull(_pfFull) : _pfFull;
+  if (_pf) {
+    _perfil = _pf;
     try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch(e) {}
     if (typeof _perfilRender === 'function') _perfilRender();
     if (typeof _perfilUpdateNav === 'function') _perfilUpdateNav();
@@ -11786,6 +11871,9 @@ function _applyBootstrap(boot) {
        comunicades hi viuen a dins: si recarrega amb una fitxa oberta, el
        compte s'ha de tornar a pintar amb el que acaba d'arribar. */
     try { if (window.Incidencies) Incidencies.refresca(); } catch (e) {}
+  }
+  } catch (e) {
+    if (typeof diagApunta === 'function') diagApunta('En aplicar el perfil: ' + ((e && e.message) || e));
   }
 
   // 2) Alumnes: prioritza els del grup de tutoria (full "Grups").

@@ -118,7 +118,12 @@
          a dalt hi deia «Sincronitzat». Ara va per la cua de sempre: si no
          arriba, es diu, es compta a «canvis sense desar» i es torna a
          provar sola. */
-      if (typeof config !== 'undefined' && config && config.scriptUrl) {
+      /* Per `_perfilDesaSol` (js/perfil.js): si el perfil encara no ha
+         arribat del full, no s'hi envia un de buit; la incidència s'hi
+         afegeix quan arriba. */
+      if (typeof _perfilDesaSol === 'function') {
+        _perfilDesaSol('incidencies', { cua: true });
+      } else if (typeof config !== 'undefined' && config && config.scriptUrl) {
         if (typeof _desaAlFull === 'function') {
           _desaAlFull({ action: 'saveProfile', profile: JSON.stringify(_perfil) });
         } else if (typeof appsScriptPost === 'function') {

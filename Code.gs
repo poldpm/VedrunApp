@@ -7752,7 +7752,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v367';
+var BACKEND_VERSIO = 'v380';
 
 var MAX_CELA = 45000;
 
@@ -8424,8 +8424,47 @@ function aplicarHorariPlanning(ss, horari, weekIds, fora, mode) {
    PERFIL DEL MESTRE
    ============================================================ */
 
+/* ⚠ EL PERFIL BUIT QUE ESBORRAVA EL BO (en Pol, 22/11/2026).
+
+   La Mireia va obrir l'app per primer cop al MacBook i, abans que li
+   arribés el perfil, l'app ja n'havia desat un de BUIT (marcar l'avís de
+   l'inici desa el perfil sencer). El buit va trepitjar el bo, i a partir
+   d'aquí tots els aparells el rebien buit. L'app ja no ho fa (v380), però
+   els aparells que encara corren una versió vella sí: per això, aquí, un
+   perfil sense nom, sense tutoria i sense assignatures NO substitueix un
+   que en té. Del buit només se'n queda el que no és la identitat de la
+   mestra (els avisos llegits, les millores vistes, el grup triat…). */
+function _perfilBuit_(p) {
+  if (!p || typeof p !== 'object') return true;
+  if (String(p.nom || '').trim() || String(p.cognom || '').trim()) return false;
+  if (p.tutorCurs || p.tutorLinia) return false;
+  function teAlgo(o) {
+    if (!o || typeof o !== 'object') return false;
+    for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k) && o[k] && o[k].length) return true;
+    return false;
+  }
+  if (teAlgo(p.classes) || teAlgo(p.altres)) return false;
+  return !(p.cursos && p.cursos.length);
+}
+var _PERFIL_IDENTITAT_ = ['nom', 'cognom', 'tutorCurs', 'tutorLinia', 'classes', 'altres', 'cursos'];
+
 function saveProfile(ss, profile) {
   var json = typeof profile === 'string' ? profile : JSON.stringify(profile);
+  var nou = _jsonSegur_(json, null);
+  if (nou && _perfilBuit_(nou)) {
+    var ara = _jsonSegur_(sheetGetJSON(ss, '_AppData', 'profile'), null);
+    if (ara && !_perfilBuit_(ara)) {
+      for (var k in nou) {
+        if (!Object.prototype.hasOwnProperty.call(nou, k) || _PERFIL_IDENTITAT_.indexOf(k) !== -1) continue;
+        var a = ara[k], b = nou[k];
+        var esObj = function (v) { return v && typeof v === 'object' && !(v instanceof Array); };
+        if (esObj(a) && esObj(b)) { for (var sub in b) if (Object.prototype.hasOwnProperty.call(b, sub)) a[sub] = b[sub]; }
+        else ara[k] = b;
+      }
+      sheetSetJSON(ss, '_AppData', 'profile', JSON.stringify(ara));
+      return { ok: true, conservat: true };
+    }
+  }
   sheetSetJSON(ss, '_AppData', 'profile', json);
   return { ok: true };
 }

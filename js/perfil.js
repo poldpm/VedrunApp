@@ -140,6 +140,146 @@ function _perfilMigrar(p) {
 
 function _grupKey(curs, linia) { return curs + ' ' + linia; }
 
+/* ============================================================
+   ⚠ EL PERFIL BUIT QUE ESBORRAVA EL BO (en Pol, 22/11/2026)
+   ------------------------------------------------------------
+   La Mireia va obrir l'app per primer cop al MacBook de casa: es
+   va identificar, li sortia l'horari, i el perfil i les
+   assignatures en blanc. A la foto: «Sincronitzat».
+
+   Què havia passat: en un aparell nou, mentre no arriba el perfil
+   del full, el que hi ha a la memòria és un perfil BUIT. I hi ha
+   coses que l'app desa soles al perfil, sense botó: l'avís de
+   l'inici marcat com a llegit, la llista de millores vista, el grup
+   de Tallers triat, el taller d'Assoliments, una incidència. Cada
+   una enviava el perfil SENCER al full. Si passava abans que
+   arribés el de debò —ella va marcar l'avís de l'inici, que és el
+   primer que surt—, el buit trepitjava el bo. I a partir d'aquí,
+   cada aparell que s'obria rebia el buit i el feia seu.
+
+   Dues coses, aquí:
+   1. Mentre el perfil no ha arribat del full en aquesta estada
+      (`_perfilCarregat`), el que l'app desa sola NO s'envia: es
+      guarda quina part ha canviat i, quan arriba el de debò, s'hi
+      afegeix i llavors s'envia (`_perfilDesaSol`,
+      `_perfilArribaDelFull`). El botó «Desar perfil» no hi entra:
+      això ho fa ella a posta.
+   2. Si del full arriba un perfil buit i aquest aparell en té un de
+      bo guardat, no es trepitja: se n'ensenya el nom i se li demana
+      si el vol tornar a desar al full (`_perfilOfereixRecuperar`).
+      Es pregunta, i no es fa sol, perquè totes les apps viuen a la
+      mateixa adreça i el que guarda el navegador és compartit: en un
+      ordinador de l'escola podria ser el d'una altra mestra.
+   ============================================================ */
+let _perfilCarregat = false;
+const _perfilPendents = {};
+
+function _perfilEsBuit(p) {
+  if (!p || typeof p !== 'object') return true;
+  if (String(p.nom || '').trim() || String(p.cognom || '').trim()) return false;
+  if (p.tutorCurs || p.tutorLinia) return false;
+  const teAlgo = o => !!(o && typeof o === 'object' && Object.keys(o).some(k => Array.isArray(o[k]) && o[k].length));
+  if (teAlgo(p.classes) || teAlgo(p.altres)) return false;
+  return !(Array.isArray(p.cursos) && p.cursos.length);
+}
+
+/* Desa el perfil quan el canvi el fa l'app sola (no el botó «Desar
+   perfil»). `clau` és la part del perfil que ha canviat. Amb `cua`, va per
+   la cua de desats (es torna a provar sol si no arriba). */
+function _perfilDesaSol(clau, opcions) {
+  try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch (e) {}
+  if (typeof config === 'undefined' || !config || !config.scriptUrl) return;
+  if (!_perfilCarregat) { if (clau) _perfilPendents[clau] = true; return; }
+  _perfilEnvia(opcions && opcions.cua);
+}
+function _perfilEnvia(perLaCua) {
+  const body = { action: 'saveProfile', profile: JSON.stringify(_perfil) };
+  if (perLaCua && typeof _desaAlFull === 'function') { _desaAlFull(body); return; }
+  if (typeof appsScriptPost === 'function') appsScriptPost(body).catch(function () {});
+}
+
+/* Les parts que l'app havia canviat sola, del perfil d'abans al que arriba.
+   Un objecte es fusiona per dins (la llista de millores vistes no ha de
+   perdre les del full ni les d'aquí); la resta, la d'aquí. */
+function _perfilAfegeixPendents(desti, origen) {
+  Object.keys(_perfilPendents).forEach(k => {
+    const o = origen ? origen[k] : undefined;
+    if (o === undefined) return;
+    const esObj = v => v && typeof v === 'object' && !Array.isArray(v);
+    if (esObj(o) && esObj(desti[k])) {
+      Object.keys(o).forEach(sub => {
+        const a = desti[k][sub], b = o[sub];
+        desti[k][sub] = (esObj(a) && esObj(b)) ? Object.assign({}, a, b) : b;
+      });
+    } else {
+      desti[k] = o;
+    }
+  });
+}
+
+/* Ha arribat el perfil del full (`delFull`, ja migrat, o null si no n'hi ha).
+   Torna el perfil que s'ha de fer servir, o null si no s'ha de tocar el que
+   hi ha a la memòria. */
+function _perfilArribaDelFull(delFull) {
+  const local = _perfil;
+  if (_perfilEsBuit(delFull) && !_perfilEsBuit(local)) {
+    return _perfilOfereixRecuperar(local, delFull);
+  }
+  /* Sense cap perfil del full (null): pot ser una mestra nova, però també
+     una lectura del full que ha fallat. No es dona per carregat ni s'envia
+     res: el que l'app hagi canviat sola espera el perfil de debò (o el botó
+     «Desar perfil»). */
+  if (!delFull) return null;
+  const hiHaviaPendents = Object.keys(_perfilPendents).length > 0;
+  if (hiHaviaPendents) _perfilAfegeixPendents(delFull, local);
+  Object.keys(_perfilPendents).forEach(k => { delete _perfilPendents[k]; });
+  _perfilCarregat = true;
+  if (hiHaviaPendents) {
+    const abans = _perfil;
+    _perfil = delFull; _perfilEnvia(true); _perfil = abans;   // qui crida és qui el posa
+  }
+  return delFull;
+}
+
+/* El full ha tornat un perfil buit i aquest aparell en té un de bo. */
+let _perfilRecuperarPreguntat = false;
+function _perfilOfereixRecuperar(local, delFull) {
+  try { localStorage.setItem('vedruna_perfil_copia', JSON.stringify(local)); } catch (e) {}
+  if (_perfilRecuperarPreguntat) return null;           // ja s'ha preguntat: no es toca res
+  _perfilRecuperarPreguntat = true;
+  const nom = ((local.nom || '') + ' ' + (local.cognom || '')).trim() || '(sense nom)';
+  const tutor = (local.tutorCurs && local.tutorLinia) ? ('tutora de ' + local.tutorCurs + ' ' + local.tutorLinia) : 'sense tutoria';
+  let n = 0;
+  [local.classes, local.altres].forEach(o => { if (o && typeof o === 'object') Object.keys(o).forEach(k => { n += (o[k] || []).length; }); });
+  const ok = (typeof confirm === 'function') && confirm(
+    'Al full, el teu perfil ha arribat BUIT (sense nom ni assignatures).\n\n' +
+    'En aquest aparell n\'hi ha una còpia:\n«' + nom + ' · ' + tutor + ' · ' + n + ' assignatures»\n\n' +
+    'Si és el teu, el torno a desar al full i ja ho tindràs bé a tot arreu. Ho faig?');
+  if (!ok) {
+    /* Ha dit que no: el full mana, com sempre. La còpia es queda guardada
+       al navegador (`vedruna_perfil_copia`) per si de cas. */
+    if (delFull) { _perfilCarregat = true; return delFull; }
+    /* Al full no n'hi ha cap i diu que aquesta còpia no és seva: fora de la
+       memòria, o es tornaria a desar sola més tard com si ho fos. */
+    return { nom:'', cognom:'', tutorCurs:null, tutorLinia:null, classes:{}, altres:{}, desdobGrup:{}, cursos:[] };
+  }
+  const bo = JSON.parse(JSON.stringify(local));
+  // El que el full sí que té de bo (els avisos llegits, les millores vistes…)
+  if (delFull && typeof delFull === 'object') {
+    Object.keys(delFull).forEach(k => {
+      if (['nom','cognom','tutorCurs','tutorLinia','classes','altres','cursos'].indexOf(k) !== -1) return;
+      const a = bo[k], b = delFull[k];
+      if (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b)) bo[k] = Object.assign({}, a, b);
+      else if (a === undefined) bo[k] = b;
+    });
+  }
+  Object.keys(_perfilPendents).forEach(k => { delete _perfilPendents[k]; });
+  _perfilCarregat = true;
+  const abans = _perfil; _perfil = bo; _perfilEnvia(true); _perfil = abans;
+  if (typeof showToast === 'function') showToast('He tornat a desar el teu perfil al full ✓', 'success');
+  return bo;
+}
+
 function initPerfil() {
   const cached = localStorage.getItem('vedruna_perfil');
   if (cached) { try { _perfil = _perfilMigrar(JSON.parse(cached)); } catch(e) {} }
@@ -172,9 +312,13 @@ async function _perfilLoadFromSheets() {
     const r = await appsScriptGet({ action: 'loadProfile', _fons: true });
     // Mentre esperàvem, ha començat a marcar coses: no li repintem a sobre.
     if (_perfilTocat) return;
-    if (r.ok && r.profile) {
-      _perfil = _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{}, altres:{}, desdobGrup:{}, cursos:[] }, r.profile));
-      localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil));
+    if (r.ok) {
+      const delFull = _perfilArribaDelFull(r.profile
+        ? _perfilMigrar(Object.assign({ nom:'', tutorCurs:null, tutorLinia:null, classes:{}, altres:{}, desdobGrup:{}, cursos:[] }, r.profile))
+        : null);
+      if (!delFull) return;
+      _perfil = delFull;
+      try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch (e) {}
       _perfilRender();
       _perfilUpdateNav();
       perfilRenderAllSelectors();
@@ -774,6 +918,7 @@ async function perfilSave() {
          6/9/2026): la mestra donava per fet que ja ho tenia. */
       const r = await appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) });
       if (r && r.ok === false) throw new Error(r.error || 'el servidor no l\'ha pogut desar');
+      _perfilCarregat = true;      // l'ha desat ella: aquest és el de debò
       showToast('Perfil desat ✓', 'success');
       /* ⚠ I ARA VE'S A BUSCAR ELS ALUMNES.
 
@@ -1825,15 +1970,12 @@ function _desdobGrupActual(curs, assig) {
 async function _desdobSetGrup(curs, assig, grup) {
   if (!_perfil.desdobGrup || typeof _perfil.desdobGrup !== 'object') _perfil.desdobGrup = {};
   _perfil.desdobGrup[_desdobMapKey(curs, assig)] = grup;
-  try { localStorage.setItem('vedruna_perfil', JSON.stringify(_perfil)); } catch(e) {}
-  if (config.scriptUrl) {
-    /* NO s'espera. Desar quin grup mires és cosa nostra i la mestra no n'ha
-       de veure res; si s'esperava, canviar de grup eren DUES esperes seguides
-       (desar el perfil i, després, demanar els alumnes) quan només n'hi ha
-       una que li importi. Si el desat falla, el grup ja és al navegador i es
-       tornara a desar al proper canvi. */
-    appsScriptPost({ action: 'saveProfile', profile: JSON.stringify(_perfil) }).catch(function(){});
-  }
+  /* NO s'espera. Desar quin grup mires és cosa nostra i la mestra no n'ha
+     de veure res; si s'esperava, canviar de grup eren DUES esperes seguides
+     (desar el perfil i, després, demanar els alumnes) quan només n'hi ha
+     una que li importi. Si el desat falla, el grup ja és al navegador i es
+     tornara a desar al proper canvi. */
+  _perfilDesaSol('desdobGrup');
 }
 
 // Carrega (i cacheja) la llista de grups d'un bloc de desdoblament.
