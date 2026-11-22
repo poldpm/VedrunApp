@@ -13379,6 +13379,22 @@ function _comentOmpleAlumnes() {
   if (!students.some(s => String(s.id) === String(_comentAlumne))) { _comentAlumne = null; sel.value = ''; }
 }
 
+/* Han triat un altre grup de Tallers (o del desdoblament) al generador. */
+async function _comentCanviaGrup(matKey) {
+  if (matKey !== _comentAssig) return;            // ja n'han obert una altra
+  _comentAlumne = null;                            // era d'un altre grup
+  _comentSeleccions = {};
+  const _ov = document.getElementById('comentResultOverlay');
+  if (_ov && _ov.classList.contains('open')) { _comentTextOriginal = ''; _ov.classList.remove('open'); }
+  if (typeof _grupStudentsCarregat !== 'undefined') _grupStudentsCarregat = null;
+  _comentOmpleAlumnes();
+  renderComentRubrica();
+  try { _comentPintaApunts(); } catch (e) {}
+  await _comentCarregaAlumnesDelGrup(matKey, true);
+  renderComentRubrica();
+  try { _comentPintaApunts(); } catch (e) {}
+}
+
 /* Els alumnes que toquen per a l'assignatura triada, igual que fa Assoliments,
    i tot seguit el material del comentari (apunts i observacions). */
 async function _comentCarregaAlumnesDelGrup(matKey, laTriaLaMestra) {
@@ -13480,11 +13496,29 @@ async function _comentCarregaAlumnesFer(matKey, laTriaLaMestra) {
     const _g = (typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null;
     _netejaAlumnesSiSonDUnAltre(dd ? null : _g, dd);
   }
+  /* ⚠ A TALLERS NO ES PODIA TRIAR DE QUIN GRUP ERA EL COMENTARI.
+
+     En Pol, 22/11/2026: «en assignatures com tallers, en les que pots tenir
+     més d'un grup diferent en un trimestre, has de poder triar de quin grup
+     vols generar els comentaris i que després se't carregui tota la info i
+     llistat d'aquell grup».
+
+     Aquí es carregava el grup que hi hagués triat a Notes o a Assoliments,
+     però no hi havia cap selector: per fer els comentaris d'un altre grup
+     s'havia de sortir, canviar-lo en una altra pantalla i tornar. Ara hi ha
+     el mateix selector que a Notes i a Assoliments (i el grup que s'hi tria
+     és el mateix per a totes tres). En canviar-lo, es treu l'alumne triat
+     —era d'un altre grup— i es torna a carregar la llista i el material. */
+  const barra = document.getElementById('comentDesdobBar');
   if (dd) {
+    if (typeof _renderDesdobControl === 'function') {
+      _renderDesdobControl('comentDesdobBar', dd, () => _comentCanviaGrup(matKey));
+    }
     if (typeof _loadDesdobStudents === 'function') await _loadDesdobStudents(dd.curs, dd.assig);
     _comentOmpleAlumnes();
     return;
   }
+  if (barra) barra.innerHTML = '';
   const grup = (typeof _assigGrupMap !== 'undefined') ? _assigGrupMap[matKey] : null;
   const nomBase = (typeof _assigNomMap !== 'undefined') ? _assigNomMap[matKey] : null;
   if (!grup) {
