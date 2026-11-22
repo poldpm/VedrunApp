@@ -535,8 +535,9 @@ function _remapValorsPerNom(valors, rowNoms) {
      al full «Grups» a mig curs —un accent, un segon cognom—, que és una cosa
      normal i que ningú no avisa a la mestra.
 
-     Ara una fila que no casa amb ningú es queda fora, i es diu de qui és. La
-     nota no s'ha perdut: continua al full sota el nom vell. */
+     Ara una fila que no casa amb ningú es queda fora. La nota no s'ha
+     perdut: continua al full sota el nom vell. (Fins al 22/11/2026 també es
+     deia de qui era: veure l'avís que es va treure, aquí sota.) */
   /* ⚠ AVISAVA DE NOTES QUE NO EXISTEIXEN (en Pol, 8/10/2026).
 
      Ell: «com que he posat notes de carpeta viatgera, ara quan entro a català
@@ -564,44 +565,30 @@ function _remapValorsPerNom(valors, rowNoms) {
      entrat aquí, és una còpia que hi deixa la pestanya de la Carpeta, i allà
      continua sencera sota el nom vell. Si comptés, un nen que ha marxat
      tornaria a encendre l'avís cada cop que es toqués la Carpeta. */
-  const DERIVADES = { carpeta_ref: true };
+  /* ⚠ I L'AVÍS ES VA TREURE DEL TOT (en Pol, 22/11/2026, a tothom).
+
+     «Ara ja hem fet canvi de grup de tallers i em surt el missatge que hi ha
+     notes entrades de nens que no tinc… ja ho sé que n'hi ha, són del grup
+     anterior… aquest missatge no el vull, no em serveix de res, ni en
+     aquesta assignatura ni en cap».
+
+     A les assignatures que roten (Tallers) el full guarda els nens de tots
+     els grups per on ha passat la mestra, i després de cada canvi de grup
+     l'avís sortia sempre: deia una cosa que ella ja sabia i li ensenyava que
+     els avisos vermells es poden ignorar. Ara una fila que no casa amb
+     ningú de la llista es queda fora en silenci, com abans, i la nota
+     continua al full sota el seu nom. */
   const out = {};
-  const orfes = {};
   Object.keys(valors).forEach(itemId => {
     out[itemId] = {};
-    const derivada = DERIVADES[itemId] === true;
     Object.keys(valors[itemId]).forEach(pos => {
       const id = posToId[pos];
-      if (id === undefined) {
-        const nomFull = (rowNoms[pos] || '').toString().trim();
-        const v = valors[itemId][pos];
-        const teRes = v !== '' && v !== null && v !== undefined;
-        if (nomFull && teRes && !derivada) orfes[nomFull] = true;
-        return;
-      }
+      if (id === undefined) return;      // no és de la llista: es queda al full
       out[itemId][id] = valors[itemId][pos];
     });
   });
-  const noms = Object.keys(orfes);
-  // Amb la llista d'alumnes encara de camí, no casar és normal: no és cap avís.
-  const llistaAPunt = !(typeof notesContext !== 'undefined' && notesContext && notesContext.alumnesPendents);
-  if (noms.length && llistaAPunt && !_remapAvisat) {
-    _remapAvisat = true;
-    setTimeout(() => {
-      try {
-        showToast('Al full hi ha notes de ' + noms.slice(0, 3).join(', ') +
-                  (noms.length > 3 ? ' i ' + (noms.length - 3) + ' més' : '') +
-                  ', que ara no són a la teva llista. Potser els han canviat el nom al full de ' +
-                  'l\'escola. Les notes hi continuen; aquí no te les puc ensenyar fins que els ' +
-                  'noms coincideixin.', 'error');
-      } catch (e) {}
-    }, 1200);
-  }
   return out;
 }
-/* Un sol avís per sessió: si un nom no casa, no casarà en tot el dia i
-   repetir-ho a cada assignatura només faria nosa. */
-let _remapAvisat = false;
 
 /* Torna a demanar les notes quan ja no se n'estigui desant cap d'aquesta
    assignatura (ni en viatge ni esperant torn). Mira-ho cada segon, un minut

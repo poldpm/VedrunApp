@@ -1,13 +1,13 @@
 {
   "mestra": "Pol",
-  "mareVersio": "v377",
+  "mareVersio": "v378",
   "propis": [
     "manual.html",
     "manifest.webmanifest",
     "manifest.json"
   ],
   "rol": "tutor",
-  "sincronitzat": "2026-11-20",
+  "sincronitzat": "2026-11-22",
   "fitxersMare": [
     ".gitignore",
     "CLAUDE.md",

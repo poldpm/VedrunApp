@@ -2804,6 +2804,32 @@ body {
 .assim-cell.assolit  { color: #065F46; background: #D1FAE5; }
 .assim-cell.no-assolit { color: #991B1B; background: #FEE2E2; }
 .assim-cell:hover    { filter: brightness(0.95); }
+
+/* Una casella, quatre botons (22/11/2026). En Pol: «dividir cada una de les
+   caselles en les 4 opcions i que puguis anar més ràpid». Quatre en quadre:
+   caben a la columna del mòbil i cada botó és prou gran per al dit. El triat
+   va ple de color; els altres, fluixos, que es vegi d'una ullada quin hi ha. */
+.assim-cell.assim-cell4 { padding: 3px; cursor: default; }
+.assim-cell.assim-cell4:hover { filter: none; }
+.assim-4 { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; min-width: 96px; }
+.assim-op {
+  min-height: 30px; padding: 2px 0; border-radius: 6px; cursor: pointer;
+  font-family: inherit; font-weight: 700; font-size: 11px; line-height: 1; letter-spacing: .2px;
+  border: 1px solid transparent; background: var(--surface); color: var(--text-muted);
+  opacity: .55; transition: opacity .1s, background .1s;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.assim-op:hover { opacity: .9; }
+.assim-op:focus-visible { outline: 2px solid var(--crimson); outline-offset: 1px; }
+.assim-op.mba  { color: #065F46; border-color: #A7F3D0; }
+.assim-op.ass  { color: #1E40AF; border-color: #BFDBFE; }
+.assim-op.aaj  { color: #92400E; border-color: #FDE68A; }
+.assim-op.nass { color: #991B1B; border-color: #FECACA; }
+.assim-op.on { opacity: 1; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.assim-op.mba.on  { background: #059669; border-color: #059669; }
+.assim-op.ass.on  { background: #2563EB; border-color: #2563EB; }
+.assim-op.aaj.on  { background: #D97706; border-color: #D97706; }
+.assim-op.nass.on { background: #DC2626; border-color: #DC2626; }
 .assim-td-pct        { text-align: center; padding: 6px; background: #F9EDEF; white-space: nowrap; }
 
 /* El percentatge del final de cada fila. El recompte per nivells hi és al
@@ -5969,6 +5995,8 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible,
 @media (max-width: 360px) {
   .assim-table-scroll { overflow-x: auto; max-width: 100%; }
   .assim-th-obj { min-width: 76px; }
+  .assim-4 { min-width: 76px; }
+  .assim-op { min-height: 32px; font-size: 10px; }
   .page-content { padding-left: 12px; padding-right: 12px; }
 }
 /* Al mòbil, la columna dels noms no es pot menjar mitja taula: es talla amb

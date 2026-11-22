@@ -2268,7 +2268,13 @@ const _POST_SENSE_VEL = new Set(['saveGrupGenere', 'saveGrupPersonal', 'savePers
   'saveAjustosPropis', 'saveAssimObjectius', 'saveHorari', 'saveHorariAssigs',
   'completaGoogleTask',
   'desaCaselles', 'updateNota', 'setNoEntregat', 'updateRegistreCell', 'updateActitudBatch',
-  'saveNotaComentari', 'publicaNotesResum', 'syncAssoliments']);
+  'saveNotaComentari', 'publicaNotesResum', 'syncAssoliments',
+  /* En Pol, 22/11/2026, als Assoliments: «que et surti la targeta de desant…
+     cada dos per tres dona molt pel cul. Talla el ritme». Cada marca es desa
+     sola (agrupades, al cap d'un moment) i el puntet de dalt ja diu si ha
+     anat bé o si queda a la cua; la targeta no aportava res i tapava la
+     graella just quan s'hi està treballant. */
+  'saveAssimValors']);
 
 /* ⚠ EL QUE S'ACABAVA DE DESAR DESAPAREIXIA DE LA PANTALLA
    (auditoria del 13/11/2026; en Pol: «que totes les observacions es guardin»).
@@ -10857,8 +10863,6 @@ function _renderAssimTable() {
       const val = assimValGet(_assimSid(s), obj.id);
       if (val) compte[val]++;
       const info = _assimNivellInfo(val);
-      const cls = info ? info.cls : 'assim-cell buit';
-      const icon = info ? info.curt : '—';
       /* ⚠ EL CODI DE L'ALUMNE HA D'ANAR ENTRE COMETES.
 
          Trobat a la segona auditoria (8/9/2026), i era el pitjor de tots:
@@ -10871,7 +10875,7 @@ function _renderAssimTable() {
          permanent el va convertir en invàlid, i el repàs que va posar
          `_idJs()` a 77 llocs no el va veure perquè només buscava el patró
          «'${…}'» —ja entre cometes. */
-      html += `<td class="${cls}" title="${info ? escapeHtml(info.nom) : 'Sense avaluar'}" onclick="toggleAssim('${_idJs(_assimSid(s))}','${_idJs(obj.id)}',this)">${icon}</td>`;
+      html += _assimCasella4(_assimSid(s), obj.id, info);
     });
     html += `<td class="assim-td-pct">${_assimResumCel(compte, objectius.length)}</td>`;
     html += '</tr>';
@@ -10909,7 +10913,52 @@ function _renderAssimResum() {
   }).join('');
 }
 
-/* --- Clicar una casella: — → MBA → AS → AAJ → NA → — --- */
+/* ============================================================
+   UNA CASELLA, QUATRE BOTONS (en Pol, 22/11/2026)
+   ------------------------------------------------------------
+   «Es fa molt pesat haver d'anar clicant la casella fins a trobar l'opció
+   que vols. El que has de fer és dividir cada una de les caselles en les 4
+   opcions.»
+
+   Abans la casella anava passant — → MBA → AS → AAJ → NA → —: per posar un
+   NA calien quatre clics, i si te'n passaves, quatre més. Ara cada casella
+   porta els quatre nivells i un sol toc posa el que vols. Tocar el que ja
+   hi és el treu (és com s'esmena una marca posada sense voler).
+
+   La casella continua sent `.assim-cell` amb la classe del nivell (el color
+   de fons es veu d'una ullada, com abans), i el nivell també hi és a
+   `data-nivell`. Els botons no tenen cap altra feina: tota la lògica és a
+   `assimPosa`.
+   ============================================================ */
+function _assimCasella4(sid, objId, info) {
+  const cls = info ? info.cls : 'assim-cell buit';
+  const sidJs = _idJs(sid), objJs = _idJs(objId);
+  const botons = ASSIM_NIVELLS.map(n => {
+    const on = info && info.key === n.key;
+    return '<button type="button" class="assim-op ' + n.key + (on ? ' on' : '') + '"'
+         + ' aria-pressed="' + (on ? 'true' : 'false') + '"'
+         + ' title="' + escapeHtml(n.nom) + (on ? ' (toca-ho per treure-ho)' : '') + '"'
+         + ' onclick="assimPosa(\'' + sidJs + '\',\'' + objJs + '\',\'' + n.key + '\',this)">'
+         + n.curt + '</button>';
+  }).join('');
+  return '<td class="' + cls + ' assim-cell4" data-nivell="' + (info ? info.curt : '') + '"'
+       + ' title="' + (info ? escapeHtml(info.nom) : 'Sense avaluar') + '">'
+       + '<div class="assim-4">' + botons + '</div></td>';
+}
+
+/* Un toc a un dels quatre botons: posa aquell nivell, o el treu si ja hi era. */
+function assimPosa(sid, objId, key, btn) {
+  const cur = _assimNivell(assimValGet(sid, objId));
+  const next = (cur === key) ? null : key;
+  assimValSet(sid, objId, next);
+  const td = btn && btn.closest ? btn.closest('td') : null;
+  if (td) _applyAssimCell(td, next);
+  _updateAssimRowPct(sid);
+}
+
+/* --- Clicar una casella sencera: — → MBA → AS → AAJ → NA → — ---
+   Ja no hi ha cap casella que ho faci (ara són quatre botons: veure
+   `assimPosa`). Es queda per a qui la cridi des de fora. */
 function toggleAssim(sid, objId, cell) {
   const cur = assimValGet(sid, objId);
   const i = ASSIM_NIVELLS.findIndex(n => n.key === cur);
@@ -10926,9 +10975,22 @@ function toggleAssim(sid, objId, cell) {
 
 function _applyAssimCell(cell, val) {
   const info = _assimNivellInfo(_assimNivell(val));
+  cell.title = info ? info.nom : 'Sense avaluar';
+  // La casella de quatre botons: es mouen els botons, no el text.
+  if (cell.classList && cell.classList.contains('assim-cell4')) {
+    cell.className = (info ? info.cls : 'assim-cell buit') + ' assim-cell4';
+    cell.setAttribute('data-nivell', info ? info.curt : '');
+    cell.querySelectorAll('.assim-op').forEach(b => {
+      const on = !!(info && b.classList.contains(info.key));
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      const n = ASSIM_NIVELLS.find(x => b.classList.contains(x.key));
+      if (n) b.title = n.nom + (on ? ' (toca-ho per treure-ho)' : '');
+    });
+    return;
+  }
   cell.className  = info ? info.cls : 'assim-cell buit';
   cell.textContent = info ? info.curt : '—';
-  cell.title       = info ? info.nom : 'Sense avaluar';
 }
 
 function _updateAssimRowPct(sid) {
