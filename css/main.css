@@ -2698,14 +2698,31 @@ body {
 /* ============================================================
    ASSOLIMENTS
    ============================================================ */
-.assim-header {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  flex-wrap: wrap; gap: 16px; margin-bottom: 20px;
+/* ⚠ 23/11/2026. Abans els selectors anaven a la dreta del títol i, dins de
+   «Assignatura», els botons, el grup de Tallers i «El teu taller» un al costat
+   de l'altre. Al mòbil no hi cabien: la pàgina es feia més ampla que la
+   pantalla (526 px en un de 412), els botons d'assignatura quedaven en una
+   columna estreta i «El teu taller» sortia tallat. En Pol ho va veure al
+   seu mòbil.
+   Ara tot va en files, una sota l'altra: l'etiqueta a l'esquerra i el que
+   es tria a la dreta, i el grup i el taller, a sota dels botons i d'ample
+   sencer. Al mòbil, l'etiqueta va a sobre. Ho comprova
+   `eines/comprova-assim-capcalera.js`. */
+.assim-header { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+.assim-selectors { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.assim-sel-group {
+  display: grid; grid-template-columns: 96px minmax(0, 1fr);
+  column-gap: 12px; row-gap: 8px; align-items: center; min-width: 0;
 }
-.assim-selectors { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
-.assim-sel-group { display: flex; align-items: center; gap: 10px; }
+.assim-sel-group > :not(.assim-sel-label) { grid-column: 2; min-width: 0; }
+.assim-sel-group .trim-sel-row { margin-top: 0; }
+.assim-sel-group .desdob-bar-wrap + .desdob-bar-wrap:not(:empty) { margin-top: 0; }
 .assim-sel-label { font-size: 11px; font-weight: 600; color: var(--text-muted);
   letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+@media (max-width: 640px) {
+  .assim-sel-group { grid-template-columns: minmax(0, 1fr); row-gap: 6px; }
+  .assim-sel-group > :not(.assim-sel-label) { grid-column: 1; }
+}
 
 .assim-layout {
   display: grid; grid-template-columns: 1fr 220px; gap: 16px; align-items: start;
@@ -3082,6 +3099,11 @@ body {
 .coment-legenda > span:not(.coment-niv-btn) { margin-right: 10px; }
 /* La mateixa llegenda, a Assoliments: va enganxada a sobre de la graella. */
 .assim-legenda { margin-bottom: 8px; }
+/* Cada sigla amb el seu nom, junts: al mòbil «AAJ» quedava a final de línia
+   i «Assolit amb ajuda» a la següent (vist el 23/11/2026). */
+.leg-parell { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.assim-leg-pista { margin-left: auto; color: var(--text-muted); font-size: 12px; }
+@media (max-width: 640px) { .assim-leg-pista { margin-left: 0; flex-basis: 100%; } }
 
 /* L'avís de dalt de la graella: aquests objectius vénen d'Assoliments. */
 .coment-dassim {
