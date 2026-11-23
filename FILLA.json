@@ -1,6 +1,6 @@
 {
   "mestra": "Pol",
-  "mareVersio": "v381",
+  "mareVersio": "v382",
   "propis": [
     "manual.html",
     "manifest.webmanifest",
@@ -52,6 +52,7 @@
     "js/incidencies.js",
     "js/llibreta.js",
     "js/login.js",
+    "js/memoria.js",
     "js/millores.js",
     "js/notes.js",
     "js/notescomp.js",

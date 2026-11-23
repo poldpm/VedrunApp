@@ -252,6 +252,11 @@ exactament el que va passar les dues vegades.
   «Mostra el fitxer de manifest»). Si no, li petarà amb un error en anglès
   que no diu què s'ha de fer. Va passar el 4/9/2026 amb els disparadors.
 - No toquis `js/config.local.js` en actualitzar.
+- **Al `localStorage`, només `getItem`, `setItem`, `removeItem`, `length` i
+  `key(i)`.** Des de la v382 cada app hi té el seu calaix (`js/memoria.js`):
+  `Object.keys(localStorage)` o `localStorage[k]` se'l salten i veuen les
+  dades de totes les apps de `poldpm.github.io`. Ho vigila
+  `eines/comprova-memoria.js`; el detall és a `PROJECTE.md`, apartat 17.
 
 ## Validació abans de donar per bo un canvi
 - `node --check` de cada fitxer JS modificat.

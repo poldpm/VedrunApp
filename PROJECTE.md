@@ -68,6 +68,7 @@ vedruna-app/
 │   ├── rol.js              # 'tutor', 'especialista' o 'direccio'. NO SE SINCRONITZA mai!
 │   ├── config.local.js     # El token, l'adreça del servidor i el login d'aquesta app.
 │   │                       # NO SE SUBSTITUEIX MAI en actualitzar.
+│   ├── memoria.js          # Cada app, el seu calaix al navegador (secció 17)
 │   ├── personal.js         # El que és propi d'una mestra. Buit a la mare.
 │   ├── app.js              # Nucli: navegació, home, alumnes, notes, planning,
 │   │                       #   calendari, tasques, config, bootstrap, sync
@@ -759,7 +760,82 @@ d'una en una:
 | `comprova-avis.js` | Que l'avís de servidor endarrerit surti quan toca |
 | `comprova-manual.js` | Enllaços, índex, etiquetes i versions |
 | `comprova-rols.js` | L'app sencera amb els tres rols |
+| `comprova-memoria.js` | Que cada app tingui el seu calaix al navegador (secció 17) |
 
 A part, quan es toca el backend: `node eines/banc-backend.js` (compta les
 crides a Google) i `node eines/estat-apps.js` (versions, fitxers pendents i
 si alguna app està **sincronitzada però no publicada**).
+
+---
+
+## 17. CADA APP, EL SEU CALAIX AL NAVEGADOR (22/11/2026)
+
+Totes les apps viuen a `poldpm.github.io/<la de cadascú>/`, i per al navegador
+la mateixa adreça vol dir **el mateix `localStorage`**. Fins a la v380 l'app hi
+guardava les claus sense dir de qui eren (`vedruna_perfil`, `tasques`,
+`notescache_…`, `vedruna_pendents`…): en un ordinador compartit, o al d'en Pol,
+l'app d'una mestra arrencava amb el perfil i els alumnes d'una altra fins que
+arribava el servidor, i **amb dues apps obertes alhora la cua de desats d'una
+anava a parar al full de l'altra**.
+
+El remei de setembre (`_calaixDAquestaApp`, a `js/app.js`) canviava de calaix
+en obrir l'app. No n'hi havia prou: només movia una part de les claus i no
+servia amb dues pestanyes obertes.
+
+**Ara:** `js/memoria.js` s'interposa al `localStorage` de la pàgina
+(`Storage.prototype`) i a cada clau hi posa al davant la carpeta de l'app en
+minúscules: `[/vedrunapp-mireiaduran/]tasques`. La resta de l'app no ha
+canviat cap crida: continua fent `localStorage.getItem('tasques')` i ja no veu
+res que no sigui seu.
+
+**Què has de saber si toques el navegador:**
+
+- **`getItem`, `setItem`, `removeItem`, `length` i `key(i)`, i prou.**
+  `Object.keys(localStorage)`, `for (k in localStorage)` o `localStorage[k]` es
+  salten el calaix i veuen les claus de totes les apps amb el nom al davant.
+  `comprova-memoria.js` ho busca a tots els fitxers de `js/`.
+- **Cap fitxer que es carregui abans de `js/memoria.js` pot tocar el
+  `localStorage` en carregar-se** (dins de funcions que es criden després, sí).
+  `memoria.js` va just després de `js/config.local.js` perquè en necessita el
+  token i l'adreça del servidor. També ho comprova la prova.
+- **Una clau nova no s'ha d'apuntar enlloc.** Les llistes de `memoria.js`
+  (`CALAIX_VELL`, `COMPARTIDES`) són les claus que existien fins a la v380, per
+  portar-les al calaix nou un sol cop. El que es crea després ja neix al lloc
+  bo.
+- **Als bancs de mentida no s'encén**: allà el `localStorage` no és un
+  `Storage` de debò i les proves miren les claus tal com són, com sempre. El
+  guard vell de setembre continua actiu només en aquest cas (i si un navegador
+  no deixés posar el calaix).
+- `sessionStorage` no es toca: ja és d'una sola pestanya.
+
+**El traspàs del que hi havia (un sol cop per app i navegador):**
+
+| Què troba | Què fa |
+|---|---|
+| `vedruna_app` = l'empremta d'aquesta app (carpeta\|token\|rol, la de setembre) | Porta al calaix nou totes les claus de l'app, i les treu del de tothom |
+| `vedruna_calaix_<la seva empremta>` (el que el guard havia desat a part) | El desempaqueta al calaix nou |
+| Sense empremta, o la de l'agost (token\|rol, igual per a totes les tutores) | Només si l'adreça del servidor desada és la de `APP_SCRIPT_URL` d'aquesta app |
+| El calaix obert és d'una altra app | **No toca res**: arrenca com en un aparell nou i ho porta tot del full. El de l'altra es queda per quan ella s'actualitzi |
+| Hi ha calaixos desats d'altres apps encara per actualitzar | Les claus que eren compartides (login, Calendar…) es **copien** i l'original es queda; les de l'app es mouen |
+
+Les tres claus que **no són al full** (`vedruna_pendents`, `vedruna_envol`,
+`vedruna_caselles`) no es perden mai: es porten primer de tot, si n'hi ha a
+tots dos llocs es **fusionen** (de cada desat, el més nou), i si el navegador
+és ple es fa lloc llençant les còpies d'anar de pressa de la mateixa app. Si
+ni així hi caben, es queden on eren i es torna a provar el proper cop. Una
+pestanya de la mateixa app que encara anava amb la versió d'abans i hi desa
+després del traspàs: el proper cop que s'obre l'app, s'escombra cap al calaix
+nou.
+
+La marca de «ja s'ha portat» és `{/carpeta/}memoria` (fora del calaix, perquè
+l'app no la vegi). A **Configuració → Diagnòstic** hi ha la línia «Memòria del
+navegador», que diu si és pròpia i d'on va sortir el que hi havia.
+
+```bash
+node eines/comprova-memoria.js                  # 20 proves
+node eines/comprova-memoria.js --sense-memoria  # l'app sense memoria.js: HA DE FALLAR
+```
+
+La segona part obre l'app sencera en un Chromium de debò, servida a `/appa/` i
+`/appb/` de la mateixa adreça, i mira que cap de les dues vegi res de l'altra,
+ni d'una en una ni obertes alhora.

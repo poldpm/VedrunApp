@@ -100,8 +100,16 @@ function _debounceBuida() {
    és el calaix i, si es troba que és d'una altra app, es buida el que és
    d'aquesta app abans de llegir-ne res. Les dades de debò són al full: el
    que hi ha aquí és una còpia per anar de pressa.
+
+   ⚠ DES DEL 22/11/2026 AIXÒ JA NO ES FA SERVIR (veure `js/memoria.js`).
+   Ara cada app té el seu calaix propi —cada clau porta el nom de la carpeta
+   al davant— i no cal anar canviant de calaix en obrir-la. Aquest guard
+   només hi és per si un navegador no deixés posar-lo: llavors tot funciona
+   com abans. També s'executa als bancs de mentida, que no tenen
+   `localStorage` de debò, igual que sempre.
    ============================================================ */
 (function _calaixDAquestaApp() {
+  if (typeof window !== 'undefined' && window._memoria && window._memoria.propia) return;
   try {
     /* ⚠ window.APP_TOKEN, no APP_TOKEN: més avall es torna a declarar amb
        const, i el nom queda a la zona morta fins llavors —un typeof aquí hi
@@ -1599,11 +1607,34 @@ function _diagNavegador() {
            : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : '';
   return nav + (so ? ' · ' + so : '');
 }
+/* De qui és el que l'app té guardat en aquest navegador (`js/memoria.js`).
+   Si un dia una mestra veu dades d'una altra, és el primer que s'ha de mirar. */
+function _diagMemoria() {
+  const m = window._memoria;
+  if (!m) return '?';
+  if (!m.propia) return 'compartida amb les altres apps (' + (m.estat || '') + ')';
+  let t = 'només d\'aquesta app · ' + m.claus().length + ' coses guardades';
+  const mc = m.marca ? m.marca() : null;
+  const ORIGEN = {
+    nostre: 'portat de la versió d\'abans',
+    calaix: 'portat de la versió d\'abans (estava desat a part)',
+    'd-una-altra': 'el que hi havia era d\'una altra app: no s\'ha tocat',
+    buit: 'no hi havia res d\'abans',
+  };
+  if (mc && mc.origen) {
+    t += ' · ' + (ORIGEN[mc.origen] || mc.origen);
+    if (mc.quan) t += ' el ' + String(mc.quan).slice(0, 10).split('-').reverse().join('/');
+  } else if (!mc) {
+    t += ' · encara no s\'hi ha pogut portar tot el d\'abans';
+  }
+  return t;
+}
 function _diagText() {
   const l = [];
   const v = (typeof VERSIO_APP !== 'undefined') ? VERSIO_APP : ((window.versioApp && window.versioApp.actual) || '?');
   l.push('App: ' + v + ' · Servidor: ' + (_backendVersio || 'encara no ho sé'));
   l.push('Adreça: ' + location.host + location.pathname);
+  l.push('Memòria del navegador: ' + _diagMemoria());
   l.push('Navegador: ' + _diagNavegador());
   let pf = 'BUIT';
   try {
@@ -7851,7 +7882,7 @@ function cal2CatById(id) {
 function _cal2QuantsEvents(catId) {
   var total = 0;
   try {
-    Object.keys(localStorage).filter(function (k) { return k.indexOf('cal2_events_') === 0; })
+    Array.from({ length: localStorage.length }, function (_, i) { return localStorage.key(i); }).filter(function (k) { return k.indexOf('cal2_events_') === 0; })
       .forEach(function (k) {
         var evs = [];
         try { evs = JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) {}
@@ -12832,7 +12863,7 @@ function comentApuntsActivitats(nomAlumne, matKey, nomesTrim, nomAssig) {
   var _pos = (typeof _fitxaPosPerNom === 'function') ? _fitxaPosPerNom : null;
   trims.forEach(function (trim) {
     // Pot estar desat amb grup o sense: mirem les dues formes
-    var claus = Object.keys(localStorage).filter(function (k) {
+    var claus = Array.from({ length: localStorage.length }, function (_, i) { return localStorage.key(i); }).filter(function (k) {
       return k.indexOf('notescache_' + matKey + '_' + trim) === 0;
     });
     claus.forEach(function (clau) {

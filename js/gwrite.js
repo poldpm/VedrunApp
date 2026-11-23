@@ -70,7 +70,7 @@
     // EVENTS (de tots els anys que hi hagi desats)
     var vistosEv = {};
     try {
-      Object.keys(localStorage).filter(function (k) { return k.indexOf('cal2_events_') === 0; })
+      Array.from({ length: localStorage.length }, function (_, i) { return localStorage.key(i); }).filter(function (k) { return k.indexOf('cal2_events_') === 0; })
         .forEach(function (k) {
           var evs = [];
           try { evs = JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) {}

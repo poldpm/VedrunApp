@@ -168,8 +168,11 @@ function _grupKey(curs, linia) { return curs + ' ' + linia; }
       bo guardat, no es trepitja: se n'ensenya el nom i se li demana
       si el vol tornar a desar al full (`_perfilOfereixRecuperar`).
       Es pregunta, i no es fa sol, perquè totes les apps viuen a la
-      mateixa adreça i el que guarda el navegador és compartit: en un
-      ordinador de l'escola podria ser el d'una altra mestra.
+      mateixa adreça i el que guarda el navegador era compartit: en un
+      ordinador de l'escola podia ser el d'una altra mestra.
+      (Des del 22/11/2026 cada app té el seu calaix al navegador —veure
+      `js/memoria.js`— i la còpia ja només pot ser d'aquesta app. Es
+      continua preguntant igualment: no costa res i és el full el que mana.)
    ============================================================ */
 let _perfilCarregat = false;
 const _perfilPendents = {};
@@ -1041,7 +1044,7 @@ function _avisAlumnesVells(motiu) {
    És la sortida quan la pantalla i el full no diuen el mateix. */
 async function refrescaAlumnes() {
   try {
-    Object.keys(localStorage).forEach(k => {
+    Array.from({ length: localStorage.length }, function (_, i) { return localStorage.key(i); }).forEach(k => {
       if (k.indexOf('tutoriacache_') === 0) localStorage.removeItem(k);
     });
   } catch (e) {}
