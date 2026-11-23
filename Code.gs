@@ -4073,6 +4073,8 @@ function handleRequest(e) {
       case 'completaGoogleTask': result = completaGoogleTask((body&&body.taskId)||p.taskId, (body&&body.llistaId)||p.llistaId, (body&&body.fet)); break;
       case 'getGoogleTasks':         result = getGoogleTasks(); break;
       case 'gwriteSync':             result = gwriteSync(body && body.canvis); break;
+      case 'saveComentari':          result = saveComentari(ss, body); break;
+      case 'loadComentaris':         result = loadComentaris(ss); break;
       case 'saveNotaComentari':      result = saveNotaComentari(ss, (body&&body.materia)||p.materia, (body&&body.trimestre)||p.trimestre, body&&body.itemId, body&&body.nom, body&&body.text, (body&&body.grup)||p.grup); break;
       case 'saveRubrica':           result = saveRubrica(ss, (body&&body.materia)||p.materia, body&&body.data); break;
       case 'loadRubrica':           result = loadRubrica(ss, (body&&body.materia)||p.materia); break;
@@ -7752,7 +7754,7 @@ function getOrCreateDataSheet(ss, nom) {
    NO és el `BACKEND_MINIM` de `js/versio.js`: aquell és la biblioteca més
    vella amb què l'app encara funciona, i només es puja quan deixa de
    funcionar-hi. Aquest es puja sempre. */
-var BACKEND_VERSIO = 'v380';
+var BACKEND_VERSIO = 'v385';
 
 var MAX_CELA = 45000;
 
@@ -8467,6 +8469,89 @@ function saveProfile(ss, profile) {
   }
   sheetSetJSON(ss, '_AppData', 'profile', json);
   return { ok: true };
+}
+
+/* ============================================================
+   ELS COMENTARIS DE L'INFORME, DESATS (en Pol, 23/11/2026)
+   ------------------------------------------------------------
+   «els comentaris generats es guarden a algun lloc?» No: vivien a la
+   finestra del generador i en tancar-la desapareixien. «Sí, que es desin,
+   a tothom.»
+
+   Van a una pestanya VISIBLE, «Comentaris», una fila per alumne,
+   assignatura i trimestre: així la mestra (o direcció) els pot llegir i
+   copiar tots d'una tirada. La darrera columna, «Clau», és la que fa servir
+   l'app per trobar cada fila (trimestre|assignatura|codi de l'alumne); no
+   s'ha de tocar.
+
+   Si la mestra retoca un comentari aquí al full, el que mana és el del full:
+   és el que l'app li ensenyarà la propera vegada.
+   ============================================================ */
+var COMENT_FULL = 'Comentaris';
+var COMENT_CAPS = ['Trimestre', 'Assignatura', 'Alumne', 'Comentari', 'Darrer canvi', 'Clau'];
+
+function _comentFull_(ss, crea) {
+  var sh = ss.getSheetByName(COMENT_FULL);
+  if (sh || !crea) return sh;
+  sh = ss.insertSheet(COMENT_FULL);
+  sh.getRange(1, 1, 1, COMENT_CAPS.length).setValues([COMENT_CAPS]);
+  try { sh.getRange(1, 1, 1, COMENT_CAPS.length).setFontWeight('bold'); } catch (e) {}
+  try { sh.setFrozenRows(1); } catch (e) {}
+  try { sh.setColumnWidth(4, 640); } catch (e) {}
+  try { sh.getRange(1, 4, 1000, 1).setWrap(true); } catch (e) {}
+  return sh;
+}
+
+function saveComentari(ss, c) {
+  c = c || {};
+  var clau = String(c.clau || '').trim();
+  if (!clau) return { ok:false, error:'Falta de quin alumne és el comentari.' };
+  var text = String(c.text || '').trim();
+  if (text.length > MAX_CELA) return { ok:false, error:'El comentari és massa llarg per desar-lo al full.' };
+  var lock = LockService.getScriptLock();
+  var teLock = false;
+  try { lock.waitLock(15000); teLock = true; } catch (e) {}
+  try {
+    var sh = _comentFull_(ss, !!text);
+    if (!sh) return { ok:true, esborrat:true };          // res a esborrar
+    var lr = sh.getLastRow(), fila = -1;
+    if (lr >= 2) {
+      var claus = sh.getRange(2, COMENT_CAPS.length, lr - 1, 1).getValues();
+      for (var i = 0; i < claus.length; i++) {
+        if (String(claus[i][0]).trim() === clau) { fila = i + 2; break; }
+      }
+    }
+    if (!text) {                                          // l'ha buidat: fora la fila
+      if (fila !== -1) sh.deleteRow(fila);
+      return { ok:true, esborrat:true };
+    }
+    var quan = new Date();
+    var trim = parseInt(c.trimestre, 10);
+    var nomTrim = trim === 1 ? '1r' : trim === 2 ? '2n' : trim === 3 ? '3r' : String(c.trimestre || '');
+    var valors = [nomTrim, String(c.assignatura || ''), String(c.alumne || ''), text, quan, clau];
+    if (fila === -1) sh.appendRow(valors);
+    else sh.getRange(fila, 1, 1, valors.length).setValues([valors]);
+    return { ok:true, quan: quan.toISOString() };
+  } finally {
+    if (teLock) { try { lock.releaseLock(); } catch (e) {} }
+  }
+}
+
+function loadComentaris(ss) {
+  var sh = _comentFull_(ss, false);
+  if (!sh) return { ok:true, comentaris: [] };
+  var lr = sh.getLastRow();
+  if (lr < 2) return { ok:true, comentaris: [] };
+  var v = sh.getRange(2, 1, lr - 1, COMENT_CAPS.length).getValues();
+  var out = [];
+  for (var i = 0; i < v.length; i++) {
+    var clau = String(v[i][5] || '').trim();
+    if (!clau) continue;
+    var q = v[i][4];
+    out.push({ clau: clau, text: String(v[i][3] || ''),
+               quan: (q && q.toISOString) ? q.toISOString() : String(q || '') });
+  }
+  return { ok:true, comentaris: out };
 }
 
 function loadProfile(ss) {

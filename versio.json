@@ -1,13 +1,13 @@
 {
-  "versio": "v384",
+  "versio": "v385",
   "data": "2026-11-23",
   "titol": "Novetats d aquesta versió",
   "canvis": [
+    "Generador de comentaris: cada comentari es desa sol al teu full, a la pestanya «Comentaris» (una fila per alumne, assignatura i trimestre). Si el retoques, també. Tancar la finestra ja no el perd.",
+    "En tornar a triar un alumne, et surt el comentari que ja té, amb el botó «Obrir-lo». Al desplegable, els que ja en tenen porten un ✓, i si en generes un de nou t’ho pregunta abans.",
     "Generador de comentaris: ja no posa cada objectiu en una frase. Els agrupa en dues o tres idees, parla com a molt de dues dificultats, amb paraules que entén qualsevol família, i acaba amb què fareu el trimestre vinent.",
     "Generador de comentaris: si surt alguna paraula mal escrita, el torna a fer sol; i si encara n’hi queda, et diu quina a sota del text.",
     "Assoliments, nova manera de marcar: surt un objectiu cada vegada, sencer i en lletra gran, i a sota tots els alumnes amb el seu % i els quatre nivells. Quan acabes, «Següent objectiu». Ja no hi ha la graella gran ni cal lliscar de costat.",
-    "Assoliments: a dalt hi ha una tira amb el número de cada objectiu. Es posa verda quan ja tens tots els alumnes marcats i, tocant-la, saltes a l’objectiu que vulguis. L’app recorda on eres.",
-    "Si compartiu ordinador (o obres al teu l’app d’una altra mestra), ara cada app té la seva pròpia memòria al navegador: ja no hi pot sortir ni un moment el perfil, els alumnes o les notes d’una altra, i el que tens pendent de desar només pot anar al teu full. El que ja tenies guardat en aquest aparell s’hi queda.",
-    "Assoliments al mòbil: la capçalera ja no es desquadra. Trimestre, assignatura, grup de Tallers i «El teu taller» van ara en files, l’una sota l’altra, i ja no es fan més amples que la pantalla."
+    "Assoliments: a dalt hi ha una tira amb el número de cada objectiu. Es posa verda quan ja tens tots els alumnes marcats i, tocant-la, saltes a l’objectiu que vulguis. L’app recorda on eres."
   ]
 }

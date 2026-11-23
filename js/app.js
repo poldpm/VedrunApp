@@ -2351,7 +2351,7 @@ const _POST_NO_TOCA_LECTURES = new Set(['saveProfile']);
    claustre. Tots tenen el seu propi avís a la pantalla i, si fallen, ho diuen i
    tornen a deixar el text on era; el vel només hi afegia una paret de dos
    segons entre nen i nen (QA del 27/9/2026). */
-const _POST_SENSE_VEL = new Set(['saveGrupGenere', 'saveGrupPersonal', 'savePersonal',
+const _POST_SENSE_VEL = new Set(['saveGrupGenere', 'saveGrupPersonal', 'savePersonal', 'saveComentari',
   'saveGrupObs', 'saveObservacio', 'deleteObservacio', 'saveEntrevista', 'deleteEntrevista',
   'saveEsmorzars', 'saveRegistreDocents',
   /* Auditoria del 27/9/2026: aquesta llista s'havia quedat curta. Tot això són
@@ -12467,7 +12467,7 @@ async function selectComentAssig(assig, btn) {
      i d'una altra assignatura, i quedava a la pantalla com si fos d'aquesta
      (auditoria 6/9/2026). */
   const _ov = document.getElementById('comentResultOverlay');
-  if (_ov && _ov.classList.contains('open')) { _comentTextOriginal = ''; _ov.classList.remove('open'); }
+  if (_ov && _ov.classList.contains('open')) { _comentDesaAra(); _comentTextOriginal = ''; _ov.classList.remove('open'); }
   renderComentRubrica();
   try { _comentPintaApunts(); } catch (e) {}
   // Cada assignatura pot ser d'un grup diferent: canvia també els alumnes.
@@ -12483,6 +12483,7 @@ function onComentAlumneChange() {
   _comentPrefill();
   renderComentRubrica();
   try { _comentPintaApunts(); } catch (e) {}
+  _comentPintaDesat();
 }
 
 /* ============================================================
@@ -12849,20 +12850,252 @@ function _mostrarComentari(text, rubrica, alumne, ambIA) {
   document.getElementById('comentResultConsell').textContent = consell;
   _comentTextOriginal = String(text || '');
   overlay.classList.add('open');
+  /* De qui és el que hi ha a la finestra: es mira ARA, perquè si després
+     canvien d'assignatura o de grup el desat ha d'anar a aquest. */
+  _comentFinestra = _comentCtxDe(alumne);
+  if (ambIA) _comentDesa(_comentFinestra, text);      // l'esborrany sense IA, només si el retoca
+  else _comentPintaEstatDesat();
 }
 
 /* Regenerar amb avís: el que ha escrit la mestra mana per damunt de la IA. */
 function regenerarComentari() {
   if (_comentTeCanvis() &&
-      !confirm('Has retocat aquest comentari. Si el regeneres, el que has escrit es perdrà.\n\nVols regenerar-lo igualment?')) return;
-  generarComentari();
+      !confirm('Has retocat aquest comentari. Si el regeneres, el nou substituirà el que has escrit (i el que tens desat).\n\nVols regenerar-lo igualment?')) return;
+  _comentDesaAra();
+  generarComentari({ regenerar: true });
 }
 
+/* Tancar ja no perd res: el que hi ha a la finestra es desa (v385). Abans
+   preguntava «encara no l'has copiat, es perdrà». */
 function closeComentResult() {
-  if (_comentTeCanvis() &&
-      !confirm('Has retocat aquest comentari i encara no l\'has copiat. Si tanques, es perdrà.\n\nVols tancar igualment?')) return;
+  _comentDesaAra();
   _comentTextOriginal = '';
   document.getElementById('comentResultOverlay').classList.remove('open');
+}
+
+/* ============================================================
+   ELS COMENTARIS ES DESEN (en Pol, 23/11/2026)
+   ------------------------------------------------------------
+   «Els comentaris generats es guarden a algun lloc?» No: vivien a la
+   finestra i en tancar-la desapareixien. «Sí, que es desin, a tothom.»
+
+   Ara cada comentari es desa sol al full de la mestra, a la pestanya
+   «Comentaris» (una fila per alumne, assignatura i trimestre): en
+   generar-lo, mentre ella el retoca, en copiar-lo i en tancar la finestra.
+   En tornar a triar l'alumne surt el que ja hi té, i al desplegable els que
+   ja en tenen porten un ✓.
+
+   ⚠ NO VA PER LA CUA GENERAL DE DESATS. Allà, una acció que el servidor no
+   coneix es llença (és el que cal per no encallar la cua). Aquí, fins que en
+   Pol enganxi la biblioteca nova, el servidor no sap desar comentaris, i un
+   comentari no es pot perdre: es queda en aquest aparell (`coment_desats`)
+   marcat com a pendent i es torna a enviar sol cada vegada que s'obre el
+   generador. El full és el que mana: quan arriba, substitueix el d'aquí
+   (tret dels pendents, que són més nous).
+
+   La clau de cada comentari és «trimestre|assignatura|codi de l'alumne».
+   El codi és el permanent del full (`_assimSid`), que no canvia si la llista
+   es reordena i és únic encara que el grup barregi classes (Tallers).
+   ============================================================ */
+const _COMENT_DESATS_CLAU = 'coment_desats';
+let _comentDesats = null;          // clau → { text, quan, pendent, motiu, trimestre, assignatura, alumne }
+let _comentFinestra = null;        // de qui és el comentari de la finestra oberta
+let _comentDesaRellotge = null;
+
+function _comentDesatsLlegeix() {
+  if (_comentDesats) return _comentDesats;
+  try { _comentDesats = JSON.parse(localStorage.getItem(_COMENT_DESATS_CLAU) || '{}') || {}; }
+  catch (e) { _comentDesats = {}; }
+  return _comentDesats;
+}
+function _comentDesatsGuarda() {
+  try { localStorage.setItem(_COMENT_DESATS_CLAU, JSON.stringify(_comentDesats || {})); } catch (e) {}
+}
+
+/* El context d'un comentari: de quin alumne, assignatura i trimestre. */
+function _comentCtxDe(alumne) {
+  if (!alumne || !_comentAssig) return null;
+  const trim = _comentTrimActual();
+  return {
+    clau: trim + '|' + _comentAssig + '|' + _assimSid(alumne),
+    trimestre: trim,
+    assignatura: (typeof _comentNomAssig === 'function' ? _comentNomAssig() : '') || '',
+    alumne: (typeof nomAlumne === 'function') ? nomAlumne(alumne) : (alumne.nom || ''),
+  };
+}
+function _comentDesatDe(alumne) {
+  const ctx = _comentCtxDe(alumne);
+  if (!ctx) return null;
+  const e = _comentDesatsLlegeix()[ctx.clau];
+  return (e && String(e.text || '').trim()) ? e : null;
+}
+
+/* Desa el text d'un comentari (buit = esborrar-lo). */
+async function _comentDesa(ctx, text) {
+  if (!ctx || !ctx.clau) return;
+  const t = String(text || '').trim();
+  const d = _comentDesatsLlegeix();
+  const abans = d[ctx.clau];
+  if (abans && !abans.pendent && String(abans.text || '').trim() === t) { _comentPintaEstatDesat(); return; }
+  if (!abans && !t) return;
+  d[ctx.clau] = { text: t, quan: new Date().toISOString(), pendent: true,
+                  trimestre: ctx.trimestre, assignatura: ctx.assignatura, alumne: ctx.alumne };
+  _comentDesatsGuarda();
+  _comentPintaEstatDesat();
+  await _comentEnvia(ctx.clau);
+  _comentPintaEstatDesat();
+  _comentPintaDesat();
+  _comentMarcaDesplegable();
+}
+
+/* El que hi ha ara a la finestra, desat de seguida (tancar, copiar, canviar). */
+function _comentDesaAra() {
+  if (_comentDesaRellotge) { clearTimeout(_comentDesaRellotge); _comentDesaRellotge = null; }
+  const ov = document.getElementById('comentResultOverlay');
+  const box = document.getElementById('comentTextBox');
+  if (!_comentFinestra || !ov || !ov.classList.contains('open') || !box) return;
+  if (box.querySelector('.coment-loading')) return;               // encara s'està redactant
+  const ara = (box.innerText || box.textContent || '').trim();
+  const e = _comentDesatsLlegeix()[_comentFinestra.clau];
+  // Un esborrany sense IA que no s'ha tocat no és cap comentari seu
+  if (!e && ara === String(_comentTextOriginal || '').trim()) return;
+  _comentDesa(_comentFinestra, ara);
+}
+
+/* Mentre el retoca: es desa sol un segon i mig després de deixar d'escriure. */
+function _comentRetocat() {
+  if (_comentDesaRellotge) clearTimeout(_comentDesaRellotge);
+  _comentDesaRellotge = setTimeout(() => { _comentDesaRellotge = null; _comentDesaAra(); }, 1500);
+}
+
+async function _comentEnvia(clau) {
+  const d = _comentDesatsLlegeix();
+  const e = d[clau];
+  if (!e || !e.pendent) return;
+  if (!config || !config.scriptUrl) { e.motiu = 'xarxa'; _comentDesatsGuarda(); return; }
+  const enviat = String(e.text || '');
+  try {
+    const r = await appsScriptPost({ action: 'saveComentari', clau: clau, trimestre: e.trimestre,
+      assignatura: e.assignatura, alumne: e.alumne, text: enviat });
+    const ara = d[clau];
+    if (r && r.ok) {
+      // Mentrestant pot haver continuat escrivint: només es dona per desat si és el mateix
+      if (ara && String(ara.text || '') === enviat) {
+        if (!enviat.trim()) delete d[clau];
+        else { ara.pendent = false; delete ara.motiu; if (r.quan) ara.quan = r.quan; }
+      }
+    } else if (ara) {
+      ara.motiu = (r && /acci[oó] desconeguda/i.test(String(r.error || ''))) ? 'servidor' : 'error';
+    }
+  } catch (err) {
+    if (d[clau]) d[clau].motiu = 'xarxa';
+  }
+  _comentDesatsGuarda();
+}
+
+async function _comentEnviaPendents() {
+  const d = _comentDesatsLlegeix();
+  for (const clau of Object.keys(d)) {
+    if (d[clau] && d[clau].pendent) await _comentEnvia(clau);
+  }
+}
+
+/* Els comentaris que hi ha al full (el que mana), i de passada s'envien
+   els que aquest aparell tenia pendents. */
+async function _comentDesatsDelFull() {
+  if (!config || !config.scriptUrl) return;
+  try {
+    const r = await appsScriptGet({ action: 'loadComentaris', _fons: true });
+    if (r && r.ok && Array.isArray(r.comentaris)) {
+      const d = _comentDesatsLlegeix();
+      const alFull = {};
+      r.comentaris.forEach(c => {
+        if (!c || !c.clau) return;
+        alFull[c.clau] = true;
+        if (d[c.clau] && d[c.clau].pendent) return;              // el d'aquí és més nou
+        d[c.clau] = { text: String(c.text || ''), quan: c.quan || '', pendent: false };
+      });
+      // Els que ja no hi són (esborrats al full) i no estan pendents, fora
+      Object.keys(d).forEach(k => { if (!alFull[k] && d[k] && !d[k].pendent) delete d[k]; });
+      _comentDesatsGuarda();
+    }
+  } catch (e) { /* sense full: es queda el que hi ha en aquest aparell */ }
+  await _comentEnviaPendents();
+  _comentPintaDesat();
+  _comentMarcaDesplegable();
+  _comentPintaEstatDesat();
+}
+
+/* Sota el text de la finestra: si està desat, i on. */
+function _comentPintaEstatDesat() {
+  const el = document.getElementById('comentDesatEstat');
+  if (!el) return;
+  const e = _comentFinestra ? _comentDesatsLlegeix()[_comentFinestra.clau] : null;
+  if (!e || !String(e.text || '').trim()) {
+    el.textContent = _comentFinestra ? 'Si el retoques, es desarà sol.' : '';
+    el.className = 'coment-desat-estat';
+    return;
+  }
+  if (!e.pendent) {
+    el.textContent = '✓ Desat al full, a la pestanya «Comentaris». Si el retoques, es desa sol.';
+    el.className = 'coment-desat-estat ok';
+  } else if (e.motiu === 'servidor') {
+    el.textContent = '💾 Desat en aquest aparell. Al full s\'hi passarà sol quan en Pol actualitzi el servidor.';
+    el.className = 'coment-desat-estat pendent';
+  } else if (e.motiu) {
+    el.textContent = '💾 Desat en aquest aparell. El passaré al full sol quan hi hagi connexió.';
+    el.className = 'coment-desat-estat pendent';
+  } else {
+    el.textContent = 'Desant…';
+    el.className = 'coment-desat-estat';
+  }
+}
+
+/* A la pàgina, en triar l'alumne: el comentari que ja té. */
+function _comentPintaDesat() {
+  const caixa = document.getElementById('comentDesatCaixa');
+  if (!caixa) return;
+  const alumne = _comentAlumne ? students.find(s => String(s.id) === String(_comentAlumne)) : null;
+  const e = alumne ? _comentDesatDe(alumne) : null;
+  if (!e) { caixa.hidden = true; caixa.innerHTML = ''; return; }
+  let quan = '';
+  try { if (e.quan) quan = new Date(e.quan).toLocaleDateString('ca-ES', { day: 'numeric', month: 'numeric', year: 'numeric' }); } catch (x) {}
+  const tros = String(e.text).length > 160 ? String(e.text).slice(0, 160).replace(/\s+\S*$/, '') + '…' : String(e.text);
+  caixa.innerHTML = '<div class="coment-desat-cap"><strong>📝 Ja té un comentari desat</strong>'
+    + (quan ? ' <span class="coment-desat-quan">(' + escapeHtml(quan) + ')</span>' : '')
+    + (e.pendent ? ' <span class="coment-desat-quan">· encara no és al full</span>' : '') + '</div>'
+    + '<p class="coment-desat-tros">' + escapeHtml(tros) + '</p>'
+    + '<button type="button" class="btn btn-ghost btn-sm" onclick="comentObreDesat()">Obrir-lo</button>';
+  caixa.hidden = false;
+}
+
+/* Obre a la finestra el comentari desat de l'alumne triat. */
+function comentObreDesat() {
+  const alumne = _comentAlumne ? students.find(s => String(s.id) === String(_comentAlumne)) : null;
+  const e = alumne ? _comentDesatDe(alumne) : null;
+  if (!e) { showToast('Aquest alumne encara no té cap comentari desat', 'info'); return; }
+  const _tNom = ['', '1r trimestre', '2n trimestre', '3r trimestre'][_comentTrimActual()] || '';
+  document.getElementById('comentResultTitle').textContent =
+    (_comentNomAssig() || '') + ' · ' + nomAlumne(alumne) + (_tNom ? ' · ' + _tNom : '');
+  document.getElementById('comentTextBox').innerHTML = escapeHtml(e.text);
+  document.getElementById('comentResultConsell').textContent = 'És el comentari que tens desat. Pots retocar-lo, copiar-lo o tornar-lo a generar.';
+  _comentTextOriginal = String(e.text || '');
+  _comentFinestra = _comentCtxDe(alumne);
+  document.getElementById('comentResultOverlay').classList.add('open');
+  _comentPintaEstatDesat();
+}
+
+/* Al desplegable, un ✓ als que ja tenen comentari d'aquesta assignatura i trimestre. */
+function _comentMarcaDesplegable() {
+  const sel = document.getElementById('comentAlumneSelect');
+  if (!sel || !sel.options || typeof sel.options.length !== 'number') return;
+  Array.prototype.slice.call(sel.options).forEach(o => {
+    if (!o.value) return;
+    const s = students.find(x => String(x.id) === String(o.value));
+    if (!s) return;
+    const nom = nomAlumne(s);
+    o.textContent = (_comentDesatDe(s) ? '✓ ' : '') + nom;
+  });
 }
 
 /* ============================================================
@@ -13449,7 +13682,7 @@ function _comentPrompt(rubrica, alumne, esborrany) {
   return parts.join('\n');
 }
 
-async function generarComentari() {
+async function generarComentari(opcions) {
   /* Els objectius surten d'Assoliments (veure `_comentObjectius`). Es munta
      un objecte amb la mateixa forma que tenia la rúbrica escrita a mà,
      perquè tot el que ve després —l'esborrany i el prompt— no ha de saber
@@ -13479,6 +13712,12 @@ async function generarComentari() {
       '\n\nVols generar el comentari igualment? (Es generarà amb els objectius avaluats)';
     if (!confirm(msg)) return;
   }
+
+  /* Si ja en té un de desat, generar-ne un de nou el substitueix: s'avisa.
+     Des de «Regenerar» no, que ja és el que vol. */
+  if (!(opcions && opcions.regenerar) && _comentDesatDe(alumne) &&
+      !confirm(nomAlumne(alumne) + ' ja té un comentari desat d\'aquesta assignatura i trimestre.\n\n' +
+               'Si en generes un de nou, substituirà el que tens. Vols generar-ne un de nou?')) return;
 
   const esborrany = _buildEsborrany(rubrica, alumne);
   const nomCurt   = alumne.nom.split(' ')[0];
@@ -13585,6 +13824,7 @@ function copiarComentari() {
   const box = document.getElementById('comentTextBox');
   if (!box) return;
   const text = box.innerText || box.textContent;
+  _comentDesaAra();
   // Ja el té: tancar la finestra no li ha de tornar a demanar permís.
   _comentTextOriginal = String(text || '');
   navigator.clipboard.writeText(text).then(() => showToast('Comentari copiat! ✓', 'success')).catch(() => {
@@ -13618,6 +13858,8 @@ function selectComentTrim(t, btn) {
   /* I els apunts i les observacions també són d'un trimestre: si no es
      repinten, la llista es queda ensenyant els de l'altre. */
   try { _comentPintaApunts(); } catch (e) {}
+  _comentMarcaDesplegable();
+  _comentPintaDesat();
 }
 function _comentPintaTrim() {
   const t = _comentTrimActual();
@@ -13668,6 +13910,8 @@ function initComentaris() {
   // Carrega els alumnes del grup d'aquesta assignatura (una especialista no en
   // té cap de "seu": els seus alumnes són els del curs on fa classe).
   _comentCarregaAlumnesDelGrup(_comentAssig);
+  // Els comentaris desats al full (i els pendents d'aquest aparell, cap allà)
+  _comentDesatsDelFull();
 }
 
 /* Omple el desplegable amb els alumnes que hi ha ara a `students`. */
@@ -13687,9 +13931,11 @@ function _comentOmpleAlumnes() {
      mestra clicava «Generar» i no passava res.
 
      Si no hi ha ningú triat de debò, el desplegable ha de dir que no n'hi ha. */
-  if (!_comentAlumne) { sel.value = ''; return; }
+  _comentMarcaDesplegable();
+  if (!_comentAlumne) { sel.value = ''; _comentPintaDesat(); return; }
   if (anterior && students.some(s => String(s.id) === String(anterior))) sel.value = anterior;
   if (!students.some(s => String(s.id) === String(_comentAlumne))) { _comentAlumne = null; sel.value = ''; }
+  _comentPintaDesat();
 }
 
 /* Han triat un altre grup de Tallers (o del desdoblament) al generador. */
@@ -13698,7 +13944,7 @@ async function _comentCanviaGrup(matKey) {
   _comentAlumne = null;                            // era d'un altre grup
   _comentSeleccions = {};
   const _ov = document.getElementById('comentResultOverlay');
-  if (_ov && _ov.classList.contains('open')) { _comentTextOriginal = ''; _ov.classList.remove('open'); }
+  if (_ov && _ov.classList.contains('open')) { _comentDesaAra(); _comentTextOriginal = ''; _ov.classList.remove('open'); }
   if (typeof _grupStudentsCarregat !== 'undefined') _grupStudentsCarregat = null;
   _comentOmpleAlumnes();
   renderComentRubrica();

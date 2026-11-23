@@ -3168,6 +3168,18 @@ body {
 .coment-legenda .coment-niv-btn { margin: 0; cursor: default; }
 .coment-legenda > span:not(.coment-niv-btn) { margin-right: 10px; }
 /* La mateixa llegenda, a Assoliments: va enganxada a sobre de la graella. */
+/* Els comentaris desats (v385): la caixa de la pàgina i la línia de la finestra. */
+.coment-desat-caixa {
+  margin: 4px 0 14px; padding: 10px 14px; border-radius: var(--r-md);
+  background: #ECFDF5; border: 1px solid #A7F3D0;
+}
+.coment-desat-cap { font-size: 13px; color: #065F46; }
+.coment-desat-quan { font-weight: 400; color: var(--text-muted); font-size: 12px; }
+.coment-desat-tros { margin: 6px 0 8px; font-size: 13px; line-height: 1.45; color: var(--text-main); }
+.coment-desat-estat { font-size: 12px; margin: 8px 0 0; color: var(--text-muted); line-height: 1.45; }
+.coment-desat-estat:empty { display: none; }
+.coment-desat-estat.ok { color: #065F46; }
+.coment-desat-estat.pendent { color: #92400E; }
 .assim-legenda { margin-bottom: 8px; }
 /* Cada sigla amb el seu nom, junts: al mòbil «AAJ» quedava a final de línia
    i «Assolit amb ajuda» a la següent (vist el 23/11/2026). */
