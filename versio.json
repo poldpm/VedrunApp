@@ -1,14 +1,13 @@
 {
-  "versio": "v382",
+  "versio": "v383",
   "data": "2026-11-23",
   "titol": "Novetats d aquesta versió",
   "canvis": [
+    "Assoliments, nova manera de marcar: surt un objectiu cada vegada, sencer i en lletra gran, i a sota tots els alumnes amb el seu % i els quatre nivells. Quan acabes, «Següent objectiu». Ja no hi ha la graella gran ni cal lliscar de costat.",
+    "Assoliments: a dalt hi ha una tira amb el número de cada objectiu. Es posa verda quan ja tens tots els alumnes marcats i, tocant-la, saltes a l’objectiu que vulguis. L’app recorda on eres.",
     "Si compartiu ordinador (o obres al teu l’app d’una altra mestra), ara cada app té la seva pròpia memòria al navegador: ja no hi pot sortir ni un moment el perfil, els alumnes o les notes d’una altra, i el que tens pendent de desar només pot anar al teu full. El que ja tenies guardat en aquest aparell s’hi queda.",
     "Assoliments al mòbil: la capçalera ja no es desquadra. Trimestre, assignatura, grup de Tallers i «El teu taller» van ara en files, l’una sota l’altra, i ja no es fan més amples que la pantalla.",
     "Assoliments: la pista de la llegenda diu com es marca ara («Toca el nivell de cada alumne»), i a la llegenda, a Assoliments i a Comentaris, cada sigla va amb el seu nom.",
-    "El perfil ja no es pot quedar buit en obrir l’app en un aparell nou. Si al full t’arriba buit i aquell aparell en té una còpia, l’app te la ensenya i te la torna a desar si és la teva.",
-    "Configuració → Diagnòstic: si alguna cosa no va, fes-ne una foto per a en Pol. Hi surt la versió, el navegador, com ha arribat el perfil i els darrers errors.",
-    "Si una part de l’app falla en obrir-se, la resta es carrega igualment, i ja no diu «No es pot connectar» quan no és la connexió.",
-    "Generador de comentaris: a Tallers (i a les assignatures desdoblades) hi ha el selector de grup sota els botons d’assignatura. Tries el grup i et surten la llista i tota la informació dels seus alumnes. És el mateix grup de Notes i d’Assoliments."
+    "El perfil ja no es pot quedar buit en obrir l’app en un aparell nou. Si al full t’arriba buit i aquell aparell en té una còpia, l’app te la ensenya i te la torna a desar si és la teva."
   ]
 }

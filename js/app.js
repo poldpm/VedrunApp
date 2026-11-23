@@ -10906,7 +10906,7 @@ function _renderAssimTable() {
            +  (canvi.data ? ' (' + escapeHtml(canvi.data) + ')' : '') + '.</strong> '
            +  escapeHtml(canvi.que || '')
            +  ' Si ja n’havies marcat abans, <strong>repassa-ho</strong>: les marques '
-           +  'es queden a la seva columna i ara poden ser d’un objectiu que diu una altra cosa.'
+           +  'es queden al seu número d’objectiu i ara poden ser d’un objectiu que diu una altra cosa.'
            +  '</div>';
     }
   }
@@ -10923,71 +10923,178 @@ function _renderAssimTable() {
           + '</div>';
   }
 
-  html += '<div class="assim-table-scroll"><table class="assim-table"><thead><tr>';
-  html += '<th class="assim-th-nom">Alumne</th>';
-  objectius.forEach((obj, i) => {
-    let nomCurt = obj.nom || '';
-    if (!nomCurt && obj.text) nomCurt = obj.text.length > 28 ? (obj.text.substring(0, 28) + '…') : obj.text;
-    if (!nomCurt) nomCurt = 'Objectiu ' + (i + 1);
-    const descTitol = obj.text ? escapeHtml(_assimObjTextComplet(obj)) : '';
-    /* ⚠ Els botons es munten amb concatenació i no amb una variable que pugui
-       valdre ''. És el parany del 2/9/2026: un `onclick` buit es pinta
-       clicable i no fa res. Un objectiu oficial directament NO porta els
-       botons d'esborrar ni d'editar, perquè no són seus. */
-    let botons = '';
-    if (!obj.oficial) {
-      botons += '<button class="notes-del-btn" onclick="deleteAssimObjDirect(\'' + _idJs(obj.id) + '\')"'
-             +  ' title="Eliminar objectiu" style="top:4px;right:4px">'
-             +  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>'
-             +  '</button>';
-    }
-    let peu = '';
-    if (descTitol) {
-      peu += '<button class="assim-obj-info" onclick="showAssimObjInfo(\'' + _idJs(obj.id) + '\',event)"'
-          +  ' title="' + descTitol + '">ⓘ</button>';
-    }
-    if (!obj.oficial) {
-      peu += '<button class="assim-obj-edit" onclick="openAssimObj(\'' + _idJs(obj.id) + '\')" title="Editar">✎</button>';
-    }
-    const etiBloc = obj.bloc ? '<div class="assim-obj-bloc">' + escapeHtml(obj.bloc) + '</div>' : '';
-    html += '<th class="assim-th-obj' + (obj.oficial ? ' assim-th-oficial' : '') + '">'
-         +  botons + etiBloc
-         +  '<div class="assim-obj-nom"><strong>' + escapeHtml(nomCurt) + '</strong></div>'
-         +  peu
-         +  '</th>';
-  });
-  /* El percentatge d'assoliment de cada alumne, amb els quatre nivells
-     pesats (`_assimPes`). El recompte per nivells —«3 MBA · 5 AS»— es queda
-     com a rètol del ratolí: hi és per a qui el vulgui i no ocupa lloc. */
-  html += '<th class="assim-th-pct">%</th></tr></thead><tbody>';
-
-  students.forEach(s => {
-    const compte = { mba: 0, ass: 0, aaj: 0, nass: 0 };
-    html += `<tr><td class="assim-td-nom">${escapeHtml(nomAlumne(s))}</td>`;
-    objectius.forEach(obj => {
-      const val = assimValGet(_assimSid(s), obj.id);
-      if (val) compte[val]++;
-      const info = _assimNivellInfo(val);
-      /* ⚠ EL CODI DE L'ALUMNE HA D'ANAR ENTRE COMETES.
-
-         Trobat a la segona auditoria (8/9/2026), i era el pitjor de tots:
-         `_assimSid(s)` torna el CODI PERMANENT del full («2nC-u1»), no un
-         número. Sense cometes, l'atribut que sortia era
-         `onclick="toggleAssim(2nC-u1,'o1',this)"` — que no és JavaScript
-         vàlid. Cada clic donava SyntaxError i **no es podia marcar ni un sol
-         assoliment**. Mentre `_assimSid` tornava la posició (un número)
-         l'atribut sortia bo de casualitat; l'arranjament que va posar el codi
-         permanent el va convertir en invàlid, i el repàs que va posar
-         `_idJs()` a 77 llocs no el va veure perquè només buscava el patró
-         «'${…}'» —ja entre cometes. */
-      html += _assimCasella4(_assimSid(s), obj.id, info);
-    });
-    html += `<td class="assim-td-pct">${_assimResumCel(compte, objectius.length)}</td>`;
-    html += '</tr>';
-  });
-
-  html += '</tbody></table></div>';
+  html += _assimPasHtml(objectius);
   wrap.innerHTML = html;
+}
+
+/* ============================================================
+   UN OBJECTIU CADA VEGADA (en Pol, 23/11/2026)
+   ------------------------------------------------------------
+   «Ara mateix és una pluja de botons, és un mareig […] entre els scrolls
+   laterals que et fan perdre d'un lloc a un altre, no saps de quin alumne
+   estàs. L'assoliment està mig escrit que has d'apretar el botó
+   d'informació per poder-lo llegir sencer.»
+
+   Abans era una graella: una columna per objectiu (fins a 33 a Tallers),
+   cada casella amb quatre botons, el text de l'objectiu retallat a dalt i
+   la taula llisquent de costat. Ara surt UN objectiu, sencer i ben gran, i
+   a sota la llista de tots els alumnes del grup, cadascun amb el seu % i
+   els quatre botons. «Anterior» i «Següent» passen d'objectiu, i la tira
+   de números de dalt diu quins ja estan acabats i deixa saltar a qualsevol.
+
+   On és la mestra es recorda per l'IDENTIFICADOR de l'objectiu, no per la
+   posició: si tria un altre taller, si n'afegeix un de seu o si arriben les
+   dades del full i es repinta tot, no la fa saltar a un altre objectiu.
+   La primera vegada que obre una assignatura, comença pel primer objectiu
+   on encara queda algun alumne per marcar.
+
+   Com es desa no ha canviat gens: les mateixes claus i el mateix full. Els
+   quatre botons són els de la v378 (`_assimCasella4` i `assimPosa`).
+   ============================================================ */
+const _assimOnSoc = {};   // «clau de l'assignatura|trimestre» → id de l'objectiu que es mira
+
+function _assimOnClau() { return _assimClauMat() + '|' + _assimTrim; }
+
+/* Quants alumnes tenen marcat aquest objectiu. */
+function _assimMarcats(obj) {
+  let n = 0;
+  students.forEach(s => { if (assimValGet(_assimSid(s), obj.id)) n++; });
+  return n;
+}
+
+/* L'índex de l'objectiu que es mira, dins de la llista que es veu ara. */
+function _assimIdxActual(objectius) {
+  if (!objectius.length) return 0;
+  const id = _assimOnSoc[_assimOnClau()];
+  let i = id ? objectius.findIndex(o => o.id === id) : -1;
+  if (i === -1) {
+    /* Primer cop (o l'objectiu ja no hi és): el primer on falta algú. */
+    i = students.length ? objectius.findIndex(o => _assimMarcats(o) < students.length) : 0;
+    if (i === -1) i = 0;
+    _assimOnSoc[_assimOnClau()] = objectius[i].id;
+  }
+  return i;
+}
+
+/* L'objectiu que es mira ara (el fan servir les proves i l'avís d'error). */
+function _assimObjActual() {
+  const objectius = assimObjLoad();
+  return objectius.length ? objectius[_assimIdxActual(objectius)] : null;
+}
+
+/* Saltar a l'objectiu i-èssim (la tira de números). */
+function assimVesA(i) {
+  const objectius = assimObjLoad();
+  if (!objectius.length) return;
+  const j = Math.max(0, Math.min(objectius.length - 1, i));
+  _assimOnSoc[_assimOnClau()] = objectius[j].id;
+  _renderAssimTable();
+}
+
+/* «Anterior» i «Següent». Els de sota tornen a pujar a dalt de l'objectiu:
+   si no, la mestra es queda a baix de la llista i no veu el text nou. */
+function assimPas(delta, puja) {
+  const objectius = assimObjLoad();
+  if (!objectius.length) return;
+  assimVesA(_assimIdxActual(objectius) + delta);
+  if (puja) {
+    const e = document.querySelector('#assimTableWrap .assim-pas');
+    if (e && e.scrollIntoView) e.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+}
+
+function _assimTiraEstat(obj) {
+  if (!students.length) return '';
+  const n = _assimMarcats(obj);
+  return n >= students.length ? ' fet' : (n ? ' mig' : '');
+}
+
+function _assimPasHtml(objectius) {
+  const i = _assimIdxActual(objectius);
+  const obj = objectius[i];
+  const total = objectius.length;
+  const marcats = _assimMarcats(obj);
+
+  /* ⚠ Els botons es munten amb concatenació, mai amb una variable que pugui
+     valdre '' dins d'un `onclick` (el parany del 2/9/2026). */
+  const navega = (peu) =>
+    '<div class="assim-pas-nav' + (peu ? ' assim-pas-peu' : '') + '">'
+    + '<button type="button" class="btn btn-ghost assim-pas-ant"' + (i === 0 ? ' disabled' : '')
+    +   ' onclick="assimPas(-1,' + (peu ? 'true' : 'false') + ')">‹ Anterior</button>'
+    + (peu ? '' : '<span class="assim-pas-on">Objectiu <strong>' + (i + 1) + '</strong> de ' + total + '</span>')
+    + '<button type="button" class="btn ' + (peu ? 'btn-primary' : 'btn-ghost') + ' assim-pas-seg"'
+    +   (i === total - 1 ? ' disabled' : '')
+    +   ' onclick="assimPas(1,' + (peu ? 'true' : 'false') + ')">'
+    +   (peu ? 'Següent objectiu ›' : 'Següent ›') + '</button>'
+    + '</div>';
+
+  let h = '<div class="assim-pas" data-idx="' + i + '" data-total="' + total + '">';
+  h += navega(false);
+
+  /* La tira: un número per objectiu. Ple, si tots els alumnes ja el tenen
+     marcat; a mitges, si n'hi ha algun. El text sencer, al rètol. */
+  h += '<div class="assim-tira" role="navigation" aria-label="Objectius">';
+  objectius.forEach((o, k) => {
+    h += '<button type="button" class="assim-tira-num' + (k === i ? ' actual' : '') + _assimTiraEstat(o) + '"'
+      +  (o.bloc ? ' data-bloc="' + escapeHtml(o.bloc) + '"' : '')
+      +  (k === i ? ' aria-current="true"' : '')
+      +  ' title="' + escapeHtml((k + 1) + '. ' + (o.nom ? o.nom + ' — ' : '') + _assimObjTextComplet(o)) + '"'
+      +  ' onclick="assimVesA(' + k + ')">' + (k + 1) + '</button>';
+  });
+  h += '</div>';
+
+  /* L'objectiu, sencer. */
+  h += '<div class="assim-obj-fitxa' + (obj.oficial ? ' assim-obj-oficial' : '') + '">';
+  if (obj.bloc) h += '<div class="assim-obj-bloc">' + escapeHtml(obj.bloc) + '</div>';
+  if (!obj.oficial && obj.nom) h += '<div class="assim-obj-nom">' + escapeHtml(obj.nom) + '</div>';
+  h += '<p class="assim-obj-text">' + escapeHtml(obj.text || obj.nom || ('Objectiu ' + (i + 1))) + '</p>';
+  h += '<div class="assim-obj-peu"><span class="assim-obj-compte">'
+    +  (students.length ? marcats + ' de ' + students.length + ' alumnes marcats' : '') + '</span>';
+  if (!obj.oficial) {
+    h += '<button type="button" class="btn btn-ghost btn-sm assim-obj-edit" onclick="openAssimObj(\'' + _idJs(obj.id) + '\')">✎ Editar</button>'
+      +  '<button type="button" class="btn btn-ghost btn-sm assim-obj-esborra" onclick="deleteAssimObjDirect(\'' + _idJs(obj.id) + '\')">Esborrar</button>';
+  }
+  h += '</div></div>';
+
+  /* Els alumnes: nom, el seu % de tots els objectius, i els quatre botons. */
+  if (!students.length) {
+    h += '<p class="home-empty-hint">Encara no hi ha alumnes en aquest grup.</p>';
+  } else {
+    h += '<div class="assim-alumnes">';
+    students.forEach(s => {
+      const sid = _assimSid(s);
+      const compte = { mba: 0, ass: 0, aaj: 0, nass: 0 };
+      objectius.forEach(o => { const v = assimValGet(sid, o.id); if (v) compte[v]++; });
+      const info = _assimNivellInfo(assimValGet(sid, obj.id));
+      h += '<div class="assim-alumne" data-sid="' + escapeHtml(String(sid)) + '">'
+        +  '<span class="assim-al-nom">' + escapeHtml(nomAlumne(s)) + '</span>'
+        +  '<span class="assim-al-pct">' + _assimResumCel(compte, total) + '</span>'
+        +  _assimCasella4(sid, obj.id, info, 'div')
+        +  '</div>';
+    });
+    h += '</div>';
+  }
+
+  h += navega(true);
+  h += '</div>';
+  return h;
+}
+
+/* Després de marcar: el comptador de l'objectiu i el seu número de la tira,
+   sense repintar res (que la pantalla no salti mentre es marca). */
+function _assimRefrescaProgres() {
+  const pas = document.querySelector('#assimTableWrap .assim-pas');
+  if (!pas) return;
+  const obj = _assimObjActual();
+  if (!obj) return;
+  const n = _assimMarcats(obj);
+  const c = pas.querySelector('.assim-obj-compte');
+  if (c) c.textContent = n + ' de ' + students.length + ' alumnes marcats';
+  const num = pas.querySelector('.assim-tira-num.actual');
+  if (num) {
+    num.classList.toggle('fet', n >= students.length);
+    num.classList.toggle('mig', n > 0 && n < students.length);
+  }
 }
 
 function _renderAssimResum() {
@@ -11035,7 +11142,8 @@ function _renderAssimResum() {
    `data-nivell`. Els botons no tenen cap altra feina: tota la lògica és a
    `assimPosa`.
    ============================================================ */
-function _assimCasella4(sid, objId, info) {
+function _assimCasella4(sid, objId, info, etiqueta) {
+  const tag = etiqueta || 'td';
   const cls = info ? info.cls : 'assim-cell buit';
   const sidJs = _idJs(sid), objJs = _idJs(objId);
   const botons = ASSIM_NIVELLS.map(n => {
@@ -11046,9 +11154,9 @@ function _assimCasella4(sid, objId, info) {
          + ' onclick="assimPosa(\'' + sidJs + '\',\'' + objJs + '\',\'' + n.key + '\',this)">'
          + n.curt + '</button>';
   }).join('');
-  return '<td class="' + cls + ' assim-cell4" data-nivell="' + (info ? info.curt : '') + '"'
+  return '<' + tag + ' class="' + cls + ' assim-cell4" data-nivell="' + (info ? info.curt : '') + '"'
        + ' title="' + (info ? escapeHtml(info.nom) : 'Sense avaluar') + '">'
-       + '<div class="assim-4">' + botons + '</div></td>';
+       + '<div class="assim-4">' + botons + '</div></' + tag + '>';
 }
 
 /* Un toc a un dels quatre botons: posa aquell nivell, o el treu si ja hi era. */
@@ -11056,9 +11164,10 @@ function assimPosa(sid, objId, key, btn) {
   const cur = _assimNivell(assimValGet(sid, objId));
   const next = (cur === key) ? null : key;
   assimValSet(sid, objId, next);
-  const td = btn && btn.closest ? btn.closest('td') : null;
+  const td = btn && btn.closest ? btn.closest('.assim-cell4') : null;
   if (td) _applyAssimCell(td, next);
   _updateAssimRowPct(sid);
+  _assimRefrescaProgres();
 }
 
 /* --- Clicar una casella sencera: — → MBA → AS → AAJ → NA → — ---
@@ -11100,6 +11209,15 @@ function _applyAssimCell(cell, val) {
 
 function _updateAssimRowPct(sid) {
   const objectius = assimObjLoad();
+  /* La llista d'un objectiu cada vegada (23/11/2026): cada fila porta el
+     codi de l'alumne a `data-sid`. */
+  document.querySelectorAll('#assimTableWrap .assim-alumne').forEach(fila => {
+    if (fila.getAttribute('data-sid') !== String(sid)) return;
+    const compte = { mba: 0, ass: 0, aaj: 0, nass: 0 };
+    objectius.forEach(obj => { const v = assimValGet(sid, obj.id); if (v) compte[v]++; });
+    const pct = fila.querySelector('.assim-al-pct');
+    if (pct) pct.innerHTML = _assimResumCel(compte, objectius.length);
+  });
   const rows = document.querySelectorAll('.assim-table tbody tr');
   rows.forEach(tr => {
     const nomCell = tr.querySelector('.assim-td-nom');
@@ -11169,10 +11287,21 @@ function deleteAssimObjDirect(id) {
     return;
   }
   if (!confirm('Eliminar aquest objectiu i totes les seves avaluacions?')) return;
+  _assimQuedatAlLloc(id);
   const objectius = assimObjPropis().filter(o => o.id !== id);
   students.forEach(s => localStorage.removeItem(assimValKey(_assimSid(s), id)));
   assimObjSave(objectius);
   renderAssoliments();
+}
+
+/* En esborrar l'objectiu que es mira, quedar-se al mateix lloc (el que ve
+   darrere, o l'anterior si era l'últim) i no saltar al primer pendent. */
+function _assimQuedatAlLloc(idQueMarxa) {
+  const tots = assimObjLoad();
+  const i = tots.findIndex(o => o.id === idQueMarxa);
+  if (i === -1) return;
+  const resten = tots.filter(o => o.id !== idQueMarxa);
+  if (resten.length) _assimOnSoc[_assimOnClau()] = resten[Math.min(i, resten.length - 1)].id;
 }
 
 function openAssimObj(id) {
@@ -11211,7 +11340,9 @@ function saveAssimObj() {
     const obj = objectius.find(o => o.id === _assimEditObjId);
     if (obj) { obj.nom = nom; obj.text = text; }
   } else {
-    objectius.push({ id: Date.now().toString(), nom, text });
+    const id = Date.now().toString();
+    objectius.push({ id, nom, text });
+    _assimOnSoc[_assimOnClau()] = id;   // el nou, a la vista: és el que es vol marcar
   }
   assimObjSave(objectius);
   closeAssimObj();
@@ -11220,6 +11351,7 @@ function saveAssimObj() {
 
 function deleteAssimObj() {
   if (!_assimEditObjId || !confirm('Eliminar aquest objectiu i totes les seves avaluacions?')) return;
+  _assimQuedatAlLloc(_assimEditObjId);
   const objectius = assimObjPropis().filter(o => o.id !== _assimEditObjId);
   // Elimina les avaluacions d'aquest objectiu
   students.forEach(s => localStorage.removeItem(assimValKey(_assimSid(s), _assimEditObjId)));
@@ -11243,7 +11375,14 @@ function _assimErrorUbicacio() {
   const { curs, nom } = _assimCursINom(_assimMateria);
   const assig = nom || (typeof ASSIM_MATERIES !== 'undefined' ? ASSIM_MATERIES[_assimMateria] : '') || '(cap assignatura)';
   const trim = (typeof getTrimLabel === 'function') ? getTrimLabel(_assimTrim) : (_assimTrim + 'r trimestre');
-  return [curs || '(curs desconegut)', assig, trim].join(' · ');
+  /* I quin objectiu tenia a la vista: ara se'n veu un cada vegada, i sol ser
+     aquell el que està malament. */
+  let obj = '';
+  try {
+    const tots = assimObjLoad();
+    if (tots.length) { const i = _assimIdxActual(tots); obj = 'objectiu ' + (i + 1) + ' de ' + tots.length; }
+  } catch (e) { obj = ''; }
+  return [curs || '(curs desconegut)', assig, trim].concat(obj ? [obj] : []).join(' · ');
 }
 
 function openAssimError() {

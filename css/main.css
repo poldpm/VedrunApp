@@ -2849,6 +2849,76 @@ body {
 .assim-op.nass.on { background: #DC2626; border-color: #DC2626; }
 .assim-td-pct        { text-align: center; padding: 6px; background: #F9EDEF; white-space: nowrap; }
 
+/* ============================================================
+   UN OBJECTIU CADA VEGADA (23/11/2026)
+   En Pol: «és una pluja de botons, és un mareig». Ara surt un objectiu,
+   sencer, i a sota la llista d'alumnes amb el seu % i els quatre botons.
+   Res no llisca de costat: tot cap a l'ample de la pantalla.
+   ============================================================ */
+.assim-pas { min-width: 0; }
+.assim-pas-nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 10px;
+}
+.assim-pas-on { font-size: 14px; color: var(--text-sub); white-space: nowrap; }
+.assim-pas-on strong { color: var(--text-main); font-size: 16px; }
+.assim-pas-nav .btn:disabled { opacity: .35; cursor: default; }
+.assim-pas-nav .btn:disabled:hover { border-color: var(--border-strong); color: var(--text-sub); }
+.assim-pas-peu { margin: 14px 0 0; }
+.assim-pas-peu .assim-pas-seg { margin-left: auto; height: 44px; padding: 0 22px; font-size: 14px; font-weight: 600; }
+.assim-pas-peu .assim-pas-ant { height: 44px; }
+
+/* La tira de números: un per objectiu. Verd ple, si ja hi ha tots els
+   alumnes marcats; vora verda, si a mitges; el que es mira, granat. */
+.assim-tira { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.assim-tira-num {
+  min-width: 30px; height: 30px; padding: 0 6px; border-radius: 8px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-sub);
+  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.assim-tira-num:hover { border-color: var(--crimson); }
+.assim-tira-num.mig { border-color: #059669; color: #065F46; }
+.assim-tira-num.fet { background: #D1FAE5; border-color: #059669; color: #065F46; }
+.assim-tira-num.actual { background: var(--crimson); border-color: var(--crimson); color: #fff;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--crimson); }
+
+/* L'objectiu, sencer i ben llegible. */
+.assim-obj-fitxa {
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--crimson);
+  border-radius: var(--r-md); padding: 14px 16px; margin-bottom: 12px;
+}
+.assim-obj-fitxa .assim-obj-bloc { font-size: 11px; margin-bottom: 6px; }
+.assim-obj-fitxa .assim-obj-nom { font-size: 13px; margin-bottom: 4px; }
+.assim-obj-fitxa .assim-obj-text {
+  font-size: 17px; line-height: 1.45; color: var(--text-main); font-weight: 500;
+  margin: 0; text-align: left;
+}
+.assim-obj-peu { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.assim-obj-compte { font-size: 12.5px; color: var(--text-muted); margin-right: auto; }
+
+/* Els alumnes: nom, %, i els quatre botons en fila. */
+.assim-alumnes { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.assim-alumne {
+  display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 300px);
+  align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border);
+}
+.assim-alumne:last-child { border-bottom: none; }
+.assim-alumne:nth-child(even) { background: var(--surface-tint); }
+.assim-al-nom { font-size: 14px; font-weight: 500; color: var(--text-main); overflow-wrap: anywhere; }
+.assim-al-pct { text-align: center; }
+.assim-alumne .assim-cell.assim-cell4 { padding: 0; background: none; }
+.assim-alumne .assim-4 { grid-template-columns: repeat(4, 1fr); gap: 6px; min-width: 0; }
+.assim-alumne .assim-op { min-height: 38px; font-size: 12.5px; }
+/* Al mòbil: el nom i el % a dalt, els quatre botons a sota, d'ample sencer. */
+@media (max-width: 640px) {
+  .assim-alumne { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; padding: 10px 12px; }
+  .assim-alumne .assim-cell4 { grid-column: 1 / -1; }
+  .assim-alumne .assim-op { min-height: 44px; font-size: 13px; }
+  .assim-obj-fitxa .assim-obj-text { font-size: 16px; }
+  .assim-pas-nav .assim-pas-ant, .assim-pas-nav .assim-pas-seg { padding: 0 12px; }
+}
+
 /* El percentatge del final de cada fila. El recompte per nivells hi és al
    rètol del ratolí (l'atribut `title`). */
 .assim-resum-pct-pill {
