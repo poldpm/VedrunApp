@@ -12909,15 +12909,17 @@ function _comentCursText() {
 // seguits no tinguin la mateixa forma.
 var _COMENT_FORMES = [
   { id: 'fortalesa', pauta: 'Comenca destacant allo que li surt millor i despres passa al que encara ha de consolidar.' },
-  { id: 'progres',   pauta: 'Comenca per com ha anat el trimestre en conjunt i despres concreta punt per punt.' },
+  { id: 'progres',   pauta: 'Comenca per com ha anat el trimestre en conjunt i despres concreta-ho en dues o tres idees.' },
   { id: 'proces',    pauta: 'Comenca per la manera de treballar i l\'actitud a l\'aula, i despres entra en els continguts.' },
   { id: 'directe',   pauta: 'Entra directament en els continguts treballats, sense preambul, i tanca amb una mirada endavant.' },
   { id: 'evolucio',  pauta: 'Explica-ho com una evolucio: d\'on partia, on es ara i cap on ha d\'anar.' },
 ];
 var _COMENT_LONG = {
-  curt:   'Entre 3 i 4 linies. Ves al gra.',
-  mitja:  'Entre 5 i 7 linies.',
-  llarg:  'Entre 8 i 10 linies, amb mes detall.',
+  /* Amb línies sols, el model no sabia on parar: el 23/11/2026 un «mitjà»
+     va sortir de 220 paraules. Les paraules són el que de debò compta. */
+  curt:   'Entre 3 i 4 linies (uns 40-60 paraules). Ves al gra.',
+  mitja:  'Entre 5 i 7 linies (uns 60-90 paraules).',
+  llarg:  'Entre 8 i 10 linies (uns 90-130 paraules), amb mes detall.',
 };
 var _COMENT_FORMA_ULT = null;
 
@@ -13353,7 +13355,8 @@ function _comentPrompt(rubrica, alumne, esborrany) {
                estil.exemples.trim() + '\n"""');
   }
 
-  parts.push('\nIDEES QUE HA DE CONTENIR (venen de la rubrica que he marcat jo):\n"""\n' + esborrany + '\n"""');
+  parts.push('\nEL QUE HE MARCAT D\'AQUEST ALUMNE, objectiu per objectiu i per nivells. Es la base ' +
+             'del comentari, pero NO cal que hi surti cada objectiu:\n"""\n' + esborrany + '\n"""');
 
   /* El que el mestre ha escrit d'aquest nen, de les dues bandes. En Pol,
      12/11/2026: «ha de tenir en compte les observacions, tant si estan fetes
@@ -13412,7 +13415,27 @@ function _comentPrompt(rubrica, alumne, esborrany) {
   parts.push('\nCOM HO HAS D\'ESCRIURE:');
   parts.push('- ' + forma.pauta);
   parts.push('- ' + llarg);
-  parts.push('- Conserva TOTES les idees que t\'he donat. No n\'afegeixis de noves ni te\'n deixis cap.');
+  /* ⚠ ABANS AQUÍ DEIA «Conserva TOTES les idees, no te'n deixis cap».
+     En Pol, 23/11/2026, amb un comentari de robòtica a la mà: tretze
+     objectius en NA i el model, obligat a dir-los tots, en va fer una
+     llista de tretze coses que el nen no sap fer, encadenades amb «per
+     això» inventats, amb noms de programes, i 220 paraules. «Per fer-ho
+     així val més no fer-ho.» Un comentari per a una família no és la
+     graella passada a prosa. */
+  parts.push('- NO enumeris els objectius un per un. Agrupa\'ls en dues o tres idees de fons i ' +
+             'digues-les amb paraules de familia.');
+  parts.push('- Si n\'hi ha cap de marcat com a MBA, AS o AAJ, la primera cosa que diguis de l\'alumne ' +
+             'ha de ser una que li vagi be. Si no n\'hi ha cap, comenca per com ha anat el trimestre, ' +
+             'sense inventar-te res de bo.');
+  parts.push('- De les dificultats, parla com a molt de DUES, les mes importants. La resta no cal dir-les.');
+  parts.push('- No enumeris eines, programes, aplicacions ni materials, i no facis servir tecnicismes ' +
+             '(sensor, actuador, algoritme, esdeveniment…): digues-ho amb paraules de cada dia.');
+  parts.push('- No relacionis una cosa amb una altra com si en fos la causa («aixo fa que…», «per aixo…») ' +
+             'si no t\'ho he dit jo.');
+  parts.push('- Els apunts i les observacions son per entendre l\'alumne, no per citar-los: no expliquis ' +
+             'cap episodi negatiu concret.');
+  parts.push('- Tanca amb una sola frase, concreta i en positiu, del que farem el trimestre vinent.');
+  parts.push('- No afegeixis res que no surti del que t\'he donat, ni bo ni dolent.');
   parts.push('- Anomena\'l ' + article + nomCurt + ' una sola vegada; despres evita repetir el nom.');
   if (estil.to === 'proper')      parts.push('- To proper i calid, com qui parla amb la familia de tu a tu.');
   else if (estil.to === 'formal') parts.push('- To formal i professional.');
@@ -13498,7 +13521,23 @@ async function generarComentari() {
         }
       } else throw e;
     }
+    /* ⚠ PARAULES TRENCADES (en Pol, 23/11/2026: «repetthem» per
+       «repeticions», enmig d'un comentari per a una família). Passa poc,
+       però no pot arribar mai a l'informe. Si se'n troba cap, es demana una
+       altra vegada; si encara n'hi ha, es diu quina a sota del text. */
+    let _sospites = _comentParaulesEstranyes(text, alumne);
+    if (_sospites.length) {
+      try {
+        const t2 = await _iaGenerate(prompt + '\n- Revisa que totes les paraules siguin catalanes i ben escrites.');
+        if (t2) { text = t2; _sospites = _comentParaulesEstranyes(t2, alumne); }
+      } catch (e3) { /* es queda amb el primer, amb l'avís */ }
+    }
     _mostrarComentari(text, rubrica, alumne, true);
+    if (_sospites.length) {
+      const c = document.getElementById('comentResultConsell');
+      if (c) c.textContent = '⚠ Revisa ' + (_sospites.length > 1 ? 'aquestes paraules' : 'aquesta paraula') +
+        ', que sembla mal escrita: «' + _sospites.join('», «') + '». ' + c.textContent;
+    }
   } catch(e) {
     _mostrarComentari(esborrany, rubrica, alumne, false);
     /* ⚠ Sense clau de Gemini, aixo treia un toast vermell amb text tecnic
@@ -13513,6 +13552,22 @@ async function generarComentari() {
       : 'Error Gemini: ' + errorHuma(e);
     showToast(msg, 'error');
   }
+}
+
+/* Paraules que no poden ser catalanes: «th», «tt», «ck» o «ph» dins d'una
+   paraula en minúscula (els noms propis, com Scratch o Thiago, comencen en
+   majúscula i no es miren). Prou estret perquè no salti amb paraules bones
+   («deshonest», «web»), i prou per caçar el que va passar el 23/11/2026. */
+function _comentParaulesEstranyes(text, alumne) {
+  const noms = new Set(String((alumne && alumne.nom) || '').toLowerCase().split(/\s+/).filter(Boolean));
+  const out = [];
+  (String(text || '').match(/[A-Za-zÀ-ÖØ-öø-ÿ·]+/g) || []).forEach(w => {
+    if (!/^[a-zà-öø-ÿ]/.test(w)) return;
+    const l = w.toLowerCase();
+    if (noms.has(l)) return;
+    if (/th|tt|ck|ph/.test(l) && out.indexOf(w) === -1) out.push(w);
+  });
+  return out;
 }
 
 // Retorna l'article català correcte: "en ", "la ", "l'"
