@@ -351,7 +351,11 @@ const OBJECTIUS_OFICIALS = {
 
   /* ---------- 3r de Primària ---------- */
   '3r|1': {
-    provisional: true,
+    /* 23/11/2026, a la tarda: Música i els quatre tallers també a negre
+       (títols i objectius, mirat paràgraf per paràgraf). Ja és tot negre:
+       `provisional: false`, i la llista de `definitius` de sota ja no fa
+       res (es queda per l'historial). */
+    provisional: false,
     /* En negre al document, repassades (llegit amb `eines/objectius-colors.js`
        el 9/11/2026 a la tarda). A Anglès els objectius van mig negres i mig
        vermells i el títol encara és vermell: es queda provisional.
