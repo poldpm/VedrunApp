@@ -355,8 +355,10 @@ const OBJECTIUS_OFICIALS = {
     /* En negre al document, repassades (llegit amb `eines/objectius-colors.js`
        el 9/11/2026 a la tarda). A Anglès els objectius van mig negres i mig
        vermells i el títol encara és vermell: es queda provisional.
-       16/11/2026: direcció ha refet Català i l'ha passat a negre. */
-    definitius: ['Català', 'Castellà', 'Medi', 'Matemàtiques', 'Cultura Religiosa'],
+       16/11/2026: direcció ha refet Català i l'ha passat a negre.
+       23/11/2026: ha refet Anglès i l'ha passat a negre, i també Educació
+       Física. Només hi queden en vermell Música i Tallers. */
+    definitius: ['Català', 'Castellà', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Educació Física'],
     canvis: {
       'Català': {
         data: '18 de novembre',
@@ -369,6 +371,10 @@ const OBJECTIUS_OFICIALS = {
       'Matemàtiques': {
         data: '18 de novembre',
         que: 'Direcció ha tret «Localitzar i descriure relacions espacials», que era el 15è: els tres de sota han pujat una casella.',
+      },
+      'Anglès': {
+        data: '23 de novembre',
+        que: 'Direcció ha canviat el 7è i el 8è (ara són les estructures i el vocabulari de repàs: de 2n, la família i la casa) i n’ha tret l’11è («What time is…»). El de Nadal, que era el 12è, ara és l’11è.',
       },
       'Música': {
         data: '10 de novembre',
@@ -416,11 +422,10 @@ const OBJECTIUS_OFICIALS = {
         'Expressar oralment i a través de l’escriptura els elements més significatius de cada unitat.',
         'Desenvolupar diàlegs breus, fer preguntes i respostes utilitzant les estructures i el vocabulari treballat.',
         'Comprendre diferents tipus de textos (enunciats, còmics, contes...)',
-        'Saber les estructures verbals treballades (Are they (big)? Yes, they are. / No, they aren’t. They’re (black and white)! They play. They don’t walk.',
-        'Conèixer el vocabulari de cada unitat (animals in danger,a dolphin, a gorilla, a hippo, a panda, a seal, a tiger, a tortoise, a whale i els verbs drink, eat, fight, play, sleep, walk) i consolidar el vocabulari anterior (colors, números, mesos de l’any, vocabulari anys anteriors...).',
+        'Saber les estructures verbals treballades (What’s your name? / How old are you? / Have you got…? / What’s he/she reading? / Can you ride a bike? / Who’s (Stella’s aunt)?, What colour’s…? / What number’s…?), juntament amb els temps verbal present simple i present continuous, have got, can/can’t.',
+        'Conèixer el vocabulari de cada unitat (repàs del vocabulari treballat a 2n, la família i els trets físics i la casa)',
         'Comprendre el vocabulari i les estructures gramaticals de l’obra de teatre en anglès “Magic Mindy”.',
         'Conèixer les tradicions i vocabulari de Halloween.',
-        'Saber les estructures verbals treballades (What time is (Maths)? (Maths) is at (nine) o’clock / half past (ten). He / She lives … He / She doesn’t like, What have you got on your pizza? Have you got any (pineapple), I’ve got some (pineapple). I haven’t got any (peppers). Does he / she like (spinach)? …Yes, he / she does. / No, he / she doesn’t.',
         'Conèixer les tradicions de Nadal i el seu vocabulari (broccoli, Christmas pudding, gravy, mince pies, peas, roast potatoes, roast turkey i sprouts).',
       ],
       'Medi': [
@@ -528,10 +533,12 @@ const OBJECTIUS_OFICIALS = {
 
   /* ---------- 4t de Primària ---------- */
   '4t|1': {
-    provisional: true,
     /* 16/11/2026: direcció ha passat Castellà a negre.
-       18/11/2026: tot a negre menys Educació Física. */
-    definitius: ['Català', 'Castellà', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Música', 'Tallers'],
+       18/11/2026: tot a negre menys Educació Física.
+       23/11/2026: també Educació Física (títol i objectius, llegit amb
+       `eines/objectius-colors.js`). Ja és tot negre: ni `provisional` ni la
+       llista de `definitius`, i l'avís groc ja no surt enlloc de 4t. */
+    provisional: false,
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
