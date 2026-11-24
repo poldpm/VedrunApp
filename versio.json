@@ -1,12 +1,12 @@
 {
-  "versio": "v387",
-  "data": "2026-11-23",
+  "versio": "v388",
+  "data": "2026-11-24",
   "titol": "Novetats d aquesta versió",
   "canvis": [
+    "Objectius de 1r: ja són tots definitius, també els d’Anglès. Ja no hi surt l’avís groc de provisionals.",
     "Objectius de 3r: ja són tots definitius, també els de Música i els dels tallers. Ja no hi surt l’avís groc de provisionals.",
     "Objectius de 3r, Anglès: direcció n’ha canviat el 7è i el 8è i n’ha tret l’11è; el de Nadal ara és l’11è. Si ja n’havies marcat, repassa’ls: l’app t’avisa en vermell. Anglès i Educació física de 3r ja són definitius.",
     "Objectius de 4t: ja són tots definitius, també els d’Educació física. Ja no hi surt l’avís groc de provisionals.",
-    "Generador de comentaris: cada comentari es desa sol al teu full, a la pestanya «Comentaris» (una fila per alumne, assignatura i trimestre). Si el retoques, també. Tancar la finestra ja no el perd.",
-    "En tornar a triar un alumne, et surt el comentari que ja té, amb el botó «Obrir-lo». Al desplegable, els que ja en tenen porten un ✓, i si en generes un de nou t’ho pregunta abans."
+    "Generador de comentaris: cada comentari es desa sol al teu full, a la pestanya «Comentaris» (una fila per alumne, assignatura i trimestre). Si el retoques, també. Tancar la finestra ja no el perd."
   ]
 }

@@ -64,11 +64,14 @@ const OBJECTIUS_OFICIALS = {
 
   /* ---------- 1r de Primària ---------- */
   '1r|1': {
-    provisional: true,
     /* En negre al document, repassades (llegit amb `eines/objectius-colors.js`
        el 12/11/2026). Hi falta Anglès —títol i objectius encara vermells—.
        16/11/2026: l'artística (Música i Tallers) ja és negra, i a Robòtica
-       n'hi ha dos de nous al final. */
+       n'hi ha dos de nous al final.
+       24/11/2026: també Anglès. Tot el document és negre (mirat paràgraf per
+       paràgraf: ni un caràcter vermell): `provisional: false`, i la llista
+       de `definitius` de sota ja no fa res (es queda per l'historial). */
+    provisional: false,
     definitius: ['Català', 'Castellà', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Educació Física', 'Música', 'Tallers'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
