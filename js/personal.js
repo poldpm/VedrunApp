@@ -1096,3 +1096,10 @@ window.EINES_AULES = true;
    ============================================================ */
 window.IA_CLAUDE = true;
 window.IA_COST   = true;
+
+/* ============================================================
+   ANÀLISI DEL CURS (v389). En Pol, 24/11/2026: «de moment me
+   l'implantaràs només en el meu perfil i a la resta de mestres els hi
+   posaràs com a possible actualització». Eines → Anàlisi del curs.
+   ============================================================ */
+window.EINES_ANALISI = true;

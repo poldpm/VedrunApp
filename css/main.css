@@ -7170,3 +7170,139 @@ textarea.modal-input[rows="6"], textarea.modal-input[rows="7"], textarea.modal-i
   font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto;
 }
+
+/* ============================================================
+   ANÀLISI DEL CURS (v389, eina opcional — js/analisi.js)
+   ------------------------------------------------------------
+   Targetes en graella: dues columnes a l'ordinador, una al mòbil.
+   Els gràfics són SVG i CSS fets a mà (sense llibreries: l'app
+   ha de funcionar sense connexió).
+   ============================================================ */
+.an-pagina { max-width: 1100px; }
+.an-controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.an-sel { display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: start; gap: 8px; }
+.an-sel-et { font-size: 12px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: .04em; padding-top: 9px; }
+.an-sel .trim-sel-row { margin-top: 0; }
+.an-sel .desdob-bar-wrap { grid-column: 2; }
+.an-cos { display: flex; flex-direction: column; gap: 16px; }
+.an-carregant { display: flex; align-items: center; gap: 10px; color: var(--text-sub); padding: 24px 4px; }
+
+.an-xifres { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.an-xifra { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.an-xifra-n { font-size: 26px; font-weight: 800; color: var(--text-main); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.an-xifra-nom { font-size: 12px; color: var(--text-sub); }
+.an-xifra.an-alerta { border-color: #FCA5A5; background: #FEF2F2; }
+.an-xifra.an-alerta .an-xifra-n { color: #B91C1C; }
+
+.an-graella { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.an-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px 18px; min-width: 0; }
+.an-card.an-ample { grid-column: 1 / -1; }
+.an-card-tit { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: var(--garnet-text); }
+.an-card-sub { margin: 0 0 12px; font-size: 12.5px; color: var(--text-sub); line-height: 1.45; }
+.an-buit { margin: 6px 0; color: var(--text-sub); font-size: 14px; line-height: 1.5; }
+.an-peu { margin: 10px 0 0; font-size: 12.5px; color: var(--text-sub); line-height: 1.5; }
+.an-nota { margin: 0; font-size: 12px; color: var(--text-muted); }
+.an-gris { color: var(--text-muted); font-weight: 400; }
+.an-h4 { margin: 14px 0 6px; font-size: 13px; font-weight: 700; color: var(--text-main); }
+.an-dues { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.an-dues .an-h4 { margin-top: 0; }
+
+/* Llegenda */
+.an-llegenda { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-main); }
+.an-llegenda-fila { flex-direction: row; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12.5px; }
+.an-punt { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* Rodona */
+.an-donut { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.an-donut svg { width: 140px; height: 140px; flex: 0 0 auto; }
+.an-donut-n { font-size: 26px; font-weight: 800; fill: var(--text-main); }
+.an-donut-sub { font-size: 12px; fill: var(--text-sub); }
+
+/* Barra apilada */
+.an-apilada { display: flex; height: 30px; border-radius: 8px; overflow: hidden; background: var(--surface-alt); gap: 2px; }
+.an-apilada > span { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12.5px; font-weight: 700; min-width: 0; }
+.an-apilada-petita { height: 18px; border-radius: 5px; }
+.an-apilada-petita > span { font-size: 11px; }
+
+/* Barres horitzontals */
+.an-barres { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.an-barres li { display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 13px; padding: 2px 4px; border-radius: 6px; }
+.an-barra-nom { color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.an-barra-peu { display: block; font-size: 11.5px; color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; }
+.an-barra-pista { height: 12px; background: var(--surface-alt); border-radius: 6px; overflow: hidden; }
+.an-barra { display: block; height: 100%; border-radius: 6px; }
+.an-barra-txt { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-main); min-width: 44px; text-align: right; }
+
+/* Histograma */
+.an-hist { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 4px; height: 150px; align-items: end; }
+.an-hist-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; }
+.an-hist-n { font-size: 11px; font-weight: 700; color: var(--text-main); min-height: 14px; }
+.an-hist-barra { width: 100%; border-radius: 4px 4px 0 0; min-height: 0; }
+.an-hist-et { font-size: 11px; color: var(--text-sub); }
+
+/* Línies i núvol */
+.an-linia, .an-nuvol { width: 100%; height: auto; display: block; }
+.an-linia { max-height: 180px; }
+.an-nuvol { max-width: 320px; margin: 0 auto; }
+.an-grid { stroke: var(--border); stroke-width: 1; }
+.an-eix { font-size: 10px; fill: var(--text-sub); }
+.an-valor { font-size: 10.5px; font-weight: 700; }
+
+/* Llistes d'alumnes */
+.an-alumnes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.an-alumnes li { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 8px 6px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.an-alumnes li:last-child { border-bottom: 0; }
+.an-al-nom { font-weight: 600; color: var(--text-main); }
+.an-motius { display: flex; flex-wrap: wrap; gap: 4px; }
+.an-motiu { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-alt); color: var(--text-sub); }
+.an-motiu.an-mal { background: #FEE2E2; color: #991B1B; }
+.an-motiu.an-avis { background: #FEF3C7; color: #92400E; }
+.an-motiu.an-ok { background: #D1FAE5; color: #065F46; }
+.an-motiu.an-info { background: #E0E7FF; color: #3730A3; }
+.an-al-dreta { margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-sub); }
+.an-chip { display: inline-block; min-width: 30px; text-align: center; padding: 1px 6px; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.an-chip-buit { background: var(--surface-alt); color: var(--text-muted); }
+.an-clicable { cursor: pointer; }
+.an-clicable:hover { background: var(--surface-tint); }
+.an-clicable:focus-visible { outline: 2px solid var(--crimson); outline-offset: 1px; }
+
+/* Objectius */
+.an-objs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.an-objs li { display: flex; flex-direction: column; gap: 5px; }
+.an-obj-text { font-size: 13.5px; line-height: 1.45; color: var(--text-main); }
+.an-obj-peu { font-size: 11.5px; }
+
+/* Feina pendent */
+.an-pendent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.an-pendent li { padding: 8px 12px; border-radius: 8px; line-height: 1.4; }
+.an-pendent li.an-ok { background: #ECFDF5; color: #065F46; }
+.an-pendent li.an-avis { background: #FFFBEB; color: #92400E; }
+
+/* Quadre alumne × assignatura */
+.an-quadre-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 8px; }
+.an-quadre { border-collapse: collapse; width: 100%; font-size: 13px; }
+.an-quadre th, .an-quadre td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
+.an-quadre thead th { background: var(--surface-alt); font-size: 11.5px; font-weight: 700; color: var(--text-sub); position: sticky; top: 0; }
+.an-quadre thead th span { display: inline-block; max-width: 92px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+.an-quadre .an-q-nom { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 1; }
+.an-quadre thead .an-q-nom { background: var(--surface-alt); z-index: 2; }
+.an-q-cel { font-weight: 700; font-variant-numeric: tabular-nums; }
+.an-q-susp { color: #B91C1C; background: #FEF2F2; }
+.an-link { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--garnet-text); cursor: pointer; text-align: left; }
+.an-link:hover { text-decoration: underline; }
+
+@media (max-width: 760px) {
+  .an-graella, .an-dues { grid-template-columns: minmax(0, 1fr); }
+  .an-sel { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .an-sel-et { padding-top: 0; }
+  .an-sel .desdob-bar-wrap { grid-column: 1; }
+  .an-card { padding: 14px; }
+  .an-barres li { grid-template-columns: minmax(0, 42%) minmax(0, 1fr) auto; gap: 8px; }
+  .an-xifra-n { font-size: 22px; }
+}
+.an-evo .an-h4 { margin: 0 0 2px; font-size: 12px; color: var(--text-sub); font-weight: 600; }
+@media (max-width: 760px) {
+  .an-xifres { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .an-xifra { padding: 10px; }
+  .an-xifra-nom { font-size: 11.5px; line-height: 1.3; }
+}

@@ -132,6 +132,20 @@ const MILLORES = [
     /* Com se sap si ja la t\u00e9: l'interruptor del seu `js/personal.js`. */
     interruptor: 'EINES_TEMPORITZADOR',
   },
+  {
+    id: 'analisi-curs',
+    titol: 'Anàlisi del curs',
+    ras: 'Com va la classe, en gràfics: qui aprova, qui no, què costa més i qui cal mirar.',
+    mes: [
+      'A Eines \u2192 Anàlisi del curs. Tries la tutoria, una assignatura o totes, i el trimestre (o tot el curs).',
+      'Quants aproven i suspenen, quants NA, AS, AN i AE, les activitats que han anat pitjor, els NE, qui puja i qui baixa i els objectius que costen més.',
+      'Una llista d\u2019alumnes a mirar i la feina que et queda: notes per posar, objectius per marcar i comentaris per fer.',
+      'Surt tot de les notes i els assoliments que ja tens posats: no has d\u2019escriure res.',
+    ],
+    data: '2026-11-24',
+    /* Com se sap si ja la té: l'interruptor del seu `js/personal.js`. */
+    interruptor: 'EINES_ANALISI',
+  },
 ];
 
 /* A qui s'ofereix cada millora. Sense `rols`, a tothom.

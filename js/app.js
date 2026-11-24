@@ -325,6 +325,11 @@ function showPage(pageId, _fromPop) {
       !(typeof Aules !== 'undefined' && Aules.hiEs && Aules.hiEs())) {
     pageId = 'home';
   }
+  /* Anàlisi del curs: una altra eina que només té qui l'ha demanada. */
+  if (pageId === 'analisi' &&
+      !(typeof Analisi !== 'undefined' && Analisi.hiEs && Analisi.hiEs())) {
+    pageId = 'home';
+  }
   /* La meva llibreta: una altra eina que només té qui l'ha demanada. */
   if (pageId === 'llibreta' &&
       !(typeof Llibreta !== 'undefined' && Llibreta.hiEs && Llibreta.hiEs())) {
@@ -388,6 +393,7 @@ function showPage(pageId, _fromPop) {
   if (pageId === 'eines')        renderEines();
   if (pageId === 'aules')        { if (typeof Aules !== 'undefined') Aules.obrePagina(); }
   if (pageId === 'llibreta')     { if (typeof Llibreta !== 'undefined') Llibreta.obrePagina(); }
+  if (pageId === 'analisi')      { if (typeof Analisi !== 'undefined') Analisi.obrePagina(); }
   if (pageId === 'temporitzador') { if (typeof Temporitzador !== 'undefined') Temporitzador.obre(); }
   if (pageId === 'grups')        initGrups();
   if (pageId === 'seients')      initSeients();
@@ -565,6 +571,7 @@ const EINES_DESC = {
   aules:      'Quines aules auxiliars s\u00f3n buides ara, i fins a quina hora.',
   temporitzador: 'Un compte enrere gran, per projectar: «cinc minuts i recollim».',
   llibreta:   'El que no vols oblidar, apuntat per dies. Es busca, i d\'una línia en surt una tasca o un event.',
+  analisi:    'Com va la classe, en gràfics: qui aprova, qui no, què costa més i qui cal mirar.',
 };
 
 function renderEines() {
@@ -6215,6 +6222,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try { if (typeof Aules !== 'undefined') Aules.aplicaInterficie(); } catch (e) {}
   try { if (typeof Llibreta !== 'undefined') Llibreta.aplicaInterficie(); } catch (e) {}
   try { if (typeof Temporitzador !== 'undefined') Temporitzador.aplicaInterficie(); } catch (e) {}
+  try { if (typeof Analisi !== 'undefined') Analisi.aplicaInterficie(); } catch (e) {}
   updateHomeCounters(); // inicialitza data sidebar
   // Mostra el nom del perfil al menú des del cache local (immediat)
   try {

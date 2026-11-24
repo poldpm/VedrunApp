@@ -548,3 +548,67 @@ acaba a Tasques i al Calendari de debò, sense una tercera llista a part.
 
 **Depèn de:** també `Code.gs` (en Pol enganxa la biblioteca un sol cop i
 arriba a totes alhora; cap mestra no ha de fer res).
+
+---
+
+## `analisi-curs` — Anàlisi del curs
+
+**Què fa:** un tauler amb gràfics de com va la classe, a partir de les dades
+que l'app ja té (notes, NE, assoliments, actitud, comentaris desats,
+observacions i registres). Tres vistes: la tutoria (o, a direcció, el grup
+triat a Alumnes), una assignatura i totes les assignatures de la mestra; i el
+trimestre (1r, 2n, 3r o tot el curs, que és la mitjana dels que tinguin nota).
+Serveix a tutors, especialistes i direcció.
+
+**Fitxers:**
+- `js/analisi.js` — tot: llegir, calcular i pintar. Neix apagat
+  (`window.EINES_ANALISI`).
+- `index.html` — el botó de la llista d'eines (`#navAnalisi`, amagat de
+  naixement), la pàgina `#page-analisi` i el `<script>`.
+- `css/main.css` — `.an-*` (targetes en graella de dues columnes; una al
+  mòbil).
+- `sw.js` — `js/analisi.js` al cache de fora de línia.
+- `js/app.js` — `EINES_DESC.analisi`, la redirecció de `#analisi` a qui no la
+  tingui, `Analisi.obrePagina()` en entrar-hi i l'`aplicaInterficie()`.
+- `js/millores.js` — l'entrada del catàleg, amb `interruptor`.
+- `eines/comprova-analisi.js` — el banc (navegador de debò + `Code.gs` de
+  debò, els tres rols, dades buides i mòbil), dins de `prova-tot.js`.
+
+**Com funciona:**
+- La **nota del trimestre** de cada alumne surt de `getNotesResum`, el mateix
+  càlcul que la columna Mitjana del full, la pantalla de Notes i la fitxa
+  (categories, actitud i Carpeta inclosos). Si es calculés aquí, l'anàlisi
+  diria una nota i la fitxa una altra. Només si el resum no porta aquella
+  pestanya es fa la ponderada de les activitats, i es diu a sota.
+- El **detall de les activitats** (nota, NE, categoria, adaptades) surt de
+  `getNotes`, amb la clau i el grup calculats EXACTAMENT com a `openNotes`
+  (`_navMateriaKey`, `_assigDesdobMap`/`_ddDeEntrada`, `grupFix`).
+- Els **nens** es carreguen amb els mateixos carregadors que Notes i
+  Assoliments (desdoblament amb la seva barra de grup).
+- **Assoliments, actitud i comentaris** es llegeixen amb les funcions de les
+  seves pantalles (`assimValGet`, `getActitud`, `_comentDesatsLlegeix` després
+  de `_comentDesatsDelFull`), així la clau sempre és la mateixa.
+- A la tutoria, les **assignatures d'altres mestres** surten de
+  `carregaNotesCompartides` (per `rowId` de la fitxa, com
+  `pintaNotesAltresMestres`).
+- Gràfics en SVG i CSS fets a mà: cap llibreria, funciona sense dependències.
+- Només llegeix: no escriu res al full. Al navegador només recorda la vista
+  triada (`analisi_tria`).
+
+**Paranys:**
+1. **Crides que arriben tard.** Canviar de vista o trimestre de pressa feia
+   que una resposta vella pintés a sobre de la nova: cada pintada porta un
+   número de torn i, si no és l'últim, es llença.
+2. **L'assoliment de cada alumne es calcula sobre els objectius MARCATS**, no
+   sobre el total: a mig trimestre, comptar els buits com a zeros feia
+   semblar que tothom anava malament i omplia «no quadren» de falsos avisos.
+3. **«Cap observació» no va a «Alumnes a mirar»**: a principi de trimestre hi
+   sortia tota la classe i amagava els que de debò cal mirar. Va a «La teva
+   feina pendent».
+4. **L'evolució no es pinta amb un sol trimestre**: una línia d'un punt no diu
+   res i ocupava mitja pantalla.
+5. `comprova-controls.js` marca `onclick="' + x + '"` com a buit: els
+   atributs de clic es fan amb `clicable()` (plantilla).
+
+**Depèn de:** només pantalla. Les crides al servidor ja hi eren totes; la
+mestra no ha de fer res.

@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/main.css?v=v388">
+  <link rel="stylesheet" href="css/main.css?v=v389">
 </head>
 <body>
   <!-- ⚠ El primer que troba el tabulador: saltar-se el menú i anar al
@@ -169,6 +169,12 @@
         <a class="nav-item" id="navRubaval" style="display:none" href="#" onclick="showPage('rubaval'); return false;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/><path d="M13 14h5M13 17h3"/></svg>
           Rúbriques d'avaluació
+        </a>
+        <!-- Anàlisi del curs: neix amagada. Només la veu qui tingui
+             `window.EINES_ANALISI = true` al seu js/personal.js. -->
+        <a class="nav-item" id="navAnalisi" style="display:none" href="#" onclick="showPage('analisi'); return false;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="0.5"/><rect x="12" y="8" width="3" height="10" rx="0.5"/><rect x="17" y="5" width="3" height="13" rx="0.5"/></svg>
+          Anàlisi del curs
         </a>
         <!-- Temporitzador: neix amagat. Només el veu qui tingui
              `window.EINES_TEMPORITZADOR = true` al seu js/personal.js. -->
@@ -1168,6 +1174,16 @@ Català, Matemàtiques, Anglès, Medi, Català
         <div class="rubaval-picker" id="rubavalPicker"></div>
         <div id="rubavalLlista"></div>
         <div id="rubavalAvalua" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- PÀGINA: ANÀLISI DEL CURS (eina opcional, veure js/analisi.js) -->
+    <div class="page-content page-hidden" id="page-analisi">
+      <div class="page-inner an-pagina">
+        <h1 class="hero-title" style="margin:0">Anàlisi del curs</h1>
+        <p class="hero-tagline" style="margin:4px 0 16px">Com va la classe, en gràfics: qui aprova, qui no, què costa més i qui cal mirar.</p>
+        <div id="anControls" class="an-controls"></div>
+        <div id="anCos" class="an-cos"></div>
       </div>
     </div>
 
@@ -2813,53 +2829,54 @@ Català, Matemàtiques, Anglès, Medi, Català
   </div>
 
   <!-- defer: descàrrega en paral·lel, execució ordenada (config→app→resta) abans del DOMContentLoaded -->
-  <script defer src="js/espera.js?v=v388"></script>
-  <script defer src="js/pdfhorari.js?v=v388"></script>
-  <script defer src="js/millores.js?v=v388"></script>
-  <script defer src="js/rol.js?v=v388"></script>
-  <script defer src="js/config.local.js?v=v388"></script>
+  <script defer src="js/espera.js?v=v389"></script>
+  <script defer src="js/pdfhorari.js?v=v389"></script>
+  <script defer src="js/millores.js?v=v389"></script>
+  <script defer src="js/rol.js?v=v389"></script>
+  <script defer src="js/config.local.js?v=v389"></script>
   <!-- Cada app, la seva memòria del navegador (22/11/2026). Va just DESPRÉS
        del config.local.js (en necessita el token i l'adreça del servidor per
        saber quines dades guardades eren d'aquesta app) i ABANS de tot el que
        llegeix o desa al navegador en carregar-se. -->
-  <script defer src="js/memoria.js?v=v388"></script>
+  <script defer src="js/memoria.js?v=v389"></script>
   <!-- Entrar amb Google. Va DESPRÉS del config.local.js (d'allà en treu si
        aquesta app el té encès) i ABANS de l'app, que el crida en arrencar.
        A qui no el tingui encès, aquest fitxer no fa res de res. -->
-  <script defer src="js/login.js?v=v388"></script>
+  <script defer src="js/login.js?v=v389"></script>
   <!-- Els objectius oficials de direcció: han de ser-hi abans que l'app els
        demani a la pantalla d'Assoliments. -->
-  <script defer src="js/objectius.js?v=v388"></script>
-  <script defer src="js/app.js?v=v388"></script>
-  <script defer src="js/notes.js?v=v388"></script>
-  <script defer src="js/seients.js?v=v388"></script>
-  <script defer src="js/perfil.js?v=v388"></script>
-  <script defer src="js/grupview.js?v=v388"></script>
-  <script defer src="js/postits.js?v=v388"></script>
-  <script defer src="js/llibreta.js?v=v388"></script>
-  <script defer src="js/horari.js?v=v388"></script>
-  <script defer src="js/gwrite.js?v=v388"></script>
-  <script defer src="js/rubriques.js?v=v388"></script>
-  <script defer src="js/rubaval.js?v=v388"></script>
-  <script defer src="js/rubaval-ui.js?v=v388"></script>
-  <script defer src="js/docents.js?v=v388"></script>
-  <script defer src="js/coordinacio.js?v=v388"></script>
-  <script defer src="js/regdocents.js?v=v388"></script>
-  <script defer src="js/segentrevistes.js?v=v388"></script>
-  <script defer src="js/horariclaustre-dades.js?v=v388"></script>
-  <script defer src="js/horariclaustre.js?v=v388"></script>
-  <script defer src="js/entrevistes.js?v=v388"></script>
-  <script defer src="js/incidencies.js?v=v388"></script>
-  <script defer src="js/temporitzador.js?v=v388"></script>
-  <script defer src="js/aules.js?v=v388"></script>
-  <script defer src="js/notescomp.js?v=v388"></script>
-  <script defer src="js/reunions.js?v=v388"></script>
-  <script defer src="js/versio.js?v=v388"></script>
+  <script defer src="js/objectius.js?v=v389"></script>
+  <script defer src="js/app.js?v=v389"></script>
+  <script defer src="js/notes.js?v=v389"></script>
+  <script defer src="js/seients.js?v=v389"></script>
+  <script defer src="js/perfil.js?v=v389"></script>
+  <script defer src="js/grupview.js?v=v389"></script>
+  <script defer src="js/postits.js?v=v389"></script>
+  <script defer src="js/llibreta.js?v=v389"></script>
+  <script defer src="js/horari.js?v=v389"></script>
+  <script defer src="js/gwrite.js?v=v389"></script>
+  <script defer src="js/rubriques.js?v=v389"></script>
+  <script defer src="js/rubaval.js?v=v389"></script>
+  <script defer src="js/rubaval-ui.js?v=v389"></script>
+  <script defer src="js/docents.js?v=v389"></script>
+  <script defer src="js/coordinacio.js?v=v389"></script>
+  <script defer src="js/regdocents.js?v=v389"></script>
+  <script defer src="js/segentrevistes.js?v=v389"></script>
+  <script defer src="js/horariclaustre-dades.js?v=v389"></script>
+  <script defer src="js/horariclaustre.js?v=v389"></script>
+  <script defer src="js/entrevistes.js?v=v389"></script>
+  <script defer src="js/incidencies.js?v=v389"></script>
+  <script defer src="js/temporitzador.js?v=v389"></script>
+  <script defer src="js/aules.js?v=v389"></script>
+  <script defer src="js/analisi.js?v=v389"></script>
+  <script defer src="js/notescomp.js?v=v389"></script>
+  <script defer src="js/reunions.js?v=v389"></script>
+  <script defer src="js/versio.js?v=v389"></script>
   <!-- L'últim de tots: les personalitzacions d'aquesta mestra (buit a la mare).
        SÍ que és al sw.js des de l'auditoria del 6/9/2026: sense ell, una mestra
        amb personalitzacions les perdia treballant sense connexió. (Aquest
        comentari deia el contrari fins al 8/9/2026.) -->
-  <script defer src="js/personal.js?v=v388"></script>
+  <script defer src="js/personal.js?v=v389"></script>
 
     <!-- MODAL: gestionar categories del calendari -->
     <div class="modal-overlay" id="cal2CatOverlay" onclick="if(event.target===this)closeCal2Categories()">
