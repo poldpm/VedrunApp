@@ -925,8 +925,12 @@ const OBJECTIUS_OFICIALS = {
        encara és vermell, i mentre els dos colors no es posin d'acord compta
        com a provisional.
        18/11/2026: Català i Educació Física, a negre.
-       19/11/2026: Català, refet una altra vegada. */
-    definitius: ['Català', 'Anglès', 'Matemàtiques', 'Educació Física'],
+       19/11/2026: Català, refet una altra vegada.
+       25/11/2026: Medi, refet i a negre; també Cultura religiosa (ara el
+       títol ja és negre) i l'artística sencera (Música i Tallers van junts:
+       mirat paràgraf per paràgraf, ni un caràcter vermell). Encara vermells:
+       un objectiu de Castellà (el de la G i la J) i Valors sencer. */
+    definitius: ['Català', 'Anglès', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Educació Física', 'Música', 'Tallers'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
        ho avisa perquè les marques d'abans ja no volen dir el mateix. */
     canvis: {
@@ -941,6 +945,10 @@ const OBJECTIUS_OFICIALS = {
       'Música': {
         data: '10 de novembre',
         que: 'Direcció ha refet la llista sencera: de 9 objectius a 7, i tots amb una altra redacció.',
+      },
+      'Medi': {
+        data: '25 de novembre',
+        que: 'Direcció n’ha tret el 10è i l’11è (les comarques de Catalunya i localitzar topònims amb un atles) i tres del treball de la piràmide de població, n’ha retocat dos, i n’ha posat set de nous al final (Espanya i Europa). Del 10è en avall, les marques d’abans han quedat a l’objectiu que no toca: repassa-les.',
       },
     },
     assigs: {
@@ -1009,18 +1017,20 @@ const OBJECTIUS_OFICIALS = {
         'Plantejar mesures per reduir i estalviar energia en el dia a dia a l’escola (estalvi energètic).',
         'Utilitzar diferents recursos de representació de la superfície per tal de comprendre l’entorn on vivim: planisferi, plànol…',
         'Conèixer i situar en un mapa les comunitats autònomes i saber-ne la seva capital.',
-        'Conèixer i situar en un mapa les comarques de Catalunya.',
-        'Saber localitzar en un mapa diferents topònims amb l’ajuda d’un atles.',
         'Conèixer i identificar les diferents unitats territorials (de gran a petit i de petit a gran).',
         'Entendre i diferenciar els trets principals dels moviments migratoris en el món.',
-        'Veure i diferenciar els factors que creen la distribució i la densitat de la població (càlculs demogràfics).',
+        'Veure i diferenciar els factors que creen la distribució i la densitat de la població.',
         'Interpretar diferents tipus de gràfics de població.',
-        'Analitzar i interpretar dades demogràfiques per crear una piràmide de població.',
-        'Dibuixar i representar gràficament la piràmide de població d’un municipi concret.',
-        'Recollir i cercar informació rellevant sobre el municipi escollit utilitzant diferents fonts.',
-        'Elaborar un treball escrit i visual relacionat amb la població, l’economia i les característiques socials del municipi.',
+        'Analitzar i interpretar dades demogràfiques.',
         'Preparar i exposar oralment la informació recopilada, connectant-la amb la temàtica de la piràmide de població.',
         'Comparar i reflexionar sobre les diferències i similituds amb altres municipis o regions.',
+        'Conèixer la situació geogràfica i com es divideix administrativament el territori d’Espanya.',
+        'Reconèixer i situar les principals unitats de relleu d’Espanya.',
+        'Reconèixer i situar els principals rius de cada vessant d’Espanya.',
+        'Caracteritzar i situar els climes atlàntic, de muntanya, mediterrani i subtropical a Espanya.',
+        'Conèixer les característiques i situar les principals unitats de relleu i els rius més importants d’Europa.',
+        'Identificar els trets principals de la població a Espanya i la seva distribució.',
+        'Comprendre el pes de cadascun dels tres sectors econòmics a Espanya.',
       ],
       'Matemàtiques': [
         'Resoldre problemes utilitzant diferents operacions amb nombres naturals (suma, resta, multiplicació i divisió).',

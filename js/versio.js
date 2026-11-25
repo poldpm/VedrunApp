@@ -21,7 +21,7 @@
 (function () {
   'use strict';
 
-  var VERSIO_APP = 'v390';   // ← ha de coincidir amb el CACHE del sw.js
+  var VERSIO_APP = 'v391';   // ← ha de coincidir amb el CACHE del sw.js
 
   /* La versió MÉS VELLA del Code.gs amb què aquesta app encara funciona.
      ------------------------------------------------------------------
