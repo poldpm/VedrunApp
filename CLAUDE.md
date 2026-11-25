@@ -112,7 +112,14 @@ Un canvi general no està acabat fins que:
 1. és a la mare i provat,
 2. s'ha passat `node eines/sync-totes.js --prova` i després sense `--prova`,
 3. `node eines/estat-apps.js` diu «Tot al dia»,
-4. i cada app publicada s'ha pujat al seu GitHub.
+4. cada app publicada s'ha pujat al seu GitHub,
+5. i, uns minuts després, `node eines/comprova-pages.js` diu que **totes
+   serveixen** la versió nova. El `push` no és la publicació: després GitHub
+   Pages encara ha de fer la web, i aquest pas pot fallar sol. El 25/11/2026
+   va fallar a tres apps amb un error del servidor de GitHub, jo les vaig
+   donar per publicades, i en Pol se'n va assabentar per una pluja de correus
+   «pages build and deployment». Si una es queda enrere, torna-la a publicar
+   (si relançar-la a Actions no es mou, un `push` nou la refà).
 
 ⚠ **Sincronitzar NO és publicar.** El `sync-totes.js` copia els fitxers al
 disc; l'app que la mestra obre viu al seu GitHub Pages i no canvia fins que
