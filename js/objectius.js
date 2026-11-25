@@ -70,7 +70,9 @@ const OBJECTIUS_OFICIALS = {
        n'hi ha dos de nous al final.
        24/11/2026: també Anglès. Tot el document és negre (mirat paràgraf per
        paràgraf: ni un caràcter vermell): `provisional: false`, i la llista
-       de `definitius` de sota ja no fa res (es queda per l'historial). */
+       de `definitius` de sota ja no fa res (es queda per l'historial).
+       25/11/2026: direcció ha refet Anglès (un objectiu nou al 3r lloc, fora
+       el de Halloween i tres de nous al final). Segueix tot en negre. */
     provisional: false,
     definitius: ['Català', 'Castellà', 'Medi', 'Matemàtiques', 'Cultura Religiosa', 'Educació Física', 'Música', 'Tallers'],
     /* Assignatures que direcció ha canviat de dalt a baix: la pantalla
@@ -95,6 +97,10 @@ const OBJECTIUS_OFICIALS = {
       'Música': {
         data: '10 de novembre',
         que: 'Direcció ha refet la llista sencera: de 10 objectius a 8, i tots amb una altra redacció.',
+      },
+      'Anglès': {
+        data: '25 de novembre',
+        que: 'Direcció hi ha posat «Dir el seu nom i donar informació personal bàsica» com a 3r objectiu i n’ha tret el de Halloween, que era el 4t. Al final n’hi ha tres de nous (copiar paraules, completar frases i relacionar paraules amb imatges). Les marques del 3r i del 4t han quedat desplaçades: repassa-les.',
       },
     },
     assigs: {
@@ -123,8 +129,11 @@ const OBJECTIUS_OFICIALS = {
       'Anglès': [
         'Comprendre missatges orals relacionats amb els temes treballats (explicacions de la mestra, enunciats, cançons, contes,...)',
         'Saludar i acomiadar-se en llengua anglesa.',
+        'Dir el seu nom i donar informació personal bàsica.',
         'Produir missatges orals (preguntes, afirmacions, respostes…) relacionats amb les estructures i el vocabulari treballat (What’s the weather like today? What day is today? Checking the assistance)',
-        'Mostra interès per la festa tradicional anglesa de Halloween.',
+        'Copiar i escriure paraules senzilles relacionades amb el vocabulari treballat.',
+        'Completar paraules i frases curtes seguint un model.',
+        'Relacionar paraules amb imatges.',
       ],
       'Medi': [
         'Conèixer els espais i les normes de l’escola.',
